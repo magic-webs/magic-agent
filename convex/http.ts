@@ -449,11 +449,21 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const raw = await request.text();
-    const secret = process.env.INSTAGRAM_APP_SECRET;
-    if (
-      !secret ||
-      !(await validSignature(secret, raw, request.headers.get("x-hub-signature-256")))
-    ) {
+    const signature = request.headers.get("x-hub-signature-256");
+    // Meta signs Instagram Login webhooks with the Meta app's secret on some
+    // apps and the Instagram app's on others, so either is accepted.
+    const secrets = [
+      process.env.INSTAGRAM_APP_SECRET,
+      process.env.META_APP_SECRET,
+    ].filter((secret): secret is string => Boolean(secret));
+    let signed = false;
+    for (const secret of secrets) {
+      if (await validSignature(secret, raw, signature)) signed = true;
+    }
+    if (!signed) {
+      console.warn(
+        `[instagram] webhook rejected: signature=${signature ? "mismatch" : "missing"} secrets=${secrets.length}`
+      );
       return new Response("Invalid signature", { status: 403 });
     }
 
@@ -467,6 +477,9 @@ http.route({
       return new Response("Invalid JSON", { status: 400 });
     }
 
+    console.log(
+      `[instagram] webhook object=${payload.object} entries=${payload.entry?.length ?? 0} events=${(payload.entry ?? []).reduce((n, e) => n + (e.messaging?.length ?? 0), 0)}`
+    );
     if (payload.object === "instagram") {
       for (const entry of payload.entry ?? []) {
         if (entry.id === undefined) continue;

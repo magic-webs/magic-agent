@@ -502,6 +502,7 @@ export const handleInbound = internalAction({
       userId: args.userId,
     });
     if (!channel?.instagram?.accessToken) {
+      console.warn("[instagram] no connected channel for account", args.userId);
       return { handled: false, reason: "unknown_account" };
     }
     const config = channel.instagram;

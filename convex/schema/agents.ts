@@ -179,6 +179,11 @@ export const agentsTables = {
     updatedAt: v.number(),
   }).index("by_modelId", ["modelId"]),
 
+  platformSettings: defineTable({
+    imageProcessing: v.boolean(),
+    updatedAt: v.number(),
+  }),
+
   assistantMessages: defineTable({
     workspaceId: v.id("workspaces"),
     agentId: v.id("agents"),

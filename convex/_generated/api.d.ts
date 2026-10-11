@@ -79,6 +79,7 @@ import type * as lib_toolSchema from "../lib/toolSchema.js";
 import type * as lib_usageDaily from "../lib/usageDaily.js";
 import type * as lib_wallet from "../lib/wallet.js";
 import type * as lib_webhookDelivery from "../lib/webhookDelivery.js";
+import type * as lib_whatsappMedia from "../lib/whatsappMedia.js";
 import type * as lib_whatsappSend from "../lib/whatsappSend.js";
 import type * as marketing from "../marketing.js";
 import type * as marketingAi from "../marketingAi.js";
@@ -200,6 +201,7 @@ declare const fullApi: ApiFromModules<{
   "lib/usageDaily": typeof lib_usageDaily;
   "lib/wallet": typeof lib_wallet;
   "lib/webhookDelivery": typeof lib_webhookDelivery;
+  "lib/whatsappMedia": typeof lib_whatsappMedia;
   "lib/whatsappSend": typeof lib_whatsappSend;
   marketing: typeof marketing;
   marketingAi: typeof marketingAi;

@@ -200,6 +200,15 @@ function NoteMarker({ message }: { message: Doc<"messages"> }) {
 // reader so both render bubbles, tool traces and errors identically.
 // ---------------------------------------------------------------------------
 
+function QuotedReply({ text, author }: { text: string; author: string }) {
+  return (
+    <div className="-mx-1 mb-1.5 rounded-md border-l-4 border-[var(--chat-action,var(--primary))] bg-foreground/5 px-2 py-1 text-xs">
+      <p className="font-medium text-[var(--chat-action,var(--primary))]">{author}</p>
+      <p className="line-clamp-2 whitespace-pre-wrap text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
 export type TranscriptAgent = {
   _id: string;
   botName: string;
@@ -422,6 +431,16 @@ export function TranscriptView({
                   rich ? "min-w-56" : "whitespace-pre-wrap"
                 }
               >
+                {message.replyTo ? (
+                  <QuotedReply
+                    text={message.replyTo.text}
+                    author={
+                      message.replyTo.fromCustomer
+                        ? teamOnRight ? "Customer" : "You"
+                        : teamOnRight ? "You" : "Agent"
+                    }
+                  />
+                ) : null}
                 {/* Our own messages carry the clock inside the bubble, the
                     way every chat client does. Before the text, not after:
                     it is floated, so the last line wraps around it. The
@@ -464,6 +483,17 @@ export function TranscriptView({
                 )}
               </BubbleContent>
             </Bubble>
+            {message.reaction ? (
+              <span
+                className={cn(
+                  "relative z-10 mx-2 -mt-3 w-fit rounded-full border bg-background px-1.5 py-0.5 text-sm leading-none shadow-xs",
+                  mine ? "self-end" : "self-start"
+                )}
+                aria-label={`Reacted ${message.reaction}`}
+              >
+                {message.reaction}
+              </span>
+            ) : null}
             {showFooter ? (
               <MessageFooter>
                 {/* Only when the header above has not already said so:

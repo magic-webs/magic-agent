@@ -48,6 +48,7 @@ import {
   ArrowCounterClockwiseIcon,
   ArrowsClockwiseIcon,
   ChatCircleDotsIcon,
+  ImageIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
   RobotIcon,
@@ -382,6 +383,48 @@ function ModelRow({
   );
 }
 
+function ImageProcessingCard() {
+  const enabled = useQuery(api.models.imageProcessing, {});
+  const setImageProcessing = useMutation(api.models.setImageProcessing);
+
+  return (
+    <Card className="shrink-0">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ImageIcon className="size-4 text-muted-foreground" />
+          WhatsApp image processing
+        </CardTitle>
+        <CardDescription>
+          When on, photos customers send on WhatsApp are passed to the agent&apos;s
+          model so it can read them. When off, the agent only knows a photo was
+          sent. Photos show in the inbox either way.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="image-processing">Let agents see customer photos</Label>
+          <Switch
+            id="image-processing"
+            checked={enabled ?? false}
+            disabled={enabled === undefined}
+            onCheckedChange={async (next) => {
+              try {
+                await setImageProcessing({ enabled: next });
+              } catch (error) {
+                toast.add({
+                  title: "Could not change image processing",
+                  description: friendlyError(error),
+                  type: "error",
+                });
+              }
+            }}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminModelsPage() {
   const models = useQuery(api.models.list, {});
   const reprice = useMutation(api.models.repriceUnpriced);
@@ -517,6 +560,8 @@ export default function AdminModelsPage() {
           </Button>
         </div>
       </header>
+
+      <ImageProcessingCard />
 
       {models === undefined ? (
         <TableSkeleton rows={6} />

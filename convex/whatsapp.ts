@@ -18,9 +18,17 @@ import { categoryOf, type BillingSource } from "./lib/billing";
 import { providerError } from "./lib/panel";
 import { transcribe as transcribeAudio } from "ai";
 import { aiGateway, TRANSCRIPTION_MODEL } from "./lib/gateway";
+import {
+  fetchMedia,
+  mediaLink,
+  parseInbound,
+  withCaption,
+  type InboundMessage,
+} from "./lib/whatsappMedia";
 
 // WhatsApp caps a text body at 4096 characters, and every part is billed.
 const MAX_BODY = 4096;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type WhatsAppConfig = {
   apiBaseUrl: string;
@@ -151,92 +159,12 @@ async function markReadAndTyping(
   }).catch(() => undefined);
 }
 
-async function downloadMedia(
-  config: WhatsAppConfig,
-  mediaId: string
-): Promise<{ blob: Blob; mimeType: string }> {
-  const metaResponse = await fetch(
-    `${config.apiBaseUrl.replace(/\/$/, "")}/${config.apiVersion}/${mediaId}`,
-    { headers: { Authorization: `Bearer ${config.accessToken}` } }
-  );
-  if (!metaResponse.ok) {
-    throw new Error(
-      `Could not read media metadata: HTTP ${metaResponse.status}`
-    );
-  }
-
-  const contentType = metaResponse.headers.get("content-type") ?? "";
-  // Some BSP proxies stream the bytes directly instead of returning metadata.
-  if (!contentType.includes("application/json")) {
-    return {
-      blob: await metaResponse.blob(),
-      mimeType: contentType.split(";")[0].trim() || "application/octet-stream",
-    };
-  }
-
-  const meta = (await metaResponse.json()) as {
-    url?: string;
-    mime_type?: string;
-  };
-  if (!meta.url) throw new Error("Media metadata did not include a URL");
-
-  const binaryResponse = await fetch(meta.url, {
-    headers: { Authorization: `Bearer ${config.accessToken}` },
-  });
-  if (!binaryResponse.ok) {
-    throw new Error(`Could not download media: HTTP ${binaryResponse.status}`);
-  }
-
-  return {
-    blob: await binaryResponse.blob(),
-    mimeType: meta.mime_type ?? "audio/ogg",
-  };
-}
-
-async function transcribe(blob: Blob): Promise<string> {
+async function transcribe(bytes: ArrayBuffer): Promise<string> {
   const result = await transcribeAudio({
     model: aiGateway().transcription(TRANSCRIPTION_MODEL),
-    audio: new Uint8Array(await blob.arrayBuffer()),
+    audio: new Uint8Array(bytes),
   });
   return result.text.trim();
-}
-
-// The subset of Meta's inbound message shape this app reads.
-type InboundMessage = {
-  type?: string;
-  from?: string;
-  id?: string;
-  text?: { body?: string };
-  button?: { text?: string };
-  interactive?: {
-    button_reply?: { title?: string };
-    list_reply?: { title?: string };
-    nfm_reply?: { response_json?: string };
-  };
-  audio?: { id?: string };
-  voice?: { id?: string };
-};
-
-// Pulls the user-visible text out of the several shapes an inbound message
-// can take. Returns null when there is nothing textual to work with.
-function extractText(message: InboundMessage): string | null {
-  switch (message.type) {
-    case "text":
-      return message.text?.body ?? null;
-    case "button":
-      return message.button?.text ?? null;
-    case "interactive": {
-      const interactive = message.interactive;
-      return (
-        interactive?.button_reply?.title ??
-        interactive?.list_reply?.title ??
-        interactive?.nfm_reply?.response_json ??
-        null
-      );
-    }
-    default:
-      return null;
-  }
 }
 
 /**
@@ -362,49 +290,23 @@ export const handleInbound = internalAction({
       return { handled: false, reason: "channel_paused" };
     }
 
-    await markReadAndTyping(config, messageId);
-
-    // ---- Work out what the customer actually said --------------------------
-    let text = extractText(message);
-
-    if (!text && (message.type === "audio" || message.type === "voice")) {
-      const apiKey = process.env.AI_GATEWAY_API_KEY;
-      const mediaId = message.audio?.id ?? message.voice?.id;
-      if (apiKey && mediaId) {
-        try {
-          const { blob } = await downloadMedia(config, mediaId);
-          text = await transcribe(blob);
-        } catch (error) {
-          const reason =
-            error instanceof Error ? error.message : String(error);
-          console.error("[whatsapp] voice handling failed", reason);
-          await ctx.runMutation(internal.channels.touchInbound, {
-            channelId: channel._id,
-            error: "A voice note could not be transcribed.",
-          });
-          const apology: Outbound = {
-            kind: "text",
-            body: "Sorry, I could not make out that voice note. Could you type it instead?",
-          };
-          const sent = await send(config, from, apology);
-          if (sent.ok) {
-            await bill(ctx, {
-              workspaceId: channel.workspaceId,
-              channelId: channel._id,
-              to: from,
-              source: "system",
-              messages: [{ message: apology, wamid: sent.wamid }],
-            });
-          }
-          return { handled: true, reason: "voice_failed" };
-        }
-      }
+    const parsed = parseInbound(message);
+    if (parsed.kind === "reaction") {
+      await ctx.runMutation(internal.conversations.recordReaction, {
+        channelId: channel._id,
+        wamid: parsed.targetWamid,
+        emoji: parsed.emoji,
+      });
+      return { handled: true, reason: "reaction" };
     }
 
-    if (!text?.trim()) {
+    await markReadAndTyping(config, messageId);
+
+    if (parsed.kind === "unsupported") {
+      console.log("[whatsapp] unsupported inbound type", message.type);
       const hint: Outbound = {
         kind: "text",
-        body: "I can read text messages and listen to voice notes. Could you send your question that way?",
+        body: "Sorry, I could not open that message. Could you send it as text, a photo or a voice note?",
       };
       const sent = await send(config, from, hint);
       if (sent.ok) {
@@ -419,7 +321,64 @@ export const handleInbound = internalAction({
       return { handled: true, reason: "unsupported_type" };
     }
 
-    // ---- Run the same engine the web playground uses -----------------------
+    let text = parsed.text;
+    let payload = parsed.payload;
+    let image: { data: ArrayBuffer; mediaType: string } | undefined;
+
+    if (parsed.media) {
+      const media = parsed.media;
+      let transcript: string | undefined;
+
+      if (media.kind === "audio") {
+        try {
+          const { response } = await fetchMedia(config, media.id);
+          transcript = (await transcribe(await response.arrayBuffer())) || undefined;
+        } catch (error) {
+          console.error(
+            "[whatsapp] voice handling failed",
+            error instanceof Error ? error.message : String(error)
+          );
+          await ctx.runMutation(internal.channels.touchInbound, {
+            channelId: channel._id,
+            error: "A voice note could not be transcribed.",
+          });
+        }
+        text = transcript ?? "(sent a voice note that could not be transcribed)";
+      } else {
+        if (
+          media.kind === "image" &&
+          (await ctx.runQuery(internal.models.imageProcessingEnabled, {}))
+        ) {
+          try {
+            const { response, mimeType } = await fetchMedia(config, media.id);
+            const data = await response.arrayBuffer();
+            if (mimeType.startsWith("image/") && data.byteLength <= MAX_IMAGE_BYTES) {
+              image = { data, mediaType: mimeType };
+            }
+          } catch (error) {
+            console.error(
+              "[whatsapp] image download failed",
+              error instanceof Error ? error.message : String(error)
+            );
+          }
+        }
+        text = withCaption(
+          image ? `(sent ${media.noun})` : `(sent ${media.noun}, which you cannot open)`,
+          media.caption
+        );
+      }
+
+      payload = {
+        kind: "media",
+        media: media.kind,
+        source: { link: await mediaLink(config.accessToken, channel._id, media.id) },
+        ...(media.caption ? { caption: media.caption } : {}),
+        ...(media.filename ? { filename: media.filename } : {}),
+        ...(media.mimeType ? { mimeType: media.mimeType } : {}),
+        ...(transcript ? { transcript } : {}),
+      };
+    }
+
     const result: TurnOutcome = await ctx.runAction(internal.engine.respond, {
       agentId: channel.agentId,
       channelType: "whatsapp",
@@ -428,6 +387,13 @@ export const handleInbound = internalAction({
       contactName,
       contactPhone: from,
       text: text.trim(),
+      inbound: {
+        ...(payload ? { payload: JSON.stringify(payload) } : {}),
+        preview: parsed.preview,
+        wamid: messageId,
+        ...(message.context?.id ? { replyToWamid: message.context.id } : {}),
+      },
+      image,
     });
 
     return await deliverReply(ctx, channel, config, from, result);

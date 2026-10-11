@@ -59,13 +59,11 @@ export async function setDelivery(
 }
 
 export async function deleteMessage(ctx: MutationCtx, message: Doc<"messages">) {
-  if (message.delivery) {
-    const links = await ctx.db
-      .query("whatsappMessageIds")
-      .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
-      .take(20);
-    for (const link of links) await ctx.db.delete(link._id);
-  }
+  const links = await ctx.db
+    .query("whatsappMessageIds")
+    .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
+    .take(20);
+  for (const link of links) await ctx.db.delete(link._id);
   await ctx.db.delete(message._id);
 }
 

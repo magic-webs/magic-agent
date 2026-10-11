@@ -6,6 +6,8 @@ import { verifyDelivery } from "./lib/appWebhooks";
 import { isLinkBot } from "./lib/links";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { parseSignedRequest, validSignature } from "./lib/instagram";
+import { fetchMedia, signMedia } from "./lib/whatsappMedia";
+import type { Id } from "./_generated/dataModel";
 import {
   paymentFields,
   subscriptionFields,
@@ -273,6 +275,48 @@ http.route({
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+  }),
+});
+
+http.route({
+  pathPrefix: "/whatsapp-media/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const [channelId, rawMediaId] = url.pathname
+      .replace(/^\/whatsapp-media\//, "")
+      .split("/");
+    const mediaId = rawMediaId ? decodeURIComponent(rawMediaId) : "";
+    const sig = url.searchParams.get("sig");
+    if (!channelId || !mediaId || !sig) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    const resolved = await ctx.runQuery(internal.channels.resolveById, {
+      channelId: channelId as Id<"channels">,
+    }).catch(() => null);
+    const config = resolved?.channel.whatsapp;
+    if (!config || sig !== (await signMedia(config.accessToken, channelId, mediaId))) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    try {
+      const { response, mimeType } = await fetchMedia(config, mediaId);
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          "Content-Type": mimeType,
+          "Cache-Control": "private, max-age=86400, immutable",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch (error) {
+      console.warn(
+        "[whatsapp] media unavailable",
+        error instanceof Error ? error.message : String(error)
+      );
+      return new Response("Media no longer available", { status: 410 });
+    }
   }),
 });
 

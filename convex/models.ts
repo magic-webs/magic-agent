@@ -168,6 +168,38 @@ export const promptCaching = internalQuery({
   handler: async (ctx, args) => lookupPromptCaching(ctx, args.modelId),
 });
 
+export const imageProcessing = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const settings = await ctx.db.query("platformSettings").first();
+    return settings?.imageProcessing ?? false;
+  },
+});
+
+export const setImageProcessing = mutation({
+  args: { enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const settings = await ctx.db.query("platformSettings").first();
+    const patch = { imageProcessing: args.enabled, updatedAt: Date.now() };
+    if (settings) await ctx.db.patch(settings._id, patch);
+    else await ctx.db.insert("platformSettings", patch);
+    return null;
+  },
+});
+
+export const imageProcessingEnabled = internalQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const settings = await ctx.db.query("platformSettings").first();
+    return settings?.imageProcessing ?? false;
+  },
+});
+
 /** Drop every change made from the dashboard and go back to what ships. */
 export const reset = mutation({
   args: { modelId: v.string() },

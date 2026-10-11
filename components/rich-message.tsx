@@ -259,6 +259,8 @@ function Photo({
   bleedBottom: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [broken, setBroken] = useState(false);
+  if (broken) return <Unavailable />;
   return (
     <div
       className={cn(
@@ -276,6 +278,7 @@ function Photo({
           src={url}
           alt={alt}
           loading="lazy"
+          onError={() => setBroken(true)}
           className="max-h-80 min-h-24 w-full min-w-56 bg-foreground/5 object-cover"
         />
       </button>
@@ -289,6 +292,29 @@ function Photo({
         <ImageViewer src={url} alt={alt} onClose={() => setOpen(false)} />
       ) : null}
     </div>
+  );
+}
+
+function Unavailable() {
+  return (
+    <p className="text-sm text-muted-foreground italic">
+      Media no longer available
+    </p>
+  );
+}
+
+function Sticker({ url }: { url: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <Unavailable />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- any host
+    <img
+      src={url}
+      alt="Sticker"
+      loading="lazy"
+      onError={() => setBroken(true)}
+      className="size-32 object-contain"
+    />
   );
 }
 
@@ -811,7 +837,16 @@ export function RichMessage({
               className="-mx-2.5 -mt-1.5 max-h-72 w-[calc(100%+1.25rem)] max-w-none rounded-md bg-black"
             />
           ) : message.media === "audio" ? (
-            <VoiceNote url={url} />
+            <>
+              <VoiceNote url={url} />
+              {message.transcript ? (
+                <p className="max-w-64 text-xs text-muted-foreground italic">
+                  “{message.transcript}”
+                </p>
+              ) : null}
+            </>
+          ) : message.media === "sticker" ? (
+            <Sticker url={url} />
           ) : (
             <DocumentTile url={url} filename={message.filename} />
           )}

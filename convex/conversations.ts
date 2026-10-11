@@ -13,7 +13,7 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { channelType, kvPair } from "./schema";
-import { deleteMessage, noteSent } from "./lib/delivery";
+import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
 import { recordAgentReply, REPLY_PREVIEW_CHARS } from "./lib/agentStats";
@@ -947,6 +947,43 @@ function richHistoryText(
   }
 }
 
+const QUOTE_LABEL: Record<string, string> = {
+  image: "📷 Photo",
+  video: "🎥 Video",
+  audio: "🎤 Voice note",
+  document: "📄 Document",
+  sticker: "Sticker",
+};
+
+/** The line a quoted reply shows for the message it answers. */
+function quoteText(message: Doc<"messages">): string {
+  if (message.payload) {
+    try {
+      const rich = JSON.parse(message.payload) as Outbound;
+      if (rich.kind === "media") {
+        return rich.caption?.trim() || rich.transcript?.trim() || QUOTE_LABEL[rich.media];
+      }
+      if (message.role === "user") return historyText(rich);
+    } catch {
+      // Falls through to the stored text.
+    }
+  }
+  return (message.text ?? "").slice(0, 300);
+}
+
+async function quotedMessage(
+  ctx: MutationCtx,
+  conversationId: Id<"conversations">,
+  wamid: string
+): Promise<Doc<"messages"> | null> {
+  const link = await ctx.db
+    .query("whatsappMessageIds")
+    .withIndex("by_wamid", (q) => q.eq("wamid", wamid))
+    .first();
+  if (!link || link.conversationId !== conversationId) return null;
+  return await ctx.db.get("messages", link.messageId);
+}
+
 /** How far back a marketing message still counts as what someone is answering. */
 const SEED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 /** The most of them a new thread opens with. */
@@ -995,6 +1032,14 @@ export const startTurn = internalMutation({
     contactName: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     text: v.string(),
+    inbound: v.optional(
+      v.object({
+        payload: v.optional(v.string()),
+        preview: v.string(),
+        wamid: v.optional(v.string()),
+        replyToWamid: v.optional(v.string()),
+      })
+    ),
     historyLimit: v.number(),
     messageLimit: v.optional(v.number()),
   },
@@ -1114,20 +1159,48 @@ export const startTurn = internalMutation({
         // the options out in brackets. Replaying that taught the model to type
         // "[list: A | B]" at customers, so the model gets the sentence the
         // customer actually read and no control syntax at all.
-        content: richHistoryText(m.kind, m.payload) ?? m.text ?? "",
+        content:
+          (m.role === "user" ? m.text : null) ??
+          richHistoryText(m.kind, m.payload) ??
+          m.text ??
+          "",
       }))
       .filter((m) => m.content.length > 0);
 
-    await ctx.db.insert("messages", {
+    const inbound = args.inbound;
+    const quoted = inbound?.replyToWamid
+      ? await quotedMessage(ctx, conversation._id, inbound.replyToWamid)
+      : null;
+    const replyTo = quoted
+      ? {
+          messageId: quoted._id,
+          text: quoteText(quoted),
+          fromCustomer: quoted.role === "user",
+        }
+      : undefined;
+
+    const inboundId = await ctx.db.insert("messages", {
       workspaceId: args.workspaceId,
       conversationId: conversation._id,
       role: "user",
-      kind: "text",
+      kind: inbound?.payload ? "rich" : "text",
       text: args.text,
+      ...(inbound?.payload ? { payload: inbound.payload } : {}),
+      ...(replyTo ? { replyTo } : {}),
       createdAt: now,
     });
+    if (inbound?.wamid) {
+      await linkWamids(
+        ctx,
+        { _id: inboundId, workspaceId: args.workspaceId, conversationId: conversation._id },
+        [inbound.wamid]
+      );
+    }
 
-    const repeatText = args.text.trim().toLowerCase().replace(/\s+/g, " ");
+    const repeatText = (inbound?.payload ?? args.text)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
     const repeatCount =
       repeatText === conversation.repeatText
         ? (conversation.repeatCount ?? 0) + 1
@@ -1137,7 +1210,7 @@ export const startTurn = internalMutation({
     const noted = await noteMessage(
       ctx,
       conversation,
-      { from: "customer", preview: args.text, at: now },
+      { from: "customer", preview: inbound?.preview ?? args.text, at: now },
       {
       channelId: conversation.channelId ?? args.channelId,
       repeatText,
@@ -1258,8 +1331,32 @@ export const startTurn = internalMutation({
         attributes: contact.attributes,
       },
       history,
+      quoted: replyTo ? { text: replyTo.text, fromCustomer: replyTo.fromCustomer } : null,
       isFirstTurn: conversation.messageCount === 0,
     };
+  },
+});
+
+/** A customer's reaction lands on the message it reacts to, not as a new row. */
+export const recordReaction = internalMutation({
+  args: {
+    channelId: v.id("channels"),
+    wamid: v.string(),
+    emoji: v.optional(v.string()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const channel = await ctx.db.get("channels", args.channelId);
+    if (!channel) return false;
+    const link = await ctx.db
+      .query("whatsappMessageIds")
+      .withIndex("by_wamid", (q) => q.eq("wamid", args.wamid))
+      .first();
+    if (!link || link.workspaceId !== channel.workspaceId) return false;
+    const message = await ctx.db.get("messages", link.messageId);
+    if (!message) return false;
+    await ctx.db.patch(message._id, { reaction: args.emoji });
+    return true;
   },
 });
 

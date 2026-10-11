@@ -17,6 +17,7 @@ import {
   jsonSchema,
   isStepCount,
   hasToolCall,
+  type ModelMessage,
   type ToolSet,
 } from "ai";
 import { z } from "zod";
@@ -1675,6 +1676,18 @@ const turnArgs = {
   text: v.string(),
 };
 
+const inboundArgs = {
+  inbound: v.optional(
+    v.object({
+      payload: v.optional(v.string()),
+      preview: v.string(),
+      wamid: v.optional(v.string()),
+      replyToWamid: v.optional(v.string()),
+    })
+  ),
+  image: v.optional(v.object({ data: v.bytes(), mediaType: v.string() })),
+};
+
 type TurnArgs = {
   agentId: Id<"agents">;
   channelType: Doc<"channels">["type"];
@@ -1683,6 +1696,13 @@ type TurnArgs = {
   contactName?: string;
   contactPhone?: string;
   text: string;
+  inbound?: {
+    payload?: string;
+    preview: string;
+    wamid?: string;
+    replyToWamid?: string;
+  };
+  image?: { data: ArrayBuffer; mediaType: string };
 };
 
 export type TurnResult = {
@@ -1782,6 +1802,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       contactName: args.contactName,
       contactPhone: args.contactPhone,
       text: message,
+      inbound: args.inbound,
       historyLimit: entryAgent.historyLimit,
       messageLimit:
         workspace.maxMessagesPerConversation ?? DEFAULT_MESSAGES_PER_SESSION,
@@ -1852,9 +1873,25 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       askedBy: null,
     };
 
-    const conversationMessages = [
+    const said = session.quoted
+      ? `(Replying to ${session.quoted.fromCustomer ? "their own" : "your"} message: "${session.quoted.text}")
+${message}`
+      : message;
+    const conversationMessages: ModelMessage[] = [
       ...session.history,
-      { role: "user" as const, content: message },
+      args.image
+        ? {
+            role: "user",
+            content: [
+              { type: "text", text: said },
+              {
+                type: "file",
+                mediaType: args.image.mediaType,
+                data: new Uint8Array(args.image.data),
+              },
+            ],
+          }
+        : { role: "user", content: said },
     ];
 
 
@@ -2102,7 +2139,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
 }
 
 export const respond = internalAction({
-  args: turnArgs,
+  args: { ...turnArgs, ...inboundArgs },
   handler: async (ctx, args): Promise<TurnResult> => runTurn(ctx, args),
 });
 

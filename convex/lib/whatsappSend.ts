@@ -104,10 +104,12 @@ export type Outbound =
   | { kind: "text"; body: string; previewUrl?: boolean }
   | {
       kind: "media";
-      media: "image" | "video" | "audio" | "document";
+      media: "image" | "video" | "audio" | "document" | "sticker";
       source: MediaRef;
       caption?: string;
       filename?: string;
+      mimeType?: string;
+      transcript?: string;
     }
   | {
       kind: "location";
@@ -397,8 +399,8 @@ function payloadFor(message: Outbound): Json {
         type: message.media,
         [message.media]: {
           ...message.source,
-          // Audio carries neither a caption nor a filename.
-          ...(message.caption && message.media !== "audio"
+          // Audio and stickers carry neither a caption nor a filename.
+          ...(message.caption && message.media !== "audio" && message.media !== "sticker"
             ? { caption: clamp(message.caption, CAP.caption) }
             : {}),
           ...(message.filename && message.media === "document"
@@ -633,7 +635,11 @@ export function historyText(message: Outbound): string {
     case "text":
       return message.body;
     case "media":
-      return message.caption?.trim() ?? "(sent an attachment)";
+      return (
+        message.transcript?.trim() ||
+        message.caption?.trim() ||
+        "(sent an attachment)"
+      );
     case "location":
       return `(shared a location${message.name ? `: ${message.name}` : ""})`;
     case "contacts":
@@ -671,6 +677,7 @@ export function summarise(message: Outbound): string {
     case "text":
       return message.body;
     case "media":
+      if (message.transcript?.trim()) return `[voice note] ${message.transcript}`;
       return message.caption?.trim()
         ? `[${message.media}] ${message.caption}`
         : `[sent a ${message.media}]`;

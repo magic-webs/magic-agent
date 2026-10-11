@@ -212,6 +212,14 @@ export const conversationsTables = {
     delivery: v.optional(deliveryStatus),
     deliveryError: v.optional(v.string()),
     deliveryAt: v.optional(v.number()),
+    replyTo: v.optional(
+      v.object({
+        messageId: v.optional(v.id("messages")),
+        text: v.string(),
+        fromCustomer: v.boolean(),
+      })
+    ),
+    reaction: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_conversation", ["conversationId"])

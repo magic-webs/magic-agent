@@ -168,7 +168,7 @@ export const review = internalAction({
     const transcript = context.transcript
       .map(
         (row) =>
-          `${row.role === "user" ? context.contactName ?? "Customer" : "Assistant"}: ${row.text}`
+          `${row.role === "user" ? context.contactName ?? "Customer" : row.team ? "Team member (a person, not the customer)" : "Assistant"}: ${row.text}`
       )
       .join("\n");
 

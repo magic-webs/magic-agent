@@ -8,10 +8,16 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ACTIVITY_ENTITIES } from "@/convex/lib/activity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SelectField } from "@/components/select-field";
 import {
   Empty,
   EmptyDescription,
@@ -28,10 +34,18 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const VERB: Record<string, string> = {
-  insert: "created",
-  update: "updated",
-  delete: "deleted",
+  insert: "Created",
+  update: "Updated",
+  delete: "Deleted",
 };
+
+const VERB_TONE: Record<string, "secondary" | "outline" | "destructive"> = {
+  insert: "secondary",
+  update: "outline",
+  delete: "destructive",
+};
+
+const ALL = "all";
 
 function when(time: number): string {
   return new Date(time).toLocaleString(undefined, {
@@ -52,7 +66,7 @@ function ActivityLog() {
 
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
+    if (value && value !== ALL) next.set(key, value);
     else next.delete(key);
     if (key === "workspace") next.delete("actor");
     router.replace(`${pathname}${next.size ? `?${next}` : ""}`);
@@ -84,45 +98,42 @@ function ActivityLog() {
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          value={workspaceId}
-          onChange={(event) => setFilter("workspace", event.target.value)}
+        <SelectField
           aria-label="Workspace"
           className="min-w-48"
-        >
-          <NativeSelectOption value="">All workspaces</NativeSelectOption>
-          {(workspaces ?? []).map((workspace) => (
-            <NativeSelectOption key={workspace._id} value={workspace._id}>
-              {workspace.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          value={actorId}
-          onChange={(event) => setFilter("actor", event.target.value)}
+          value={workspaceId || ALL}
+          onValueChange={(value) => setFilter("workspace", value)}
+          options={[
+            { value: ALL, label: "All workspaces" },
+            ...(workspaces ?? []).map((workspace) => ({
+              value: workspace._id,
+              label: workspace.name,
+            })),
+          ]}
+        />
+        <SelectField
           aria-label="Person"
           className="min-w-44"
-        >
-          <NativeSelectOption value="">Everyone</NativeSelectOption>
-          {(actors ?? []).map((actor) => (
-            <NativeSelectOption key={actor.actorId} value={actor.actorId}>
-              {actor.actorLabel} · {ROLE_LABEL[actor.actorRole] ?? actor.actorRole}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          value={entity}
-          onChange={(event) => setFilter("type", event.target.value)}
+          value={actorId || ALL}
+          onValueChange={(value) => setFilter("actor", value)}
+          options={[
+            { value: ALL, label: "Everyone" },
+            ...(actors ?? []).map((actor) => ({
+              value: actor.actorId,
+              label: `${actor.actorLabel} · ${ROLE_LABEL[actor.actorRole] ?? actor.actorRole}`,
+            })),
+          ]}
+        />
+        <SelectField
           aria-label="Type"
           className="min-w-44"
-        >
-          <NativeSelectOption value="">Everything</NativeSelectOption>
-          {ACTIVITY_ENTITIES.map((name) => (
-            <NativeSelectOption key={name} value={name}>
-              {name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          value={entity || ALL}
+          onValueChange={(value) => setFilter("type", value)}
+          options={[
+            { value: ALL, label: "Everything" },
+            ...ACTIVITY_ENTITIES.map((name) => ({ value: name, label: name })),
+          ]}
+        />
       </div>
 
       {status === "LoadingFirstPage" ? (
@@ -137,49 +148,65 @@ function ActivityLog() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <Card className="shrink-0">
-          <CardContent>
-            {results.map((row, index) => (
-              <div key={row._id}>
-                {index > 0 ? <Separator /> : null}
-                <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm">
-                      <span className="font-medium">{row.actorLabel}</span>{" "}
-                      <Badge variant="secondary" className="align-middle">
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-28">When</TableHead>
+                <TableHead className="min-w-44">Who</TableHead>
+                <TableHead className="min-w-24">Action</TableHead>
+                <TableHead className="min-w-48">Item</TableHead>
+                <TableHead className="hidden md:table-cell min-w-48">Changed</TableHead>
+                {workspaceId ? null : (
+                  <TableHead className="hidden lg:table-cell min-w-36">Workspace</TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {results.map((row) => (
+                <TableRow key={row._id}>
+                  <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                    {when(row._creationTime)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className="truncate font-medium">{row.actorLabel}</span>
+                      <Badge variant="secondary" className="w-fit">
                         {ROLE_LABEL[row.actorRole] ?? row.actorRole}
-                      </Badge>{" "}
-                      {VERB[row.operation]} {row.entity.toLowerCase()}
-                      {row.name ? (
-                        <>
-                          {" "}
-                          <span className="font-medium">“{row.name}”</span>
-                        </>
-                      ) : null}
-                    </p>
-                    {row.fields?.length ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Changed: {row.fields.join(", ")}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0 text-xs text-muted-foreground sm:text-right">
-                    {workspaceId ? null : (
-                      <button
-                        type="button"
-                        className="block hover:text-foreground hover:underline sm:ml-auto"
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={VERB_TONE[row.operation]}>{VERB[row.operation]}</Badge>
+                  </TableCell>
+                  <TableCell className="max-w-64">
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-xs text-muted-foreground">{row.entity}</span>
+                      <span className="truncate">{row.name ?? "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell max-w-72 text-xs text-muted-foreground">
+                    <span className="line-clamp-2 whitespace-normal">
+                      {row.fields?.length ? row.fields.join(", ") : "—"}
+                    </span>
+                  </TableCell>
+                  {workspaceId ? null : (
+                    <TableCell className="hidden lg:table-cell">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto px-0"
                         onClick={() => setFilter("workspace", row.workspaceId)}
                       >
                         {row.workspaceName}
-                      </button>
-                    )}
-                    <span>{when(row._creationTime)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {status === "CanLoadMore" || status === "LoadingMore" ? (

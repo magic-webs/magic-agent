@@ -402,6 +402,7 @@ export const reviewContext = internalQuery({
         )
         .map((row) => ({
           role: row.role as "user" | "assistant",
+          team: row.sentByHuman === true,
           // Clamped as well as cleaned: a long thread of long messages is both
           // dearer to review and likelier to come back malformed.
           text: (richText(row.kind, row.payload) ?? row.text ?? "").slice(0, 600),

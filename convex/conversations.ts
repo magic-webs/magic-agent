@@ -1144,26 +1144,44 @@ export const startTurn = internalMutation({
       .order("desc")
       .take(args.historyLimit * 2);
 
-    const history = priorMessages
+    const replayed = priorMessages
       .filter(
         (m) =>
           (m.kind === "text" || m.kind === "rich") &&
           (m.role === "user" || m.role === "assistant")
       )
       .reverse()
-      .slice(-args.historyLimit)
-      .map((m) => ({
-        role: m.role as "user" | "assistant",
+      .slice(-args.historyLimit);
+
+    const teamNames = new Map<Id<"teamMembers">, string>();
+    for (const m of replayed) {
+      if (!m.sentByHuman || !m.teamMemberId || teamNames.has(m.teamMemberId)) continue;
+      const member = await ctx.db.get("teamMembers", m.teamMemberId);
+      if (member) teamNames.set(m.teamMemberId, member.name);
+    }
+
+    const history = replayed
+      .map((m) => {
         // A rich message's stored text is its transcript summary, which spells
         // the options out in brackets. Replaying that taught the model to type
         // "[list: A | B]" at customers, so the model gets the sentence the
         // customer actually read and no control syntax at all.
-        content:
+        const content =
           (m.role === "user" ? m.text : null) ??
           richHistoryText(m.kind, m.payload) ??
           m.text ??
-          "",
-      }))
+          "";
+        // Unlabelled, a colleague's "Hi, I'm Ali" reads as the agent's own
+        // words, and the model decides the customer must be Ali.
+        const sender = m.teamMemberId ? teamNames.get(m.teamMemberId) : undefined;
+        return {
+          role: m.role as "user" | "assistant",
+          content:
+            m.sentByHuman && content
+              ? `(Written by ${sender ?? "a colleague"} from our team, not by you and not by the customer.)\n${content}`
+              : content,
+        };
+      })
       .filter((m) => m.content.length > 0);
 
     const inbound = args.inbound;

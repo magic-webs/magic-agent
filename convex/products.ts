@@ -1,11 +1,11 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
   type QueryCtx,
   type MutationCtx,
 } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { kvPair, requirementField, productImage } from "./schema";
 import { slugify, buildSearchBlob, randomKey } from "./lib/shared";

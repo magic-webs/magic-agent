@@ -76,6 +76,13 @@ crons.daily(
   {}
 );
 
+crons.daily(
+  "prune the activity log",
+  { hourUTC: 3, minuteUTC: 50 },
+  internal.activity.prune,
+  {}
+);
+
 // The bell keeps a month. Nightly, beside the session purge.
 crons.daily(
   "prune the push inbox",

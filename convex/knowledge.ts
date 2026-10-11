@@ -1,10 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
-  internalMutation,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import { requireKnowledgeSource, requireWorkspace } from "./lib/auth";
 import { deleteFile, requireOwnKey, uploadUrlFor } from "./lib/files";

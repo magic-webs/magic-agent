@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
+import {
+  internalQuery,
+  type QueryCtx,
+} from "./_generated/server";
+import { internalMutation } from "./functions";
 import { noteClick } from "./lib/marketingStats";
 
 async function sendFor(ctx: QueryCtx, code: string) {

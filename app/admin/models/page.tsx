@@ -561,7 +561,6 @@ export default function AdminModelsPage() {
         </div>
       </header>
 
-      <ImageProcessingCard />
 
       {models === undefined ? (
         <TableSkeleton rows={6} />
@@ -592,7 +591,7 @@ export default function AdminModelsPage() {
           );
         })
       )}
-
+      <ImageProcessingCard />
       <EditDialog
         entry={editing}
         onOpenChange={(open) => {

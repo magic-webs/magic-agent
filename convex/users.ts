@@ -1,11 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import {
-  internalMutation,
   internalQuery,
-  mutation,
   query,
   type MutationCtx,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { requireAdmin, requireSignedIn } from "./lib/auth";
 import { userWorkspaceSlugs } from "./authDb";

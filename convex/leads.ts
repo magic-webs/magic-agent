@@ -10,11 +10,10 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
-  internalMutation,
   type MutationCtx,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { recordAgentReply } from "./lib/agentStats";

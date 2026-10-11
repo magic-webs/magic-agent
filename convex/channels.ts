@@ -1,10 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
-  internalMutation,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";

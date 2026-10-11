@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeaderSkeleton, TableSkeleton } from "@/components/skeletons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
+  Activity01Icon,
   AiBrain01Icon,
   Building03Icon,
   Coins01Icon,
@@ -71,6 +72,7 @@ const NAV: Array<{
 }> = [
   { href: "", label: "Overview", icon: DashboardSpeed02Icon },
   { href: "/workspaces", label: "Workspaces", icon: Building03Icon, team: true },
+  { href: "/activity", label: "Activity", icon: Activity01Icon, team: true },
   { href: "/mcp", label: "MCP connector", icon: PlugSocketIcon },
   { href: "/models", label: "AI models", icon: AiBrain01Icon },
   { href: "/usage", label: "Tokens & cost", icon: Coins01Icon },

@@ -2,10 +2,10 @@ import { ConvexError, v } from "convex/values";
 import {
   action,
   internalAction,
-  internalMutation,
   internalQuery,
   type ActionCtx,
 } from "./_generated/server";
+import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { randomKey } from "./lib/shared";

@@ -11,12 +11,11 @@ import { paginationOptsValidator } from "convex/server";
 import {
   action,
   internalAction,
-  internalMutation,
   internalQuery,
-  mutation,
   query,
   type MutationCtx,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { kvPair, requirementField } from "./schema";

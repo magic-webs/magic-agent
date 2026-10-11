@@ -9,11 +9,10 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
-  internalMutation,
   internalQuery,
-  mutation,
   query,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import {
   isFullAdmin,

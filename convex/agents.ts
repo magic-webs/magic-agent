@@ -1,12 +1,11 @@
 import { ConvexError, v, type ObjectType } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
-  internalMutation,
   type QueryCtx,
   type MutationCtx,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { toneConfig } from "./schema";
 import {

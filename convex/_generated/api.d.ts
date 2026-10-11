@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as activity from "../activity.js";
 import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
 import type * as analytics from "../analytics.js";
@@ -29,6 +30,7 @@ import type * as engine from "../engine.js";
 import type * as eventGuests from "../eventGuests.js";
 import type * as followUp from "../followUp.js";
 import type * as formSubmissions from "../formSubmissions.js";
+import type * as functions from "../functions.js";
 import type * as http from "../http.js";
 import type * as ingest from "../ingest.js";
 import type * as instagram from "../instagram.js";
@@ -36,6 +38,7 @@ import type * as integrations from "../integrations.js";
 import type * as knowledge from "../knowledge.js";
 import type * as leads from "../leads.js";
 import type * as lib_account from "../lib/account.js";
+import type * as lib_activity from "../lib/activity.js";
 import type * as lib_agentStats from "../lib/agentStats.js";
 import type * as lib_agentTemplates from "../lib/agentTemplates.js";
 import type * as lib_appClient from "../lib/appClient.js";
@@ -130,6 +133,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activity: typeof activity;
   agents: typeof agents;
   ai: typeof ai;
   analytics: typeof analytics;
@@ -151,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   eventGuests: typeof eventGuests;
   followUp: typeof followUp;
   formSubmissions: typeof formSubmissions;
+  functions: typeof functions;
   http: typeof http;
   ingest: typeof ingest;
   instagram: typeof instagram;
@@ -158,6 +163,7 @@ declare const fullApi: ApiFromModules<{
   knowledge: typeof knowledge;
   leads: typeof leads;
   "lib/account": typeof lib_account;
+  "lib/activity": typeof lib_activity;
   "lib/agentStats": typeof lib_agentStats;
   "lib/agentTemplates": typeof lib_agentTemplates;
   "lib/appClient": typeof lib_appClient;

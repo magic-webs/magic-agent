@@ -1,10 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
   type MutationCtx,
 } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { kvPair } from "./schema";
 import { slugify, randomKey } from "./lib/shared";

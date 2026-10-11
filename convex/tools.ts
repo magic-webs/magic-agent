@@ -1,10 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
-  internalMutation,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import { kvPair, toolParameter } from "./schema";
 import { isCatalogueIntegration } from "./lib/integrations";
 import { orderRecords, recordAsOrder } from "./lib/ordersBook";

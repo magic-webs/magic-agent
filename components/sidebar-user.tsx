@@ -22,7 +22,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { useSession } from "@/components/use-session";
 import { setAppearance, useAppearance } from "@/components/appearance";
@@ -77,7 +76,6 @@ export function SidebarUser({
       are already on. */
   showPlatformLink?: boolean;
 }) {
-  const { isMobile } = useSidebar();
   const session = useSession();
   const appearance = useAppearance();
 
@@ -142,28 +140,51 @@ export function SidebarUser({
 
           <DropdownMenuContent
             className="min-w-56"
-            align="end"
-            side={isMobile ? "bottom" : "right"}
+            align="start"
+            side="top"
             sideOffset={4}
           >
-            {/* Repeated inside the menu, as the reference does: in icon mode
-                the trigger shows only the avatar, so this is the only place
-                the name and address are legible. */}
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <Avatar className="size-8 shrink-0 rounded-lg">
-                <AvatarFallback className="rounded-lg text-xs font-medium">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid min-w-0 flex-1 leading-tight">
-                <span className="truncate text-sm font-medium">{label}</span>
-                {email ? (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {email}
-                  </span>
-                ) : null}
+            {isUser ? (
+              <>
+                <p className="truncate px-2 pt-1.5 pb-1 text-xs text-muted-foreground">
+                  {email ?? label}
+                </p>
+                {(workspaces ?? []).map((workspace) => (
+                  <DropdownMenuItem
+                    key={workspace._id}
+                    render={<Link href={`/w/${workspace.slug}${section}`} />}
+                  >
+                    <CompanyLogo src={workspace.logoSrc} className="size-5 rounded-md" />
+                    <span className="truncate">{workspace.name}</span>
+                    {workspace.slug === currentSlug ? (
+                      <HugeiconsIcon
+                        icon={Tick02Icon}
+                        strokeWidth={2}
+                        className="ml-auto text-primary"
+                      />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            ) : (
+              // Repeated inside the menu: in icon mode the trigger shows only
+              // the avatar, so this is the only place the name is legible.
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Avatar className="size-8 shrink-0 rounded-lg">
+                  <AvatarFallback className="rounded-lg text-xs font-medium">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid min-w-0 flex-1 leading-tight">
+                  <span className="truncate text-sm font-medium">{label}</span>
+                  {email ? (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {email}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            )}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem render={<Link href={settingsHref} />}>
@@ -181,28 +202,6 @@ export function SidebarUser({
                 <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
                 All workspaces
               </DropdownMenuItem>
-            ) : null}
-            {isUser && (workspaces?.length ?? 0) > 1 ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
-                  Switch workspace
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="min-w-52">
-                  {(workspaces ?? []).map((workspace) => (
-                    <DropdownMenuItem
-                      key={workspace._id}
-                      render={<Link href={`/w/${workspace.slug}${section}`} />}
-                    >
-                      <CompanyLogo src={workspace.logoSrc} className="size-5 rounded-md" />
-                      <span className="truncate">{workspace.name}</span>
-                      {workspace.slug === currentSlug ? (
-                        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="ml-auto" />
-                      ) : null}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
             ) : null}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>

@@ -15,13 +15,12 @@ import { ConvexError, v } from "convex/values";
 import {
   action,
   internalAction,
-  internalMutation,
   internalQuery,
-  mutation,
   query,
   type ActionCtx,
   type MutationCtx,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { randomKey, readableError } from "./lib/shared";

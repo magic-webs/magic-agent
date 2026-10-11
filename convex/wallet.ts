@@ -7,11 +7,10 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
-  internalMutation,
   internalQuery,
-  mutation,
   query,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import { requireAdmin, requireOwner, requireWorkspace } from "./lib/auth";
 import {

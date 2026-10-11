@@ -60,6 +60,7 @@ import {
   CardsThreeIcon,
   PlusIcon,
   ArrowRightIcon,
+  ClockCounterClockwiseIcon,
   SparkleIcon,
   TableIcon,
   type Icon,
@@ -428,6 +429,14 @@ export default function AdminWorkspacesPage() {
                       ) : null}
                       <Button
                         size="sm"
+                        variant="ghost"
+                        nativeButton={false}
+                        render={<Link href={`/admin/activity?workspace=${workspace._id}`} />}
+                      >
+                        <ClockCounterClockwiseIcon /> Activity
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="outline"
                         nativeButton={false}
                         render={<Link href={`/w/${workspace.slug}`} />}
@@ -475,14 +484,25 @@ export default function AdminWorkspacesPage() {
                   ) : (
                     <span />
                   )}
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link href={`/w/${workspace.slug}`} />}
-                  >
-                    Open <ArrowRightIcon />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="lg"
+                      variant="ghost"
+                      nativeButton={false}
+                      aria-label="Activity"
+                      render={<Link href={`/admin/activity?workspace=${workspace._id}`} />}
+                    >
+                      <ClockCounterClockwiseIcon />
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      nativeButton={false}
+                      render={<Link href={`/w/${workspace.slug}`} />}
+                    >
+                      Open <ArrowRightIcon />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

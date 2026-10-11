@@ -2,9 +2,9 @@ import { v } from "convex/values";
 import {
   action,
   internalAction,
-  internalMutation,
   query,
 } from "./_generated/server";
+import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import {
   requireWorkspace,

@@ -17,13 +17,12 @@
 
 import { ConvexError, v } from "convex/values";
 import {
-  internalMutation,
   internalQuery,
-  mutation,
   query,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { kvPair } from "./schema";

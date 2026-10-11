@@ -2,13 +2,12 @@ import { ConvexError, v, type Infer } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
   internalAction,
-  internalMutation,
   internalQuery,
-  mutation,
   query,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";

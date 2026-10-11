@@ -11,11 +11,10 @@ import { ConvexError, v } from "convex/values";
 import {
   action,
   internalAction,
-  internalMutation,
   internalQuery,
-  mutation,
   query,
 } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey } from "./lib/shared";

@@ -24,11 +24,11 @@
 import { v } from "convex/values";
 import {
   internalAction,
-  internalMutation,
   internalQuery,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { buildSearchBlob } from "./lib/shared";

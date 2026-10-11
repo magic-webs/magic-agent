@@ -15,11 +15,10 @@
 
 import { ConvexError, v } from "convex/values";
 import {
-  mutation,
   query,
-  internalMutation,
   type QueryCtx,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireOwner, requireWorkspace } from "./lib/auth";
 import { deleteFile, requireOwnKey, uploadUrlFor, urlFor } from "./lib/files";

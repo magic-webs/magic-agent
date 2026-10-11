@@ -5,12 +5,11 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
-  internalMutation,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { mutation, internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   getPrincipal,

@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import {
+  query,
+} from "./_generated/server";
+import { internalMutation } from "./functions";
 import { requireAdmin, requireWorkspace } from "./lib/auth";
 import { lookupPrice, mergedCatalogue } from "./lib/modelCatalogue";
 import { costNanoUsd } from "./lib/pricing";

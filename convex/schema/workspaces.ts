@@ -52,4 +52,25 @@ export const workspacesTables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),
+
+  activityLogs: defineTable({
+    workspaceId: v.id("workspaces"),
+    actorRole: v.union(
+      v.literal("admin"),
+      v.literal("workspace"),
+      v.literal("member"),
+      v.literal("user")
+    ),
+    actorId: v.string(),
+    actorLabel: v.string(),
+    table: v.string(),
+    entity: v.string(),
+    operation: v.union(v.literal("insert"), v.literal("update"), v.literal("delete")),
+    docId: v.string(),
+    name: v.optional(v.string()),
+    fields: v.optional(v.array(v.string())),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_actorId", ["actorId"])
+    .index("by_workspace_and_actorId", ["workspaceId", "actorId"]),
 };

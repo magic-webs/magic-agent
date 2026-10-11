@@ -1,6 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { query, mutation } from "./_generated/server";
+import {
+  query,
+} from "./_generated/server";
+import { mutation } from "./functions";
 import { requireContact, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
 import { normaliseEmail, normalisePhone } from "./lib/notifications";

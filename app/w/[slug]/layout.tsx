@@ -68,7 +68,6 @@ import {
   Package01Icon,
   ReceiptIcon,
   Robot01Icon,
-  Settings01Icon,
   SirenIcon,
   ToolboxIcon,
   UserGroupIcon,
@@ -181,11 +180,10 @@ const NAV: Array<{
   // out when something happens — a record filed, an order, a webhook — rather
   // than on a date, and email goes the same way.
   { label: "Notifications", icon: Notification03Icon, href: "/notifications" },
-  // Between the work and the settings: connecting Sheets or a calendar is
-  // something you do once you have agents to give it to, and it is not a
-  // setting — it changes what the agents can do.
+  // Connecting Sheets or a calendar is something you do once you have agents
+  // to give it to, and it is not a setting — it changes what the agents can
+  // do. Settings itself lives in the profile menu.
   { label: "Integrations", icon: ConnectIcon, href: "/integrations" },
-  { label: "Settings", icon: Settings01Icon, href: "/settings" },
 ];
 
 /** Whether `pathname` is the row's page, or — unless `exact` — one below it. */

@@ -18,11 +18,11 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
-  mutation,
   internalQuery,
   type QueryCtx,
   type MutationCtx,
 } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { resolveGreeting } from "./lib/prompt";
 import { logoSrcFor } from "./lib/branding";

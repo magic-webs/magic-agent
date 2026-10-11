@@ -7,7 +7,10 @@
 // plan's included agents — the limits every account on it is held to.
 
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  query,
+} from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { requireAdmin, requireWorkspace } from "./lib/auth";
 import { allPlans, billingSettings, billingTermsFor } from "./lib/account";
 import { toMicros, workspaceCurrency } from "./lib/billing";

@@ -45,6 +45,8 @@ import {
   type Quote,
   allCurrencyTerms,
   planCurrency,
+  hasRoomFor,
+  roundToPaise,
 } from "./lib/plans";
 import { walletFor } from "./lib/wallet";
 
@@ -204,6 +206,54 @@ export const overview = query({
         access: standing.access,
         now: args.now,
       }),
+    };
+  },
+});
+
+/**
+ * The Team page's human seats: whether one more person fits, and what to buy
+ * when not. Null while billing is off, when nothing is locked.
+ */
+export const humanSeats = query({
+  args: { workspaceId: v.id("workspaces"), now: v.number() },
+  handler: async (ctx, args) => {
+    const principal = await requireWorkspace(ctx, args.workspaceId);
+    const workspace = await ctx.db.get("workspaces", args.workspaceId);
+    if (!workspace) return null;
+
+    const { settings, account, plan, seats } = await standingOf(
+      ctx,
+      workspace,
+      args.now
+    );
+    if (!settings || !plan || !seats) return null;
+
+    const upgrade = (await allPlans(ctx))
+      .filter(
+        (row) =>
+          row.status === "active" &&
+          planCurrency(row) === settings.currency &&
+          row.includedHumanAgents > plan.includedHumanAgents
+      )
+      .sort((left, right) => left.priceMicros - right.priceMicros)[0];
+
+    return {
+      planName: plan.name,
+      included: seats.human.included,
+      used: seats.human.used,
+      capacity:
+        Math.max(seats.human.used, seats.human.included) +
+        Math.max(0, seats.extra.bought - seats.extra.used),
+      room: hasRoomFor(seats, "human"),
+      currency: settings.currency,
+      gstPercent: settings.gstPercent,
+      seatMicros: roundToPaise(
+        account?.extraAgentPriceMicros ?? settings.extraAgentPriceMicros
+      ),
+      upgrade: upgrade
+        ? { name: upgrade.name, includedHumanAgents: upgrade.includedHumanAgents }
+        : null,
+      canBuy: principal.role !== "member",
     };
   },
 });

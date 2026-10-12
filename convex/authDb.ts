@@ -20,7 +20,6 @@ import {
   requireSignedIn,
   requireWorkspace,
 } from "./lib/auth";
-import { assertSeat } from "./lib/account";
 import { maskSecret, slugify } from "./lib/shared";
 
 const roleValidator = v.union(
@@ -1302,7 +1301,7 @@ export const replaceOwnCredential = internalMutation({
 //
 // Issued and revoked by the company from the Team page, not by an
 // administrator: these are the company's own people. A login opens the
-// company's dashboard, and each one takes a human-agent seat on its plan. The
+// company's dashboard; the seat is the person's, not the login's. The
 // password is generated in convex/auth.ts, shown once, and only hashed here.
 // ---------------------------------------------------------------------------
 
@@ -1341,6 +1340,9 @@ export const memberForLogin = internalQuery({
     const member = await ctx.db.get("teamMembers", args.memberId);
     if (!member) throw new ConvexError("Human agent not found");
     await requireOwner(ctx, member.workspaceId);
+    if (member.isOwner) {
+      throw new ConvexError("The admin signs in with their own account.");
+    }
     const workspace = await ctx.db.get("workspaces", member.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
     return { member, workspace };
@@ -1550,6 +1552,9 @@ export const upsertMemberCredential = internalMutation({
     const member = await ctx.db.get("teamMembers", args.memberId);
     if (!member) throw new ConvexError("Human agent not found");
     await requireOwner(ctx, member.workspaceId);
+    if (member.isOwner) {
+      throw new ConvexError("The admin signs in with their own account.");
+    }
     const workspace = await ctx.db.get("workspaces", member.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
 
@@ -1565,10 +1570,6 @@ export const upsertMemberCredential = internalMutation({
     }
 
     if (existing) {
-      // Bringing a revoked login back takes a seat again; a reset keeps its own.
-      if (existing.status !== "active") {
-        await assertSeat(ctx, member.workspaceId, "human");
-      }
       await ctx.db.patch(existing._id, {
         email,
         passwordHash: args.passwordHash,
@@ -1581,9 +1582,6 @@ export const upsertMemberCredential = internalMutation({
       await dropFactor(ctx, `member|${args.memberId}`);
       return { username: existing.username, email: email ?? null };
     }
-
-    // A new login is a new human-agent seat; a reset is the same one.
-    await assertSeat(ctx, member.workspaceId, "human");
 
     const handle = slugify(member.name.split(/\s+/)[0] ?? "") || "agent";
     const base = `${workspace.slug}.${handle}`;

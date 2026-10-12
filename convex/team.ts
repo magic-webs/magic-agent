@@ -16,11 +16,13 @@
 import { ConvexError, v } from "convex/values";
 import {
   query,
+  type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
 import { mutation, internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireOwner, requireWorkspace } from "./lib/auth";
+import { assertSeat } from "./lib/account";
 import { deleteFile, requireOwnKey, uploadUrlFor, urlFor } from "./lib/files";
 import {
   LOGIN_EMAIL_TAKEN,
@@ -57,6 +59,31 @@ async function photoFor(
   return member.photoUrl?.trim() || null;
 }
 
+/** The admin's own card: every workspace has one, and it takes the first human seat. */
+export async function ensureOwnerMember(
+  ctx: MutationCtx,
+  workspace: Doc<"workspaces">
+): Promise<Id<"teamMembers">> {
+  const members = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+    .collect();
+  const owner = members.find((member) => member.isOwner);
+  if (owner) return owner._id;
+
+  return await ctx.db.insert("teamMembers", {
+    workspaceId: workspace._id,
+    name: workspace.ownerName?.trim() || "Admin",
+    role: "Admin",
+    email: loginEmailOf(workspace.supportEmail),
+    isOwner: true,
+    status: "active",
+    messageCount: 0,
+    createdAt: workspace.createdAt,
+    updatedAt: Date.now(),
+  });
+}
+
 export const listByWorkspace = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
@@ -66,8 +93,13 @@ export const listByWorkspace = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .collect();
 
-    // Oldest first, so the row does not reshuffle every time somebody replies.
-    members.sort((a, b) => a.createdAt - b.createdAt);
+    // Admin first, then oldest first, so the row does not reshuffle every time
+    // somebody replies.
+    members.sort(
+      (a, b) =>
+        Number(Boolean(b.isOwner)) - Number(Boolean(a.isOwner)) ||
+        a.createdAt - b.createdAt
+    );
 
     return await Promise.all(
       members.map(async (member) => ({
@@ -128,6 +160,10 @@ export const create = mutation({
     requireOwnKey(args.photoKey, "team", args.workspaceId);
     const name = args.name.trim();
     if (!name) throw new ConvexError("A human agent needs a name");
+    const status = args.status ?? "active";
+    if (status !== "inactive") {
+      await assertSeat(ctx, args.workspaceId, "human");
+    }
 
     const now = Date.now();
     return await ctx.db.insert("teamMembers", {
@@ -139,7 +175,7 @@ export const create = mutation({
       photoKey: args.photoKey,
       photoUrl: args.photoUrl?.trim() || undefined,
       note: args.note?.trim() || undefined,
-      status: args.status ?? "active",
+      status,
       messageCount: 0,
       createdAt: now,
       updatedAt: now,
@@ -165,6 +201,16 @@ export const update = mutation({
     if (!member) throw new ConvexError("Human agent not found");
     await requireWorkspace(ctx, member.workspaceId);
     requireOwnKey(args.photoKey, "team", member.workspaceId);
+    if (member.isOwner && args.status === "inactive") {
+      throw new ConvexError("The admin cannot be set to inactive.");
+    }
+    if (
+      member.status === "inactive" &&
+      args.status !== undefined &&
+      args.status !== "inactive"
+    ) {
+      await assertSeat(ctx, member.workspaceId, "human");
+    }
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [key, value] of Object.entries(rest)) {
@@ -206,6 +252,7 @@ export const remove = mutation({
     const member = await ctx.db.get("teamMembers", args.memberId);
     if (!member) return { success: true };
     await requireWorkspace(ctx, member.workspaceId);
+    if (member.isOwner) throw new ConvexError("The admin cannot be removed.");
 
     await deleteFile(ctx, member.photoKey, member.photoStorageId);
 

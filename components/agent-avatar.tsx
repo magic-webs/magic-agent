@@ -68,6 +68,27 @@ const TINTS = [
   "bg-teal-100 dark:bg-teal-500/15",
 ] as const;
 
+/** The face filling a positioned box, cut out over whatever is behind it. */
+export function AgentPortrait({
+  name,
+  gender,
+  className,
+}: {
+  name: string;
+  gender?: AgentGender | null;
+  className?: string;
+}) {
+  return (
+    <Image
+      src={agentAvatarSrc(name, gender)}
+      alt=""
+      fill
+      sizes="320px"
+      className={cn("object-cover object-top", className)}
+    />
+  );
+}
+
 export function AgentAvatar({
   name,
   gender,

@@ -175,7 +175,7 @@ export const DEFAULT_PLANS: Array<{
     features: [
       ...DESKS,
       "1 custom agent, built around your business",
-      "1 human agent with full access to the platform",
+      "1 human agent with full access: the admin",
     ],
     highlighted: false,
   },
@@ -187,7 +187,7 @@ export const DEFAULT_PLANS: Array<{
     priceMicros: toMicros(9999),
     includedAiAgents: 5,
     includedHumanAgents: 3,
-    features: [...DESKS, "5 custom agents", "3 human agents with full access"],
+    features: [...DESKS, "5 custom agents", "3 human agents with full access, admin included"],
     highlighted: true,
   },
   {
@@ -201,7 +201,7 @@ export const DEFAULT_PLANS: Array<{
     features: [
       ...DESKS,
       "15 custom agents",
-      "10 human agents with full access",
+      "10 human agents with full access, admin included",
     ],
     highlighted: false,
   },

@@ -40,6 +40,7 @@ export const workspacesTables = {
     photoStorageId: v.optional(v.id("_storage")),
     photoUrl: v.optional(v.string()),
     note: v.optional(v.string()),
+    isOwner: v.optional(v.boolean()),
     status: v.union(
       v.literal("active"),
       v.literal("away"),

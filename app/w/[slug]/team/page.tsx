@@ -4,11 +4,14 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { useAction, useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { formatMoney } from "@/convex/lib/billing";
+import { PLATFORM_LOCALE } from "@/convex/lib/plans";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
-import { AgentAvatar } from "@/components/agent-avatar";
+import { AgentPortrait } from "@/components/agent-avatar";
 import { TeamAvatar } from "@/components/team-avatar";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
@@ -70,6 +73,7 @@ import {
   CopyIcon,
   DotsThreeIcon,
   KeyIcon,
+  LockSimpleIcon,
   PlusIcon,
   ProhibitIcon,
   RobotIcon,
@@ -111,6 +115,10 @@ type DeskLogin = {
   /** They have set up an authenticator app on it. */
   twoFactor: boolean;
 };
+
+type HumanSeats = NonNullable<
+  FunctionReturnType<typeof api.subscriptions.humanSeats>
+>;
 
 type IssuedLogin = {
   name: string;
@@ -227,6 +235,7 @@ function PosterCard({
   name,
   description,
   art,
+  bleed = false,
   messages,
   lastMessage,
   status,
@@ -240,6 +249,8 @@ function PosterCard({
   name: string;
   description: string;
   art: React.ReactNode;
+  /** The art fills the panel edge to edge instead of sitting in its middle. */
+  bleed?: boolean;
   messages: number | null | undefined;
   lastMessage?: LastMessage;
   status: string;
@@ -335,13 +346,18 @@ function PosterCard({
       {/* --------------------------------------------------- the face as art */}
       <div
         className={cn(
-          "mt-4 flex flex-1 items-center justify-center rounded-2xl",
+          "relative mt-4 flex flex-1 items-center justify-center overflow-hidden rounded-2xl",
           // Pressed into the card, where the card is raised off the page.
           "shadow-[inset_0_1px_2px_rgba(0,0,0,0.10)]",
           tone.art
         )}
       >
-        <div className="transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04]">
+        <div
+          className={cn(
+            "transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04]",
+            bleed && "absolute inset-0 origin-bottom group-hover:translate-y-0"
+          )}
+        >
           {art}
         </div>
       </div>
@@ -525,9 +541,9 @@ function MemberDialog({
             {member ? "Edit human agent" : "Add a human agent"}
           </DialogTitle>
           <DialogDescription>
-            Who they are and what they do. Used on the roster, and to sign a
-            reply you send by hand from the inbox. Give them a login from their
-            card to let them use the dashboard as themselves.
+            {member?.isOwner
+              ? "You, as the roster shows you. Used to sign a reply you send by hand from the inbox."
+              : "Who they are and what they do. Used on the roster, and to sign a reply you send by hand from the inbox. Give them a login from their card to let them use the dashboard as themselves."}
           </DialogDescription>
         </DialogHeader>
 
@@ -625,13 +641,19 @@ function MemberDialog({
               onValueChange={(next) =>
                 setStatus(next as "active" | "away" | "inactive")
               }
-              options={STATUSES}
+              options={
+                member?.isOwner
+                  ? STATUSES.filter((option) => option.value !== "inactive")
+                  : STATUSES
+              }
               aria-label="Status"
             />
-            <p className="text-xs text-muted-foreground">
-              Inactive takes them off the list you can send a reply as, and
-              stops their login working.
-            </p>
+            {member?.isOwner ? null : (
+              <p className="text-xs text-muted-foreground">
+                Inactive takes them off the list you can send a reply as, stops
+                their login working, and frees their seat on your plan.
+              </p>
+            )}
           </div>
         </div>
 
@@ -743,8 +765,7 @@ function IssuedLoginDialog({
                 {issued.name} can use everything in this workspace — the inbox,
                 agents, leads, marketing — and replies they send are signed with
                 their own name. They cannot change the workspace password,
-                issue logins, or change the plan. Each login takes a human-agent
-                seat on your plan.
+                issue logins, or change the plan.
               </AlertDescription>
             </Alert>
           </div>
@@ -812,49 +833,53 @@ function MemberMenu({
             member={member}
             trigger={<DropdownMenuItem closeOnClick={false}>Edit</DropdownMenuItem>}
           />
-          <DropdownMenuSeparator />
-          {/* The label has to sit inside a group: DropdownMenuLabel is Base
-              UI's Menu.GroupLabel and reads MenuGroupContext. */}
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="flex flex-col gap-0.5">
-              <span>Dashboard login</span>
-              <span className="truncate font-mono text-[11px] font-normal">
-                {login ? (login.email ?? login.username) : "No login yet"}
-              </span>
-              {login ? (
-                <span className="text-[11px] font-normal">
-                  {login.lastLoginAt
-                    ? `Signed in ${relative(login.lastLoginAt)}`
-                    : "Not signed in yet"}
-                  {login.twoFactor ? " · two-factor on" : ""}
-                </span>
-              ) : null}
-            </DropdownMenuLabel>
-            {login ? (
-              <>
-                <DropdownMenuItem onClick={() => setConfirmingLogin("reset")}>
-                  <ArrowsClockwiseIcon /> Reset password
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setConfirmingLogin("revoke")}
-                >
-                  <ProhibitIcon /> Revoke login
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <DropdownMenuItem onClick={() => void issue()}>
-                <KeyIcon /> Generate login
+          {member.isOwner ? null : (
+            <>
+              <DropdownMenuSeparator />
+              {/* The label has to sit inside a group: DropdownMenuLabel is Base
+                  UI's Menu.GroupLabel and reads MenuGroupContext. */}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span>Dashboard login</span>
+                  <span className="truncate font-mono text-[11px] font-normal">
+                    {login ? (login.email ?? login.username) : "No login yet"}
+                  </span>
+                  {login ? (
+                    <span className="text-[11px] font-normal">
+                      {login.lastLoginAt
+                        ? `Signed in ${relative(login.lastLoginAt)}`
+                        : "Not signed in yet"}
+                      {login.twoFactor ? " · two-factor on" : ""}
+                    </span>
+                  ) : null}
+                </DropdownMenuLabel>
+                {login ? (
+                  <>
+                    <DropdownMenuItem onClick={() => setConfirmingLogin("reset")}>
+                      <ArrowsClockwiseIcon /> Reset password
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setConfirmingLogin("revoke")}
+                    >
+                      <ProhibitIcon /> Revoke login
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={() => void issue()}>
+                    <KeyIcon /> Generate login
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setConfirming(true)}
+              >
+                Remove
               </DropdownMenuItem>
-            )}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setConfirming(true)}
-          >
-            Remove
-          </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -882,7 +907,7 @@ function MemberMenu({
                       ? `they still sign in with ${login.email}.`
                       : "the username stays the same."
                   }`
-                : "They are signed out straight away and cannot sign in again until you generate a new login. It frees their human-agent seat on your plan."}
+                : "They are signed out straight away and cannot sign in again until you generate a new login."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -936,6 +961,98 @@ function MemberMenu({
 }
 
 // ---------------------------------------------------------------------------
+// When every human seat is taken
+// ---------------------------------------------------------------------------
+
+function SeatsDialog({
+  seats,
+  trigger,
+}: {
+  seats: HumanSeats;
+  trigger: React.ReactElement;
+}) {
+  const workspace = useWorkspace();
+  const billing = `/w/${workspace.slug}/billing?tab=plan`;
+  const price = formatMoney(seats.seatMicros, seats.currency, PLATFORM_LOCALE);
+
+  const options = [
+    {
+      title: "Add one extra agent",
+      body: `${price} a month + ${seats.gstPercent}% GST. Use it for a human agent or a custom AI agent.`,
+    },
+    ...(seats.upgrade
+      ? [
+          {
+            title: `Upgrade to ${seats.upgrade.name}`,
+            body: `${seats.upgrade.includedHumanAgents} human agents included, the admin among them.`,
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <Dialog>
+      <DialogTrigger render={trigger} />
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Your human agent seats are full</DialogTitle>
+          <DialogDescription>
+            {seats.included === 1
+              ? `The ${seats.planName} plan includes 1 human agent, and that is the admin.`
+              : `The ${seats.planName} plan includes ${seats.included} human agents, the admin among them, and every one is taken.`}{" "}
+            To add someone else, add an extra agent or upgrade your plan.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-2">
+          {options.map((option) =>
+            seats.canBuy ? (
+              <Link
+                key={option.title}
+                href={billing}
+                className="group flex items-center gap-3 rounded-xl border p-4 transition-colors hover:border-primary/40 hover:bg-muted/50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{option.title}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {option.body}
+                  </p>
+                </div>
+                <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : (
+              <div key={option.title} className="rounded-xl border p-4">
+                <p className="text-sm font-medium">{option.title}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {option.body}
+                </p>
+              </div>
+            )
+          )}
+          {seats.canBuy ? null : (
+            <p className="text-xs text-muted-foreground">
+              Ask the workspace admin to change the plan from Billing.
+            </p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The add button, or the way to more seats once they are all taken. */
+function AddHumanAgent({
+  seats,
+  trigger,
+}: {
+  seats: HumanSeats | null | undefined;
+  trigger: React.ReactElement;
+}) {
+  if (seats && !seats.room) return <SeatsDialog seats={seats} trigger={trigger} />;
+  return <MemberDialog trigger={trigger} />;
+}
+
+// ---------------------------------------------------------------------------
 
 export default function TeamPage() {
   const workspace = useWorkspace();
@@ -955,6 +1072,12 @@ export default function TeamPage() {
   const logins = useQuery(api.authDb.memberLogins, {
     workspaceId: workspace._id,
   });
+  const seats = useQuery(api.subscriptions.humanSeats, {
+    workspaceId: workspace._id,
+    now,
+  });
+  const locked = Boolean(seats && !seats.room);
+  const AddIcon = locked ? LockSimpleIcon : PlusIcon;
   const loginByMember = new Map(
     (logins ?? []).map((login) => [login.memberId, login])
   );
@@ -991,12 +1114,16 @@ export default function TeamPage() {
               <RobotIcon /> {bots.length} AI
             </Badge>
             <Badge variant="secondary">
-              <UsersThreeIcon /> {people.length} human
+              <UsersThreeIcon />{" "}
+              {seats
+                ? `${seats.used} of ${seats.capacity} human`
+                : `${people.length} human`}
             </Badge>
-            <MemberDialog
+            <AddHumanAgent
+              seats={seats}
               trigger={
                 <Button size="sm" variant="outline">
-                  <PlusIcon /> Add a human agent
+                  <AddIcon /> Add a human agent
                 </Button>
               }
             />
@@ -1029,10 +1156,11 @@ export default function TeamPage() {
             >
               Go to Agents
             </Button>
-            <MemberDialog
+            <AddHumanAgent
+              seats={seats}
               trigger={
                 <Button size="lg" variant="outline">
-                  <PlusIcon /> Add a human agent
+                  <AddIcon /> Add a human agent
                 </Button>
               }
             />
@@ -1058,13 +1186,8 @@ export default function TeamPage() {
               }
               name={agent.botName}
               description={agent.role}
-              art={
-                <AgentAvatar
-                  name={agent.botName}
-                  gender={agent.gender}
-                  size={124}
-                />
-              }
+              art={<AgentPortrait name={agent.botName} gender={agent.gender} />}
+              bleed
               messages={statsById.get(agent._id)?.messages ?? 0}
               lastMessage={statsById.get(agent._id)?.lastMessage ?? null}
               status={agent.status === "active" ? "active" : "away"}
@@ -1083,7 +1206,7 @@ export default function TeamPage() {
             <PosterCard
               key={member._id}
               index={bots.length + index}
-              eyebrow="Human agent"
+              eyebrow={member.isOwner ? "Human agent · Admin" : "Human agent"}
               name={member.name}
               description={member.role || member.note || member.email || "Team"}
               art={
@@ -1108,14 +1231,20 @@ export default function TeamPage() {
 
           {/* The add tile lives at the end of the rail, so adding somebody is
               where you are already looking. */}
-          <MemberDialog
+          <AddHumanAgent
+            seats={seats}
             trigger={
               <button
                 type="button"
                 className="flex h-[26rem] w-72 shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[28px] border border-dashed text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
               >
-                <PlusIcon className="size-6" />
+                <AddIcon className="size-6" />
                 <span className="text-sm font-medium">Add a human agent</span>
+                {locked ? (
+                  <span className="text-xs">
+                    Every seat on your plan is taken
+                  </span>
+                ) : null}
               </button>
             }
           />

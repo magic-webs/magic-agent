@@ -178,9 +178,9 @@ export function billingContact(
 
 /**
  * What the plan's limits are measured against: custom agents that are live,
- * and human agents who can sign in. The three desks are part of every plan
- * and are never counted, and a draft or paused agent takes no traffic, so it
- * takes no seat.
+ * and human agents on the roster who are not inactive — the admin always
+ * among them. The three desks are part of every plan and are never counted,
+ * and a draft or paused agent takes no traffic, so it takes no seat.
  */
 export async function seatsInUse(
   ctx: Ctx,
@@ -192,15 +192,18 @@ export async function seatsInUse(
       q.eq("workspaceId", workspaceId).eq("status", "active")
     )
     .take(SEAT_SCAN_CAP);
-  const logins = await ctx.db
-    .query("memberCredentials")
+  const members = await ctx.db
+    .query("teamMembers")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .take(SEAT_SCAN_CAP);
   return {
     ai: live.filter(
       (agent) => agent.kind === "specialist" || agent.kind === undefined
     ).length,
-    human: logins.filter((login) => login.status === "active").length,
+    human:
+      1 +
+      members.filter((member) => !member.isOwner && member.status !== "inactive")
+        .length,
   };
 }
 
@@ -288,7 +291,9 @@ export async function assertSeat(
       ? "no extra agents"
       : `all ${seats.extra.bought} extra ${seats.extra.bought === 1 ? "agent is" : "agents are"} in use`;
   const instead =
-    kind === "ai" ? "pause another agent first" : "revoke another login first";
+    kind === "ai"
+      ? "pause another agent first"
+      : "set another human agent to inactive first";
   throw new ConvexError(
     `The ${plan.name} plan includes ${included}, and ${extras}. Add an extra agent on the Billing page, or ${instead}.`
   );

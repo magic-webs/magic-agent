@@ -17,6 +17,7 @@ import { logoSrcFor } from "./lib/branding";
 import { deleteFile, requireOwnKey, uploadUrlFor } from "./lib/files";
 import { orderRecords, statusForStage } from "./lib/ordersBook";
 import { grantWelcomeBonus } from "./lib/wallet";
+import { ensureOwnerMember } from "./team";
 import {
   isValidCurrency,
   isValidLocale,
@@ -198,6 +199,8 @@ export const create = mutation({
       updatedAt: now,
     });
     await grantWelcomeBonus(ctx, workspaceId);
+    const workspace = await ctx.db.get("workspaces", workspaceId);
+    if (workspace) await ensureOwnerMember(ctx, workspace);
     return { workspaceId, slug };
   },
 });
@@ -493,6 +496,8 @@ export const seedDemo = mutation({
       updatedAt: now,
     });
     await grantWelcomeBonus(ctx, workspaceId);
+    const workspace = await ctx.db.get("workspaces", workspaceId);
+    if (workspace) await ensureOwnerMember(ctx, workspace);
     return { workspaceId, slug };
   },
 });

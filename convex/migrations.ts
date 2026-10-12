@@ -43,6 +43,7 @@ import {
 } from "./lib/ordersBook";
 import { loginEmailOf, loginEmailTaken } from "./authDb";
 import { claimSerial } from "./records";
+import { ensureOwnerMember } from "./team";
 import { newFileKey, r2, type FileFolder } from "./lib/files";
 
 const WORKSPACE_BATCH = 20;
@@ -526,6 +527,33 @@ export const backfillUsageDaily = internalMutation({
       });
     }
     return { events: page.page.length, done: page.isDone };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// The admin on the roster
+//
+//   bunx convex run migrations:ownerMembers
+//
+// Gives every workspace the admin's own human-agent card, which takes the
+// first human seat on its plan.
+// ---------------------------------------------------------------------------
+
+export const ownerMembers = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("workspaces")
+      .paginate({ numItems: WORKSPACE_BATCH, cursor: args.cursor ?? null });
+
+    for (const workspace of page.page) await ensureOwnerMember(ctx, workspace);
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.ownerMembers, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { workspaces: page.page.length, done: page.isDone };
   },
 });
 

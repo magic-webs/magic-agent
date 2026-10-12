@@ -44,10 +44,11 @@ export default function TermsPage() {
       <Section title="What the service does">
         <p>
           Magic Agent lets a business configure AI agents that answer its
-          customers on WhatsApp and web chat, works from the material and price
-          list the business supplies, records enquiries and orders, and hands
-          conversations to a person when they need one. The Android app is a
-          console for watching and managing that.
+          customers on WhatsApp, Instagram and web chat, works from the material
+          and price list the business supplies, records enquiries and orders,
+          and hands conversations to a person when they need one. The mobile
+          app, on Android and iOS, is a console for watching and managing that,
+          and for answering customers directly.
         </p>
       </Section>
 

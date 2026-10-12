@@ -17,7 +17,7 @@ export const metadata: Metadata = {
  * published.
  */
 
-const UPDATED = "5 September 2026";
+const UPDATED = "12 October 2026";
 
 function Section({
   title,
@@ -73,9 +73,10 @@ export default function PrivacyPage() {
 
       <Section title="What the mobile app collects">
         <p>
-          The Android app is an operator console. It shows a business its own
-          workspace; it does not collect anything about the people using it
-          beyond what is needed to sign in and to notify them.
+          The mobile app, on Android and iOS, is an operator console. It shows
+          a business its own workspace and lets its staff answer customers; it
+          does not collect anything about the people using it beyond what is
+          needed to sign in, to notify them and to send what they type.
         </p>
         <table className="w-full text-left text-sm">
           <tbody>
@@ -91,12 +92,23 @@ export default function PrivacyPage() {
               what="Questions you ask an agent"
               why="The operator chat on the agent screen is stored against your workspace so the thread is there next time. You can delete it from the app at any time."
             />
+            <Row
+              what="Replies and reactions you send"
+              why="A message or emoji reaction you send to a customer is delivered through the conversation's channel (for example WhatsApp) and stored in the conversation, with the team member who sent it."
+            />
+            <Row
+              what="Company logo"
+              why="If you pick a logo for your workspace, only the photo you choose is uploaded and stored with your business profile."
+            />
           </tbody>
         </table>
         <p>
           The app contains no analytics SDK, no advertising SDK and no
-          third-party tracker. It does not request location, contacts, camera,
-          microphone or storage access.
+          third-party tracker. It does not request location, contacts, camera
+          or microphone access. It asks for access to your photos only when you
+          pick a company logo. Reply drafts written by an on-device model are
+          produced on the phone and nothing is sent anywhere to write them;
+          media you open, such as voice notes, is cached on the device only.
         </p>
       </Section>
 

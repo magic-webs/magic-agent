@@ -22,11 +22,19 @@ const FAQ: [string, string][] = [
   ],
   [
     "I am not getting notifications",
-    "Check that notifications are allowed for Magic Agent in Android settings. The app registers for them the first time you open it after signing in, so if you denied the prompt, allow it in settings and reopen the app. Notifications only cover new orders and conversations an agent has handed to a person.",
+    "Check that notifications are allowed for Magic Agent in your phone's settings (Settings → Notifications on iPhone, Settings → Apps on Android). The app registers for them the first time you open it after signing in, so if you denied the prompt, allow it in settings and reopen the app. Notifications only cover new orders and conversations an agent has handed to a person.",
   ],
   [
     "Can I reply to a customer from the app?",
-    "Not yet. The app is read-only for conversations: it shows what was said and lets you mark a conversation open, needing you, or closed. Replies go out from the agent, and anything typed here would be posted as the customer rather than as you.",
+    "Yes. Open the conversation and type your reply; it goes out on the customer's channel under your name, and the agent stays quiet for the pause you choose in Reply settings. On WhatsApp you can also swipe a message to quote it, hold it to react with an emoji, and see whether each message was delivered and read.",
+  ],
+  [
+    "My reply says it was not delivered",
+    "WhatsApp and Instagram only deliver a normal message within 24 hours of the customer's last message. After that, wait for the customer to write again, or on WhatsApp send an approved template from the web console. The reason a message failed is shown under it in the chat.",
+  ],
+  [
+    "A WhatsApp voice note will not play on my iPhone",
+    "WhatsApp records voice notes in a format iPhones cannot play directly. We are adding conversion so they play everywhere; until then the transcript is shown under each voice note, and voice notes play on Android and in the web console.",
   ],
   [
     "The agent gave a wrong price",

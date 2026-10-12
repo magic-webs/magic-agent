@@ -100,7 +100,7 @@ export default function DeleteAccountPage() {
         <div className="mt-3 space-y-3 text-sm leading-6 text-muted-foreground">
           <p>
             Signing out of the app, or turning notifications off for Magic Agent
-            in Android settings, stops them without deleting anything. Deleting
+            in your phone&apos;s settings, stops them without deleting anything. Deleting
             the app removes the device&apos;s push registration the next time we
             attempt a delivery.
           </p>

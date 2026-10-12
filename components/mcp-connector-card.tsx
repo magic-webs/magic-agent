@@ -40,31 +40,14 @@ import { toast } from "@/components/ui/toast";
 import {
   ArrowsClockwiseIcon,
   CaretRightIcon,
-  CheckIcon,
   CopyIcon,
   EyeIcon,
   PaperPlaneTiltIcon,
   PlugsConnectedIcon,
-  ProhibitIcon,
   TrashIcon,
   WarningIcon,
-  XIcon,
 } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
-
-const CAN = [
-  "Read agents, the catalogue, knowledge, channels and custom tools",
-  "Read conversations, contacts, orders, records and leads",
-  "Read notification, marketing and usage reports",
-  "Reply to a customer in an existing conversation",
-];
-
-const CANNOT = [
-  "Create, edit or delete agents, products, knowledge or channels",
-  "Change settings, alerts, lead stages or marketing",
-  "Send broadcasts or templates, or start new conversations",
-  "Reach any other workspace",
-];
 
 async function copy(text: string, title = "Copied") {
   try {
@@ -79,21 +62,18 @@ async function copy(text: string, title = "Copied") {
   }
 }
 
-function Steps({ items, note }: { items: string[]; note?: string }) {
+function Steps({ items }: { items: string[] }) {
   return (
-    <div className="flex flex-col gap-3">
-      <ol className="flex flex-col gap-2">
-        {items.map((item, index) => (
-          <li key={item} className="flex gap-3 text-sm">
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums">
-              {index + 1}
-            </span>
-            <span className="text-muted-foreground">{item}</span>
-          </li>
-        ))}
-      </ol>
-      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
-    </div>
+    <ol className="flex flex-col gap-2">
+      {items.map((item, index) => (
+        <li key={item} className="flex gap-3 text-sm">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums">
+            {index + 1}
+          </span>
+          <span className="text-muted-foreground">{item}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -125,39 +105,6 @@ function Fact({ label, value, mono }: { label: string; value: string; mono?: boo
       <span className={mono ? "truncate font-mono text-sm" : "truncate text-sm"}>
         {value}
       </span>
-    </div>
-  );
-}
-
-function Permissions() {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="flex flex-col gap-2 rounded-lg border p-4">
-        <p className="flex items-center gap-2 text-sm font-medium">
-          <EyeIcon className="size-4 text-primary" /> It can
-        </p>
-        <ul className="flex flex-col gap-1.5">
-          {CAN.map((line) => (
-            <li key={line} className="flex gap-2 text-sm text-muted-foreground">
-              <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-              {line}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="flex flex-col gap-2 rounded-lg border p-4">
-        <p className="flex items-center gap-2 text-sm font-medium">
-          <ProhibitIcon className="size-4 text-destructive" /> It cannot
-        </p>
-        <ul className="flex flex-col gap-1.5">
-          {CANNOT.map((line) => (
-            <li key={line} className="flex gap-2 text-sm text-muted-foreground">
-              <XIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
-              {line}
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }
@@ -299,25 +246,18 @@ export function McpConnectorCard({
           </Badge>
         </CardTitle>
         <CardDescription>
-          Let Claude, ChatGPT or another assistant look into {workspaceName}{" "}
-          and answer customers in their conversations. It reads everything here
-          but cannot create, change or delete anything.
+          Lets an assistant read {workspaceName} and reply in its
+          conversations. It cannot change anything.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-6">
-        <Permissions />
-
         {freshUrl ? (
           <Alert>
             <WarningIcon />
             <AlertTitle>Copy this now — it is not shown again</AlertTitle>
             <AlertDescription className="flex flex-col gap-2">
-              <span>
-                This URL is the credential. Anyone holding it can read this
-                workspace and message its customers, so paste it into your
-                assistant and nowhere else.
-              </span>
+              <span>Anyone with this URL can read this workspace.</span>
               <div className="flex w-full gap-2">
                 <Input
                   readOnly
@@ -344,12 +284,7 @@ export function McpConnectorCard({
             <Spinner />
           ) : connector === null ? (
             <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-0.5">
-                <p className="text-sm font-medium">No connector yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Create one to get a private URL for your assistant.
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">No connector yet</p>
               <Button onClick={() => void generate()} disabled={busy}>
                 {busy ? <Spinner /> : <PlugsConnectedIcon />} Create the
                 connector
@@ -420,10 +355,6 @@ export function McpConnectorCard({
                 <Fact label="Created" value={when(connector.issuedAt)} />
                 <Fact label="Last used" value={when(connector.lastUsedAt)} />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Lost the URL? It cannot be read back — only its hash is stored.
-                Rotate to get a new one.
-              </p>
             </div>
           )}
         </div>
@@ -444,10 +375,9 @@ export function McpConnectorCard({
               <Steps
                 items={[
                   "Customize → Connectors → “+” → Add custom connector.",
-                  "Paste the URL. Leave the OAuth fields under Advanced empty — the token in the URL is the credential.",
-                  "Add it, enable it in a new chat and ask “show my latest conversations”.",
+                  "Paste the URL, leave OAuth empty.",
+                  "Enable it in a chat.",
                 ]}
-                note="On Team and Enterprise an Owner adds it under Organization settings → Connectors first, and members then enable it."
               />
             </TabsContent>
 
@@ -455,42 +385,31 @@ export function McpConnectorCard({
               <Steps
                 items={[
                   "Settings → Connectors → Create.",
-                  "Name it, keep Connection on “Server URL”, and paste the URL.",
-                  "Leave Authentication on “No Auth”, tick the risk acknowledgement, then Create.",
+                  "Paste the URL as the Server URL.",
+                  "Authentication: No Auth, then Create.",
                 ]}
-                note="This endpoint speaks Streamable HTTP, the current MCP transport, and also opens an event stream on GET."
               />
             </TabsContent>
 
-            <TabsContent value="code" className="flex flex-col gap-2 pt-4">
+            <TabsContent value="code" className="pt-4">
               <Snippet
-                label="Run this once"
+                label="Run once"
                 code={`claude mcp add --transport http magic-agent ${
                   freshUrl ?? "<your connector URL>"
                 }`}
               />
-              <p className="text-xs text-muted-foreground">
-                Add <span className="font-mono">--scope user</span> to reach it
-                from every project rather than this one.
-              </p>
             </TabsContent>
 
             <TabsContent value="other" className="pt-4">
               <Steps
                 items={[
-                  "Add it as a remote MCP server over Streamable HTTP.",
-                  "No headers and no OAuth: the token in the path is the whole credential.",
-                  "POST carries the calls; GET opens the event stream.",
+                  "Add it as a remote MCP server (Streamable HTTP).",
+                  "No headers or OAuth needed.",
                 ]}
               />
             </TabsContent>
           </Tabs>
 
-          <p className="text-xs text-muted-foreground">
-            The assistant reaches this URL from its own servers, so it has to be
-            a public address — no connector will reach{" "}
-            <span className="font-mono">localhost</span>.
-          </p>
         </div>
 
         <Separator />

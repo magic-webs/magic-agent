@@ -48,6 +48,7 @@ import {
   requireWorkspace,
   threadAccess,
 } from "./lib/auth";
+import { friendlySendError } from "./lib/sendErrors";
 
 // ---------------------------------------------------------------------------
 // Dashboard reads
@@ -582,12 +583,34 @@ export const remove = mutation({
  * here, so `requireConversation` is a real check.
  */
 export const manualSendContext = internalQuery({
-  args: { conversationId: v.id("conversations") },
+  args: {
+    conversationId: v.id("conversations"),
+    targetMessageId: v.optional(v.id("messages")),
+  },
   handler: async (ctx, args) => {
     const access = await threadAccess(ctx, args.conversationId);
     if (!access) return null;
     const { conversation, principal } = access;
     const contact = await ctx.db.get("contacts", conversation.contactId);
+
+    const targetDoc = args.targetMessageId
+      ? await ctx.db.get("messages", args.targetMessageId)
+      : null;
+    const target =
+      targetDoc && targetDoc.conversationId === conversation._id
+        ? {
+            messageId: targetDoc._id,
+            text: quoteText(targetDoc),
+            fromCustomer: targetDoc.role === "user",
+            wamid:
+              (
+                await ctx.db
+                  .query("whatsappMessageIds")
+                  .withIndex("by_messageId", (q) => q.eq("messageId", targetDoc._id))
+                  .first()
+              )?.wamid ?? null,
+          }
+        : null;
 
     return {
       workspaceId: conversation.workspaceId,
@@ -601,6 +624,7 @@ export const manualSendContext = internalQuery({
       // A human agent signs as themselves, whatever the composer sent: on the
       // desk the sender is the login, not a pick from a list.
       memberId: principal.role === "member" ? principal.memberId : null,
+      target,
     };
   },
 });
@@ -617,6 +641,13 @@ export const recordManualReply = internalMutation({
     pauseMinutes: v.optional(v.number()),
     /** Present when it went out over WhatsApp, with the provider's id. */
     whatsapp: v.optional(v.object({ wamid: v.optional(v.string()) })),
+    replyTo: v.optional(
+      v.object({
+        messageId: v.id("messages"),
+        text: v.string(),
+        fromCustomer: v.boolean(),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -638,6 +669,7 @@ export const recordManualReply = internalMutation({
       agentId: args.agentId,
       sentByHuman: true,
       teamMemberId: sender?._id,
+      ...(args.replyTo ? { replyTo: args.replyTo } : {}),
       createdAt: now,
     });
     const delivery = await noteSent(ctx, messageId, args.whatsapp);
@@ -866,6 +898,8 @@ export const sendManualReply = action({
     teamMemberId: v.optional(v.id("teamMembers")),
     /** How long the reply keeps the agent quiet. An hour when absent. */
     pauseMinutes: v.optional(v.number()),
+    /** The message this one quotes. */
+    replyToMessageId: v.optional(v.id("messages")),
   },
   handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
     const body = args.text.trim().slice(0, WHATSAPP_TEXT_LIMIT);
@@ -873,6 +907,7 @@ export const sendManualReply = action({
 
     const context = await ctx.runQuery(internal.conversations.manualSendContext, {
       conversationId: args.conversationId,
+      targetMessageId: args.replyToMessageId,
     });
     if (!context) {
       return { ok: false, error: "This conversation is no longer available." };
@@ -898,12 +933,15 @@ export const sendManualReply = action({
             message: { kind: "text", body },
             source: "human",
             conversationId: args.conversationId,
+            ...(context.channelType === "whatsapp" && context.target?.wamid
+              ? { replyTo: context.target.wamid }
+              : {}),
           }
         );
       if (!sent.ok) {
         return {
           ok: false,
-          error: sent.error ?? "The channel rejected the message.",
+          error: friendlySendError(context.channelType, sent.error),
         };
       }
       if (context.channelType === "whatsapp") whatsapp = { wamid: sent.wamid };
@@ -920,9 +958,72 @@ export const sendManualReply = action({
       teamMemberId: context.memberId ?? args.teamMemberId,
       pauseMinutes: args.pauseMinutes,
       whatsapp,
+      ...(context.target
+        ? {
+            replyTo: {
+              messageId: context.target.messageId,
+              text: context.target.text,
+              fromCustomer: context.target.fromCustomer,
+            },
+          }
+        : {}),
     });
 
     return { ok: true };
+  },
+});
+
+/** Reacts to a message on WhatsApp as the business. An empty emoji removes it. */
+export const sendReaction = action({
+  args: {
+    conversationId: v.id("conversations"),
+    messageId: v.id("messages"),
+    emoji: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
+    const emoji = args.emoji.trim();
+    if (emoji.length > 16) return { ok: false, error: "Pick a single emoji." };
+
+    const context = await ctx.runQuery(internal.conversations.manualSendContext, {
+      conversationId: args.conversationId,
+      targetMessageId: args.messageId,
+    });
+    if (!context?.target) {
+      return { ok: false, error: "That message is no longer available." };
+    }
+    if (context.channelType !== "whatsapp" || !context.channelId || !context.externalId) {
+      return { ok: false, error: "Reactions can only be sent on WhatsApp." };
+    }
+    if (!context.target.wamid) {
+      return { ok: false, error: "This message cannot be reacted to on WhatsApp." };
+    }
+
+    const sent: { ok: boolean; error?: string } = await ctx.runAction(
+      internal.whatsapp.sendOutbound,
+      {
+        channelId: context.channelId,
+        to: context.externalId,
+        message: { kind: "reaction", messageId: context.target.wamid, emoji },
+        source: "human",
+        conversationId: args.conversationId,
+      }
+    );
+    if (!sent.ok) {
+      return { ok: false, error: friendlySendError("whatsapp", sent.error) };
+    }
+
+    await ctx.runMutation(internal.conversations.recordTeamReaction, {
+      messageId: args.messageId,
+      emoji,
+    });
+    return { ok: true };
+  },
+});
+
+export const recordTeamReaction = internalMutation({
+  args: { messageId: v.id("messages"), emoji: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, { teamReaction: args.emoji || undefined });
   },
 });
 

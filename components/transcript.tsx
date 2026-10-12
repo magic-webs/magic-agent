@@ -483,15 +483,16 @@ export function TranscriptView({
                 )}
               </BubbleContent>
             </Bubble>
-            {message.reaction ? (
+            {message.reaction || message.teamReaction ? (
               <span
                 className={cn(
                   "relative z-10 mx-2 -mt-3 w-fit rounded-full border bg-background px-1.5 py-0.5 text-sm leading-none shadow-xs",
                   mine ? "self-end" : "self-start"
                 )}
-                aria-label={`Reacted ${message.reaction}`}
+                aria-label={`Reacted ${[message.reaction, message.teamReaction].filter(Boolean).join(" ")}`}
               >
                 {message.reaction}
+                {message.teamReaction}
               </span>
             ) : null}
             {showFooter ? (

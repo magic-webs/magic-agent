@@ -16,6 +16,7 @@ import {
 } from "./lib/whatsappSend";
 import { categoryOf, type BillingSource } from "./lib/billing";
 import { providerError } from "./lib/panel";
+import { friendlySendError } from "./lib/sendErrors";
 import { transcribe as transcribeAudio } from "ai";
 import { aiGateway, TRANSCRIPTION_MODEL } from "./lib/gateway";
 import {
@@ -230,7 +231,7 @@ export const sendOutbound = internalAction({
       console.error("[whatsapp] outbound failed", result.error);
       await ctx.runMutation(internal.channels.touchInbound, {
         channelId: channel._id,
-        error: result.error,
+        error: friendlySendError("whatsapp", result.error),
       });
     }
     return result;
@@ -459,14 +460,14 @@ async function deliverReply(
       await ctx.runMutation(internal.deliveries.markSent, {
         messageId: result.replyMessageId,
         wamids: sent.wamid ? [sent.wamid] : [],
-        error: sent.ok ? undefined : (sent.error ?? "WhatsApp rejected the message."),
+        error: sent.ok ? undefined : friendlySendError("whatsapp", sent.error),
       });
     }
     if (!sent.ok) {
       console.error("[whatsapp] send failed", sent.error);
       await ctx.runMutation(internal.channels.touchInbound, {
         channelId: channel._id,
-        error: sent.error,
+        error: friendlySendError("whatsapp", sent.error),
       });
       break;
     }

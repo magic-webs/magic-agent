@@ -77,6 +77,7 @@ import type * as lib_publicUrl from "../lib/publicUrl.js";
 import type * as lib_razorpay from "../lib/razorpay.js";
 import type * as lib_records from "../lib/records.js";
 import type * as lib_regional from "../lib/regional.js";
+import type * as lib_sendErrors from "../lib/sendErrors.js";
 import type * as lib_shared from "../lib/shared.js";
 import type * as lib_toolSchema from "../lib/toolSchema.js";
 import type * as lib_usageDaily from "../lib/usageDaily.js";
@@ -202,6 +203,7 @@ declare const fullApi: ApiFromModules<{
   "lib/razorpay": typeof lib_razorpay;
   "lib/records": typeof lib_records;
   "lib/regional": typeof lib_regional;
+  "lib/sendErrors": typeof lib_sendErrors;
   "lib/shared": typeof lib_shared;
   "lib/toolSchema": typeof lib_toolSchema;
   "lib/usageDaily": typeof lib_usageDaily;

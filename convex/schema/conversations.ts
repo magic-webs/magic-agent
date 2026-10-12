@@ -220,6 +220,7 @@ export const conversationsTables = {
       })
     ),
     reaction: v.optional(v.string()),
+    teamReaction: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_conversation", ["conversationId"])

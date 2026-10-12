@@ -11,6 +11,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { randomKey } from "./lib/shared";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { providerError } from "./lib/panel";
+import { friendlySendError } from "./lib/sendErrors";
 import {
   INSTAGRAM_AUTHORIZE_URL,
   INSTAGRAM_GRAPH,
@@ -423,7 +424,7 @@ export const sendOutbound = internalAction({
       console.error("[instagram] outbound failed", result.error);
       await ctx.runMutation(internal.channels.touchInbound, {
         channelId: channel._id,
-        error: result.error,
+        error: friendlySendError("instagram", result.error),
       });
     }
     return result;
@@ -479,14 +480,14 @@ async function deliverReply(
     await ctx.runMutation(internal.deliveries.markSent, {
       messageId: result.replyMessageId,
       wamids: [],
-      error: sent.ok ? undefined : (sent.error ?? "Instagram rejected the message."),
+      error: sent.ok ? undefined : friendlySendError("instagram", sent.error),
     });
   }
   if (!sent.ok) {
     console.error("[instagram] send failed", sent.error);
     await ctx.runMutation(internal.channels.touchInbound, {
       channelId: channel._id,
-      error: sent.error,
+      error: friendlySendError("instagram", sent.error),
     });
   }
   return { handled: true, toolCalls: result.toolCalls };

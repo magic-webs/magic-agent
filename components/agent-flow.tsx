@@ -257,7 +257,6 @@ function AgentNode({ data }: NodeProps<Node<AgentData>>) {
             <AgentAvatar
               name={data.label}
               gender={data.gender}
-              greeter={router}
               size={40}
             />
             <span

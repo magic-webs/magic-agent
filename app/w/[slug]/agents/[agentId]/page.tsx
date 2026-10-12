@@ -494,7 +494,6 @@ export default function AgentConfigPage({
                   <AgentAvatar
                     name={draft.botName || draft.name}
                     gender={draft.gender}
-                    greeter={isRouter}
                     size={56}
                   />
                   <div className="flex flex-col gap-1.5">

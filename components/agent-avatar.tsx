@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * The agent faces, shared with the mobile app.
  *
- * Same six files and the same choosing rule as
+ * Same files and the same choosing rule as
  * magic-agent-app/src/components/agent-avatar.tsx, so an agent wears one face
  * across the dashboard and the app. They are rendered 3D busts on transparent
  * backgrounds, which is why they are cut out over a tinted circle rather than
@@ -15,19 +15,19 @@ const FEMALE = [
   "/images/3d-avatars/female-1.png",
   "/images/3d-avatars/female-2.png",
   "/images/3d-avatars/female-3.png",
+  "/images/3d-avatars/female-4.png",
+  "/images/3d-avatars/female-5.png",
 ] as const;
 
 const MALE = [
   "/images/3d-avatars/male-1.png",
   "/images/3d-avatars/male-2.png",
   "/images/3d-avatars/male-3.png",
+  "/images/3d-avatars/male-4.png",
 ] as const;
 
 /** Every face, for an agent whose record predates the gender field. */
 const EITHER = [...FEMALE, ...MALE] as const;
-
-/** male-1: the waving one. Kept for whoever greets first. */
-const GREETER = MALE[0];
 
 export type AgentGender = "male" | "female";
 
@@ -46,16 +46,14 @@ function hashOf(name: string): number {
  *
  * `gender` comes off the agent record and decides which set is drawn from;
  * within a set the choice is hashed on the bot name, so an agent keeps its face
- * across reloads. With no gender the hash runs over all six rather than
+ * across reloads. With no gender the hash runs over every face rather than
  * guessing from the name — name-to-gender inference is wrong often enough
  * across languages that a stable arbitrary face is the better failure.
  */
 export function agentAvatarSrc(
   name: string,
-  options: { gender?: AgentGender | null; greeter?: boolean } = {}
+  gender?: AgentGender | null
 ): string {
-  const { gender, greeter = false } = options;
-  if (greeter && gender !== "female") return GREETER;
   const set = gender === "female" ? FEMALE : gender === "male" ? MALE : EITHER;
   return set[hashOf(name) % set.length];
 }
@@ -73,17 +71,15 @@ const TINTS = [
 export function AgentAvatar({
   name,
   gender,
-  greeter = false,
   size = 56,
   className,
 }: {
   name: string;
   gender?: AgentGender | null;
-  greeter?: boolean;
   size?: number;
   className?: string;
 }) {
-  const src = agentAvatarSrc(name, { gender, greeter });
+  const src = agentAvatarSrc(name, gender);
   const tint = TINTS[hashOf(name) % TINTS.length];
 
   return (

@@ -424,7 +424,6 @@ export function AgentsStep() {
                   <AgentAvatar
                     name={frontDesk.botName}
                     gender={frontDesk.gender}
-                    greeter
                     size={36}
                   />
                   <div className="min-w-0 flex-1">

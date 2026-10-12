@@ -6,7 +6,7 @@ import { z } from "zod";
 import { workspaceArg } from "../args.mjs";
 import { api, call } from "../convex.mjs";
 import { findAgent } from "../lookup.mjs";
-import { handler, ok } from "../results.mjs";
+import { handler, money, ok } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
@@ -85,7 +85,6 @@ export function register(server) {
           email: detail.contact?.email ?? null,
           company: detail.contact?.company ?? null,
           remark: detail.contact?.remark ?? null,
-          remark: detail.contact?.remark ?? null,
         },
         arrivedAt: detail.agent?.botName ?? null,
         status: detail.conversation.status,
@@ -107,12 +106,53 @@ export function register(server) {
               return { error: message.text };
             }
             return {
+              id: message._id,
               role: message.role,
               text: message.text,
               at: new Date(message.createdAt).toISOString(),
             };
           }),
       });
+    })
+  );
+
+  server.registerTool(
+    "send_message",
+    {
+      title: "Send a message in a conversation",
+      description:
+        "Replies to the customer in an existing thread, exactly as a reply typed in the inbox: it goes out on the thread's own channel (WhatsApp, Instagram, or the web chat) and keeps the agent quiet for a while so it does not talk over you. WhatsApp only delivers a free-text message within 24 hours of the customer's last message — outside it the send is refused. Read the thread with read_conversation first.",
+      inputSchema: {
+        conversationId: z.string().describe("From list_conversations"),
+        text: z.string().min(1).describe("What the customer receives"),
+        replyToMessageId: z
+          .string()
+          .optional()
+          .describe("A message id from read_conversation, to quote it"),
+        pauseMinutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(1440)
+          .optional()
+          .describe("How long the agent stays quiet afterwards. Default 60"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    handler(async ({ conversationId, text, replyToMessageId, pauseMinutes }) => {
+      const result = await call.action(api.conversations.sendManualReply, {
+        conversationId,
+        text,
+        replyToMessageId,
+        pauseMinutes,
+      });
+      if (!result.ok) throw new Error(result.error ?? "The message was not sent.");
+      return ok({ sent: true, conversationId });
     })
   );
 
@@ -188,6 +228,29 @@ export function register(server) {
           createdAt: new Date(order.createdAt).toISOString(),
         }))
       );
+    })
+  );
+
+  server.registerTool(
+    "usage_summary",
+    {
+      title: "Token usage and cost",
+      description:
+        "What the workspace has spent on model calls, by day, agent and channel. Costs are exact where the model is in the price table and flagged when it is not.",
+      inputSchema: {
+        ...workspaceArg,
+        days: z.number().int().min(1).max(90).optional().describe("Default 30"),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    handler(async ({ workspace, days }) => {
+      const found = await resolveWorkspace(workspace);
+      const summary = await call.query(api.usage.workspaceSummary, {
+        workspaceId: found._id,
+        days: days ?? 30,
+        now: Date.now(),
+      });
+      return ok({ ...summary, totalCost: money(summary?.totalCostNanoUsd) });
     })
   );
 }

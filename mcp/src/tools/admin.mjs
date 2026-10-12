@@ -9,13 +9,12 @@
  */
 
 import { z } from "zod";
-import { kvArg, workspaceArg } from "../args.mjs";
+import { kvArg } from "../args.mjs";
 import { api, call, state } from "../convex.mjs";
-import { handler, money, ok } from "../results.mjs";
+import { handler, ok } from "../results.mjs";
 import {
   reachableWorkspaces,
   requireNamedWorkspace,
-  resolveWorkspace,
 } from "../workspaces.mjs";
 
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
@@ -238,29 +237,6 @@ export function register(server) {
         now: Date.now(),
       });
       return ok(summary);
-    })
-  );
-
-  server.registerTool(
-    "usage_summary",
-    {
-      title: "Token usage and cost",
-      description:
-        "What the workspace has spent on model calls, by day, agent and channel. Costs are exact where the model is in the price table and flagged when it is not.",
-      inputSchema: {
-        ...workspaceArg,
-        days: z.number().int().min(1).max(90).optional().describe("Default 30"),
-      },
-      annotations: { readOnlyHint: true },
-    },
-    handler(async ({ workspace, days }) => {
-      const found = await resolveWorkspace(workspace);
-      const summary = await call.query(api.usage.workspaceSummary, {
-        workspaceId: found._id,
-        days: days ?? 30,
-        now: Date.now(),
-      });
-      return ok({ ...summary, totalCost: money(summary?.totalCostNanoUsd) });
     })
   );
 }

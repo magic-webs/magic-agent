@@ -5,10 +5,16 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 /**
- * A server instance with every tool registered. One instance binds to exactly
- * one transport, so ask for a new one per client session.
+ * `full` registers every tool. `workspace` — a company's own connector — only
+ * the reads and send_message.
  */
-export function buildServer(): McpServer;
+export type McpScope = "full" | "workspace";
+
+/**
+ * A server instance with its scope's tools registered. One instance binds to
+ * exactly one transport, so ask for a new one per client session.
+ */
+export function buildServer(options?: { scope?: McpScope }): McpServer;
 
 export type McpTool = {
   name: string;
@@ -21,7 +27,7 @@ export type McpTool = {
 export type McpToolGroup = { title: string; admin: boolean; tools: McpTool[] };
 
 /** Every tool's name and description, grouped, without building a server. */
-export function toolCatalogue(): McpToolGroup[];
+export function toolCatalogue(scope?: McpScope): McpToolGroup[];
 
 /** Signs in to Convex and refreshes the access token. Throws if unconfigured. */
 export function authorize(): Promise<void>;

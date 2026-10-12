@@ -38,17 +38,48 @@ const GROUPS = [
   { title: "Platform administration", register: admin, admin: true },
 ];
 
-/** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
-export function registerAll(server) {
-  for (const group of GROUPS) group.register(server);
+const WORKSPACE_SENDS = new Set(["send_message"]);
+const PLATFORM_READS = new Set(["workspace_access_report", "platform_usage"]);
+
+/**
+ * A company's connector reads, and replies in its conversations — nothing it
+ * can configure, create or delete.
+ */
+function allowed(scope, name, config) {
+  if (scope !== "workspace") return true;
+  if (WORKSPACE_SENDS.has(name)) return true;
+  return config.annotations?.readOnlyHint === true && !PLATFORM_READS.has(name);
 }
 
-/** Every tool's name and description, grouped, without building a server. */
-export function toolCatalogue() {
+/**
+ * @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server
+ * @param {"full" | "workspace"} [scope]
+ */
+export function registerAll(server, scope = "full") {
+  const target =
+    scope === "full"
+      ? server
+      : {
+          registerTool(name, config, callback) {
+            if (allowed(scope, name, config)) {
+              server.registerTool(name, config, callback);
+            }
+          },
+        };
+  for (const group of GROUPS) group.register(target);
+}
+
+/**
+ * Every tool's name and description, grouped, without building a server.
+ *
+ * @param {"full" | "workspace"} [scope]
+ */
+export function toolCatalogue(scope = "full") {
   return GROUPS.map((group) => {
     const tools = [];
     group.register({
       registerTool(name, config) {
+        if (!allowed(scope, name, config)) return;
         tools.push({
           name,
           title: config.title ?? name,
@@ -59,5 +90,5 @@ export function toolCatalogue() {
       },
     });
     return { title: group.title, admin: group.admin === true, tools };
-  });
+  }).filter((group) => group.tools.length > 0);
 }

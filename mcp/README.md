@@ -25,8 +25,13 @@ suspending and deleting them.
 Over HTTP there is a second way in: a **connector token**, issued from the
 dashboard and carried in the URL path. It is exchanged for a session of the
 account it was issued to — an administrator's from the platform console, a
-company's from their workspace settings — so the sentence above still holds
-exactly. Only the hash is stored; rotating replaces it, revoking removes it.
+company's from their workspace settings. Only the hash is stored; rotating
+replaces it, revoking removes it.
+
+A company's connector token gets a narrower tool list than its sign-in: the
+read-only tools (less `workspace_access_report` and `platform_usage`) and
+`send_message`, nothing that creates, changes or deletes. See
+`allowed()` in `src/tools/index.mjs`.
 
 ## Configuration
 
@@ -315,8 +320,8 @@ the candidates.
 **Custom tools** — `list_custom_tools`, `create_custom_tool`,
 `update_custom_tool`, `delete_custom_tool`
 
-**Operations** — `list_conversations`, `read_conversation`, `list_contacts`,
-`list_orders`, `usage_summary`
+**Operations** — `list_conversations`, `read_conversation`, `send_message`,
+`list_contacts`, `list_orders`, `usage_summary`
 
 **Leads** — `list_lead_stages`, `seed_default_lead_stages`,
 `create_lead_stage`, `update_lead_stage`, `reorder_lead_stages`,
@@ -346,7 +351,8 @@ the candidates.
 
 Signed in as a workspace, the administration tools are still listed but fail
 with "Administrator access required" from the Convex guard — the same answer the
-dashboard gives.
+dashboard gives. Through a company's connector token they are not listed at
+all, and neither is anything else that writes.
 
 ### Notes on a few of them
 

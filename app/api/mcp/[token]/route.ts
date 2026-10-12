@@ -74,6 +74,7 @@ async function handle(
   // The env token is checked first and in constant time, so per-company tokens
   // have not made it guessable.
   let identity: Parameters<typeof runWithIdentity>[0] = null;
+  let scope: "full" | "workspace" = "full";
 
   if (!tokenMatches(token)) {
     // Verified at the door, not on the first tool call. Lazily, a stranger
@@ -87,6 +88,9 @@ async function handle(
     if (!session) return notFound();
     // Handed on so the server does not exchange the token a second time.
     identity = { kind: "session", session };
+    // A company's own connector reads its workspace and replies in its
+    // conversations; configuring it stays in the dashboard.
+    if (session.role === "workspace") scope = "workspace";
   }
 
   try {
@@ -104,7 +108,7 @@ async function handle(
     // access token, the workspace cache — is scoped to this callback, so a
     // warm instance serving two companies cannot mix them up.
     const response = await runWithIdentity(identity, async () => {
-      const server = buildServer();
+      const server = buildServer({ scope });
       await server.connect(transport);
       const result = await transport.handleRequest(request);
       // The instance is per-request, so it is closed once the response is

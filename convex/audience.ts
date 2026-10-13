@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
+import { stream } from "convex-helpers/server/stream";
 import {
   query,
   type MutationCtx,
@@ -9,11 +10,20 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
-import { categoryOf, isBuiltIn, measureAudience, normaliseTag } from "./lib/audience";
+import {
+  categoryOf,
+  isBuiltIn,
+  knownCategories,
+  measureAudience,
+  normaliseTag,
+  validityOf,
+} from "./lib/audience";
+import schema from "./schema";
 import { audienceSelection } from "./schema/marketing";
 
 const SIZE_SCAN_CAP = 5000;
 const MAX_BULK = 500;
+const PAGE_READ_BUDGET = 1000;
 
 async function requireAudience(ctx: QueryCtx, audienceId: Id<"audiences">) {
   const audience = await ctx.db.get("audiences", audienceId);
@@ -22,15 +32,28 @@ async function requireAudience(ctx: QueryCtx, audienceId: Id<"audiences">) {
   return audience;
 }
 
-function personOf(contact: Doc<"contacts">) {
+async function categoriesIn(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
+  const settings = await ctx.db
+    .query("marketingSettings")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .unique();
+  return knownCategories(settings);
+}
+
+function placeOf(contact: Doc<"contacts">, known: Set<string>) {
+  const category = categoryOf(contact, known);
+  return { category, automatic: category !== contact.category };
+}
+
+function personOf(contact: Doc<"contacts">, known: Set<string>) {
   return {
+    ...placeOf(contact, known),
     _id: contact._id,
     name: contact.name ?? null,
     phone: contact.externalId,
     email: contact.email ?? null,
     company: contact.company ?? null,
     birthday: contact.birthday ?? null,
-    category: categoryOf(contact),
     tags: contact.tags ?? [],
     source: contact.source ?? null,
     optedOutAt: contact.optedOutAt ?? null,
@@ -55,6 +78,7 @@ export const tags = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    const known = await categoriesIn(ctx, args.workspaceId);
     const contacts = await ctx.db
       .query("contacts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -65,7 +89,7 @@ export const tags = query({
     for (const contact of contacts) {
       if (contact.channelType !== "whatsapp") continue;
       for (const tag of contact.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-      const category = categoryOf(contact);
+      const { category } = placeOf(contact, known);
       categories.set(category, (categories.get(category) ?? 0) + 1);
     }
     return {
@@ -91,53 +115,61 @@ export const people = query({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    const known = await categoriesIn(ctx, args.workspaceId);
     const needle = args.search?.trim().toLowerCase() ?? "";
+    const digits = /^[\d\s()+.-]+$/.test(needle) ? needle.replace(/\D/g, "").replace(/^0+/, "") : "";
     const keep = (contact: Doc<"contacts"> | null): contact is Doc<"contacts"> => {
       if (!contact || contact.workspaceId !== args.workspaceId) return false;
       if (contact.channelType !== "whatsapp") return false;
-      if (args.category !== undefined && categoryOf(contact) !== args.category) return false;
+      if (args.category !== undefined && placeOf(contact, known).category !== args.category) return false;
       if (args.tag && !(contact.tags ?? []).includes(args.tag)) return false;
       if (args.subscription === "subscribed" && contact.optedOutAt) return false;
       if (args.subscription === "unsubscribed" && !contact.optedOutAt) return false;
-      if (
-        needle &&
-        ![contact.name, contact.externalId, contact.company, contact.email]
-          .filter(Boolean)
-          .some((field) => field!.toLowerCase().includes(needle))
-      ) {
-        return false;
+      if (needle) {
+        const inText = [contact.name, contact.company, contact.email].some((field) =>
+          field?.toLowerCase().includes(needle)
+        );
+        const inNumber =
+          digits !== "" &&
+          [contact.externalId, contact.phone].some((field) => field?.replace(/\D/g, "").includes(digits));
+        if (!inText && !inNumber) return false;
       }
       return true;
     };
+    const opts = {
+      ...args.paginationOpts,
+      maximumRowsRead: args.paginationOpts.maximumRowsRead ?? PAGE_READ_BUDGET,
+    };
+    const db = stream(ctx.db, schema);
 
     if (args.audienceId) {
       const audienceId = args.audienceId;
       await requireAudience(ctx, audienceId);
-      const page = await ctx.db
+      const result = await db
         .query("audienceMembers")
         .withIndex("by_audienceId_and_contactId", (q) => q.eq("audienceId", audienceId))
-        .paginate(args.paginationOpts);
-      const contacts = await Promise.all(
-        page.page.map((member) => ctx.db.get("contacts", member.contactId))
-      );
-      return { ...page, page: contacts.filter(keep).map(personOf) };
+        .map(async (member) => {
+          const contact = await ctx.db.get("contacts", member.contactId);
+          return keep(contact) ? contact : null;
+        })
+        .paginate(opts);
+      return { ...result, page: result.page.map((contact) => personOf(contact, known)) };
     }
 
-    const category = args.category && !isBuiltIn(args.category) ? args.category : undefined;
-    const page = category
-      ? await ctx.db
+    const category = args.category && known.has(args.category) ? args.category : undefined;
+    const contacts = category
+      ? db
           .query("contacts")
           .withIndex("by_workspace_and_category", (q) =>
             q.eq("workspaceId", args.workspaceId).eq("category", category)
           )
           .order("desc")
-          .paginate(args.paginationOpts)
-      : await ctx.db
+      : db
           .query("contacts")
           .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-          .order("desc")
-          .paginate(args.paginationOpts);
-    return { ...page, page: page.page.filter(keep).map(personOf) };
+          .order("desc");
+    const result = await contacts.filterWith(async (contact) => keep(contact)).paginate(opts);
+    return { ...result, page: result.page.map((contact) => personOf(contact, known)) };
   },
 });
 
@@ -164,6 +196,9 @@ export const create = mutation({
     await requireWorkspace(ctx, args.workspaceId);
     const name = args.name.trim().slice(0, 80);
     if (!name) throw new ConvexError("Give the audience a name.");
+    if ((args.contactIds?.length ?? 0) > MAX_BULK) {
+      throw new ConvexError(`Pick at most ${MAX_BULK} people.`);
+    }
     const now = Date.now();
     const audienceId = await ctx.db.insert("audiences", {
       workspaceId: args.workspaceId,
@@ -175,7 +210,7 @@ export const create = mutation({
       updatedAt: now,
     });
     if (args.contactIds?.length) {
-      await addMembers(ctx, audienceId, args.workspaceId, args.contactIds.slice(0, MAX_BULK));
+      await addMembers(ctx, audienceId, args.workspaceId, args.contactIds);
     }
     return audienceId;
   },
@@ -301,6 +336,10 @@ export const updatePeople = mutation({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     if (args.contactIds.length > MAX_BULK) throw new ConvexError(`Pick at most ${MAX_BULK} people.`);
+    if (args.category && !isBuiltIn(args.category)) {
+      const known = await categoriesIn(ctx, args.workspaceId);
+      if (!known.has(args.category)) throw new ConvexError("That category no longer exists.");
+    }
     const add = (args.addTags ?? []).map(normaliseTag).filter(Boolean);
     const drop = new Set((args.removeTags ?? []).map(normaliseTag));
     let updated = 0;
@@ -312,7 +351,12 @@ export const updatePeople = mutation({
         .slice(0, 30);
       await ctx.db.patch("contacts", contact._id, {
         tags,
-        ...(args.category !== undefined ? { category: args.category || undefined } : {}),
+        ...(args.category !== undefined
+          ? {
+              category:
+                args.category && args.category !== validityOf(contact.name) ? args.category : undefined,
+            }
+          : {}),
       });
       updated++;
     }

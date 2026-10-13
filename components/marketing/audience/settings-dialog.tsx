@@ -32,6 +32,36 @@ const CAP_OPTIONS = [
   })),
 ];
 
+function keysFor(categories: Category[], reserved: Category[]): string[] {
+  const taken = new Set([...reserved, ...categories].map((c) => c.key).filter(Boolean));
+  taken.add("unknown");
+  return categories.map((category) => {
+    if (category.key) return category.key;
+    const base =
+      category.label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 24) || "category";
+    let key = base;
+    for (let n = 2; taken.has(key); n++) key = `${base}_${n}`;
+    taken.add(key);
+    return key;
+  });
+}
+
+function problemsOf(categories: Category[], reserved: Category[]): Array<string | null> {
+  const labels = categories.map((c) => c.label.trim().toLowerCase());
+  const builtInLabels = reserved.map((c) => c.label.toLowerCase());
+  return categories.map((category, index) => {
+    const label = labels[index];
+    if (!label) return category.description.trim() ? "Give it a name." : null;
+    if (builtInLabels.includes(label)) return `${category.label.trim()} is built in. Pick another name.`;
+    if (labels.indexOf(label) !== index) return "Another category has this name.";
+    return null;
+  });
+}
+
 export function AudienceSettingsDialog({
   open,
   categories: initialCategories,
@@ -49,20 +79,23 @@ export function AudienceSettingsDialog({
   const [categories, setCategories] = useState(initialCategories.filter((c) => !isBuiltIn(c.key)));
   const [cap, setCap] = useState(String(initialCap));
   const [busy, setBusy] = useState(false);
+  const [tried, setTried] = useState(false);
+  const problems = problemsOf(categories, builtIn);
 
   const change = (index: number, patch: Partial<Category>) =>
     setCategories(categories.map((c, i) => (i === index ? { ...c, ...patch } : c)));
 
   const save = async () => {
+    setTried(true);
+    if (problems.some(Boolean)) return;
+    const kept = categories.filter((c) => c.label.trim() || c.description.trim());
+    const keys = keysFor(kept, builtIn);
     setBusy(true);
     try {
       await saveSettings({
         workspaceId: workspace._id,
         weeklyCap: Number(cap),
-        categories: categories.map((category) => ({
-          ...category,
-          key: category.key || category.label.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
-        })),
+        categories: kept.map((category, index) => ({ ...category, key: keys[index] })),
       });
       toast.add({ title: "Audience settings saved", type: "success" });
       onClose();
@@ -96,18 +129,24 @@ export function AudienceSettingsDialog({
           <div className="flex flex-col gap-2">
             <Label>Categories</Label>
             <p className="text-xs text-muted-foreground">
-              Every contact is Valid or Not valid to begin with. Add your own groups — customers,
+              Every contact is Complete or Incomplete to begin with. Add your own groups — customers,
               leads, suppliers — and describe each the way you would explain it to a new colleague:
-              the description is what Jev reads to sort valid contacts into them.
+              the description is what Agent Check reads to sort complete contacts into them. Removing
+              a category sends its people back to being sorted automatically.
             </p>
             {builtIn.map((category) => (
               <div
                 key={category.key}
-                className="flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/40 p-3"
+                className="flex flex-col gap-1 rounded-md border border-dashed border-border bg-muted/40 p-3 sm:flex-row sm:items-start sm:gap-3"
               >
-                <span className="w-44 shrink-0 text-sm font-medium">{category.label}</span>
+                <span className="flex items-center justify-between gap-2 text-sm font-medium sm:w-44 sm:shrink-0">
+                  {category.label}
+                  <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase sm:hidden">
+                    Built in
+                  </span>
+                </span>
                 <span className="flex-1 text-xs text-muted-foreground">{category.description}</span>
-                <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                <span className="hidden text-[10px] font-medium tracking-wide text-muted-foreground uppercase sm:inline">
                   Built in
                 </span>
               </div>
@@ -117,11 +156,18 @@ export function AudienceSettingsDialog({
                 key={index}
                 className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-[180px_minmax(0,1fr)_auto]"
               >
-                <Input
-                  value={category.label}
-                  placeholder="Name"
-                  onChange={(e) => change(index, { label: e.target.value })}
-                />
+                <div className="flex flex-col gap-1">
+                  <Input
+                    value={category.label}
+                    placeholder="Name"
+                    maxLength={40}
+                    aria-invalid={(tried || category.label.trim() !== "") && problems[index] ? true : undefined}
+                    onChange={(e) => change(index, { label: e.target.value })}
+                  />
+                  {(tried || category.label.trim() !== "") && problems[index] ? (
+                    <p className="text-xs text-destructive">{problems[index]}</p>
+                  ) : null}
+                </div>
                 <Textarea
                   rows={2}
                   value={category.description}

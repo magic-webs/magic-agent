@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useConvex } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
-import { downloadCsv } from "@/lib/csv";
+import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
 import { contactsToCsv } from "@/lib/contact-csv";
 import { useWorkspace } from "@/components/workspace-provider";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,15 @@ export function ExportContactsButton() {
         return;
       }
       const day = new Date().toISOString().slice(0, 10);
-      downloadCsv(`${workspace.slug}-contacts-${day}.csv`, contactsToCsv(contacts));
+      const [header, ...lines] = parseCsv(contactsToCsv(contacts));
+      const table = [
+        [...header, "unsubscribed"],
+        ...lines.map((line, index) => {
+          const optedOutAt = contacts[index].optedOutAt;
+          return [...line, optedOutAt ? new Date(optedOutAt).toISOString().slice(0, 10) : ""];
+        }),
+      ];
+      downloadCsv(`${workspace.slug}-contacts-${day}.csv`, toCsv(table));
       toast.add({
         title: `${contacts.length} ${contacts.length === 1 ? "contact" : "contacts"} exported`,
         type: "success",
@@ -68,7 +76,7 @@ export function ExportContactsButton() {
 
   return (
     <Button variant="outline" onClick={() => void run()} disabled={busy}>
-      {busy ? <Spinner /> : <DownloadSimpleIcon />} Export CSV
+      {busy ? <Spinner /> : <DownloadSimpleIcon />} Export all
     </Button>
   );
 }

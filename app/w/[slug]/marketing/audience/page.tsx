@@ -25,6 +25,7 @@ export default function MarketingAudiencePage() {
         weeklyCap={overview.weeklyCap}
         reachable={overview.audience.whatsapp}
         optedOut={overview.audience.optedOut}
+        capped={overview.audience.capped}
         onAddByHand={() => {
           setAdding((n) => n + 1);
           setAddOpen(true);

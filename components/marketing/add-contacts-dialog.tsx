@@ -99,6 +99,12 @@ export function AddContactsDialog({
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [invalid, setInvalid] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{
+    from: number;
+    added: number;
+    updated: number;
+    invalid: string[];
+  } | null>(null);
 
   const rows: ContactRow[] =
     mode === "one"
@@ -114,6 +120,7 @@ export function AddContactsDialog({
 
   const readFile = async (file: File | undefined) => {
     setInvalid([]);
+    setProgress(null);
     if (!file) {
       setCsv(null);
       return;
@@ -132,11 +139,13 @@ export function AddContactsDialog({
 
   const submit = async () => {
     setBusy(true);
+    const result = progress
+      ? { ...progress, invalid: [...progress.invalid] }
+      : { from: 0, added: 0, updated: 0, invalid: [] as string[] };
     try {
       // In batches, so a file of a few thousand goes through as several
       // calls rather than one the server refuses.
-      const result = { added: 0, updated: 0, invalid: [] as string[] };
-      for (let start = 0; start < rows.length; start += BATCH) {
+      for (let start = result.from; start < rows.length; start += BATCH) {
         const batch = await addMany({
           workspaceId: workspace._id,
           countryCode: countryCode.trim() || undefined,
@@ -151,7 +160,9 @@ export function AddContactsDialog({
         result.added += batch.added;
         result.updated += batch.updated;
         result.invalid.push(...batch.invalid);
+        result.from = Math.min(start + BATCH, rows.length);
       }
+      setProgress(null);
       const parts = [
         result.added ? `${result.added} added` : null,
         result.updated ? `${result.updated} already on file` : null,
@@ -178,9 +189,13 @@ export function AddContactsDialog({
         onClose();
       }
     } catch (error) {
+      if (result.from > 0) setProgress(result);
       toast.add({
-        title: "Could not add them",
-        description: friendlyError(error),
+        title: result.from > 0 ? `Stopped after ${result.from} of ${rows.length}` : "Could not add them",
+        description:
+          result.from > 0
+            ? `${result.added} added and ${result.updated} already on file before it stopped. Add again to send the remaining ${rows.length - result.from}. ${friendlyError(error)}`
+            : friendlyError(error),
         type: "error",
       });
     } finally {
@@ -207,6 +222,7 @@ export function AddContactsDialog({
               if (next) {
                 setMode(next);
                 setInvalid([]);
+                setProgress(null);
               }
             }}
             variant="outline"
@@ -226,7 +242,10 @@ export function AddContactsDialog({
                   value={name}
                   autoFocus
                   placeholder="Asha Rao"
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                  setName(event.target.value);
+                  setProgress(null);
+                }}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -236,7 +255,10 @@ export function AddContactsDialog({
                   type="tel"
                   value={phone}
                   placeholder="98765 43210"
-                  onChange={(event) => setPhone(event.target.value)}
+                  onChange={(event) => {
+                  setPhone(event.target.value);
+                  setProgress(null);
+                }}
                 />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -246,7 +268,10 @@ export function AddContactsDialog({
                   value={birthday}
                   placeholder="Optional — 25/12 or 25 December"
                   aria-invalid={birthdayInvalid || undefined}
-                  onChange={(event) => setBirthday(event.target.value)}
+                  onChange={(event) => {
+                  setBirthday(event.target.value);
+                  setProgress(null);
+                }}
                 />
                 {birthdayInvalid ? (
                   <p className="text-xs text-destructive">
@@ -265,7 +290,10 @@ export function AddContactsDialog({
                 autoFocus
                 className="font-mono text-xs"
                 placeholder={"Asha Rao, 98765 43210, 25/12\nVikram, +91 91234 56789\n98111 22233"}
-                onChange={(event) => setList(event.target.value)}
+                onChange={(event) => {
+                  setList(event.target.value);
+                  setProgress(null);
+                }}
               />
               <p className="text-xs text-muted-foreground">
                 Name, number and birthday, separated by commas or pasted straight from a
@@ -351,7 +379,10 @@ export function AddContactsDialog({
               value={countryCode}
               inputMode="numeric"
               maxLength={4}
-              onChange={(event) => setCountryCode(event.target.value.replace(/\D/g, ""))}
+              onChange={(event) => {
+                setCountryCode(event.target.value.replace(/\D/g, ""));
+                setProgress(null);
+              }}
             />
             <p className="text-xs text-muted-foreground">
               For numbers written without one.
@@ -390,7 +421,11 @@ export function AddContactsDialog({
             disabled={busy || !consent || rows.length === 0 || birthdayInvalid}
           >
             {busy ? <Spinner /> : <UserPlusIcon />}
-            {rows.length > 1 ? `Add ${rows.length} people` : "Add"}
+            {progress
+              ? `Add the remaining ${rows.length - progress.from}`
+              : rows.length > 1
+                ? `Add ${rows.length} people`
+                : "Add"}
           </Button>
         </DialogFooter>
       </DialogContent>

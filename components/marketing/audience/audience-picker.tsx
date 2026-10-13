@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -71,25 +72,38 @@ export function AudiencePicker({
   value,
   onChange,
   categories,
+  onValidChange,
 }: {
   value: AudienceChoice;
   onChange: (next: AudienceChoice) => void;
   categories: Category[];
+  onValidChange?: (valid: boolean) => void;
 }) {
   const workspace = useWorkspace();
   const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
   const summary = useQuery(api.audience.tags, { workspaceId: workspace._id });
-  const everyone = isEveryone(value);
+  const [mode, setMode] = useState<"everyone" | "some">(isEveryone(value) ? "everyone" : "some");
+  const everyone = mode === "everyone";
+  const nobody = !everyone && isEveryone(value);
+
+  const change = (next: AudienceChoice, nextMode = mode) => {
+    onChange(next);
+    onValidChange?.(nextMode === "everyone" || !isEveryone(next));
+  };
 
   return (
     <div className="flex flex-col gap-3">
       <ToggleGroup
         variant="outline"
-        value={[everyone ? "everyone" : "some"]}
+        value={[mode]}
         onValueChange={(next) => {
-          if (next[0] === "everyone") onChange({ ...EVERYONE, excludeAudienceIds: value.excludeAudienceIds });
-          if (next[0] === "some" && everyone && categories[0]) {
-            onChange({ ...value, categories: [categories[0].key] });
+          if (next[0] === "everyone") {
+            setMode("everyone");
+            change({ ...EVERYONE, excludeAudienceIds: value.excludeAudienceIds }, "everyone");
+          }
+          if (next[0] === "some" && everyone) {
+            setMode("some");
+            change(categories[0] ? { ...value, categories: [categories[0].key] } : value, "some");
           }
         }}
       >
@@ -107,7 +121,7 @@ export function AudiencePicker({
                   key={category.key}
                   active={value.categories.includes(category.key)}
                   count={summary?.categories[category.key]}
-                  onClick={() => onChange({ ...value, categories: toggle(value.categories, category.key) })}
+                  onClick={() => change({ ...value, categories: toggle(value.categories, category.key) })}
                 >
                   {category.label}
                 </Chip>
@@ -124,7 +138,7 @@ export function AudiencePicker({
                     active={value.audienceIds.includes(audience._id)}
                     count={audience.memberCount}
                     onClick={() =>
-                      onChange({
+                      change({
                         ...value,
                         audienceIds: toggle(value.audienceIds, audience._id),
                         excludeAudienceIds: value.excludeAudienceIds.filter((id) => id !== audience._id),
@@ -146,7 +160,7 @@ export function AudiencePicker({
                     key={row.tag}
                     active={value.tags.includes(row.tag)}
                     count={row.count}
-                    onClick={() => onChange({ ...value, tags: toggle(value.tags, row.tag) })}
+                    onClick={() => change({ ...value, tags: toggle(value.tags, row.tag) })}
                   >
                     {row.tag}
                   </Chip>
@@ -154,9 +168,15 @@ export function AudiencePicker({
               </div>
             </div>
           ) : null}
-          <p className="text-xs text-muted-foreground">
-            Anyone matching at least one choice is included.
-          </p>
+          {nobody ? (
+            <p className="text-xs text-destructive">
+              Pick at least one category, list or tag, or switch to everyone subscribed.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Anyone matching at least one choice is included.
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -172,7 +192,7 @@ export function AudiencePicker({
                   active={false}
                   excluded={value.excludeAudienceIds.includes(audience._id)}
                   onClick={() =>
-                    onChange({
+                    change({
                       ...value,
                       excludeAudienceIds: toggle(value.excludeAudienceIds, audience._id),
                     })
@@ -195,7 +215,10 @@ export function AudienceCount({ value }: { value: AudienceChoice }) {
   if (!size) return <Spinner />;
   return (
     <span className="flex flex-wrap items-center gap-2 text-sm">
-      <Badge>{plural(size.reachable, "person", "people")}{size.partial ? "+" : ""}</Badge>
+      <Badge>
+        {size.partial ? "About " : ""}
+        {plural(size.reachable, "person", "people")}
+      </Badge>
       {size.optedOut ? (
         <span className="text-xs text-muted-foreground">{size.optedOut} unsubscribed left out</span>
       ) : null}

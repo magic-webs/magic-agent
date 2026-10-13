@@ -6,11 +6,13 @@ import {
 import { mutation } from "./functions";
 import { requireContact, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
-import { normaliseEmail, normalisePhone } from "./lib/notifications";
+import { normaliseEmail } from "./lib/notifications";
+import { checkPhone } from "./lib/contactClean";
 import { refreshContactSearch } from "./lib/inbox";
 
 /** The most people one paste may add. */
 const MAX_ADD = 500;
+const LIST_LIMIT = 1000;
 
 /**
  * WhatsApp contacts typed in or pasted on the Marketing page, so greetings
@@ -53,7 +55,7 @@ export const addMany = mutation({
     const seen = new Set<string>();
 
     for (const row of args.contacts) {
-      const digits = normalisePhone(row.phone, args.countryCode);
+      const { digits } = checkPhone(row.phone, args.countryCode);
       if (!digits) {
         invalid.push(row.phone.trim() || "(empty)");
         continue;
@@ -75,7 +77,7 @@ export const addMany = mutation({
         .withIndex("by_workspace_external", (q) =>
           q.eq("workspaceId", args.workspaceId).eq("externalId", digits)
         )
-        .unique();
+        .first();
       if (existing) {
         const patch: {
           name?: string;
@@ -147,6 +149,7 @@ export const exportPage = query({
           birthday: contact.birthday ?? null,
           email: contact.email ?? null,
           company: contact.company ?? null,
+          optedOutAt: contact.optedOutAt ?? null,
         })),
     };
   },
@@ -160,14 +163,14 @@ export const listByWorkspace = query({
       .query("contacts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
-      .collect();
+      .take(LIST_LIMIT);
 
     // One lookup of the agent roster rather than one per contact: a workspace
     // has a handful of agents and potentially thousands of contacts.
     const agents = await ctx.db
       .query("agents")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
+      .take(200);
     const botNames = new Map(agents.map((agent) => [agent._id as string, agent.botName]));
 
     // The pipeline stages, so a contact's row can say how far along the
@@ -175,7 +178,7 @@ export const listByWorkspace = query({
     const stages = await ctx.db
       .query("leadStages")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
+      .take(200);
     const stageById = new Map(
       stages.map((stage) => [stage._id as string, stage])
     );
@@ -189,7 +192,8 @@ export const listByWorkspace = query({
     const filed = await ctx.db
       .query("records")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
+      .order("desc")
+      .take(LIST_LIMIT * 5);
 
     /** The latest record a contact has in one book, and how many in total. */
     type BookCell = {
@@ -228,7 +232,7 @@ export const listByWorkspace = query({
       const conversations = await ctx.db
         .query("conversations")
         .withIndex("by_contact_agent", (q) => q.eq("contactId", contact._id))
-        .collect();
+        .take(20);
       const latest = conversations.reduce<typeof conversations[number] | null>(
         (best, row) => (!best || row.lastMessageAt > best.lastMessageAt ? row : best),
         null

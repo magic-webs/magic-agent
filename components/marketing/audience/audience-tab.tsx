@@ -1,19 +1,30 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex-helpers/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { ExportContactsButton } from "@/components/marketing/export-contacts-button";
 import { SelectField } from "@/components/select-field";
 import { TableSkeleton } from "@/components/skeletons";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -43,7 +54,16 @@ import {
 } from "@phosphor-icons/react";
 import { PersonDialog, type Person } from "./person-dialog";
 import { AudienceSettingsDialog } from "./settings-dialog";
-import { categoryLabel, categoryTone, fail, formatPhone, plural, type Category } from "./shared";
+import {
+  categoryDot,
+  categoryLabel,
+  categoryTone,
+  countText,
+  fail,
+  formatPhone,
+  plural,
+  type Category,
+} from "./shared";
 
 type View =
   | { kind: "all" }
@@ -59,12 +79,23 @@ const IMPORT_STATUS: Record<string, string> = {
   saved: "Saved",
 };
 
+const MAX_SELECTED = 500;
+const PAGE_SIZE = 50;
+const CONFIRM_INCOMPLETE_AT = 10;
+const AUTO = "__auto";
+
+function viewKey(view: View): string {
+  if (view.kind === "category") return `category:${view.key}`;
+  if (view.kind === "audience") return `audience:${view.id}`;
+  return view.kind;
+}
 
 export function AudienceTab({
   categories,
   weeklyCap,
   reachable,
   optedOut,
+  capped,
   onAddByHand,
   birthdays,
 }: {
@@ -72,32 +103,44 @@ export function AudienceTab({
   weeklyCap: number;
   reachable: number;
   optedOut: number;
+  capped: boolean;
   onAddByHand: () => void;
   birthdays: ReactNode;
 }) {
   const workspace = useWorkspace();
   const [view, setView] = useState<View>({ kind: "all" });
+  const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [tag, setTag] = useState("");
   const [selected, setSelected] = useState<Set<Id<"contacts">>>(new Set());
   const [person, setPerson] = useState<Person | null>(null);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [deleting, setDeleting] = useState(false);
+  const [pendingMove, setPendingMove] = useState<string | null>(null);
   const importBase = `/w/${workspace.slug}/marketing/audience/import`;
   const [settingsOpen, setSettingsOpen] = useState(0);
 
   const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
   const imports = useQuery(api.audienceImports.list, { workspaceId: workspace._id });
   const summary = useQuery(api.audience.tags, { workspaceId: workspace._id });
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchDraft.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchDraft]);
+
   const people = usePaginatedQuery(
     api.audience.people,
     {
       workspaceId: workspace._id,
-      search: search.trim() || undefined,
+      search: search || undefined,
       tag: tag || undefined,
       ...(view.kind === "category" ? { category: view.key } : {}),
       ...(view.kind === "audience" ? { audienceId: view.id } : {}),
       ...(view.kind === "unsubscribed" ? { subscription: "unsubscribed" as const } : {}),
     },
-    { initialNumItems: 50 }
+    { initialNumItems: PAGE_SIZE }
   );
 
   const updatePeople = useMutation(api.audience.updatePeople);
@@ -110,20 +153,73 @@ export function AudienceTab({
     setView(next);
     setSelected(new Set());
   };
+  const chooseKey = (key: string) => {
+    if (key === "all" || key === "unsubscribed") return choose({ kind: key });
+    if (key.startsWith("category:")) return choose({ kind: "category", key: key.slice(9) });
+    const audience = audiences?.find((row) => `audience:${row._id}` === key);
+    if (audience) choose({ kind: "audience", id: audience._id, name: audience.name });
+  };
+  const pick = (next: Set<Id<"contacts">>) => {
+    if (next.size > MAX_SELECTED) {
+      toast.add({
+        title: `Pick up to ${MAX_SELECTED} at a time`,
+        description: `The first ${MAX_SELECTED} are selected. Act on them, then pick the rest.`,
+      });
+      setSelected(new Set([...next].slice(0, MAX_SELECTED)));
+      return;
+    }
+    setSelected(next);
+  };
   const ids = [...selected];
   const bulk = async (task: () => Promise<unknown>, done: string) => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
     try {
       await task();
       toast.add({ title: done, type: "success" });
       setSelected(new Set());
+      return true;
     } catch (error) {
       fail("Could not do that", error);
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   };
+  const move = (category: string) =>
+    void bulk(
+      () => updatePeople({ workspaceId: workspace._id, contactIds: ids, category }),
+      category
+        ? `Moved ${plural(ids.length, "contact")}`
+        : `${plural(ids.length, "contact")} sorted automatically`
+    );
 
   const pending = (imports ?? []).filter((row) => row.status !== "saved");
   const rows = people.results;
   const allChecked = rows.length > 0 && rows.every((row) => selected.has(row._id));
+  const filtered = Boolean(search || tag) || view.kind !== "all";
+  const more = people.status === "CanLoadMore" || people.status === "LoadingMore";
+  const categoryCount = (key: string) =>
+    summary?.categories[key] !== undefined
+      ? countText(summary.categories[key], summary.capped)
+      : undefined;
+  const viewOptions = [
+    { value: "all", label: "All contacts" },
+    { value: "unsubscribed", label: `Unsubscribed (${countText(optedOut, capped)})` },
+    ...categories.map((category) => {
+      const count = categoryCount(category.key);
+      return {
+        value: `category:${category.key}`,
+        label: count ? `${category.label} (${count})` : category.label,
+      };
+    }),
+    ...(audiences ?? []).map((audience) => ({
+      value: `audience:${audience._id}`,
+      label: `${audience.name} (${audience.memberCount.toLocaleString()})`,
+    })),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -132,7 +228,7 @@ export function AudienceTab({
           <h2 className="text-lg font-semibold">Audience</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
             Everyone your campaigns and events can reach. Import contacts from a CSV and they are
-            cleaned up and checked by Jev, then reviewed by you before anyone is added.
+            cleaned up and checked by Agent Check, then reviewed by you before anyone is added.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -150,10 +246,13 @@ export function AudienceTab({
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label="Can be messaged" value={reachable} />
-        <Tile label="Unsubscribed" value={optedOut} />
-        <Tile label="Lists" value={audiences?.length ?? 0} />
-        <Tile label="Valid contacts" value={summary?.categories.valid ?? 0} />
+        <Tile label="Can be messaged" value={countText(reachable, capped)} />
+        <Tile label="Unsubscribed" value={countText(optedOut, capped)} />
+        <Tile label="Lists" value={countText(audiences?.length ?? 0, false)} />
+        <Tile
+          label="Complete contacts"
+          value={countText(summary?.categories.valid ?? 0, summary?.capped)}
+        />
       </div>
 
       {pending.length > 0 ? (
@@ -177,7 +276,14 @@ export function AudienceTab({
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <nav className="flex flex-col gap-3">
+        <SelectField
+          aria-label="Show"
+          className="w-full lg:hidden"
+          value={viewKey(view)}
+          onValueChange={chooseKey}
+          options={viewOptions}
+        />
+        <nav className="hidden flex-col gap-3 lg:flex">
           <RailGroup title="Everyone">
             <RailItem active={view.kind === "all"} onClick={() => choose({ kind: "all" })} icon={<UsersThreeIcon />}>
               All contacts
@@ -186,7 +292,7 @@ export function AudienceTab({
               active={view.kind === "unsubscribed"}
               onClick={() => choose({ kind: "unsubscribed" })}
               icon={<BellSlashIcon />}
-              count={optedOut}
+              count={countText(optedOut, capped)}
             >
               Unsubscribed
             </RailItem>
@@ -197,8 +303,8 @@ export function AudienceTab({
                 key={category.key}
                 active={view.kind === "category" && view.key === category.key}
                 onClick={() => choose({ kind: "category", key: category.key })}
-                icon={<span className={`size-2.5 rounded-full ${categoryTone(categories, category.key).split(" ")[0]}`} />}
-                count={summary?.categories[category.key]}
+                icon={<span className={`size-2.5 rounded-full ${categoryDot(categories, category.key)}`} />}
+                count={categoryCount(category.key)}
               >
                 {category.label}
               </RailItem>
@@ -218,7 +324,7 @@ export function AudienceTab({
                   active={view.kind === "audience" && view.id === audience._id}
                   onClick={() => choose({ kind: "audience", id: audience._id, name: audience.name })}
                   icon={<ListBulletsIcon />}
-                  count={audience.memberCount}
+                  count={audience.memberCount.toLocaleString()}
                 >
                   {audience.name}
                 </RailItem>
@@ -232,10 +338,14 @@ export function AudienceTab({
             <div className="relative min-w-0 flex-1 sm:max-w-72">
               <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                value={search}
+                value={searchDraft}
                 placeholder="Search name, number, company"
+                aria-label="Search contacts"
                 className="pl-8"
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearchDraft(event.target.value);
+                  setSelected(new Set());
+                }}
               />
             </div>
             <SelectField
@@ -243,7 +353,10 @@ export function AudienceTab({
               className="w-44"
               value={tag}
               placeholder="Any tag"
-              onValueChange={setTag}
+              onValueChange={(next) => {
+                setTag(next);
+                setSelected(new Set());
+              }}
               options={[
                 { value: "", label: "Any tag" },
                 ...(summary?.tags ?? []).map((row) => ({ value: row.tag, label: `${row.tag} (${row.count})` })),
@@ -254,12 +367,8 @@ export function AudienceTab({
                 variant="ghost"
                 size="sm"
                 className="ml-auto text-destructive"
-                onClick={() => {
-                  if (!confirm(`Delete the list “${view.name}”? The contacts stay.`)) return;
-                  void bulk(() => removeAudience({ audienceId: view.id }), "List deleted").then(() =>
-                    choose({ kind: "all" })
-                  );
-                }}
+                disabled={busy}
+                onClick={() => setDeleting(true)}
               >
                 <TrashIcon /> Delete list
               </Button>
@@ -269,14 +378,13 @@ export function AudienceTab({
           {selected.size > 0 ? (
             <BulkBar
               count={selected.size}
+              busy={busy}
               categories={categories}
               inList={view.kind === "audience"}
-              onCategory={(category) =>
-                void bulk(
-                  () => updatePeople({ workspaceId: workspace._id, contactIds: ids, category }),
-                  `Moved ${plural(ids.length, "contact")}`
-                )
-              }
+              onCategory={(category) => {
+                if (category === "invalid" && ids.length >= CONFIRM_INCOMPLETE_AT) setPendingMove(category);
+                else move(category);
+              }}
               onTag={(value) =>
                 void bulk(
                   () => updatePeople({ workspaceId: workspace._id, contactIds: ids, addTags: [value] }),
@@ -304,17 +412,38 @@ export function AudienceTab({
 
           {people.status === "LoadingFirstPage" ? (
             <TableSkeleton rows={6} columns={4} />
+          ) : rows.length === 0 && more ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <MagnifyingGlassIcon />
+                </EmptyMedia>
+                <EmptyTitle>No matches yet</EmptyTitle>
+                <EmptyDescription>Only part of your contacts has been checked so far.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  variant="outline"
+                  disabled={people.status === "LoadingMore"}
+                  onClick={() => people.loadMore(PAGE_SIZE)}
+                >
+                  {people.status === "LoadingMore" ? <Spinner /> : null} Keep looking
+                </Button>
+              </EmptyContent>
+            </Empty>
           ) : rows.length === 0 ? (
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <UsersThreeIcon />
                 </EmptyMedia>
-                <EmptyTitle>{search || tag ? "Nobody matches" : "Nobody here yet"}</EmptyTitle>
+                <EmptyTitle>{filtered ? "Nobody matches" : "Nobody here yet"}</EmptyTitle>
                 <EmptyDescription>
                   {search || tag
                     ? "Try another search or tag."
-                    : "Bring in a list, or wait for people to message you on WhatsApp."}
+                    : filtered
+                      ? "Nobody is in this view yet."
+                      : "Bring in a list, or wait for people to message you on WhatsApp."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -325,10 +454,11 @@ export function AudienceTab({
                   <TableRow>
                     <TableHead className="w-8">
                       <Checkbox
-                        aria-label="Select all"
+                        aria-label={`Select these ${rows.length}`}
+                        title={`Select these ${rows.length}`}
                         checked={allChecked}
                         onCheckedChange={(next) =>
-                          setSelected(next ? new Set(rows.map((row) => row._id)) : new Set())
+                          pick(next ? new Set([...selected, ...rows.map((row) => row._id)]) : new Set())
                         }
                       />
                     </TableHead>
@@ -349,16 +479,25 @@ export function AudienceTab({
                             const copy = new Set(selected);
                             if (next) copy.add(row._id);
                             else copy.delete(row._id);
-                            setSelected(copy);
+                            pick(copy);
                           }}
                         />
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium">{row.name ?? "No name"}</p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          {formatPhone(row.phone)}
-                          {row.company ? ` · ${row.company}` : ""}
-                        </p>
+                        <button
+                          type="button"
+                          className="block rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPerson(row);
+                          }}
+                        >
+                          <span className="block font-medium">{row.name ?? "No name"}</span>
+                          <span className="block font-mono text-xs text-muted-foreground">
+                            {formatPhone(row.phone)}
+                            {row.company ? ` · ${row.company}` : ""}
+                          </span>
+                        </button>
                       </TableCell>
                       <TableCell>
                         <span className={`rounded px-1.5 py-0.5 text-xs ${categoryTone(categories, row.category)}`}>
@@ -390,9 +529,14 @@ export function AudienceTab({
                   ))}
                 </TableBody>
               </Table>
-              {people.status === "CanLoadMore" || people.status === "LoadingMore" ? (
+              {more ? (
                 <div className="flex justify-center border-t border-border p-2">
-                  <Button size="sm" variant="ghost" disabled={people.status === "LoadingMore"} onClick={() => people.loadMore(50)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={people.status === "LoadingMore"}
+                    onClick={() => people.loadMore(PAGE_SIZE)}
+                  >
                     {people.status === "LoadingMore" ? <Spinner /> : null} Show more
                   </Button>
                 </div>
@@ -407,6 +551,55 @@ export function AudienceTab({
       {person ? (
         <PersonDialog key={person._id} person={person} categories={categories} onClose={() => setPerson(null)} />
       ) : null}
+      <AlertDialog open={deleting} onOpenChange={(next) => !busy && setDeleting(next)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete the list “{view.kind === "audience" ? view.name : ""}”?
+            </AlertDialogTitle>
+            <AlertDialogDescription>The contacts stay. Only the list goes.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => {
+                if (view.kind !== "audience") return;
+                const audienceId = view.id;
+                void bulk(() => removeAudience({ audienceId }), "List deleted").then((ok) => {
+                  setDeleting(false);
+                  if (ok) choose({ kind: "all" });
+                });
+              }}
+            >
+              {busy ? <Spinner /> : <TrashIcon />} Delete list
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={pendingMove !== null} onOpenChange={(next) => !next && setPendingMove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move {plural(selected.size, "person", "people")} to Incomplete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They stay there even after their details are fixed, until you set them to sort
+              automatically again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => {
+                if (pendingMove !== null) move(pendingMove);
+                setPendingMove(null);
+              }}
+            >
+              Move them
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {settingsOpen ? (
         <AudienceSettingsDialog
           key={settingsOpen}
@@ -420,11 +613,11 @@ export function AudienceTab({
   );
 }
 
-function Tile({ label, value }: { label: string; value: number }) {
+function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums">{value.toLocaleString()}</p>
+      <p className="text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -448,7 +641,7 @@ function RailItem({
   active: boolean;
   onClick: () => void;
   icon: ReactNode;
-  count?: number;
+  count?: string;
   children: ReactNode;
 }) {
   return (
@@ -462,7 +655,7 @@ function RailItem({
       <span className="flex size-4 items-center justify-center text-muted-foreground">{icon}</span>
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {count !== undefined ? (
-        <span className="text-xs text-muted-foreground tabular-nums">{count.toLocaleString()}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
       ) : null}
     </button>
   );
@@ -470,6 +663,7 @@ function RailItem({
 
 function BulkBar({
   count,
+  busy,
   categories,
   audiences,
   inList,
@@ -481,6 +675,7 @@ function BulkBar({
   onClear,
 }: {
   count: number;
+  busy: boolean;
   categories: Category[];
   audiences: Array<{ value: string; label: string }>;
   inList: boolean;
@@ -495,26 +690,34 @@ function BulkBar({
   const [listName, setListName] = useState("");
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-2 text-sm">
-      <span className="px-1 font-medium">{plural(count, "selected", "selected")}</span>
+      <span className="flex items-center gap-1.5 px-1 font-medium">
+        {busy ? <Spinner /> : null}
+        {plural(count, "selected", "selected")}
+      </span>
       <SelectField
         size="sm"
         aria-label="Move to category"
         className="w-40"
         value=""
         placeholder="Move to…"
-        onValueChange={onCategory}
-        options={categories.map((c) => ({ value: c.key, label: c.label }))}
+        disabled={busy}
+        onValueChange={(value) => onCategory(value === AUTO ? "" : value)}
+        options={[
+          ...categories.map((c) => ({ value: c.key, label: c.label })),
+          { value: AUTO, label: "Sort automatically" },
+        ]}
       />
       <form
         className="flex gap-1"
         onSubmit={(event) => {
           event.preventDefault();
-          if (tag.trim()) onTag(tag.trim());
+          if (busy || !tag.trim()) return;
+          onTag(tag.trim());
           setTag("");
         }}
       >
         <Input value={tag} placeholder="Add a tag" className="h-7 w-32" onChange={(e) => setTag(e.target.value)} />
-        <Button size="sm" type="submit" variant="outline" disabled={!tag.trim()}>
+        <Button size="sm" type="submit" variant="outline" disabled={busy || !tag.trim()}>
           <TagIcon /> Tag
         </Button>
       </form>
@@ -525,6 +728,7 @@ function BulkBar({
           className="w-40"
           value=""
           placeholder="Add to list…"
+          disabled={busy}
           onValueChange={(value) => onAddToList(value as Id<"audiences">)}
           options={audiences}
         />
@@ -533,7 +737,8 @@ function BulkBar({
         className="flex gap-1"
         onSubmit={(event) => {
           event.preventDefault();
-          if (listName.trim()) onNewList(listName.trim());
+          if (busy || !listName.trim()) return;
+          onNewList(listName.trim());
           setListName("");
         }}
       >
@@ -543,16 +748,16 @@ function BulkBar({
           className="h-7 w-36"
           onChange={(e) => setListName(e.target.value)}
         />
-        <Button size="sm" type="submit" variant="outline" disabled={!listName.trim()}>
+        <Button size="sm" type="submit" variant="outline" disabled={busy || !listName.trim()}>
           <ListBulletsIcon /> Save as list
         </Button>
       </form>
       {onRemoveFromList ? (
-        <Button size="sm" variant="ghost" onClick={onRemoveFromList}>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={onRemoveFromList}>
           Remove from list
         </Button>
       ) : null}
-      <Button size="sm" variant="ghost" className="ml-auto" onClick={onClear}>
+      <Button size="sm" variant="ghost" className="ml-auto" disabled={busy} onClick={onClear}>
         Clear
       </Button>
     </div>

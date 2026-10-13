@@ -24,7 +24,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { XIcon } from "@phosphor-icons/react";
-import { fail, formatPhone, type Category } from "./shared";
+import { normaliseTag } from "@/convex/lib/audience";
+import { categoryLabel, fail, formatPhone, type Category } from "./shared";
 
 export type Person = {
   _id: Id<"contacts">;
@@ -34,6 +35,7 @@ export type Person = {
   company: string | null;
   birthday: string | null;
   category: string | null;
+  automatic: boolean;
   tags: string[];
   source: string | null;
   optedOutAt: number | null;
@@ -68,7 +70,8 @@ export function PersonDialog({
   const [email, setEmail] = useState(person?.email ?? "");
   const [company, setCompany] = useState(person?.company ?? "");
   const [birthday, setBirthday] = useState(birthdayText(person?.birthday ?? null));
-  const [category, setCategory] = useState(person?.category ?? "");
+  const initialCategory = person && !person.automatic ? (person.category ?? "") : "";
+  const [category, setCategory] = useState(initialCategory);
   const [tags, setTags] = useState<string[]>(person?.tags ?? []);
   const [tagDraft, setTagDraft] = useState("");
   const [subscribed, setSubscribedState] = useState(!person?.optedOutAt);
@@ -80,13 +83,17 @@ export function PersonDialog({
     setBusy(true);
     try {
       await update({ contactId: person._id, name, email, company, birthday });
-      await updatePeople({
-        workspaceId: workspace._id,
-        contactIds: [person._id],
-        category,
-        addTags: tags,
-        removeTags: person.tags.filter((tag) => !tags.includes(tag)),
-      });
+      const removeTags = person.tags.filter((tag) => !tags.includes(tag));
+      const addTags = tags.filter((tag) => !person.tags.includes(tag));
+      if (category !== initialCategory || addTags.length || removeTags.length) {
+        await updatePeople({
+          workspaceId: workspace._id,
+          contactIds: [person._id],
+          ...(category !== initialCategory ? { category } : {}),
+          addTags,
+          removeTags,
+        });
+      }
       if (subscribed !== !person.optedOutAt) {
         await setSubscribed({ contactId: person._id, subscribed });
       }
@@ -100,7 +107,7 @@ export function PersonDialog({
   };
 
   const addTag = () => {
-    const tag = tagDraft.trim().toLowerCase().replace(/\s+/g, "-");
+    const tag = normaliseTag(tagDraft);
     if (tag && !tags.includes(tag)) setTags([...tags, tag]);
     setTagDraft("");
   };
@@ -126,10 +133,17 @@ export function PersonDialog({
               <SelectField
                 aria-label="Category"
                 value={category}
-                placeholder="Not sorted"
                 onValueChange={setCategory}
-                options={categories.map((c) => ({ value: c.key, label: c.label }))}
+                options={[
+                  { value: "", label: "Sort automatically" },
+                  ...categories.map((c) => ({ value: c.key, label: c.label })),
+                ]}
               />
+              {category === "" && person.automatic ? (
+                <p className="text-xs text-muted-foreground">
+                  Now {categoryLabel(categories, person.category)}, going by the name.
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="person-email">Email</Label>

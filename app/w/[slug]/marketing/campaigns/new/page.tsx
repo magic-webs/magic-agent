@@ -30,6 +30,7 @@ export default function NewCampaignPage() {
   const editId = params.get("edit") as Id<"marketingEvents"> | null;
   const fromId = params.get("from") as Id<"marketingEvents"> | null;
   const sourceId = editId ?? fromId;
+  const followUpList = params.get("audience") as Id<"audiences"> | null;
 
   const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
   const source = useQuery(api.marketingBroadcasts.get, sourceId ? { eventId: sourceId } : "skip");
@@ -54,14 +55,21 @@ export default function NewCampaignPage() {
     ? {
         ...emptyCampaign(today),
         eventId: editId ? source._id : undefined,
-        title: editId ? source.title : `${source.title} (copy)`,
+        title: editId
+          ? source.title
+          : followUpList
+            ? `${source.title} (follow-up)`
+            : `${source.title} (copy)`,
         templateId: source.templateId,
         message: source.note ?? "",
-        audience: source.audience ?? EVERYONE,
+        audience: followUpList
+          ? { ...EVERYONE, audienceIds: [followUpList] }
+          : (source.audience ?? EVERYONE),
         date: editId && source.date >= today ? source.date : today,
         sendHour: editId ? source.sendHour : 10,
         ratePerMinute: source.ratePerMinute,
         trackLinks: source.trackLinks ?? true,
+        smartTiming: source.smartTiming ?? false,
       }
     : emptyCampaign(today);
 

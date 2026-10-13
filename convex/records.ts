@@ -32,8 +32,9 @@ import {
   type RecordField,
 } from "./lib/records";
 import { postWebhook } from "./lib/webhookDelivery";
-import { findOrdersBook } from "./lib/ordersBook";
+import { findOrdersBook, ORDERS_HANDLE } from "./lib/ordersBook";
 import { noteConversion } from "./lib/marketingStats";
+import { noteContactActivity } from "./lib/contactActivity";
 import {
   requireRecord,
   threadAccess,
@@ -625,7 +626,12 @@ export const createRecord = mutation({
       createdAt: now,
       updatedAt: now,
     });
-    if (args.contactId) await noteConversion(ctx, args.contactId, now);
+    if (args.contactId) {
+      await noteConversion(ctx, args.contactId, now);
+      if (book.handle === ORDERS_HANDLE) {
+        await noteContactActivity(ctx, args.contactId, "lastOrderAt", now);
+      }
+    }
 
     await ctx.scheduler.runAfter(0, internal.records.announce, {
       recordId,
@@ -1207,7 +1213,12 @@ export const fileFromTool = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
-    if (args.contactId) await noteConversion(ctx, args.contactId, now);
+    if (args.contactId) {
+      await noteConversion(ctx, args.contactId, now);
+      if (book.handle === ORDERS_HANDLE) {
+        await noteContactActivity(ctx, args.contactId, "lastOrderAt", now);
+      }
+    }
 
     await ctx.scheduler.runAfter(0, internal.records.announce, {
       recordId,

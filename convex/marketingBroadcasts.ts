@@ -128,6 +128,7 @@ export const save = mutation({
     sendHour: v.number(),
     ratePerMinute: v.optional(v.number()),
     trackLinks: v.optional(v.boolean()),
+    smartTiming: v.optional(v.boolean()),
     sendNow: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -161,13 +162,18 @@ export const save = mutation({
       sendAt,
       templateId: template._id,
       note: args.message?.trim().slice(0, 400) || undefined,
-      audience: isEveryone(args.audience) && args.audience.excludeAudienceIds.length === 0
+      audience:
+        isEveryone(args.audience) &&
+        args.audience.excludeAudienceIds.length === 0 &&
+        !args.audience.segments?.length
         ? undefined
         : args.audience,
       ratePerMinute: args.ratePerMinute
         ? Math.min(MAX_RATE, Math.max(MIN_RATE, Math.round(args.ratePerMinute)))
         : undefined,
       trackLinks: args.trackLinks ?? true,
+      smartTiming: args.smartTiming || undefined,
+      wave: undefined,
       status: "scheduled" as const,
       lastError: undefined,
       updatedAt: now,

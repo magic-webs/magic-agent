@@ -495,7 +495,9 @@ export function CampaignDialog({
         templateId: draft.templateId,
         sendHour: draft.sendHour,
         touches: draft.touches,
-        audience: isEveryone(draft.audience) && draft.audience.excludeAudienceIds.length === 0
+        audience: isEveryone(draft.audience) &&
+          draft.audience.excludeAudienceIds.length === 0 &&
+          !draft.audience.segments?.length
           ? undefined
           : draft.audience,
         segments: draft.touches.map((offset) => ({

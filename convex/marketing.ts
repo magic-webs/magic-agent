@@ -838,6 +838,7 @@ export const claimBirthdays = internalMutation({
 
 type SendContext = {
   workspaceName: string;
+  timezone: string;
   /** For the event's date as the customer reads it. */
   locale: string;
   agentId: Id<"agents"> | null;
@@ -879,6 +880,7 @@ async function sendContext(
   const own = template && template.workspaceId === workspaceId ? template : null;
   return {
     workspaceName: workspace.name,
+    timezone: workspace.timezone,
     locale: workspace.locale,
     agentId: desk?._id ?? null,
     channelId: channel?._id ?? null,
@@ -937,10 +939,12 @@ export const audiencePage = internalQuery({
     campaignId: v.optional(v.id("marketingCampaigns")),
     guestSegment: v.optional(guestSegmentValidator),
     now: v.optional(v.number()),
+    bestHour: v.optional(v.union(v.number(), v.null())),
     cursor: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
     const options = { numItems: SEND_BATCH, cursor: args.cursor };
+    const bestHour = args.bestHour;
     const monthDay = args.monthDay;
     const campaignId = args.campaignId;
     const fromGuests =
@@ -973,10 +977,17 @@ export const audiencePage = internalQuery({
               q.eq("workspaceId", args.workspaceId).eq("birthday", monthDay)
             )
             .paginate(options)
-        : await ctx.db
-            .query("contacts")
-            .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-            .paginate(options);
+        : bestHour !== undefined
+          ? await ctx.db
+              .query("contacts")
+              .withIndex("by_workspace_and_bestHour", (q) =>
+                q.eq("workspaceId", args.workspaceId).eq("bestHour", bestHour ?? undefined)
+              )
+              .paginate(options)
+          : await ctx.db
+              .query("contacts")
+              .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+              .paginate(options);
       candidates = page.page;
       ({ continueCursor, isDone } = page);
     }
@@ -994,7 +1005,12 @@ export const audiencePage = internalQuery({
     for (const contact of candidates) {
       if (!contact || contact.workspaceId !== args.workspaceId) continue;
       if (!reachable(contact)) continue;
-      if (!fromGuests && !(await inSelection(ctx, contact, args.audience, known))) continue;
+      if (
+        !fromGuests &&
+        !(await inSelection(ctx, contact, args.audience, { known, now: args.now ?? Date.now() }))
+      ) {
+        continue;
+      }
       if (campaignId && args.guestSegment === "not_declined") {
         const guest = await ctx.db
           .query("eventGuests")
@@ -1147,6 +1163,7 @@ export const recordBatch = internalMutation({
     ),
     skipped: v.optional(v.number()),
     nextCursor: v.optional(v.union(v.string(), v.null())),
+    nextWave: v.optional(v.number()),
     done: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -1224,6 +1241,7 @@ export const recordBatch = internalMutation({
           failedCount,
           skippedCount: (event.skippedCount ?? 0) + (args.skipped ?? 0),
           cursor: args.nextCursor,
+          ...(args.nextWave !== undefined ? { wave: args.nextWave } : {}),
           lastError: lastError ?? event.lastError,
           updatedAt: now,
           ...(args.done

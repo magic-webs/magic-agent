@@ -17,6 +17,7 @@ import {
   renderTemplate,
   sampleValues,
   templateBlocker,
+  zonedParts,
   type TemplateVariable,
 } from "./lib/marketing";
 import type { AudienceSelection } from "./lib/audience";
@@ -93,6 +94,7 @@ async function sendPage(
     guestSegment?: Doc<"marketingEvents">["guestSegment"];
     track?: string;
     cursor: string | null;
+    wave?: { bestHour: number | null; next?: number };
     context: {
       workspaceName: string;
       agentId: Id<"agents"> | null;
@@ -111,8 +113,10 @@ async function sendPage(
     campaignId: args.campaignId,
     guestSegment: args.guestSegment,
     now: Date.now(),
+    bestHour: args.wave?.bestHour,
     cursor: args.cursor,
   });
+  const lastWave = !args.wave || args.wave.next === undefined;
 
   const results: Array<{
     contactId: Id<"contacts">;
@@ -165,7 +169,8 @@ async function sendPage(
     results,
     skipped: page.skipped,
     nextCursor: page.isDone ? null : page.continueCursor,
-    done: page.isDone,
+    nextWave: page.isDone && !lastWave ? args.wave?.next : undefined,
+    done: page.isDone && lastWave,
   });
 
   return page.isDone ? null : { cursor: page.continueCursor, sent: results.length };
@@ -186,6 +191,9 @@ function blocker(context: {
 }
 
 const MESSAGE_VARIABLE = /\{\{\s*message\s*\}\}/;
+const HOUR_MS = 60 * 60 * 1000;
+/** Wave 0 is everyone without a reading habit; waves 1–24 are the hours after the start. */
+const SMART_WAVES = 24;
 
 /**
  * What a calendar entry fills the template with. A reminder speaks for its
@@ -273,7 +281,16 @@ export const runEvent = internalAction({
       return null;
     }
 
+    const smart = context.event.smartTiming && !context.event.campaignId;
+    const wave = context.event.wave ?? 0;
+    const waveAt = (index: number) => context!.event.sendAt + Math.max(0, index - 1) * HOUR_MS;
     const next = await sendPage(ctx, {
+      wave: smart
+        ? {
+            bestHour: wave === 0 ? null : zonedParts(waveAt(wave), context.timezone).hour,
+            next: wave < SMART_WAVES ? wave + 1 : undefined,
+          }
+        : undefined,
       workspaceId: context.event.workspaceId,
       eventId: args.eventId,
       values,
@@ -304,6 +321,11 @@ export const runEvent = internalAction({
       await ctx.scheduler.runAfter(delay, internal.marketingSend.runEvent, {
         eventId: args.eventId,
         cursor: next.cursor,
+      });
+    } else if (smart && wave < SMART_WAVES) {
+      await ctx.scheduler.runAt(Math.max(Date.now(), waveAt(wave + 1)), internal.marketingSend.runEvent, {
+        eventId: args.eventId,
+        cursor: null,
       });
     }
     return null;

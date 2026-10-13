@@ -90,12 +90,19 @@ export const conversationsTables = {
       v.union(v.literal("keyword"), v.literal("manual"), v.literal("import"))
     ),
     lastSeenAt: v.number(),
+    lastInboundAt: v.optional(v.number()),
+    lastReadAt: v.optional(v.number()),
+    lastRepliedAt: v.optional(v.number()),
+    lastOrderAt: v.optional(v.number()),
+    readHours: v.optional(v.array(v.number())),
+    bestHour: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
     .index("by_workspace_external", ["workspaceId", "externalId"])
     .index("by_workspace_and_birthday", ["workspaceId", "birthday"])
-    .index("by_workspace_and_category", ["workspaceId", "category"]),
+    .index("by_workspace_and_category", ["workspaceId", "category"])
+    .index("by_workspace_and_bestHour", ["workspaceId", "bestHour"]),
 
   conversations: defineTable({
     workspaceId: v.id("workspaces"),

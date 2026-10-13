@@ -1,6 +1,8 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Delivery } from "./delivery";
+import { noteContactActivity, noteContactRead } from "./contactActivity";
+import { zonedParts } from "./marketing";
 
 // Receipts for one send land within seconds of each other, so the counters are
 // spread over shards to keep them from contending on a single document.
@@ -8,10 +10,6 @@ const SHARDS = 8;
 const REPLY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 const OPT_OUT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const CONVERSION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-
-export function utcDay(at: number) {
-  return new Date(at).toISOString().slice(0, 10);
-}
 
 export type MarketingCounts = {
   sent: number;
@@ -57,7 +55,8 @@ export async function bumpStats(
   if (row) await ctx.db.patch("marketingStats", row._id, add(row));
   else await ctx.db.insert("marketingStats", { workspaceId, key, shard, ...EMPTY_COUNTS, ...delta });
 
-  const day = utcDay(Date.now());
+  const workspace = await ctx.db.get("workspaces", workspaceId);
+  const day = zonedParts(Date.now(), workspace?.timezone ?? "UTC").date;
   const daily = await ctx.db
     .query("marketingDaily")
     .withIndex("by_workspaceId_and_day_and_shard", (q) =>
@@ -140,6 +139,7 @@ export async function noteSendDelivery(
     delta.read = 1;
   }
   await ctx.db.patch("marketingSends", send._id, patch);
+  if (patch.readAt) await noteContactRead(ctx, send.contactId, at);
   if (Object.keys(delta).length > 0) {
     await bumpStats(ctx, send.workspaceId, send.key, delta);
   }
@@ -172,6 +172,8 @@ export async function noteReply(ctx: MutationCtx, contactId: Id<"contacts">, at:
   }
   await ctx.db.patch("marketingSends", send._id, patch);
   await bumpStats(ctx, send.workspaceId, send.key, delta);
+  await noteContactActivity(ctx, contactId, "lastRepliedAt", at);
+  if (patch.readAt) await noteContactRead(ctx, contactId, at);
   return send;
 }
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { SEGMENTS } from "@/convex/lib/segments";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ export type AudienceChoice = {
   categories: string[];
   tags: string[];
   excludeAudienceIds: Id<"audiences">[];
+  segments?: string[];
 };
 
 export const EVERYONE: AudienceChoice = {
@@ -99,7 +101,10 @@ export function AudiencePicker({
         onValueChange={(next) => {
           if (next[0] === "everyone") {
             setMode("everyone");
-            change({ ...EVERYONE, excludeAudienceIds: value.excludeAudienceIds }, "everyone");
+            change(
+              { ...EVERYONE, excludeAudienceIds: value.excludeAudienceIds, segments: value.segments },
+              "everyone"
+            );
           }
           if (next[0] === "some" && everyone) {
             setMode("some");
@@ -179,6 +184,29 @@ export function AudiencePicker({
           )}
         </div>
       ) : null}
+
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs font-medium text-muted-foreground">Only people who…</p>
+        <div className="flex flex-wrap gap-1.5">
+          {SEGMENTS.map((segment) => (
+            <Chip
+              key={segment.key}
+              active={(value.segments ?? []).includes(segment.key)}
+              onClick={() => {
+                const segments = toggle(value.segments ?? [], segment.key);
+                change({ ...value, segments: segments.length > 0 ? segments : undefined });
+              }}
+            >
+              {segment.label}
+            </Chip>
+          ))}
+        </div>
+        {(value.segments ?? []).length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Narrows the people above to those who match every one of these.
+          </p>
+        ) : null}
+      </div>
 
       {audiences && audiences.length > 0 ? (
         <div className="flex flex-col gap-1.5">

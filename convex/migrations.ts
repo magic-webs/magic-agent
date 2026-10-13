@@ -38,9 +38,12 @@ import { addToUsageDaily } from "./lib/usageDaily";
 import {
   deliveryText,
   ensureOrdersBook,
+  findOrdersBook,
   itemsText,
   stageForStatus,
 } from "./lib/ordersBook";
+import { bestHourOf } from "./lib/contactActivity";
+import { zonedParts } from "./lib/marketing";
 import { loginEmailOf, loginEmailTaken } from "./authDb";
 import { claimSerial } from "./records";
 import { ensureOwnerMember } from "./team";
@@ -934,5 +937,86 @@ export const recordSerialsForBook = internalMutation({
       serial,
       count,
     });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Contact activity, for the audience segments and best send time
+//
+//   npx convex run migrations:contactActivity
+//
+// Fills lastInboundAt, lastReadAt, lastRepliedAt, lastOrderAt, readHours and
+// bestHour from history. Safe to run twice: it only ever moves a value later.
+// ---------------------------------------------------------------------------
+
+const ACTIVITY_BATCH = 50;
+
+export const contactActivity = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("contacts")
+      .paginate({ numItems: ACTIVITY_BATCH, cursor: args.cursor ?? null });
+    const ordersBooks = new Map<Id<"workspaces">, Id<"recordBooks"> | null>();
+    const zones = new Map<Id<"workspaces">, string>();
+
+    for (const contact of page.page) {
+      if (!ordersBooks.has(contact.workspaceId)) {
+        const book = await findOrdersBook(ctx, contact.workspaceId);
+        ordersBooks.set(contact.workspaceId, book?._id ?? null);
+        const workspace = await ctx.db.get("workspaces", contact.workspaceId);
+        zones.set(contact.workspaceId, workspace?.timezone ?? "UTC");
+      }
+      const patch: Partial<Doc<"contacts">> = {};
+
+      const threads = await ctx.db
+        .query("conversations")
+        .withIndex("by_contact_agent", (q) => q.eq("contactId", contact._id))
+        .take(20);
+      if (threads.some((thread) => !thread.marketingOnly) && !contact.lastInboundAt) {
+        patch.lastInboundAt = contact.lastSeenAt;
+      }
+
+      const sends = await ctx.db
+        .query("marketingSends")
+        .withIndex("by_contactId_and_createdAt", (q) => q.eq("contactId", contact._id))
+        .order("desc")
+        .take(50);
+      const reads = sends
+        .map((send) => send.readAt)
+        .filter((at): at is number => at !== undefined)
+        .sort((a, b) => a - b);
+      const lastRead = reads.at(-1);
+      if (lastRead && lastRead > (contact.lastReadAt ?? 0)) patch.lastReadAt = lastRead;
+      const lastReply = Math.max(0, ...sends.map((send) => send.repliedAt ?? 0));
+      if (lastReply > (contact.lastRepliedAt ?? 0)) patch.lastRepliedAt = lastReply;
+      if (reads.length > 0 && !contact.readHours) {
+        const zone = zones.get(contact.workspaceId)!;
+        const readHours = reads.slice(-7).map((at) => zonedParts(at, zone).hour);
+        patch.readHours = readHours;
+        patch.bestHour = bestHourOf(readHours);
+      }
+
+      const ordersBookId = ordersBooks.get(contact.workspaceId);
+      if (ordersBookId) {
+        const records = await ctx.db
+          .query("records")
+          .withIndex("by_contact", (q) => q.eq("contactId", contact._id))
+          .take(100);
+        const lastOrder = Math.max(
+          0,
+          ...records.filter((record) => record.bookId === ordersBookId).map((record) => record.createdAt)
+        );
+        if (lastOrder > (contact.lastOrderAt ?? 0)) patch.lastOrderAt = lastOrder;
+      }
+
+      if (Object.keys(patch).length > 0) await ctx.db.patch("contacts", contact._id, patch);
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.contactActivity, {
+        cursor: page.continueCursor,
+      });
+    }
   },
 });

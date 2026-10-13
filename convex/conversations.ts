@@ -1163,12 +1163,14 @@ export const startTurn = internalMutation({
         attributes: [],
         source: args.channelType,
         lastSeenAt: now,
+        lastInboundAt: now,
         createdAt: now,
       });
       contact = (await ctx.db.get("contacts", contactId))!;
     } else {
       await ctx.db.patch(contact._id, {
         lastSeenAt: now,
+        lastInboundAt: now,
         name: contact.name ?? args.contactName,
         phone: contact.phone ?? args.contactPhone,
       });

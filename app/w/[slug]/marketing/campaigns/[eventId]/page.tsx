@@ -27,6 +27,7 @@ export default function CampaignReportPage({
         eventId={eventId as Id<"marketingEvents">}
         onClose={() => router.push(base)}
         onDuplicate={() => router.push(`${base}/new?from=${eventId}`)}
+        onReengage={(audienceId) => router.push(`${base}/new?from=${eventId}&audience=${audienceId}`)}
       />
     </div>
   );

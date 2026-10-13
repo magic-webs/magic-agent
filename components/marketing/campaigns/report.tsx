@@ -31,6 +31,7 @@ import {
 import { toast } from "@/components/ui/toast";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import {
+  ArrowsClockwiseIcon,
   CopyIcon,
   DownloadSimpleIcon,
   PauseIcon,
@@ -63,10 +64,12 @@ export function CampaignReport({
   eventId,
   onClose,
   onDuplicate,
+  onReengage,
 }: {
   eventId: Id<"marketingEvents">;
   onClose: () => void;
   onDuplicate: () => void;
+  onReengage: (audienceId: Id<"audiences">) => void;
 }) {
   const now = useHourBucket();
   const campaign = useQuery(api.marketingBroadcasts.get, { eventId });
@@ -74,6 +77,7 @@ export function CampaignReport({
   const pause = useMutation(api.marketingBroadcasts.pause);
   const resume = useMutation(api.marketingBroadcasts.resume);
   const cancel = useMutation(api.marketingBroadcasts.cancel);
+  const retarget = useMutation(api.marketingBroadcasts.retarget);
   const [busy, setBusy] = useState(false);
 
   const act = async (task: () => Promise<unknown>, title: string) => {
@@ -246,6 +250,24 @@ export function CampaignReport({
             >
               <StopIcon /> {campaign.startedAt ? "Stop sending" : "Delete"}
             </ConfirmButton>
+          ) : null}
+          {campaign?.status === "sent" && stats && sent - stats.read > 0 ? (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                act(async () => {
+                  const audienceId = await retarget({
+                    eventId,
+                    outcome: "not_read",
+                    name: `${campaign.title} — didn't read`,
+                  });
+                  onReengage(audienceId);
+                }, "Could not start the follow-up")
+              }
+            >
+              <ArrowsClockwiseIcon /> Send again to {plural(sent - stats.read, "person", "people")} who didn&apos;t read
+            </Button>
           ) : null}
           <Button variant="outline" onClick={onDuplicate}>
             <CopyIcon /> Duplicate

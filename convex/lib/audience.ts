@@ -5,6 +5,7 @@ import type { audienceCategory, audienceSelection } from "../schema/marketing";
 import { sentRecently } from "./marketingStats";
 import { tidyName } from "./contactClean";
 import { marketOf } from "./markets";
+import { inSegments } from "./segments";
 
 const SIZE_SCAN_CAP = 5000;
 const CAP_CHECKS = 1500;
@@ -65,6 +66,8 @@ export function knownCategories(
   return new Set((settings?.categories ?? []).map((category) => category.key));
 }
 
+export type Scope = { known?: ReadonlySet<string>; now: number };
+
 export function isEveryone(selection: AudienceSelection | undefined): boolean {
   return (
     !selection ||
@@ -89,15 +92,16 @@ export async function inSelection(
   ctx: QueryCtx,
   contact: Doc<"contacts">,
   selection: AudienceSelection | undefined,
-  known?: ReadonlySet<string>
+  scope: Scope
 ): Promise<boolean> {
   if (!selection) return true;
+  if (!inSegments(contact, selection.segments, scope.now)) return false;
   const needsLists =
     selection.audienceIds.length > 0 || selection.excludeAudienceIds.length > 0;
   const lists = needsLists ? await membershipsOf(ctx, contact._id) : new Set();
   if (selection.excludeAudienceIds.some((id) => lists.has(id))) return false;
   if (isEveryone(selection)) return true;
-  if (selection.categories.includes(categoryOf(contact, known))) return true;
+  if (selection.categories.includes(categoryOf(contact, scope.known))) return true;
   if (contact.tags?.some((tag) => selection.tags.includes(tag))) return true;
   return selection.audienceIds.some((id) => lists.has(id));
 }
@@ -123,12 +127,13 @@ export function matchesWith(
   contact: Doc<"contacts">,
   selection: AudienceSelection,
   sets: Map<Id<"audiences">, Set<Id<"contacts">>>,
-  known?: ReadonlySet<string>
+  scope: Scope
 ): boolean {
   const member = (id: Id<"audiences">) => sets.get(id)?.has(contact._id) ?? false;
   if (selection.excludeAudienceIds.some(member)) return false;
+  if (!inSegments(contact, selection.segments, scope.now)) return false;
   if (isEveryone(selection)) return true;
-  if (selection.categories.includes(categoryOf(contact, known))) return true;
+  if (selection.categories.includes(categoryOf(contact, scope.known))) return true;
   if (contact.tags?.some((tag) => selection.tags.includes(tag))) return true;
   return selection.audienceIds.some(member);
 }
@@ -165,7 +170,7 @@ export async function measureAudience(
   const byMarket: Record<string, number> = {};
   for (const contact of contacts) {
     if (contact.channelType !== "whatsapp") continue;
-    if (!matchesWith(contact, selection, sets, known)) continue;
+    if (!matchesWith(contact, selection, sets, { known, now })) continue;
     if (!reachable(contact)) {
       optedOut++;
       continue;

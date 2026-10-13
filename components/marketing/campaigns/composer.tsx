@@ -49,6 +49,7 @@ export type CampaignDraft = {
   sendHour: number;
   ratePerMinute?: number;
   trackLinks: boolean;
+  smartTiming: boolean;
   when: "now" | "later";
 };
 
@@ -60,6 +61,7 @@ export function emptyCampaign(today: string): CampaignDraft {
     date: today,
     sendHour: 10,
     trackLinks: true,
+    smartTiming: false,
     when: "later",
   };
 }
@@ -143,6 +145,7 @@ export function CampaignComposer({
         sendHour: draft.sendHour,
         ratePerMinute: draft.ratePerMinute,
         trackLinks: draft.trackLinks,
+        smartTiming: draft.smartTiming,
         sendNow: draft.when === "now",
       });
       toast.add({
@@ -310,6 +313,19 @@ export function CampaignComposer({
               Sending slower spreads replies out so your team can keep up, and is gentler on a new
               number&apos;s quality rating.
             </p>
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={draft.smartTiming}
+                onCheckedChange={(next) => set({ smartTiming: next === true })}
+              />
+              <span>
+                Send at each person&apos;s best time
+                <span className="block text-xs text-muted-foreground">
+                  Goes out over the next 24 hours, each person at the hour they usually read your
+                  messages. People without a habit yet get it at the time above.
+                </span>
+              </span>
+            </label>
           </Section>
 
           <div className="flex flex-col gap-2 rounded-lg border border-border p-3">

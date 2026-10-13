@@ -8,6 +8,7 @@ export const audienceSelection = v.object({
   categories: v.array(v.string()),
   tags: v.array(v.string()),
   excludeAudienceIds: v.array(v.id("audiences")),
+  segments: v.optional(v.array(v.string())),
 });
 
 export const guestSegment = v.union(
@@ -113,6 +114,8 @@ export const marketingTables = {
     cursor: v.optional(v.union(v.string(), v.null())),
     ratePerMinute: v.optional(v.number()),
     trackLinks: v.optional(v.boolean()),
+    smartTiming: v.optional(v.boolean()),
+    wave: v.optional(v.number()),
     lastError: v.optional(v.string()),
     startedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),
@@ -240,6 +243,7 @@ export const marketingTables = {
     name: v.string(),
     fileName: v.optional(v.string()),
     countryCode: v.optional(v.string()),
+    mode: v.optional(v.union(v.literal("import"), v.literal("recheck"))),
     status: v.union(
       v.literal("uploading"),
       v.literal("sorting"),

@@ -9,6 +9,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { fail } from "@/components/marketing/calendar";
 import { templateReady, templateStanding } from "@/components/marketing/format";
 import { TemplateDialog, draftFor, type TemplateDraft } from "@/components/marketing/template-dialog";
+import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,14 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { ArrowClockwiseIcon, MegaphoneIcon, PlusIcon, WhatsappLogoIcon } from "@phosphor-icons/react";
+
+const OCCASION_LABELS: Record<string, string> = {
+  festival: "Festival",
+  birthday: "Birthday",
+  event: "Event reminder",
+  offer: "Offer",
+  general: "General",
+};
 
 export default function MarketingTemplatesPage() {
   const workspace = useWorkspace();
@@ -106,11 +115,11 @@ export default function MarketingTemplatesPage() {
               key={template._id}
               type="button"
               onClick={() => setDraft(draftFor(template))}
-              className="flex flex-col gap-2 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/40"
+              className="flex flex-col gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <span className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">{template.name}</span>
-                <Badge variant="outline">{template.occasion}</Badge>
+                <Badge variant="outline">{OCCASION_LABELS[template.occasion] ?? template.occasion}</Badge>
                 {template.category && template.category !== "marketing" ? (
                   <Badge variant="outline">{CATEGORY_LABELS[template.category]}</Badge>
                 ) : null}
@@ -118,9 +127,15 @@ export default function MarketingTemplatesPage() {
                   {templateStanding(template).label}
                 </Badge>
               </span>
-              <span className="line-clamp-4 text-sm whitespace-pre-wrap text-muted-foreground">
-                {template.body}
-              </span>
+              <WhatsAppPreview
+                size="card"
+                body={template.body}
+                header={template.header}
+                footer={template.footer}
+                buttons={template.buttons}
+                business={workspace.name}
+                occasion={template.occasion}
+              />
               {template.metaStatus === "REJECTED" || template.metaStatus === "CHANGED" ? (
                 <span className="text-xs font-medium text-destructive">{templateBlocker(template)}</span>
               ) : null}

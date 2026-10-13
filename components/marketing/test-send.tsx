@@ -47,10 +47,12 @@ function keepLastNumber(value: string) {
 export function TestSendButton({
   eventId,
   templateId,
+  message,
   disabledReason,
 }: {
   eventId?: Id<"marketingEvents">;
   templateId?: Id<"marketingTemplates">;
+  message?: string;
   /** Why it cannot be tested yet, when it cannot. */
   disabledReason?: string | null;
 }) {
@@ -62,7 +64,7 @@ export function TestSendButton({
   const send = async () => {
     setBusy(true);
     try {
-      const result = await sendTest({ to: number, eventId, templateId });
+      const result = await sendTest({ to: number, eventId, templateId, message: message?.trim() || undefined });
       keepLastNumber(number.trim());
       toast.add({
         title: `Test sent to +${result.to}`,

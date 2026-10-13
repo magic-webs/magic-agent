@@ -14,13 +14,22 @@ import { requireWorkspace } from "./lib/auth";
 import { refreshContactSearch } from "./lib/inbox";
 import { NOT_VALID, VALID, isBuiltIn, validityOf, withBuiltIns } from "./lib/audience";
 import { cleanContact, describeForSorting, type RawContact } from "./lib/contactClean";
-import { choiceOf, evaluate, JEV_MODEL, probabilityOf } from "./lib/jev";
+import {
+  choiceOf,
+  evaluate,
+  JEV_MODEL,
+  probabilityOf,
+  type JevAnswer,
+  type JevQuestion,
+} from "./lib/jev";
 import { importCounts, importRowStatus } from "./schema/marketing";
 
 const MAX_ROWS = 10_000;
 const MAX_ADD = 500;
-const SORT_BATCH = 40;
-const SORT_PARALLEL = 8;
+const SORT_BATCH = 80;
+const CONTACTS_PER_CALL = 10;
+const SORT_PARALLEL = 4;
+const FATAL = /not available right now|401|403/;
 const SAVE_BATCH = 100;
 const READY_CONFIDENCE = 0.8;
 const JUNK_PROBABILITY = 0.5;
@@ -364,6 +373,87 @@ export const finishSorting = internalMutation({
   },
 });
 
+type SortRow = {
+  _id: Id<"audienceImportRows">;
+  name?: string;
+  hasNotes: boolean;
+  details: string;
+};
+
+function questionsFor(
+  row: SortRow,
+  prefix: string,
+  subject: string,
+  withCategory: boolean,
+  criteria: Record<string, string>
+): Record<string, JevQuestion> {
+  return {
+    ...(withCategory
+      ? {
+          [`${prefix}category`]: {
+            type: "choice",
+            instructions: `${subject}Which group does this contact belong to for the business`,
+            criteria,
+          },
+        }
+      : {}),
+    [`${prefix}junk`]: {
+      type: "boolean",
+      instructions: `${subject}The name is keyboard mashing, a placeholder such as test or xxx, or nonsense`,
+    },
+    [`${prefix}business`]: {
+      type: "boolean",
+      instructions: `${subject}The name is a shop, company or organisation rather than a person`,
+    },
+    ...(row.hasNotes
+      ? {
+          [`${prefix}doNotContact`]: {
+            type: "boolean",
+            instructions: `${subject}The notes say this person asked not to be contacted or messaged`,
+          },
+          [`${prefix}interest`]: {
+            type: "score",
+            instructions: `${subject}How interested in buying is this contact`,
+            criteria: [
+              "No interest or not interested",
+              "Some interest or unclear",
+              "Keen, asked for details or ready to buy",
+            ],
+          },
+        }
+      : {}),
+  };
+}
+
+function readAnswers(
+  row: SortRow,
+  answers: Record<string, JevAnswer>,
+  prefix: string,
+  criteria: Record<string, string>
+): Infer<typeof sortedRow> {
+  const choice = choiceOf(answers[`${prefix}category`]);
+  const interest = answers[`${prefix}interest`];
+  const junk = probabilityOf(answers[`${prefix}junk`]) ?? undefined;
+  const valid = Boolean(row.name) && (junk ?? 0) < JUNK_PROBABILITY;
+  return {
+    rowId: row._id,
+    category: !valid ? NOT_VALID : choice && criteria[choice.choice] ? choice.choice : VALID,
+    confidence: valid ? choice?.confidence : undefined,
+    junk,
+    business: (probabilityOf(answers[`${prefix}business`]) ?? 0) >= FLAG_PROBABILITY || undefined,
+    doNotContact:
+      (probabilityOf(answers[`${prefix}doNotContact`]) ?? 0) >= FLAG_PROBABILITY || undefined,
+    interest:
+      interest?.type === "score" && interest.confidence >= INTEREST_CONFIDENCE
+        ? interest.score >= 1.5
+          ? "hot"
+          : interest.score <= 0.5
+            ? "cold"
+            : "warm"
+        : undefined,
+  };
+}
+
 async function inParallel<T, R>(items: T[], limit: number, run: (item: T) => Promise<R>) {
   const results: R[] = new Array(items.length);
   let next = 0;
@@ -397,79 +487,66 @@ export const sortBatch = internalAction({
     let inputTokens = 0;
     let outputTokens = 0;
     let fatal: string | undefined;
-    const results = await inParallel(context.rows, SORT_PARALLEL, async (row) => {
+    const business = context.business || "a business";
+
+    const askAbout = async (batch: SortRow[]) => {
+      const single = batch.length === 1;
+      const questions: Record<string, JevQuestion> = {};
+      const blocks: string[] = [];
+      for (const [index, row] of batch.entries()) {
+        const prefix = single ? "" : `c${index + 1}_`;
+        const subject = single ? "" : `Contact ${index + 1}: `;
+        if (!single) blocks.push(`Contact ${index + 1}\n${row.details}`);
+        Object.assign(questions, questionsFor(row, prefix, subject, custom.length > 0, criteria));
+      }
+      const state = single
+        ? `A contact from the address book of ${business}.\n${batch[0].details}`
+        : `${batch.length} contacts from the address book of ${business}. Judge each one on its own lines only.\n\n${blocks.join("\n\n")}`;
+      const answer = await evaluate(state, questions);
+      inputTokens += answer.inputTokens;
+      outputTokens += answer.outputTokens;
+      return batch.map((row, index) =>
+        readAnswers(row, answer.answers, single ? "" : `c${index + 1}_`, criteria)
+      );
+    };
+
+    const failed = (row: SortRow, error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (FATAL.test(message)) fatal = message;
+      return { rowId: row._id, category: validityOf(row.name), sortError: message.slice(0, 200) };
+    };
+
+    const described: SortRow[] = [];
+    const results: Array<Infer<typeof sortedRow>> = [];
+    for (const row of context.rows) {
       const details = describeForSorting({ ...row, notes: row.notes });
-      if (!details) return { rowId: row._id, category: NOT_VALID };
+      if (details) described.push({ ...row, details });
+      else results.push({ rowId: row._id, category: NOT_VALID });
+    }
+    const batches: SortRow[][] = [];
+    for (let i = 0; i < described.length; i += CONTACTS_PER_CALL) {
+      batches.push(described.slice(i, i + CONTACTS_PER_CALL));
+    }
+    const sorted = await inParallel(batches, SORT_PARALLEL, async (batch) => {
       try {
-        const answer = await evaluate(
-          `A contact from the address book of ${context.business || "a business"}.\n${details}`,
-          {
-            ...(custom.length > 0
-              ? {
-                  category: {
-                    type: "choice" as const,
-                    instructions: "Which group does this contact belong to for the business",
-                    criteria,
-                  },
-                }
-              : {}),
-            junk: {
-              type: "boolean",
-              instructions:
-                "The name is keyboard mashing, a placeholder such as test or xxx, or nonsense",
-            },
-            business: {
-              type: "boolean",
-              instructions: "The name is a shop, company or organisation rather than a person",
-            },
-            ...(row.hasNotes
-              ? {
-                  doNotContact: {
-                    type: "boolean" as const,
-                    instructions: "The notes say this person asked not to be contacted or messaged",
-                  },
-                  interest: {
-                    type: "score" as const,
-                    instructions: "How interested in buying is this contact",
-                    criteria: [
-                      "No interest or not interested",
-                      "Some interest or unclear",
-                      "Keen, asked for details or ready to buy",
-                    ],
-                  },
-                }
-              : {}),
-          }
-        );
-        inputTokens += answer.inputTokens;
-        outputTokens += answer.outputTokens;
-        const choice = choiceOf(answer.answers.category);
-        const interest = answer.answers.interest;
-        const junk = probabilityOf(answer.answers.junk) ?? undefined;
-        const valid = Boolean(row.name) && (junk ?? 0) < JUNK_PROBABILITY;
-        return {
-          rowId: row._id,
-          category: !valid ? NOT_VALID : choice && criteria[choice.choice] ? choice.choice : VALID,
-          confidence: valid ? choice?.confidence : undefined,
-          junk,
-          business: (probabilityOf(answer.answers.business) ?? 0) >= FLAG_PROBABILITY || undefined,
-          doNotContact:
-            (probabilityOf(answer.answers.doNotContact) ?? 0) >= FLAG_PROBABILITY || undefined,
-          interest:
-            interest?.type === "score" && interest.confidence >= INTEREST_CONFIDENCE
-              ? interest.score >= 1.5
-                ? ("hot" as const)
-                : interest.score <= 0.5
-                  ? ("cold" as const)
-                  : ("warm" as const)
-              : undefined,
-        };
+        return await askAbout(batch);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (/not available right now|401|403/.test(message)) fatal = message;
-        return { rowId: row._id, category: validityOf(row.name), sortError: message.slice(0, 200) };
+        if (batch.length === 1 || fatal || FATAL.test(message)) {
+          return batch.map((row) => failed(row, error));
+        }
+        const one: Array<Infer<typeof sortedRow>> = [];
+        for (const row of batch) {
+          try {
+            one.push(...(await askAbout([row])));
+          } catch (rowError) {
+            one.push(failed(row, rowError));
+          }
+        }
+        return one;
       }
     });
+    results.push(...sorted.flat());
 
     await ctx.runMutation(internal.audienceImports.recordSorted, {
       importId: args.importId,

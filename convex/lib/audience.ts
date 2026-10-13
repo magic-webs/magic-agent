@@ -26,12 +26,12 @@ export const NOT_VALID = "invalid";
 export const BUILT_IN_CATEGORIES: AudienceCategory[] = [
   {
     key: VALID,
-    label: "Valid",
+    label: "Complete",
     description: "Has a real name and a WhatsApp number that can receive messages.",
   },
   {
     key: NOT_VALID,
-    label: "Not valid",
+    label: "Incomplete",
     description: "The name is missing, fake or a placeholder, or the number cannot be used.",
   },
 ];
@@ -48,9 +48,21 @@ export function validityOf(name: string | undefined): string {
   return tidyName(name).value ? VALID : NOT_VALID;
 }
 
-export function categoryOf(contact: Pick<Doc<"contacts">, "category" | "name">): string {
-  if (contact.category && contact.category !== "unknown") return contact.category;
+export function categoryOf(
+  contact: Pick<Doc<"contacts">, "category" | "name">,
+  known?: ReadonlySet<string>
+): string {
+  const stored = contact.category;
+  if (stored && stored !== "unknown" && (!known || isBuiltIn(stored) || known.has(stored))) {
+    return stored;
+  }
   return validityOf(contact.name);
+}
+
+export function knownCategories(
+  settings: Pick<Doc<"marketingSettings">, "categories"> | null | undefined
+): Set<string> {
+  return new Set((settings?.categories ?? []).map((category) => category.key));
 }
 
 export function isEveryone(selection: AudienceSelection | undefined): boolean {
@@ -76,7 +88,8 @@ export async function membershipsOf(
 export async function inSelection(
   ctx: QueryCtx,
   contact: Doc<"contacts">,
-  selection: AudienceSelection | undefined
+  selection: AudienceSelection | undefined,
+  known?: ReadonlySet<string>
 ): Promise<boolean> {
   if (!selection) return true;
   const needsLists =
@@ -84,7 +97,7 @@ export async function inSelection(
   const lists = needsLists ? await membershipsOf(ctx, contact._id) : new Set();
   if (selection.excludeAudienceIds.some((id) => lists.has(id))) return false;
   if (isEveryone(selection)) return true;
-  if (selection.categories.includes(categoryOf(contact))) return true;
+  if (selection.categories.includes(categoryOf(contact, known))) return true;
   if (contact.tags?.some((tag) => selection.tags.includes(tag))) return true;
   return selection.audienceIds.some((id) => lists.has(id));
 }
@@ -109,12 +122,13 @@ export async function loadMemberSets(
 export function matchesWith(
   contact: Doc<"contacts">,
   selection: AudienceSelection,
-  sets: Map<Id<"audiences">, Set<Id<"contacts">>>
+  sets: Map<Id<"audiences">, Set<Id<"contacts">>>,
+  known?: ReadonlySet<string>
 ): boolean {
   const member = (id: Id<"audiences">) => sets.get(id)?.has(contact._id) ?? false;
   if (selection.excludeAudienceIds.some(member)) return false;
   if (isEveryone(selection)) return true;
-  if (selection.categories.includes(categoryOf(contact))) return true;
+  if (selection.categories.includes(categoryOf(contact, known))) return true;
   if (contact.tags?.some((tag) => selection.tags.includes(tag))) return true;
   return selection.audienceIds.some(member);
 }
@@ -143,6 +157,7 @@ export async function measureAudience(
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .take(SIZE_SCAN_CAP);
   const sets = await loadMemberSets(ctx, selection, SIZE_SCAN_CAP);
+  const known = knownCategories(settings);
   let matched = 0;
   let optedOut = 0;
   let overCap = 0;
@@ -150,7 +165,7 @@ export async function measureAudience(
   const byMarket: Record<string, number> = {};
   for (const contact of contacts) {
     if (contact.channelType !== "whatsapp") continue;
-    if (!matchesWith(contact, selection, sets)) continue;
+    if (!matchesWith(contact, selection, sets, known)) continue;
     if (!reachable(contact)) {
       optedOut++;
       continue;

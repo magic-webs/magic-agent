@@ -1,6 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import { deliveryStatus } from "./validators";
+import { templateButton } from "../lib/templateParts";
 
 export const audienceSelection = v.object({
   audienceIds: v.array(v.id("audiences")),
@@ -61,6 +62,9 @@ export const marketingTables = {
       v.literal("general")
     ),
     body: v.string(),
+    header: v.optional(v.string()),
+    footer: v.optional(v.string()),
+    buttons: v.optional(v.array(templateButton)),
     metaTemplateName: v.optional(v.string()),
     metaStatus: v.optional(v.string()),
     metaTemplateId: v.optional(v.string()),
@@ -116,6 +120,8 @@ export const marketingTables = {
     updatedAt: v.number(),
   })
     .index("by_workspace_and_date", ["workspaceId", "date"])
+    .index("by_workspaceId_and_campaignId_and_date", ["workspaceId", "campaignId", "date"])
+    .index("by_templateId_and_status", ["templateId", "status"])
     .index("by_status_and_sendAt", ["status", "sendAt"])
     .index("by_campaignId", ["campaignId"]),
 
@@ -133,7 +139,9 @@ export const marketingTables = {
     audience: v.optional(audienceSelection),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_workspace_and_date", ["workspaceId", "date"]),
+  })
+    .index("by_workspace_and_date", ["workspaceId", "date"])
+    .index("by_templateId", ["templateId"]),
 
   marketingSettings: defineTable({
     workspaceId: v.id("workspaces"),

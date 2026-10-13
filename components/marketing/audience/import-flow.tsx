@@ -39,6 +39,7 @@ import {
 import { categoryLabel, categoryTone, fail, formatPhone, plural, type Category } from "./shared";
 
 const CHUNK = 500;
+const CHECK_BATCH = 10;
 
 type Source = "csv" | "paste";
 type Bucket = "ready" | "check" | "invalid" | "duplicate" | "skipped";
@@ -131,13 +132,13 @@ export function ImportUpload({
         <h2 className="text-lg font-semibold">Bring in contacts</h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
           Upload a CSV exported from another system — Google Contacts, Excel, a CRM, an old
-          WhatsApp tool — or paste a list. Every row is cleaned up, checked and sorted by Jev, and
+          WhatsApp tool — or paste a list. Every row is cleaned up, checked and sorted by Agent Check, and
           nothing is saved until you have reviewed it.
         </p>
       </div>
       <div className="flex flex-col gap-4">
         <ol className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
-          {["Upload", "Clean up", "Check with Jev", "Review and save"].map((label, index) => (
+          {["Upload", "Clean up", "Agent Check", "Review and save"].map((label, index) => (
             <li
               key={label}
               className="flex items-center gap-2 rounded-md border border-border px-3 py-2"
@@ -274,20 +275,27 @@ export function ImportProgress({
   const counts = data.counts;
   if (data.status === "uploading" || data.status === "sorting") {
     const sorted = data.total - counts.queued;
+    const batches = Math.ceil(data.total / CHECK_BATCH);
     return (
       <>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">Sorting {data.name}</h2>
+          <h2 className="text-lg font-semibold">Agent Check is sorting {data.name}</h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Each contact is checked and placed in a category. You can leave this page — it carries on,
-            and the list waits for you under Imports.
+            Contacts are checked in batches of {CHECK_BATCH} and placed in a category. You can leave
+            this page — it carries on, and the list waits for you under Imports.
           </p>
         </div>
         <div className="flex flex-col gap-4 py-6">
           <Progress value={data.total ? Math.round((sorted / data.total) * 100) : 0} />
           <div className="flex items-center gap-2 text-sm">
             <SparkleIcon className="size-4 text-primary" />
-            {sorted.toLocaleString()} of {data.total.toLocaleString()} looked at
+            {sorted.toLocaleString()} of {data.total.toLocaleString()} checked
+            {batches > 0 ? (
+              <span className="text-muted-foreground">
+                · batch {Math.min(batches, Math.floor(sorted / CHECK_BATCH) + 1).toLocaleString()} of{" "}
+                {batches.toLocaleString()}
+              </span>
+            ) : null}
           </div>
           <CountStrip counts={counts} />
         </div>

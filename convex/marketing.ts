@@ -52,7 +52,8 @@ import {
   audienceSelection as audienceSelectionValidator,
   guestSegment as guestSegmentValidator,
 } from "./schema/marketing";
-import { inSelection, isBuiltIn, reachable, withBuiltIns } from "./lib/audience";
+import { inSelection, isBuiltIn, knownCategories, reachable, withBuiltIns } from "./lib/audience";
+import { partsProblems, sameParts, templateButton, tidyParts } from "./lib/templateParts";
 
 /** How many contacts one send batch covers. */
 export const SEND_BATCH = 40;
@@ -271,7 +272,7 @@ export const calendar = query({
         )
         .take(500);
       for (const contact of rows) {
-        if (contact.channelType !== "whatsapp" || !contact.birthday) continue;
+        if (!reachable(contact) || !contact.birthday) continue;
         birthdays.push({
           contactId: contact._id,
           name: contact.name ?? contact.phone ?? contact.externalId,
@@ -391,11 +392,17 @@ export const saveTemplate = mutation({
     metaTemplateName: v.optional(v.string()),
     languageCode: v.optional(v.string()),
     category: v.optional(templateCategory),
+    header: v.optional(v.string()),
+    footer: v.optional(v.string()),
+    buttons: v.optional(v.array(templateButton)),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     const name = args.name.trim();
     const body = args.body.trim();
+    const parts = tidyParts(args);
+    const partProblems = partsProblems(parts);
+    if (partProblems.length > 0) throw new ConvexError(partProblems[0]);
     if (!name) throw new ConvexError("Give the template a name.");
     if (!body) throw new ConvexError("Write the message first.");
     if (body.length > 1024) {
@@ -416,6 +423,11 @@ export const saveTemplate = mutation({
     const now = Date.now();
     if (args.templateId) {
       const existing = await templateInWorkspace(ctx, args.workspaceId, args.templateId);
+      const kept = tidyParts({
+        header: args.header ?? existing.header,
+        footer: args.footer ?? existing.footer,
+        buttons: args.buttons ?? existing.buttons,
+      });
 
       // Keeping Meta's copy honest. A name typed over by hand links a
       // different template, so what was tracked for the old one goes. A
@@ -427,7 +439,8 @@ export const saveTemplate = mutation({
       const reworded =
         body !== existing.body ||
         languageCode !== existing.languageCode ||
-        (args.category !== undefined && args.category !== (existing.category ?? "marketing"));
+        (args.category !== undefined && args.category !== (existing.category ?? "marketing")) ||
+        !sameParts(kept, existing);
       const review = relinked
         ? {
             metaStatus: undefined,
@@ -450,6 +463,9 @@ export const saveTemplate = mutation({
         // Left alone when not given, so a caller that predates categories
         // cannot quietly move a utility template back to marketing.
         ...(args.category ? { category: args.category } : {}),
+        header: kept.header,
+        footer: kept.footer,
+        buttons: kept.buttons,
         ...review,
         updatedAt: now,
       });
@@ -464,6 +480,7 @@ export const saveTemplate = mutation({
       metaTemplateName,
       languageCode,
       category: args.category ?? "marketing",
+      ...parts,
       createdAt: now,
       updatedAt: now,
     });
@@ -479,18 +496,23 @@ export const removeTemplate = mutation({
 
     // Anything still waiting to go out on it goes back to draft rather than
     // sending with a template that is no longer there.
-    const events = await ctx.db
+    const sending = await ctx.db
       .query("marketingEvents")
-      .withIndex("by_workspace_and_date", (q) =>
-        q.eq("workspaceId", template.workspaceId)
+      .withIndex("by_templateId_and_status", (q) =>
+        q.eq("templateId", args.templateId).eq("status", "sending")
       )
-      .take(1000);
-    for (const event of events) {
-      if (event.templateId !== args.templateId) continue;
-      if (event.status === "sending") {
-        throw new ConvexError("A calendar entry is sending with this template right now.");
-      }
-      if (event.status === "scheduled" || event.status === "draft") {
+      .first();
+    if (sending) {
+      throw new ConvexError("A calendar entry is sending with this template right now.");
+    }
+    for (const status of ["scheduled", "draft"] as const) {
+      const events = await ctx.db
+        .query("marketingEvents")
+        .withIndex("by_templateId_and_status", (q) =>
+          q.eq("templateId", args.templateId).eq("status", status)
+        )
+        .take(1000);
+      for (const event of events) {
         await ctx.db.patch("marketingEvents", event._id, {
           templateId: undefined,
           status: "draft",
@@ -503,12 +525,9 @@ export const removeTemplate = mutation({
     // went back to draft above, and the event itself is cleared to match.
     const campaigns = await ctx.db
       .query("marketingCampaigns")
-      .withIndex("by_workspace_and_date", (q) =>
-        q.eq("workspaceId", template.workspaceId)
-      )
+      .withIndex("by_templateId", (q) => q.eq("templateId", args.templateId))
       .take(500);
     for (const campaign of campaigns) {
-      if (campaign.templateId !== args.templateId) continue;
       await ctx.db.patch("marketingCampaigns", campaign._id, {
         templateId: undefined,
         updatedAt: Date.now(),
@@ -565,7 +584,7 @@ export const saveEvent = mutation({
       sendHour,
       sendAt,
       templateId: args.templateId,
-      note: args.note?.trim() || undefined,
+      ...(args.note !== undefined ? { note: args.note.trim() || undefined } : {}),
       status: args.templateId ? ("scheduled" as const) : ("draft" as const),
       updatedAt: now,
     };
@@ -575,8 +594,12 @@ export const saveEvent = mutation({
       if (event.workspaceId !== args.workspaceId) {
         throw new ConvexError("Calendar entry not found");
       }
-      if (event.status === "sending" || event.status === "sent") {
-        throw new ConvexError("This one has already gone out, so it can no longer be changed.");
+      if (event.startedAt || (event.status !== "draft" && event.status !== "scheduled")) {
+        throw new ConvexError(
+          event.status === "paused" || event.status === "cancelled"
+            ? `This one is ${event.status}. Open it from Campaigns to change it.`
+            : "This one has already gone out, so it can no longer be changed."
+        );
       }
       // Its day, hour and template are the event's, and the next save of the
       // event would put them back — so they are changed there, not here.
@@ -619,7 +642,10 @@ export const sendEventNow = mutation({
   handler: async (ctx, args) => {
     const event = await requireEvent(ctx, args.eventId);
     if (!event.templateId) throw new ConvexError("Pick a template first.");
-    if (event.status === "sending" || event.status === "sent") {
+    if (event.status === "paused" || event.status === "cancelled") {
+      throw new ConvexError(`This one is ${event.status}. Open it from Campaigns to resume it.`);
+    }
+    if (event.startedAt || (event.status !== "draft" && event.status !== "scheduled")) {
       throw new ConvexError("This one has already gone out.");
     }
     await startEvent(ctx, event, 0);
@@ -672,17 +698,28 @@ export const saveAudienceSettings = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
-    const categories = args.categories
-      .map((category) => ({
-        key: category.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").slice(0, 32),
-        label: category.label.trim().slice(0, 40),
-        description: category.description.trim().slice(0, 300),
-      }))
-      .filter((category) => category.key && category.label && !isBuiltIn(category.key));
+    const categories = args.categories.map((category) => ({
+      key: category.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").slice(0, 32),
+      label: category.label.trim().slice(0, 40),
+      description: category.description.trim().slice(0, 300),
+    }));
     if (categories.length > MAX_CATEGORIES) {
       throw new ConvexError(`Use at most ${MAX_CATEGORIES} categories.`);
     }
+    const builtInLabels = withBuiltIns([]).map((category) => category.label.toLowerCase());
+    for (const category of categories) {
+      if (!category.label) throw new ConvexError("Give every category a name.");
+      if (!category.key || category.key === "unknown" || isBuiltIn(category.key)) {
+        throw new ConvexError(`“${category.label}” cannot be saved. Remove it and add it again.`);
+      }
+      if (builtInLabels.includes(category.label.toLowerCase())) {
+        throw new ConvexError(`“${category.label}” is already a built-in category.`);
+      }
+    }
     if (new Set(categories.map((c) => c.key)).size !== categories.length) {
+      throw new ConvexError("Two categories have the same key.");
+    }
+    if (new Set(categories.map((c) => c.label.toLowerCase())).size !== categories.length) {
       throw new ConvexError("Two categories have the same name.");
     }
     const fields = {
@@ -946,6 +983,7 @@ export const audiencePage = internalQuery({
 
     const settings = await settingsFor(ctx, args.workspaceId);
     const cap = !monthDay && args.now ? (settings?.weeklyCap ?? 0) : 0;
+    const known = knownCategories(settings);
 
     const contacts: Array<{
       contactId: Id<"contacts">;
@@ -956,7 +994,7 @@ export const audiencePage = internalQuery({
     for (const contact of candidates) {
       if (!contact || contact.workspaceId !== args.workspaceId) continue;
       if (!reachable(contact)) continue;
-      if (!fromGuests && !(await inSelection(ctx, contact, args.audience))) continue;
+      if (!fromGuests && !(await inSelection(ctx, contact, args.audience, known))) continue;
       if (campaignId && args.guestSegment === "not_declined") {
         const guest = await ctx.db
           .query("eventGuests")

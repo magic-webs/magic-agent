@@ -7,6 +7,7 @@ const STOP_WORDS = new Set([
   "optout",
   "opt-out",
   "no more messages",
+  "stop messages",
   "बंद",
   "बंद करो",
   "रोकें",

@@ -36,6 +36,7 @@ import {
   type Json,
   type PanelConfig,
 } from "./lib/panel";
+import { metaParts, partsProblems } from "./lib/templateParts";
 
 const NO_PANEL = "Connect a WhatsApp number under Channels first — templates are applied through it.";
 const NO_WABA =
@@ -56,7 +57,7 @@ export const apply = action({
     if (template.metaStatus === "PENDING") {
       throw new ConvexError("Meta is still reviewing it. Apply again once it has decided.");
     }
-    const problems = templateProblems(template.body);
+    const problems = [...templateProblems(template.body), ...partsProblems(template)];
     if (problems.length > 0) throw new ConvexError(problems[0]);
 
     const text = metaBody(template.body);
@@ -66,6 +67,12 @@ export const apply = action({
       text,
       ...(samples.length ? { example: { body_text: [samples] } } : {}),
     };
+    const parts: Json[] = metaParts(template);
+    const components = [
+      ...parts.filter((part) => part.type === "HEADER"),
+      body,
+      ...parts.filter((part) => part.type !== "HEADER"),
+    ];
     const category = (template.category ?? "marketing").toUpperCase();
     // The name it already goes by, when it has one: Meta keys a template on
     // its name and language, and an edit keeps both.
@@ -75,12 +82,12 @@ export const apply = action({
     let payload: Json;
     if (template.metaTemplateId) {
       url = `${panelRoot(panel)}/${template.metaTemplateId}`;
-      payload = { category, components: [body] };
+      payload = { category, components };
     } else {
       const wabaId = panel.wabaId ?? (await discoverWaba(panel));
       if (!wabaId) throw new ConvexError(NO_WABA);
       url = `${panelRoot(panel)}/${wabaId}/message_templates`;
-      payload = { name, category, language: template.languageCode, components: [body] };
+      payload = { name, category, language: template.languageCode, components };
     }
 
     let response;

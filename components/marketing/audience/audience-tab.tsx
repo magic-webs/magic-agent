@@ -54,6 +54,7 @@ import {
 } from "@phosphor-icons/react";
 import { PersonDialog, type Person } from "./person-dialog";
 import { AudienceSettingsDialog } from "./settings-dialog";
+import { RecheckButton } from "./import-flow";
 import {
   categoryDot,
   categoryLabel,
@@ -239,6 +240,7 @@ export function AudienceTab({
           <Button variant="outline" onClick={onAddByHand}>
             <UserPlusIcon /> Add by hand
           </Button>
+          <RecheckButton categories={categories} />
           <Button nativeButton={false} render={<Link href={importBase} />}>
             <BroomIcon /> Import contacts
           </Button>
@@ -265,8 +267,13 @@ export function AudienceTab({
               className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/50"
             >
               {row.status === "sorting" || row.status === "saving" ? <Spinner /> : <BroomIcon className="size-4 text-primary" />}
-              <span className="min-w-0 flex-1 truncate font-medium">{row.name}</span>
-              <span className="text-xs text-muted-foreground">{plural(row.total, "row")}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {row.mode === "recheck" ? row.name.replace(/^Re-check: /, "") : row.name}
+              </span>
+              {row.mode === "recheck" ? <Badge variant="secondary">Re-check</Badge> : null}
+              <span className="text-xs text-muted-foreground">
+                {plural(row.total, row.mode === "recheck" ? "contact" : "row")}
+              </span>
               <Badge variant={row.status === "review" ? "default" : "outline"}>
                 {IMPORT_STATUS[row.status] ?? row.status}
               </Badge>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
@@ -12,6 +13,14 @@ import { SelectField } from "@/components/select-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -273,14 +282,21 @@ export function ImportProgress({
   }
 
   const counts = data.counts;
+  const recheck = data.mode === "recheck";
+  const subject = recheck ? data.name.replace(/^Re-check: /, "") : data.name;
   if (data.status === "uploading" || data.status === "sorting") {
     const sorted = data.total - counts.queued;
     const batches = Math.ceil(data.total / CHECK_BATCH);
     return (
       <>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">Agent Check is sorting {data.name}</h2>
+          <h2 className="text-lg font-semibold">
+            {recheck ? `Re-checking ${subject}` : `Agent Check is sorting ${data.name}`}
+          </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
+            {recheck && data.status === "uploading"
+              ? `Gathering contacts — ${plural(data.total, "contact")} so far. `
+              : null}
             Contacts are checked in batches of {CHECK_BATCH} and placed in a category. You can leave
             this page — it carries on, and the list waits for you under Imports.
           </p>
@@ -313,11 +329,23 @@ export function ImportProgress({
     return (
       <>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">{done ? "Saved" : `Saving ${data.name}`}</h2>
+          <h2 className="text-lg font-semibold">
+            {recheck
+              ? done
+                ? "Updated"
+                : `Updating ${subject}`
+              : done
+                ? "Saved"
+                : `Saving ${data.name}`}
+          </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            {done
-              ? `${plural(counts.saved, "contact")} added to your audience${data.audienceId ? ` and to the list “${data.name}”` : ""}.`
-              : "Adding everyone you kept to your contacts."}
+            {recheck
+              ? done
+                ? `${plural(counts.saved, "contact")} updated.`
+                : "Updating everyone you kept with what Agent Check found."
+              : done
+                ? `${plural(counts.saved, "contact")} added to your audience${data.audienceId ? ` and to the list “${data.name}”` : ""}.`
+                : "Adding everyone you kept to your contacts."}
           </p>
         </div>
         <div className="flex flex-col gap-4 py-6">
@@ -340,7 +368,7 @@ export function ImportProgress({
     );
   }
 
-  return <Review data={data} onClose={onClose} />;
+  return <Review data={data} recheck={recheck} subject={subject} onClose={onClose} />;
 }
 
 function CountStrip({ counts }: { counts: Doc<"audienceImports">["counts"] }) {
@@ -366,7 +394,17 @@ function CountStrip({ counts }: { counts: Doc<"audienceImports">["counts"] }) {
 
 type ImportData = Doc<"audienceImports"> & { categories: Category[] };
 
-function Review({ data, onClose }: { data: ImportData; onClose: () => void }) {
+function Review({
+  data,
+  recheck,
+  subject,
+  onClose,
+}: {
+  data: ImportData;
+  recheck: boolean;
+  subject: string;
+  onClose: () => void;
+}) {
   const save = useMutation(api.audienceImports.save);
   const discard = useMutation(api.audienceImports.discard);
   const acceptAll = useMutation(api.audienceImports.acceptAll);
@@ -390,10 +428,13 @@ function Review({ data, onClose }: { data: ImportData; onClose: () => void }) {
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">Review {data.name}</h2>
+        <h2 className="text-lg font-semibold">
+          {recheck ? `Re-checking ${subject}` : `Review ${data.name}`}
+        </h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          {plural(data.total, "row")} cleaned up and sorted. Check anything flagged, change a
-          category where it is wrong, then save.
+          {recheck
+            ? `${plural(data.total, "contact")} checked again. Change a category where it is wrong, leave out anyone you want untouched, then update.`
+            : `${plural(data.total, "row")} cleaned up and sorted. Check anything flagged, change a category where it is wrong, then save.`}
         </p>
       </div>
       <div className="flex min-h-0 flex-col gap-3">
@@ -443,26 +484,36 @@ function Review({ data, onClose }: { data: ImportData; onClose: () => void }) {
             </Button>
           ) : null}
         </div>
-        <RowsTable key={bucket} importId={data._id} bucket={bucket} categories={data.categories} />
+        <RowsTable
+          key={bucket}
+          importId={data._id}
+          bucket={bucket}
+          categories={data.categories}
+          recheck={recheck}
+        />
       </div>
       <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4 flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-        <label className="flex flex-1 items-center gap-2 text-sm">
-          <Checkbox checked={makeList} onCheckedChange={(next) => setMakeList(Boolean(next))} />
-          <span className="shrink-0">Also save as the list</span>
-          <Input
-            value={listName}
-            disabled={!makeList}
-            className="h-8 max-w-64"
-            onChange={(event) => setListName(event.target.value)}
-          />
-        </label>
+        {recheck ? (
+          <span className="flex-1" />
+        ) : (
+          <label className="flex flex-1 items-center gap-2 text-sm">
+            <Checkbox checked={makeList} onCheckedChange={(next) => setMakeList(Boolean(next))} />
+            <span className="shrink-0">Also save as the list</span>
+            <Input
+              value={listName}
+              disabled={!makeList}
+              className="h-8 max-w-64"
+              onChange={(event) => setListName(event.target.value)}
+            />
+          </label>
+        )}
         <Button
           variant="ghost"
           disabled={busy}
           onClick={() =>
             void run(async () => {
               await discard({ importId: data._id });
-              toast.add({ title: "Import thrown away" });
+              toast.add({ title: recheck ? "Re-check thrown away" : "Import thrown away" });
               onClose();
             }, "Could not discard it")
           }
@@ -476,13 +527,14 @@ function Review({ data, onClose }: { data: ImportData; onClose: () => void }) {
               () =>
                 save({
                   importId: data._id,
-                  audienceName: makeList ? listName.trim() || data.name : undefined,
+                  audienceName: makeList && !recheck ? listName.trim() || data.name : undefined,
                 }),
               "Could not save"
             )
           }
         >
-          {busy ? <Spinner /> : <CheckCircleIcon />} Save {plural(counts.ready, "contact")}
+          {busy ? <Spinner /> : <CheckCircleIcon />} {recheck ? "Update" : "Save"}{" "}
+          {plural(counts.ready, "contact")}
         </Button>
       </div>
     </>
@@ -493,10 +545,12 @@ function RowsTable({
   importId,
   bucket,
   categories,
+  recheck,
 }: {
   importId: Id<"audienceImports">;
   bucket: Bucket;
   categories: Category[];
+  recheck: boolean;
 }) {
   const { results, status, loadMore } = usePaginatedQuery(
     api.audienceImports.rows,
@@ -547,7 +601,7 @@ function RowsTable({
                   <Badge variant="outline" className="mt-1 text-[10px]">
                     Unsubscribed earlier
                   </Badge>
-                ) : row.existingContactId ? (
+                ) : row.existingContactId && !recheck ? (
                   <Badge variant="outline" className="mt-1 text-[10px]">
                     Already a contact
                   </Badge>
@@ -733,5 +787,82 @@ function PhoneFix({
         {busy ? <Spinner /> : "Fix"}
       </Button>
     </form>
+  );
+}
+
+export function RecheckButton({ categories }: { categories: Category[] }) {
+  const workspace = useWorkspace();
+  const router = useRouter();
+  const recheck = useMutation(api.audienceImports.recheck);
+  const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
+  const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState("everyone");
+  const [busy, setBusy] = useState(false);
+
+  const options = [
+    { value: "everyone", label: "Everyone" },
+    ...categories.map((category) => ({
+      value: `category:${category.key}`,
+      label: category.label,
+    })),
+    ...(audiences ?? []).map((audience) => ({
+      value: `audience:${audience._id}`,
+      label: `${audience.name} (${audience.memberCount.toLocaleString()})`,
+    })),
+  ];
+
+  const start = async () => {
+    setBusy(true);
+    try {
+      const importId = await recheck({
+        workspaceId: workspace._id,
+        ...(target.startsWith("category:") ? { category: target.slice(9) } : {}),
+        ...(target.startsWith("audience:")
+          ? { audienceId: target.slice(9) as Id<"audiences"> }
+          : {}),
+      });
+      setOpen(false);
+      router.push(`/w/${workspace.slug}/marketing/audience/import/${importId}`);
+    } catch (error) {
+      fail("Could not start the re-check", error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        <SparkleIcon /> Re-check with Agent Check
+      </Button>
+      <Dialog open={open} onOpenChange={(next) => !busy && setOpen(next)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Re-check with Agent Check</DialogTitle>
+            <DialogDescription>
+              Agent Check sorts these contacts again. You review what it finds before anyone is
+              updated.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="recheck-target">Who to check</Label>
+            <SelectField
+              id="recheck-target"
+              value={target}
+              options={options}
+              onValueChange={(next) => setTarget(next || "everyone")}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void start()}>
+              {busy ? <Spinner /> : <SparkleIcon />} Start
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

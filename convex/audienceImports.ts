@@ -12,7 +12,15 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
 import { refreshContactSearch } from "./lib/inbox";
-import { NOT_VALID, VALID, isBuiltIn, validityOf, withBuiltIns } from "./lib/audience";
+import {
+  NOT_VALID,
+  VALID,
+  categoryOf,
+  isBuiltIn,
+  knownCategories,
+  validityOf,
+  withBuiltIns,
+} from "./lib/audience";
 import { cleanContact, describeForSorting, type RawContact } from "./lib/contactClean";
 import {
   choiceOf,
@@ -31,6 +39,7 @@ const CONTACTS_PER_CALL = 10;
 const SORT_PARALLEL = 4;
 const FATAL = /not available right now|401|403/;
 const SAVE_BATCH = 100;
+const RECHECK_PAGE = 200;
 const READY_CONFIDENCE = 0.8;
 const JUNK_PROBABILITY = 0.5;
 const FLAG_PROBABILITY = 0.8;
@@ -187,7 +196,9 @@ export const addRows = mutation({
   },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
-    if (importDoc.status !== "uploading") throw new ConvexError("This import is already being sorted.");
+    if (importDoc.status !== "uploading" || importDoc.mode === "recheck") {
+      throw new ConvexError("This import is already being sorted.");
+    }
     if (args.rows.length > MAX_ADD) throw new ConvexError(`Send at most ${MAX_ADD} rows at a time.`);
     if (importDoc.total + args.rows.length > MAX_ROWS) {
       throw new ConvexError(`One import can hold at most ${MAX_ROWS.toLocaleString()} people.`);
@@ -253,18 +264,202 @@ export const startSorting = mutation({
   args: { importId: v.id("audienceImports") },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
-    if (importDoc.status !== "uploading") return { success: true };
+    if (importDoc.status !== "uploading" || importDoc.mode === "recheck") return { success: true };
     if (importDoc.total === 0) throw new ConvexError("There is nobody in this file to import.");
-    await ctx.db.patch("audienceImports", importDoc._id, {
-      status: importDoc.counts.queued > 0 ? "sorting" : "review",
-      updatedAt: Date.now(),
+    await beginSorting(ctx, importDoc);
+    return { success: true };
+  },
+});
+
+async function beginSorting(
+  ctx: MutationCtx,
+  importDoc: Doc<"audienceImports">,
+  extra: Partial<Doc<"audienceImports">> = {}
+) {
+  await ctx.db.patch("audienceImports", importDoc._id, {
+    status: importDoc.counts.queued > 0 ? "sorting" : "review",
+    updatedAt: Date.now(),
+    ...extra,
+  });
+  if (importDoc.counts.queued > 0) {
+    await ctx.scheduler.runAfter(0, internal.audienceImports.sortBatch, {
+      importId: importDoc._id,
     });
-    if (importDoc.counts.queued > 0) {
-      await ctx.scheduler.runAfter(0, internal.audienceImports.sortBatch, {
+  }
+}
+
+export const recheck = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    audienceId: v.optional(v.id("audiences")),
+    category: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    if (args.audienceId && args.category) throw new ConvexError("Pick a list or a category, not both.");
+    let target = "Everyone";
+    if (args.audienceId) {
+      const audience = await ctx.db.get("audiences", args.audienceId);
+      if (!audience || audience.workspaceId !== args.workspaceId) {
+        throw new ConvexError("List not found");
+      }
+      target = audience.name;
+    } else if (args.category) {
+      const categories = await categoriesFor(ctx, args.workspaceId);
+      const category = categories.find((row) => row.key === args.category);
+      if (!category) throw new ConvexError("Unknown category");
+      target = category.label;
+    }
+    const now = Date.now();
+    const importId = await ctx.db.insert("audienceImports", {
+      workspaceId: args.workspaceId,
+      name: `Re-check: ${target}`.slice(0, 80),
+      mode: "recheck",
+      status: "uploading",
+      total: 0,
+      counts: { ...EMPTY_COUNTS },
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.scheduler.runAfter(0, internal.audienceImports.fillRecheck, {
+      importId,
+      audienceId: args.audienceId,
+      category: args.category,
+      cursor: null,
+    });
+    return importId;
+  },
+});
+
+async function recheckPage(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  audienceId: Id<"audiences"> | undefined,
+  category: string | undefined,
+  cursor: string | null
+) {
+  const opts = { numItems: RECHECK_PAGE, cursor };
+  if (audienceId) {
+    const page = await ctx.db
+      .query("audienceMembers")
+      .withIndex("by_audienceId_and_contactId", (q) => q.eq("audienceId", audienceId))
+      .paginate(opts);
+    const contacts = await Promise.all(
+      page.page.map((member) => ctx.db.get("contacts", member.contactId))
+    );
+    return {
+      contacts: contacts.filter(
+        (contact): contact is Doc<"contacts"> => contact?.workspaceId === workspaceId
+      ),
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  }
+  if (category && !isBuiltIn(category)) {
+    const page = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace_and_category", (q) =>
+        q.eq("workspaceId", workspaceId).eq("category", category)
+      )
+      .paginate(opts);
+    return { contacts: page.page, isDone: page.isDone, continueCursor: page.continueCursor };
+  }
+  const page = await ctx.db
+    .query("contacts")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .paginate(opts);
+  if (!category) {
+    return { contacts: page.page, isDone: page.isDone, continueCursor: page.continueCursor };
+  }
+  const settings = await ctx.db
+    .query("marketingSettings")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .unique();
+  const known = knownCategories(settings);
+  return {
+    contacts: page.page.filter((contact) => categoryOf(contact, known) === category),
+    isDone: page.isDone,
+    continueCursor: page.continueCursor,
+  };
+}
+
+export const fillRecheck = internalMutation({
+  args: {
+    importId: v.id("audienceImports"),
+    audienceId: v.optional(v.id("audiences")),
+    category: v.optional(v.string()),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const importDoc = await ctx.db.get("audienceImports", args.importId);
+    if (!importDoc || importDoc.status !== "uploading" || importDoc.mode !== "recheck") return;
+    const page = await recheckPage(
+      ctx,
+      importDoc.workspaceId,
+      args.audienceId,
+      args.category,
+      args.cursor
+    );
+    const now = Date.now();
+    let total = importDoc.total;
+    let full = false;
+    for (const contact of page.contacts) {
+      if (contact.channelType !== "whatsapp" || contact.optedOutAt) continue;
+      if (total >= MAX_ROWS) {
+        full = true;
+        break;
+      }
+      total++;
+      const tags = (contact.tags ?? []).slice(0, 10);
+      await ctx.db.insert("audienceImportRows", {
+        workspaceId: importDoc.workspaceId,
         importId: importDoc._id,
+        line: total,
+        raw: {
+          name: contact.name,
+          phone: contact.externalId,
+          email: contact.email,
+          company: contact.company,
+          birthday: contact.birthday,
+          tags: tags.length > 0 ? tags.join(", ") : undefined,
+          notes: contact.remark,
+        },
+        name: contact.name,
+        phone: contact.externalId,
+        email: contact.email,
+        company: contact.company,
+        birthday: contact.birthday,
+        tags,
+        notes: contact.remark,
+        fixes: [],
+        status: "queued",
+        existingContactId: contact._id,
+        updatedAt: now,
       });
     }
-    return { success: true };
+    const added = total - importDoc.total;
+    const counts = { ...importDoc.counts, queued: importDoc.counts.queued + added };
+    if (!full && !page.isDone) {
+      await ctx.db.patch("audienceImports", importDoc._id, { total, counts, updatedAt: now });
+      await ctx.scheduler.runAfter(0, internal.audienceImports.fillRecheck, {
+        ...args,
+        cursor: page.continueCursor,
+      });
+      return;
+    }
+    await beginSorting(
+      ctx,
+      { ...importDoc, total, counts },
+      {
+        total,
+        counts,
+        error: full
+          ? `Only the first ${MAX_ROWS.toLocaleString()} contacts were checked.`
+          : total === 0
+            ? "Nobody here can be messaged on WhatsApp, so there was nothing to check."
+            : undefined,
+      }
+    );
   },
 });
 
@@ -797,7 +992,7 @@ export const save = mutation({
     reviewable(importDoc);
     if (importDoc.counts.ready === 0) throw new ConvexError("Nobody is ready to save yet.");
     const now = Date.now();
-    const name = args.audienceName?.trim().slice(0, 80);
+    const name = importDoc.mode === "recheck" ? undefined : args.audienceName?.trim().slice(0, 80);
     const audienceId = name
       ? await ctx.db.insert("audiences", {
           workspaceId: importDoc.workspaceId,
@@ -835,8 +1030,44 @@ export const saveBatch = internalMutation({
     const now = Date.now();
     let members = 0;
 
+    if (importDoc.mode === "recheck") {
+      for (const row of batch) {
+        const contact = row.existingContactId
+          ? await ctx.db.get("contacts", row.existingContactId)
+          : null;
+        if (contact && contact.workspaceId === importDoc.workspaceId) {
+          const patch: Partial<Doc<"contacts">> = {};
+          if (row.category) {
+            const category = row.category === validityOf(contact.name) ? undefined : row.category;
+            if (category !== contact.category) patch.category = category;
+          }
+          if (!contact.company && row.company) patch.company = row.company;
+          const tags = [...new Set([...(contact.tags ?? []), ...row.tags])].slice(0, 30);
+          if (tags.length !== (contact.tags ?? []).length) patch.tags = tags;
+          if (row.doNotContact && !contact.optedOutAt) {
+            patch.optedOutAt = now;
+            patch.optOutReason = "import";
+          }
+          if (Object.keys(patch).length > 0) await ctx.db.patch("contacts", contact._id, patch);
+        }
+        await ctx.db.patch("audienceImportRows", row._id, { status: "saved", updatedAt: now });
+      }
+      const done = batch.length < SAVE_BATCH;
+      await moveRows(
+        ctx,
+        importDoc,
+        batch.map(() => ["ready", "saved"] as [RowStatus, RowStatus]),
+        done ? { status: "saved", finishedAt: now } : {}
+      );
+      if (!done) await ctx.scheduler.runAfter(0, internal.audienceImports.saveBatch, args);
+      return;
+    }
+
     for (const row of batch) {
-      if (!row.phone) continue;
+      if (!row.phone) {
+        await ctx.db.patch("audienceImportRows", row._id, { status: "skipped", updatedAt: now });
+        continue;
+      }
       const existing = await ctx.db
         .query("contacts")
         .withIndex("by_workspace_external", (q) =>
@@ -922,7 +1153,7 @@ export const saveBatch = internalMutation({
     await moveRows(
       ctx,
       importDoc,
-      batch.map(() => ["ready", "saved"] as [RowStatus, RowStatus]),
+      batch.map((row) => ["ready", row.phone ? "saved" : "skipped"] as [RowStatus, RowStatus]),
       done ? { status: "saved", finishedAt: now } : {}
     );
     if (!done) await ctx.scheduler.runAfter(0, internal.audienceImports.saveBatch, args);

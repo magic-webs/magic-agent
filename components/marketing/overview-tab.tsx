@@ -19,15 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BroomIcon, CalendarCheckIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { CalendarCheckIcon, PaperPlaneTiltIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import { pct, rate } from "@/components/marketing/format";
 
 const PERIODS = [
   { value: "7", label: "Last 7 days" },
   { value: "30", label: "Last 30 days" },
   { value: "90", label: "Last 90 days" },
 ];
-
-const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null);
 
 export function OverviewTab({ onGo }: { onGo: (tab: string) => void }) {
   const workspace = useWorkspace();
@@ -60,7 +59,7 @@ export function OverviewTab({ onGo }: { onGo: (tab: string) => void }) {
         <div className="flex flex-wrap gap-2">
           <SelectField aria-label="Period" className="w-40" value={days} onValueChange={setDays} options={PERIODS} />
           <Button variant="outline" onClick={() => onGo("audience")}>
-            <BroomIcon /> Import contacts
+            <UploadSimpleIcon /> Import contacts
           </Button>
           <Button variant="outline" onClick={() => onGo("events")}>
             <CalendarCheckIcon /> New event
@@ -163,11 +162,12 @@ export function OverviewTab({ onGo }: { onGo: (tab: string) => void }) {
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold">What went out</p>
         {data.campaigns.length === 0 ? (
-          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             No campaigns or reminders went out in this period.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border">
+
             <Table>
               <TableHeader>
                 <TableRow>
@@ -191,9 +191,9 @@ export function OverviewTab({ onGo }: { onGo: (tab: string) => void }) {
                       ) : null}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{row.stats.sent.toLocaleString()}</TableCell>
-                    <TableCell className="text-right tabular-nums">{pct(row.stats.read, row.stats.sent) ?? "—"}%</TableCell>
+                    <TableCell className="text-right tabular-nums">{rate(row.stats.read, row.stats.sent)}</TableCell>
                     <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                      {pct(row.stats.replied, row.stats.sent) ?? "—"}%
+                      {rate(row.stats.replied, row.stats.sent)}
                     </TableCell>
                     <TableCell className="hidden text-right tabular-nums md:table-cell">{row.stats.clicked}</TableCell>
                     <TableCell className="hidden text-right tabular-nums md:table-cell">{row.stats.converted}</TableCell>

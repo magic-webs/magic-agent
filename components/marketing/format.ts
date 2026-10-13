@@ -4,6 +4,20 @@ import {
   templateBlocker,
   type TemplateVariable,
 } from "@/convex/lib/marketing";
+import { toast } from "@/components/ui/toast";
+import { friendlyError } from "@/lib/errors";
+
+export function fail(title: string, error: unknown) {
+  toast.add({ title, description: friendlyError(error), type: "error" });
+}
+
+export const pct = (part: number, whole: number) =>
+  whole > 0 ? Math.round((part / whole) * 100) : null;
+
+export const rate = (part: number, whole: number) => {
+  const value = pct(part, whole);
+  return value === null ? "—" : `${value}%`;
+};
 
 // ------------------------------------------------------ a template and Meta
 
@@ -67,6 +81,31 @@ export const STATUS_VARIANT: Record<
   cancelled: "outline",
 };
 
+const STATUS_LABEL: Record<EventStatus, string> = {
+  draft: "Draft",
+  scheduled: "Scheduled",
+  sending: "Sending",
+  sent: "Sent",
+  failed: "Failed",
+  paused: "Paused",
+  cancelled: "Cancelled",
+};
+
+export function statusLabel(status: EventStatus, sentCount?: number): string {
+  if (status === "sent" && sentCount !== undefined) return `Sent to ${sentCount.toLocaleString()}`;
+  return STATUS_LABEL[status];
+}
+
+/** Where a campaign opens: the report once it has started or stopped, the composer before. */
+export function broadcastHref(
+  base: string,
+  event: { _id: string; status: EventStatus; startedAt?: number }
+): string {
+  return event.startedAt || (event.status !== "draft" && event.status !== "scheduled")
+    ? `${base}/${event._id}`
+    : `${base}/new?edit=${event._id}`;
+}
+
 /*
  * Every date on the Marketing page is a workspace-local calendar date,
  * "YYYY-MM-DD", and the arithmetic runs on those strings through UTC. The
@@ -94,6 +133,12 @@ export const dayLabel = (date: string) =>
 
 export const shortDayLabel = (date: string) =>
   formatDate(date, { weekday: "short", day: "numeric", month: "short" });
+
+/** A short day, with the year when it is not `today`'s. */
+export const datedLabel = (date: string, today: string) =>
+  date.slice(0, 4) === today.slice(0, 4)
+    ? shortDayLabel(date)
+    : formatDate(date, { day: "numeric", month: "short", year: "numeric" });
 
 export function hourLabel(hour: number): string {
   if (hour === 0) return "12 AM";

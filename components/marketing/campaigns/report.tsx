@@ -9,13 +9,15 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
 import { failureCode, failureLabel } from "@/convex/lib/metaErrors";
 import { RankedBars, StatTile } from "@/components/dashboard-charts";
-import { STATUS_VARIANT, dayLabel, hourLabel } from "@/components/marketing/format";
-import { fail, formatPhone, plural } from "@/components/marketing/audience/shared";
+import { STATUS_VARIANT, dayLabel, fail, hourLabel, pct, statusLabel } from "@/components/marketing/format";
+import { ConfirmButton } from "@/components/marketing/calendar";
+import { formatPhone, plural } from "@/components/marketing/audience/shared";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -51,8 +53,6 @@ const OUTCOMES: Array<{ value: Outcome; label: string }> = [
 ];
 
 const READ_CHART: ChartConfig = { reads: { label: "Reads", color: "var(--viz-series)" } };
-
-const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null);
 
 function time(ms: number | null) {
   if (!ms) return "—";
@@ -90,12 +90,30 @@ export function CampaignReport({
   const stats = report?.stats;
   const sent = stats ? stats.sent : 0;
 
+  if (campaign === null) {
+    return (
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyTitle>This campaign is gone</EmptyTitle>
+          <EmptyDescription>It was deleted, or the link is wrong.</EmptyDescription>
+        </EmptyHeader>
+        <Button variant="outline" onClick={onClose}>
+          Back to campaigns
+        </Button>
+      </Empty>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
           <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
             {campaign?.title ?? "Campaign"}
-            {campaign ? <Badge variant={STATUS_VARIANT[campaign.status]}>{campaign.status}</Badge> : null}
+            {campaign ? (
+              <Badge variant={STATUS_VARIANT[campaign.status]}>
+                {statusLabel(campaign.status, report?.stats.sent)}
+              </Badge>
+            ) : null}
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
             {campaign
@@ -113,7 +131,8 @@ export function CampaignReport({
           ) : (
             <>
               {campaign?.lastError ? (
-                <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{campaign.lastError}</p>
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{campaign.lastError}</p>
+
               ) : null}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <StatTile label="Sent" value={sent} previous={null} />
@@ -193,7 +212,7 @@ export function CampaignReport({
             </>
           )}
         </div>
-        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4 flex-wrap">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           {campaign && (campaign.status === "sending" || campaign.status === "scheduled") ? (
             <Button variant="outline" disabled={busy} onClick={() => void act(() => pause({ eventId }), "Could not pause")}>
               <PauseIcon /> Pause
@@ -205,12 +224,20 @@ export function CampaignReport({
             </Button>
           ) : null}
           {campaign && ["sending", "scheduled", "paused"].includes(campaign.status) ? (
-            <Button
+            <ConfirmButton
               variant="ghost"
               className="text-destructive"
               disabled={busy}
-              onClick={() =>
-                void act(async () => {
+              destructive
+              heading={campaign.startedAt ? "Stop sending?" : "Delete this campaign?"}
+              description={
+                campaign.startedAt
+                  ? `Nobody else gets ${campaign.title}. The ${plural(sent, "person", "people")} already sent to keep it, and the report stays.`
+                  : `${campaign.title} is removed and will not go out.`
+              }
+              confirmLabel={campaign.startedAt ? "Stop sending" : "Delete"}
+              onConfirm={() =>
+                act(async () => {
                   const result = await cancel({ eventId });
                   toast.add({ title: result.deleted ? "Campaign removed" : "Campaign stopped" });
                   if (result.deleted) onClose();
@@ -218,7 +245,7 @@ export function CampaignReport({
               }
             >
               <StopIcon /> {campaign.startedAt ? "Stop sending" : "Delete"}
-            </Button>
+            </ConfirmButton>
           ) : null}
           <Button variant="outline" onClick={onDuplicate}>
             <CopyIcon /> Duplicate
@@ -234,6 +261,7 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
   const [outcome, setOutcome] = useState<Outcome>("all");
   const [listName, setListName] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const retarget = useMutation(api.marketingBroadcasts.retarget);
   const { results, status, loadMore } = usePaginatedQuery(
     api.marketingBroadcasts.recipients,
@@ -295,15 +323,19 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
       </div>
       {outcome !== "all" ? (
         <form
-          className="flex flex-wrap items-center gap-2 rounded-md bg-muted/50 p-2 text-sm"
+          className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 p-2 text-sm"
           onSubmit={async (event) => {
             event.preventDefault();
+            if (saving) return;
+            setSaving(true);
             try {
               await retarget({ eventId, outcome, name: listName || `${title} — ${label}` });
               toast.add({ title: "List created", description: "Find it under Audience → Lists.", type: "success" });
               setListName("");
             } catch (error) {
               fail("Could not create the list", error);
+            } finally {
+              setSaving(false);
             }
           }}
         >
@@ -315,12 +347,12 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
             placeholder={`${title} — ${label}`}
             onChange={(e) => setListName(e.target.value)}
           />
-          <Button size="sm" type="submit" variant="outline">
-            Save as a list
+          <Button size="sm" type="submit" variant="outline" disabled={saving}>
+            {saving ? <Spinner /> : null} Save as a list
           </Button>
         </form>
       ) : null}
-      <div className="max-h-[60vh] overflow-auto rounded-md border border-border">
+      <div className="max-h-[60vh] overflow-auto rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow>

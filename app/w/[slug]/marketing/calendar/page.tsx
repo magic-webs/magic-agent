@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -21,7 +22,7 @@ import {
   type Occasion,
 } from "@/components/marketing/calendar";
 import { TouchDialog } from "@/components/marketing/events";
-import { formatDate, parts, templateReady } from "@/components/marketing/format";
+import { broadcastHref, formatDate, parts, templateReady } from "@/components/marketing/format";
 import { TableSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +41,12 @@ export default function MarketingCalendarPage() {
   });
   const [selected, setSelected] = useState(today);
   const [eventDraft, setEventDraft] = useState<EventDraft | null>(null);
-  const [touchId, setTouchId] = useState<Id<"marketingEvents"> | null>(null);
+  const [touch, setTouch] = useState<{
+    eventId: Id<"marketingEvents">;
+    campaignId: Id<"marketingCampaigns">;
+  } | null>(null);
+  const router = useRouter();
+  const panel = useRef<HTMLDivElement>(null);
 
   const from = ymd(cursor.year, cursor.month, 1);
   const to = ymd(cursor.year, cursor.month, daysInMonth(cursor.year, cursor.month));
@@ -52,11 +58,11 @@ export default function MarketingCalendarPage() {
     today,
     days: 120,
   });
-  const campaigns = useQuery(api.marketingCampaigns.list, { workspaceId: workspace._id });
-  const openCampaign = touchId
-    ? (campaigns ?? []).find((c) => c.touches.some((t) => t._id === touchId))
-    : undefined;
-  const openTouch = openCampaign?.touches.find((t) => t._id === touchId);
+  const openCampaign = useQuery(
+    api.marketingCampaigns.get,
+    touch ? { campaignId: touch.campaignId } : "skip"
+  );
+  const openTouch = openCampaign?.touches.find((t) => t._id === touch?.eventId);
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
 
   const byDay = useMemo(() => {
@@ -99,9 +105,24 @@ export default function MarketingCalendarPage() {
       templateId: defaultTemplate(presetKey ? "festival" : "offer"),
     });
 
+  const selectDay = (date: string) => {
+    setSelected(date);
+    if (window.matchMedia("(min-width: 80rem)").matches) return;
+    requestAnimationFrame(() => panel.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
   const openEvent = (event: CalendarEvent) => {
     if (event.campaignId) {
-      setTouchId(event._id);
+      setTouch({ eventId: event._id, campaignId: event.campaignId });
+      return;
+    }
+    if (
+      event.trackLinks !== undefined ||
+      event.audience !== undefined ||
+      event.status === "paused" ||
+      event.status === "cancelled"
+    ) {
+      router.push(broadcastHref(`/w/${workspace.slug}/marketing/campaigns`, event));
       return;
     }
     setEventDraft({
@@ -155,7 +176,7 @@ export default function MarketingCalendarPage() {
               today={today}
               selected={selected}
               byDay={byDay}
-              onSelect={setSelected}
+              onSelect={selectDay}
               onEvent={openEvent}
               onFestival={newFromFestival}
             />
@@ -177,7 +198,7 @@ export default function MarketingCalendarPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div ref={panel} className="flex scroll-mt-4 flex-col gap-4">
           <DayPanel
             date={selected}
             today={today}
@@ -230,14 +251,16 @@ export default function MarketingCalendarPage() {
         today={today}
         timezone={timezone}
         business={workspace.name}
+        audienceSize={overview?.audience.whatsapp}
       />
       <TouchDialog
-        key={`touch:${touchId ?? "none"}`}
+        key={`touch:${touch?.eventId ?? "none"}`}
         campaign={openCampaign ?? null}
         touch={openTouch ?? null}
         templates={templates}
-        onClose={() => setTouchId(null)}
+        onClose={() => setTouch(null)}
       />
+
     </div>
   );
 }

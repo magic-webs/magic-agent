@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -16,6 +17,7 @@ import {
 import { GuestsPanel } from "@/components/marketing/events/guests-panel";
 import { TableSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 
 export default function MarketingEventPage({
@@ -25,6 +27,7 @@ export default function MarketingEventPage({
 }) {
   const { campaignId } = use(params);
   const workspace = useWorkspace();
+  const router = useRouter();
   const back = `/w/${workspace.slug}/marketing/events`;
   const campaign = useQuery(api.marketingCampaigns.get, {
     campaignId: campaignId as Id<"marketingCampaigns">,
@@ -49,6 +52,16 @@ export default function MarketingEventPage({
 
       {campaign === undefined ? (
         <TableSkeleton rows={4} columns={3} />
+      ) : campaign === null ? (
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>This event is gone</EmptyTitle>
+            <EmptyDescription>It was deleted, or the link is wrong.</EmptyDescription>
+          </EmptyHeader>
+          <Button variant="outline" nativeButton={false} render={<Link href={back} />}>
+            <ArrowLeftIcon /> All events
+          </Button>
+        </Empty>
       ) : (
         <>
           <EventCard
@@ -67,7 +80,9 @@ export default function MarketingEventPage({
             setDraft={setDraft}
             templates={templates}
             categories={overview?.categories ?? []}
+            onDeleted={() => router.push(back)}
           />
+
           <TouchDialog
             key={`touch:${touchId ?? "none"}`}
             campaign={campaign}

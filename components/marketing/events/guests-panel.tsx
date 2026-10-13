@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { fail, formatPhone } from "@/components/marketing/audience/shared";
+import { formatPhone } from "@/components/marketing/audience/shared";
+import { fail } from "@/components/marketing/format";
 import { SelectField } from "@/components/select-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export function GuestsPanel({ campaign }: { campaign: Doc<"marketingCampaigns"> 
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [marking, setMarking] = useState(false);
 
   const counts: Record<Filter, number | undefined> = {
     all: undefined,
@@ -66,7 +68,7 @@ export function GuestsPanel({ campaign }: { campaign: Doc<"marketingCampaigns"> 
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h3 className="text-base font-semibold">Guests</h3>
+        <h3 className="text-sm font-semibold">Guests</h3>
         <p className="text-sm text-muted-foreground">
           Replies to the reminders are read as RSVPs; change any of them by hand, and check people
           in on the day.
@@ -137,18 +139,26 @@ export function GuestsPanel({ campaign }: { campaign: Doc<"marketingCampaigns"> 
                 size="sm"
                 variant="outline"
                 className="ml-auto"
-                onClick={() =>
-                  void markInterested({ campaignId: campaign._id })
-                    .then(() => toast.add({ title: "Everyone going is marked as came" }))
-                    .catch((error) => fail("Could not mark them", error))
-                }
+                disabled={marking}
+                onClick={async () => {
+                  setMarking(true);
+                  try {
+                    await markInterested({ campaignId: campaign._id });
+                    toast.add({ title: "Everyone going is marked as came" });
+                  } catch (error) {
+                    fail("Could not mark them", error);
+                  } finally {
+                    setMarking(false);
+                  }
+                }}
               >
-                <CheckCircleIcon /> Everyone going came
+                {marking ? <Spinner /> : <CheckCircleIcon />} Everyone going came
               </Button>
             ) : null}
           </div>
 
-          <div className="max-h-[45vh] overflow-auto rounded-md border border-border">
+          <div className="max-h-[45vh] overflow-auto rounded-lg border border-border">
+
             <Table>
               <TableHeader>
                 <TableRow>

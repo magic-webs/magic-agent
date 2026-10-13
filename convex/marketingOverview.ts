@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { requireWorkspace } from "./lib/auth";
 import { reachable } from "./lib/audience";
-import { addDays } from "./lib/marketing";
+import { addDays, zonedParts } from "./lib/marketing";
 import {
   EMPTY_COUNTS,
   dailyStats,
@@ -46,10 +46,15 @@ export const summary = query({
     }
 
     const cutoff = args.now - days * DAY_MS;
+    const workspace = await ctx.db.get("workspaces", args.workspaceId);
+    const localToday = zonedParts(args.now, workspace?.timezone ?? "UTC").date;
     const recent = await ctx.db
       .query("marketingEvents")
       .withIndex("by_workspace_and_date", (q) =>
-        q.eq("workspaceId", args.workspaceId).gte("date", from)
+        q
+          .eq("workspaceId", args.workspaceId)
+          .gte("date", addDays(localToday, -days))
+          .lte("date", localToday)
       )
       .order("desc")
       .take(CAMPAIGN_SCAN);

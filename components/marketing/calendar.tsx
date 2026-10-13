@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { templateBlocker } from "@/convex/lib/marketing";
@@ -11,11 +11,13 @@ import {
   STATUS_VARIANT,
   type EventStatus,
   dayLabel,
+  fail,
   formatDate,
   hourLabel,
   pad,
   parts,
   previewTemplate,
+  statusLabel,
   templateOptionLabel,
   templateReady,
 } from "@/components/marketing/format";
@@ -40,9 +42,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { TestSendButton } from "@/components/marketing/test-send";
 import { toast } from "@/components/ui/toast";
-import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import {
   CalendarBlankIcon,
@@ -115,9 +127,49 @@ export function monthGrid(year: number, month: number): (string | null)[] {
 export const monthLabel = (year: number, month: number) =>
   formatDate(ymd(year, month, 1), { month: "long", year: "numeric" });
 
-/** "MM-DD" as "12 Mar". */
-export function fail(title: string, error: unknown) {
-  toast.add({ title, description: friendlyError(error), type: "error" });
+export { fail };
+
+/** A button that asks before it acts. */
+export function ConfirmButton({
+  heading,
+  description,
+  confirmLabel,
+  destructive = false,
+  onConfirm,
+  children,
+  ...button
+}: {
+  heading: string;
+  description: ReactNode;
+  confirmLabel: string;
+  destructive?: boolean;
+  onConfirm: () => unknown;
+  children: ReactNode;
+} & Omit<ComponentProps<typeof Button>, "onClick" | "children">) {
+  const [open, setOpen] = useState(false);
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger render={<Button {...button}>{children}</Button>} />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{heading}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel variant="ghost">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant={destructive ? "destructive" : "default"}
+            onClick={() => {
+              setOpen(false);
+              void onConfirm();
+            }}
+          >
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 // ---------------------------------------------------------------- calendar
@@ -232,7 +284,7 @@ export function MonthGrid({
                       click.stopPropagation();
                       onEvent(event);
                     }}
-                    title={`${event.title} · ${event.status}`}
+                    title={`${event.title} · ${statusLabel(event.status, event.sentCount)}`}
                     className={cn(
                       "truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium",
                       STATUS_CHIP[event.status]
@@ -331,7 +383,7 @@ export function DayPanel({
                   : `${hourLabel(event.sendHour)} · ${event.templateName ?? "no template yet"}`}
               </span>
             </span>
-            <Badge variant={STATUS_VARIANT[event.status]}>{event.status}</Badge>
+            <Badge variant={STATUS_VARIANT[event.status]}>{statusLabel(event.status)}</Badge>
           </button>
         ))}
 
@@ -400,6 +452,7 @@ export function EventDialog({
   today,
   timezone,
   business,
+  audienceSize,
 }: {
   draft: EventDraft | null;
   setDraft: (next: EventDraft | null) => void;
@@ -407,6 +460,7 @@ export function EventDialog({
   today: string;
   timezone: string;
   business: string;
+  audienceSize?: number;
 }) {
   const workspace = useWorkspace();
   const saveEvent = useMutation(api.marketing.saveEvent);
@@ -431,6 +485,13 @@ export function EventDialog({
   const locked =
     saved?.status === "sent" || saved?.status === "sending" || saved?.status === "failed";
   const template = templates.find((t) => t._id === draft?.templateId);
+  const dirty =
+    draft && saved
+      ? draft.title.trim() !== saved.title ||
+        draft.templateId !== saved.templateId ||
+        draft.date !== saved.date ||
+        draft.sendHour !== saved.sendHour
+      : false;
 
   return (
     <Dialog open={draft !== null} onOpenChange={(open) => (open ? null : setDraft(null))}>
@@ -440,7 +501,7 @@ export function EventDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {saved.title}
-                <Badge variant={STATUS_VARIANT[saved.status]}>{saved.status}</Badge>
+                <Badge variant={STATUS_VARIANT[saved.status]}>{statusLabel(saved.status)}</Badge>
               </DialogTitle>
               <DialogDescription>
                 {dayLabel(saved.date)} at {hourLabel(saved.sendHour)} ({timezone})
@@ -578,6 +639,11 @@ export function EventDialog({
                   </div>
                 ) : null}
               </div>
+              {dirty && draft.templateId ? (
+                <p className="text-xs text-muted-foreground">
+                  Save first — Send now and the test send what is saved.
+                </p>
+              ) : null}
             </div>
 
             <DialogFooter className="sm:justify-between">
@@ -594,23 +660,27 @@ export function EventDialog({
                   </Button>
                 ) : null}
                 {draft.eventId && draft.templateId ? (
-                  <Button
+                  <ConfirmButton
                     variant="outline"
-                    disabled={busy !== null}
-                    onClick={() =>
+                    disabled={busy !== null || dirty}
+                    title={dirty ? "Save first — Send now sends what is saved." : undefined}
+                    heading="Send it now?"
+                    confirmLabel="Send now"
+                    description={`${draft.title.trim() || "This greeting"} goes to every subscribed WhatsApp customer${
+                      audienceSize !== undefined ? ` — about ${audienceSize.toLocaleString()} people` : ""
+                    }, straight away. This cannot be undone.`}
+                    onConfirm={() =>
                       run("send", "Could not send it", () => sendNow({ eventId: draft.eventId! }), "Sending now")
                     }
                   >
                     {busy === "send" ? <Spinner /> : <PaperPlaneTiltIcon />} Send now
-                  </Button>
+                  </ConfirmButton>
                 ) : null}
                 {draft.eventId && saved?.templateId ? (
                   <TestSendButton
                     eventId={draft.eventId}
                     disabledReason={
-                      draft.title.trim() !== saved.title ||
-                      draft.templateId !== saved.templateId ||
-                      draft.date !== saved.date
+                      dirty
                         ? "Save the change first — the test sends what is saved."
                         : template
                           ? templateBlocker(template)

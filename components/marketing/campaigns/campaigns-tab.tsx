@@ -4,8 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { STATUS_VARIANT, hourLabel, shortDayLabel } from "@/components/marketing/format";
+import {
+  STATUS_VARIANT,
+  broadcastHref,
+  datedLabel,
+  hourLabel,
+  rate,
+  statusLabel,
+} from "@/components/marketing/format";
+import { localDate } from "@/components/marketing/calendar";
 import { useWorkspace } from "@/components/workspace-provider";
+import { useHourBucket } from "@/components/use-now";
 import { TableSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,12 +36,9 @@ import {
 } from "@/components/ui/table";
 import { MegaphoneSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 
-const rate = (part: number, whole: number) =>
-  whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—";
-
-
 export function CampaignsTab() {
   const workspace = useWorkspace();
+  const today = localDate(useHourBucket(), workspace.timezone);
   const { results, status, loadMore } = usePaginatedQuery(
     api.marketingBroadcasts.list,
     { workspaceId: workspace._id },
@@ -40,12 +46,7 @@ export function CampaignsTab() {
   );
   const router = useRouter();
   const base = `/w/${workspace.slug}/marketing/campaigns`;
-  const open = (row: (typeof results)[number]) =>
-    router.push(
-      row.startedAt || row.status === "sent" || row.status === "failed" || row.status === "cancelled"
-        ? `${base}/${row._id}`
-        : `${base}/new?edit=${row._id}`
-    );
+  const href = (row: (typeof results)[number]) => broadcastHref(base, row);
 
   return (
     <div className="flex flex-col gap-4">
@@ -64,7 +65,7 @@ export function CampaignsTab() {
 
       {status === "LoadingFirstPage" ? (
         <TableSkeleton rows={5} columns={6} />
-      ) : results.length === 0 ? (
+      ) : results.length === 0 && status === "Exhausted" ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -80,7 +81,7 @@ export function CampaignsTab() {
           </Button>
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -95,11 +96,17 @@ export function CampaignsTab() {
             </TableHeader>
             <TableBody>
               {results.map((row) => (
-                <TableRow key={row._id} className="cursor-pointer" onClick={() => open(row)}>
+                <TableRow key={row._id} className="cursor-pointer" onClick={() => router.push(href(row))}>
                   <TableCell>
-                    <p className="font-medium">{row.title}</p>
+                    <Link
+                      href={href(row)}
+                      onClick={(event) => event.stopPropagation()}
+                      className="font-medium underline-offset-4 outline-none hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring/50 rounded-sm"
+                    >
+                      {row.title}
+                    </Link>
                     <p className="text-xs text-muted-foreground">
-                      {shortDayLabel(row.date)} · {hourLabel(row.sendHour)}
+                      {datedLabel(row.date, today)} · {hourLabel(row.sendHour)}
                       {row.templateName ? ` · ${row.templateName}` : ""}
                       {row.audience ? " · chosen audience" : " · everyone"}
                     </p>
@@ -107,7 +114,8 @@ export function CampaignsTab() {
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[row.status]} className="gap-1">
                       {row.status === "sending" ? <Spinner className="size-3" /> : null}
-                      {row.status}
+                      {statusLabel(row.status, row.stats.sent)}
+
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{row.stats.sent.toLocaleString()}</TableCell>

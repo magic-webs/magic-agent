@@ -9,6 +9,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import {
   HOURS,
   dayLabel,
+  fail,
   templateOptionLabel,
   templateReady,
 } from "@/components/marketing/format";
@@ -26,7 +27,8 @@ import {
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { GiftIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { fail, type Template } from "@/components/marketing/calendar";
+import type { Template } from "@/components/marketing/calendar";
+
 
 // --------------------------------------------------------------- birthdays
 
@@ -54,17 +56,20 @@ export function BirthdaySettings({
   const workspace = useWorkspace();
   const saveSettings = useMutation(api.marketing.saveSettings);
   const [enabled, setEnabled] = useState(settings.birthdayEnabled);
-  const [templateId, setTemplateId] = useState<string>(
-    settings.birthdayTemplateId ??
+  const [initialTemplateId] = useState<string>(
+    () =>
+      settings.birthdayTemplateId ??
       templates.find((t) => t.occasion === "birthday")?._id ??
       ""
   );
+  const [templateId, setTemplateId] = useState(initialTemplateId);
   const [hour, setHour] = useState(settings.birthdayHour);
   const [busy, setBusy] = useState(false);
 
   const dirty =
     enabled !== settings.birthdayEnabled ||
-    templateId !== (settings.birthdayTemplateId ?? "") ||
+    templateId !== initialTemplateId ||
+
     hour !== settings.birthdayHour;
   const chosen = templates.find((t) => t._id === templateId);
 

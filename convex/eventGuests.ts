@@ -62,6 +62,7 @@ async function upsertGuest(
 export const summary = query({
   args: { campaignId: v.id("marketingCampaigns") },
   handler: async (ctx, args) => {
+    if (!(await ctx.db.get("marketingCampaigns", args.campaignId))) return null;
     await requireEvent(ctx, args.campaignId);
     const guests = await ctx.db
       .query("eventGuests")
@@ -90,6 +91,9 @@ export const list = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    if (!(await ctx.db.get("marketingCampaigns", args.campaignId))) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
     await requireEvent(ctx, args.campaignId);
     const filter = args.filter;
     const page =

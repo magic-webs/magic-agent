@@ -9,18 +9,20 @@ import { templateBlocker } from "@/convex/lib/marketing";
 import {
   HOURS,
   dayLabel,
+  fail,
   hourLabel,
   previewTemplate,
   templateOptionLabel,
   templateReady,
 } from "@/components/marketing/format";
+import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
 import {
   AudiencePicker,
   EVERYONE,
   type AudienceChoice,
 } from "@/components/marketing/audience/audience-picker";
-import { fail, plural, type Category } from "@/components/marketing/audience/shared";
+import { plural, type Category } from "@/components/marketing/audience/shared";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
@@ -105,6 +107,7 @@ export function CampaignComposer({
   const save = useMutation(api.marketingBroadcasts.save);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [audienceValid, setAudienceValid] = useState(true);
   const set = (patch: Partial<CampaignDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const template = templates.find((t) => t._id === draft.templateId);
@@ -158,7 +161,16 @@ export function CampaignComposer({
     }
   };
 
+  const cannotSubmit =
+    busy ||
+    !audienceValid ||
+    !draft.title.trim() ||
+    !draft.templateId ||
+    (needsMessage && !draft.message.trim()) ||
+    (draft.when === "now" && Boolean(blocker));
+
   const money = (micros: number) =>
+
     estimate?.currency ? formatMoney(micros, estimate.currency) : null;
 
   return (
@@ -185,6 +197,7 @@ export function CampaignComposer({
               value={draft.audience}
               categories={categories}
               onChange={(audience) => set({ audience })}
+              onValidChange={setAudienceValid}
             />
           </Section>
 
@@ -225,7 +238,14 @@ export function CampaignComposer({
                     message: draft.message,
                   })}
                 </p>
-                <TestSendButton templateId={template._id} />
+                <TestSendButton
+                  templateId={template._id}
+                  message={draft.message}
+                  disabledReason={
+                    blocker ??
+                    (needsMessage && !draft.message.trim() ? "Write the line for {{message}} first." : null)
+                  }
+                />
               </div>
             ) : null}
             <label className="flex items-start gap-2 text-sm">
@@ -340,23 +360,27 @@ export function CampaignComposer({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/80 sm:-mx-6 sm:px-6">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={() => void submit()}
-            disabled={
-              busy ||
-              !draft.title.trim() ||
-              !draft.templateId ||
-              (needsMessage && !draft.message.trim()) ||
-              (draft.when === "now" && Boolean(blocker))
-            }
-          >
-            {busy ? <Spinner /> : <PaperPlaneTiltIcon />}
-            {draft.when === "now" ? "Send now" : "Schedule"}
-          </Button>
+          {draft.when === "now" ? (
+            <ConfirmButton
+              disabled={cannotSubmit}
+              heading="Send it now?"
+              description={`${draft.title.trim() || "This campaign"} goes to ${
+                estimate ? `${plural(estimate.reachable, "person", "people")}${estimate.partial ? " or more" : ""}` : "everyone you picked"
+              } straight away. This cannot be undone.`}
+              confirmLabel="Send now"
+              onConfirm={submit}
+            >
+              {busy ? <Spinner /> : <PaperPlaneTiltIcon />} Send now
+            </ConfirmButton>
+          ) : (
+            <Button onClick={() => void submit()} disabled={cannotSubmit}>
+              {busy ? <Spinner /> : <PaperPlaneTiltIcon />} Schedule
+            </Button>
+          )}
         </div>
     </div>
   );

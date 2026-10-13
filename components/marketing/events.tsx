@@ -34,13 +34,17 @@ import {
   HOURS,
   STATUS_VARIANT,
   dayLabel,
+  fail,
   formatDate,
   hourLabel,
   previewTemplate,
+  rate,
   shortDayLabel,
+  statusLabel,
   templateOptionLabel,
   templateReady,
 } from "@/components/marketing/format";
+import { ConfirmButton } from "@/components/marketing/calendar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +77,6 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import {
   CalendarCheckIcon,
@@ -105,9 +108,15 @@ const VENUE_VARIABLE = /\{\{\s*venue\s*\}\}/;
 const isPending = (touch: Touch) =>
   touch.status === "draft" || touch.status === "scheduled";
 
-function fail(title: string, error: unknown) {
-  toast.add({ title, description: friendlyError(error), type: "error" });
-}
+const GONE_LABEL: Record<Touch["status"], string> = {
+  draft: "Draft",
+  scheduled: "Scheduled",
+  sending: "Sending now",
+  sent: "Already sent",
+  failed: "Failed to send",
+  paused: "Paused",
+  cancelled: "Cancelled",
+};
 
 /** Templates for events first, then the rest, so the right one is on top. */
 function templateOptions(templates: Template[]) {
@@ -151,6 +160,7 @@ export function EventsTab({
   templates,
   categories,
   today,
+  startNew = false,
   onOpenTouch,
   onCreateTemplate,
 }: {
@@ -158,19 +168,18 @@ export function EventsTab({
   templates: Template[];
   categories: Category[];
   today: string;
+  startNew?: boolean;
   onOpenTouch: (touch: Touch) => void;
   onCreateTemplate: () => void;
 }) {
   const workspace = useWorkspace();
-  const [draft, setDraft] = useState<CampaignDraft | null>(null);
   const router = useRouter();
 
   const eventTemplate =
     templates.find((t) => t.occasion === "event" && templateReady(t)) ??
     templates.find((t) => t.occasion === "event");
 
-  const newCampaign = () =>
-    setDraft({
+  const blankDraft = (): CampaignDraft => ({
       title: "",
       date: addDays(today, 7),
       startTime: "",
@@ -184,6 +193,8 @@ export function EventsTab({
       audience: EVERYONE,
       segments: {},
     });
+  const [draft, setDraft] = useState<CampaignDraft | null>(() => (startNew ? blankDraft() : null));
+  const newCampaign = () => setDraft(blankDraft());
 
   const openCampaign = (campaign: Campaign) => setDraft(draftForCampaign(campaign));
 
@@ -326,11 +337,11 @@ export function EventCard({
           </div>
         </div>
         <div className="flex shrink-0 gap-1.5">
-          <Button size="sm" variant="ghost" onClick={onGuests}>
-            <UsersThreeIcon /> Guests
+          <Button size="sm" variant="ghost" aria-label="Guests" className="max-sm:px-1.5" onClick={onGuests}>
+            <UsersThreeIcon /> <span className="hidden sm:inline">Guests</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={onEdit}>
-            <PencilSimpleIcon /> Edit
+          <Button size="sm" variant="outline" aria-label="Edit" className="max-sm:px-1.5" onClick={onEdit}>
+            <PencilSimpleIcon /> <span className="hidden sm:inline">Edit</span>
           </Button>
         </div>
       </CardHeader>
@@ -388,7 +399,7 @@ export function EventCard({
                   </span>
                   <span className="flex flex-col items-start gap-1 sm:items-end">
                     <Badge variant={STATUS_VARIANT[touch.status]}>
-                      {touch.status === "sent" ? `sent to ${touch.sentCount}` : touch.status}
+                      {statusLabel(touch.status, touch.sentCount)}
                     </Badge>
                     {stats?.[`event:${touch._id}`]?.sent ? (
                       <span className="text-[11px] text-muted-foreground tabular-nums">
@@ -430,32 +441,35 @@ export type CampaignDraft = {
 const segmentLabel = (segment: GuestSegment) =>
   GUEST_SEGMENTS.find((row) => row.value === segment)?.label ?? segment;
 
-const rate = (part: number, whole: number) =>
-  whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—";
-
 export function CampaignDialog({
   draft,
   setDraft,
   templates,
   categories,
+  onDeleted,
 }: {
   draft: CampaignDraft | null;
   setDraft: (next: CampaignDraft | null) => void;
   templates: Template[];
   categories: Category[];
+  onDeleted?: () => void;
 }) {
   const workspace = useWorkspace();
   const now = useHourBucket();
   const save = useMutation(api.marketingCampaigns.save);
   const remove = useMutation(api.marketingCampaigns.remove);
   const [busy, setBusy] = useState<"save" | "remove" | null>(null);
+  const [audienceValid, setAudienceValid] = useState(true);
 
-  if (!draft) return <Dialog open={false} />;
+  if (!draft) {
+    if (!audienceValid) setAudienceValid(true);
+    return <Dialog open={false} />;
+  }
 
   const set = <K extends keyof CampaignDraft>(key: K, value: CampaignDraft[K]) =>
     setDraft({ ...draft, [key]: value });
   const template = templates.find((t) => t._id === draft.templateId);
-  const sentOffsets = new Set((draft.sent ?? []).map((touch) => touch.offsetDays ?? 0));
+  const gone = new Map((draft.sent ?? []).map((touch) => [touch.offsetDays ?? 0, touch]));
 
   const toggle = (offset: number, on: boolean) =>
     set(
@@ -513,6 +527,7 @@ export function CampaignDialog({
       await remove({ campaignId: draft.campaignId });
       toast.add({ title: "Event deleted", type: "success" });
       setDraft(null);
+      onDeleted?.();
     } catch (error) {
       fail("Could not delete the event", error);
     } finally {
@@ -615,6 +630,7 @@ export function CampaignDialog({
               value={draft.audience}
               categories={categories}
               onChange={(audience) => set("audience", audience)}
+              onValidChange={setAudienceValid}
             />
           </div>
 
@@ -635,7 +651,8 @@ export function CampaignDialog({
             <div className="flex flex-col gap-1">
               {EVENT_TOUCHES.map((touch) => {
                 const date = addDays(draft.date, touch.offset);
-                const sent = sentOffsets.has(touch.offset);
+                const sentTouch = gone.get(touch.offset);
+                const sent = sentTouch !== undefined;
                 const passed =
                   !sent &&
                   zonedToInstant(date, draft.sendHour, workspace.timezone) <= now;
@@ -661,7 +678,7 @@ export function CampaignDialog({
                         </span>
                         {touch.label}
                         <span className="block text-xs text-muted-foreground">
-                          {sent ? "Already sent" : passed ? "Already past" : shortDayLabel(date)}
+                          {sentTouch ? GONE_LABEL[sentTouch.status] : passed ? "Already past" : shortDayLabel(date)}
                         </span>
                       </span>
                     </label>
@@ -750,14 +767,22 @@ export function CampaignDialog({
 
         <DialogFooter className="sm:justify-between">
           {draft.campaignId ? (
-            <Button variant="ghost" disabled={busy !== null} onClick={() => void drop()}>
+            <ConfirmButton
+              variant="ghost"
+              disabled={busy !== null}
+              destructive
+              heading="Delete this event?"
+              description={`${draft.title.trim() || "The event"}, its guest list and every reminder not sent yet go. What already went out stays on the calendar.`}
+              confirmLabel="Delete event"
+              onConfirm={drop}
+            >
               {busy === "remove" ? <Spinner /> : <TrashIcon />} Delete event
-            </Button>
+            </ConfirmButton>
           ) : (
             <span />
           )}
           <Button
-            disabled={busy !== null || !draft.title.trim() || !draft.details.trim()}
+            disabled={busy !== null || !audienceValid || !draft.title.trim() || !draft.details.trim()}
             onClick={() => void submit()}
           >
             {busy === "save" ? <Spinner /> : <CalendarCheckIcon />}
@@ -827,7 +852,9 @@ export function TouchDialog({
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {campaign.title} · {touchLabel(touch.offsetDays ?? 0)}
-            <Badge variant={STATUS_VARIANT[touch.status]}>{touch.status}</Badge>
+            <Badge variant={STATUS_VARIANT[touch.status]}>
+              {statusLabel(touch.status, touch.sentCount)}
+            </Badge>
           </DialogTitle>
           <DialogDescription>
             {dayLabel(touch.date)} at {hourLabel(touch.sendHour)} ({workspace.timezone})
@@ -911,11 +938,15 @@ export function TouchDialog({
 
         {pending ? (
           <DialogFooter className="sm:justify-between">
-            <Button
+            <ConfirmButton
               variant="ghost"
               disabled={busy !== null}
-              onClick={() =>
-                void run(
+              destructive
+              heading="Skip this reminder?"
+              description={`${touchLabel(touch.offsetDays ?? 0)} will not go out. Add it back by editing the event.`}
+              confirmLabel="Skip it"
+              onConfirm={() =>
+                run(
                   "remove",
                   "Could not skip it",
                   () => removeEvent({ eventId: touch._id }),
@@ -925,7 +956,7 @@ export function TouchDialog({
               }
             >
               {busy === "remove" ? <Spinner /> : <TrashIcon />} Skip this one
-            </Button>
+            </ConfirmButton>
             <div className="flex flex-wrap gap-2">
               <TestSendButton
                 eventId={touch._id}
@@ -938,12 +969,17 @@ export function TouchDialog({
                 }
               />
               {touch.templateId ? (
-                <Button
+                <ConfirmButton
                   variant="outline"
                   disabled={busy !== null || changed}
                   title={changed ? "Save the change first" : undefined}
-                  onClick={() =>
-                    void run(
+                  heading="Send it now?"
+                  description={`${touchLabel(touch.offsetDays ?? 0)} goes to ${segmentLabel(
+                    touch.guestSegment ?? defaultSegment(touch.offsetDays ?? 0)
+                  ).toLowerCase()} straight away, instead of on ${shortDayLabel(touch.date)}. This cannot be undone.`}
+                  confirmLabel="Send now"
+                  onConfirm={() =>
+                    run(
                       "send",
                       "Could not send it",
                       () => sendNow({ eventId: touch._id }),
@@ -953,7 +989,8 @@ export function TouchDialog({
                   }
                 >
                   {busy === "send" ? <Spinner /> : <PaperPlaneTiltIcon />} Send now
-                </Button>
+                </ConfirmButton>
+
               ) : null}
               <Button
                 disabled={busy !== null || !changed || !message.trim()}

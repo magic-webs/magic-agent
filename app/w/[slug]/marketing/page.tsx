@@ -11,7 +11,7 @@ export default function MarketingOverviewPage() {
   const base = `/w/${workspace.slug}/marketing`;
   const routes: Record<string, string> = {
     audience: `${base}/audience/import`,
-    events: `${base}/events`,
+    events: `${base}/events?new=1`,
     campaigns: `${base}/campaigns/new`,
   };
   const legacyTab = useSearchParams().get("tab");

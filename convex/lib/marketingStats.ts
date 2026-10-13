@@ -74,12 +74,14 @@ export async function dailyStats(
   from: string,
   to: string
 ) {
+  const span = Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1);
   const rows = await ctx.db
     .query("marketingDaily")
     .withIndex("by_workspaceId_and_day_and_shard", (q) =>
       q.eq("workspaceId", workspaceId).gte("day", from).lte("day", to)
     )
-    .take(SHARDS * 120);
+    .order("desc")
+    .take(SHARDS * span);
   const days = new Map<string, MarketingCounts>();
   for (const row of rows) {
     const total = days.get(row.day) ?? { ...EMPTY_COUNTS };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -15,6 +16,9 @@ import {
   type CampaignDraft,
 } from "@/components/marketing/campaigns/composer";
 import { TableSkeleton } from "@/components/skeletons";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 
 export default function NewCampaignPage() {
   const workspace = useWorkspace();
@@ -32,6 +36,19 @@ export default function NewCampaignPage() {
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
 
   if (!overview || (sourceId && source === undefined)) return <TableSkeleton rows={6} columns={3} />;
+  if (sourceId && source === null) {
+    return (
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyTitle>This campaign is gone</EmptyTitle>
+          <EmptyDescription>It was deleted, or the link is wrong.</EmptyDescription>
+        </EmptyHeader>
+        <Button variant="outline" nativeButton={false} render={<Link href={base} />}>
+          <ArrowLeftIcon /> All campaigns
+        </Button>
+      </Empty>
+    );
+  }
 
   const draft: CampaignDraft = source
     ? {
@@ -49,8 +66,12 @@ export default function NewCampaignPage() {
     : emptyCampaign(today);
 
   return (
-    <div className="rounded-lg border border-border p-4 sm:p-6">
+    <div className="flex flex-col gap-4">
+      <Button size="sm" variant="ghost" className="w-fit" nativeButton={false} render={<Link href={base} />}>
+        <ArrowLeftIcon /> All campaigns
+      </Button>
       <CampaignComposer
+
         key={sourceId ?? "new"}
         draft={draft}
         templates={templates}

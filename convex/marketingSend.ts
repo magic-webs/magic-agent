@@ -379,12 +379,14 @@ export const sendTest = action({
     countryCode: v.optional(v.string()),
     eventId: v.optional(v.id("marketingEvents")),
     templateId: v.optional(v.id("marketingTemplates")),
+    message: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ to: string; text: string }> => {
     if (!args.eventId && !args.templateId) {
       throw new ConvexError("Say what to test: a calendar entry or a template.");
     }
-    let context = await ctx.runQuery(internal.marketing.testContext, args);
+    const { message: typed, ...target } = args;
+    let context = await ctx.runQuery(internal.marketing.testContext, target);
 
     if (
       context.event?.campaignId &&
@@ -397,7 +399,7 @@ export const sendTest = action({
         eventIds: [context.event._id],
         overwrite: false,
       });
-      context = await ctx.runQuery(internal.marketing.testContext, args);
+      context = await ctx.runQuery(internal.marketing.testContext, target);
     }
 
     if (!context.to) {
@@ -416,7 +418,7 @@ export const sendTest = action({
           event: samples.event,
           date: samples.date,
           venue: samples.venue,
-          message: samples.message,
+          message: asParameter(typed ?? "") || samples.message,
         };
     const reason =
       blocker(context) ?? (template ? unfilled(template.body, values) : null);

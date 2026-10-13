@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AgentAvatar } from "@/components/agent-avatar";
-import { fail } from "@/components/marketing/calendar";
+import { fail } from "@/components/marketing/format";
 import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

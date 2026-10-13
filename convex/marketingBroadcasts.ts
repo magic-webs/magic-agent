@@ -47,12 +47,13 @@ export const list = query({
     await requireWorkspace(ctx, args.workspaceId);
     const page = await ctx.db
       .query("marketingEvents")
-      .withIndex("by_workspace_and_date", (q) => q.eq("workspaceId", args.workspaceId))
+      .withIndex("by_workspaceId_and_campaignId_and_date", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("campaignId", undefined)
+      )
       .order("desc")
       .paginate(args.paginationOpts);
     const rows = [];
     for (const event of page.page) {
-      if (event.campaignId) continue;
       const template = event.templateId ? await ctx.db.get("marketingTemplates", event.templateId) : null;
       rows.push({
         ...event,
@@ -67,6 +68,7 @@ export const list = query({
 export const get = query({
   args: { eventId: v.id("marketingEvents") },
   handler: async (ctx, args) => {
+    if (!(await ctx.db.get("marketingEvents", args.eventId))) return null;
     const event = await requireBroadcast(ctx, args.eventId);
     const template = event.templateId ? await ctx.db.get("marketingTemplates", event.templateId) : null;
     const audiences = [];
@@ -256,7 +258,7 @@ export const report = query({
   args: { eventId: v.id("marketingEvents"), now: v.number() },
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
-    if (!event) throw new ConvexError("Campaign not found");
+    if (!event) return null;
     await requireWorkspace(ctx, event.workspaceId);
     const key = eventKey(event._id);
     const sends = await ctx.db
@@ -356,7 +358,7 @@ export const recipients = query({
   },
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
-    if (!event) throw new ConvexError("Campaign not found");
+    if (!event) return { page: [], isDone: true, continueCursor: "" };
     await requireWorkspace(ctx, event.workspaceId);
     const page = await ctx.db
       .query("marketingSends")

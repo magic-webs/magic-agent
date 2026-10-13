@@ -101,6 +101,7 @@ export const list = query({
 export const get = query({
   args: { campaignId: v.id("marketingCampaigns") },
   handler: async (ctx, args) => {
+    if (!(await ctx.db.get("marketingCampaigns", args.campaignId))) return null;
     const campaign = await requireCampaign(ctx, args.campaignId);
     const template = campaign.templateId
       ? await ctx.db.get("marketingTemplates", campaign.templateId)

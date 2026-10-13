@@ -8,7 +8,6 @@ import {
   dailyStats,
   eventKey,
   statsFor,
-  utcDay,
   type MarketingCounts,
 } from "./lib/marketingStats";
 
@@ -33,7 +32,8 @@ export const summary = query({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     const days = Math.min(90, Math.max(7, Math.round(args.days)));
-    const today = utcDay(args.now);
+    const workspace = await ctx.db.get("workspaces", args.workspaceId);
+    const today = zonedParts(args.now, workspace?.timezone ?? "UTC").date;
     const from = addDays(today, -(days - 1));
     const previousFrom = addDays(from, -days);
     const previousTo = addDays(from, -1);
@@ -46,8 +46,7 @@ export const summary = query({
     }
 
     const cutoff = args.now - days * DAY_MS;
-    const workspace = await ctx.db.get("workspaces", args.workspaceId);
-    const localToday = zonedParts(args.now, workspace?.timezone ?? "UTC").date;
+    const localToday = today;
     const recent = await ctx.db
       .query("marketingEvents")
       .withIndex("by_workspace_and_date", (q) =>

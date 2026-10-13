@@ -1,18 +1,21 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import {
-  query,
-} from "./_generated/server";
+import { stream } from "convex-helpers/server/stream";
+import { query, type QueryCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
 import { requireContact, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
 import { normaliseEmail } from "./lib/notifications";
 import { checkPhone } from "./lib/contactClean";
 import { refreshContactSearch } from "./lib/inbox";
+import schema from "./schema";
+import { channelType } from "./schema/validators";
 
 /** The most people one paste may add. */
 const MAX_ADD = 500;
 const LIST_LIMIT = 1000;
+const PAGE_READ_BUDGET = 1000;
 
 /**
  * WhatsApp contacts typed in or pasted on the Marketing page, so greetings
@@ -155,6 +158,108 @@ export const exportPage = query({
   },
 });
 
+type BookCell = {
+  stage: string | null;
+  reference: string;
+  count: number;
+  updatedAt: number;
+};
+
+type Roster = {
+  botNames: Map<string, string>;
+  stageById: Map<string, Doc<"leadStages">>;
+};
+
+async function rosterOf(ctx: QueryCtx, workspaceId: Id<"workspaces">): Promise<Roster> {
+  const agents = await ctx.db
+    .query("agents")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(200);
+  const stages = await ctx.db
+    .query("leadStages")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(200);
+  return {
+    botNames: new Map(agents.map((agent) => [agent._id as string, agent.botName])),
+    stageById: new Map(stages.map((stage) => [stage._id as string, stage])),
+  };
+}
+
+function groupRecords(
+  records: Doc<"records">[],
+  into = new Map<string, Map<string, BookCell>>()
+) {
+  for (const record of records) {
+    if (!record.contactId) continue;
+    const key = record.contactId as string;
+    const books = into.get(key) ?? new Map<string, BookCell>();
+    const seen = books.get(record.bookId as string);
+    // The latest one speaks for the contact; the rest only add to the count.
+    if (!seen || record.updatedAt > seen.updatedAt) {
+      books.set(record.bookId as string, {
+        stage: record.stage ?? null,
+        reference: record.reference,
+        count: (seen?.count ?? 0) + 1,
+        updatedAt: record.updatedAt,
+      });
+    } else {
+      seen.count += 1;
+    }
+    into.set(key, books);
+  }
+  return into;
+}
+
+async function recordsOf(ctx: QueryCtx, contactId: Id<"contacts">) {
+  const records = await ctx.db
+    .query("records")
+    .withIndex("by_contact", (q) => q.eq("contactId", contactId))
+    .take(100);
+  return groupRecords(records).get(contactId as string) ?? new Map<string, BookCell>();
+}
+
+async function latestConversation(ctx: QueryCtx, contactId: Id<"contacts">) {
+  const conversations = await ctx.db
+    .query("conversations")
+    .withIndex("by_contact_agent", (q) => q.eq("contactId", contactId))
+    .take(20);
+  return conversations.reduce<Doc<"conversations"> | null>(
+    (best, row) => (!best || row.lastMessageAt > best.lastMessageAt ? row : best),
+    null
+  );
+}
+
+function stageOf(latest: Doc<"conversations"> | null, roster: Roster) {
+  return latest?.leadStageId ? (roster.stageById.get(latest.leadStageId as string) ?? null) : null;
+}
+
+function handledByOf(latest: Doc<"conversations"> | null, roster: Roster) {
+  return latest ? (roster.botNames.get(latest.activeAgentId ?? latest.agentId) ?? null) : null;
+}
+
+function rowOf(
+  contact: Doc<"contacts">,
+  latest: Doc<"conversations"> | null,
+  books: Map<string, BookCell>,
+  roster: Roster
+) {
+  const stage = stageOf(latest, roster);
+  return {
+    ...contact,
+    conversationId: latest?._id ?? null,
+    messageCount: latest?.messageCount ?? 0,
+    conversationStatus: latest?.status ?? null,
+    leadStage: stage ? { name: stage.name, outcome: stage.outcome } : null,
+    records: [...books].map(([bookId, row]) => ({
+      bookId,
+      stage: row.stage,
+      reference: row.reference,
+      count: row.count,
+    })),
+    handledBy: handledByOf(latest, roster),
+  };
+}
+
 export const listByWorkspace = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
@@ -164,113 +269,100 @@ export const listByWorkspace = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .take(LIST_LIMIT);
-
-    // One lookup of the agent roster rather than one per contact: a workspace
-    // has a handful of agents and potentially thousands of contacts.
-    const agents = await ctx.db
-      .query("agents")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(200);
-    const botNames = new Map(agents.map((agent) => [agent._id as string, agent.botName]));
-
-    // The pipeline stages, so a contact's row can say how far along the
-    // conversation is rather than only that it is open.
-    const stages = await ctx.db
-      .query("leadStages")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(200);
-    const stageById = new Map(
-      stages.map((stage) => [stage._id as string, stage])
-    );
-
-    // Every record filed in this workspace, grouped by who it is about, so the
-    // table can carry a column per record book.
-    //
-    // One collect and a grouping pass, not a `by_contact` lookup per contact:
-    // the loop below already costs a query per contact, and a workspace has
-    // far fewer filed records than it has people who have said hello once.
+    const roster = await rosterOf(ctx, args.workspaceId);
     const filed = await ctx.db
       .query("records")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .take(LIST_LIMIT * 5);
-
-    /** The latest record a contact has in one book, and how many in total. */
-    type BookCell = {
-      stage: string | null;
-      reference: string;
-      count: number;
-      updatedAt: number;
-    };
-    /** contactId -> bookId -> that cell. */
-    const byContact = new Map<string, Map<string, BookCell>>();
-    for (const record of filed) {
-      if (!record.contactId) continue;
-      const key = record.contactId as string;
-      const books = byContact.get(key) ?? new Map<string, BookCell>();
-      const seen = books.get(record.bookId as string);
-      // The latest one speaks for the contact; the rest only add to the count,
-      // because "three site visits, the last one attended" is the useful line
-      // and three stage badges in one cell is not.
-      if (!seen || record.updatedAt > seen.updatedAt) {
-        books.set(record.bookId as string, {
-          stage: record.stage ?? null,
-          reference: record.reference,
-          count: (seen?.count ?? 0) + 1,
-          updatedAt: record.updatedAt,
-        });
-      } else {
-        seen.count += 1;
-      }
-      byContact.set(key, books);
-    }
+    const byContact = groupRecords(filed);
 
     const out = [];
     for (const contact of contacts) {
-      // A contact can have one conversation per agent. The most recently active
-      // one is the one a person means by "the conversation".
-      const conversations = await ctx.db
-        .query("conversations")
-        .withIndex("by_contact_agent", (q) => q.eq("contactId", contact._id))
-        .take(20);
-      const latest = conversations.reduce<typeof conversations[number] | null>(
-        (best, row) => (!best || row.lastMessageAt > best.lastMessageAt ? row : best),
-        null
-      );
-
-      const stage = latest?.leadStageId
-        ? (stageById.get(latest.leadStageId as string) ?? null)
-        : null;
-
-      out.push({
-        ...contact,
-        conversationId: latest?._id ?? null,
-        messageCount: latest?.messageCount ?? 0,
-        conversationStatus: latest?.status ?? null,
-        // Where the follow-up desk filed the conversation. Null covers both
-        // "never messaged" and "not reviewed yet"; the row tells them apart by
-        // whether there is a conversation at all.
-        leadStage: stage
-          ? { name: stage.name, outcome: stage.outcome }
-          : null,
-        // One entry per book this contact has a record in, so the page can
-        // look each one up by id against the column it is drawing.
-        records: [...(byContact.get(contact._id as string) ?? new Map())].map(
-          ([bookId, row]) => ({
-            bookId,
-            stage: row.stage,
-            reference: row.reference,
-            count: row.count,
-          })
-        ),
-        // Who is answering this person right now: the agent the last handoff
-        // left in charge, or the one the channel points at.
-        handledBy: latest
-          ? botNames.get(latest.activeAgentId ?? latest.agentId) ?? null
-          : null,
-      });
+      const latest = await latestConversation(ctx, contact._id);
+      out.push(rowOf(contact, latest, byContact.get(contact._id as string) ?? new Map(), roster));
     }
     return out;
+  },
+});
+
+export const page = query({
+  args: {
+    workspaceId: v.id("workspaces"),
+    search: v.optional(v.string()),
+    channel: v.optional(channelType),
+    status: v.optional(
+      v.union(v.literal("open"), v.literal("escalated"), v.literal("closed"), v.literal("none"))
+    ),
+    /** A lead stage's name, or "none" for a contact not filed at one. */
+    stage: v.optional(v.string()),
+    seenSince: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const roster = await rosterOf(ctx, args.workspaceId);
+    const needle = args.search?.trim().toLowerCase() ?? "";
+    const latestById = new Map<string, Doc<"conversations"> | null>();
+    const booksById = new Map<string, Map<string, BookCell>>();
+
+    const latestFor = async (contactId: Id<"contacts">) => {
+      const key = contactId as string;
+      if (!latestById.has(key)) latestById.set(key, await latestConversation(ctx, contactId));
+      return latestById.get(key) ?? null;
+    };
+    const booksFor = async (contactId: Id<"contacts">) => {
+      const key = contactId as string;
+      const cached = booksById.get(key);
+      if (cached) return cached;
+      const books = await recordsOf(ctx, contactId);
+      booksById.set(key, books);
+      return books;
+    };
+
+    const keep = async (contact: Doc<"contacts">) => {
+      if (args.channel && contact.channelType !== args.channel) return false;
+      if (args.seenSince !== undefined && contact.lastSeenAt < args.seenSince) return false;
+      if (!args.status && !args.stage && !needle) return true;
+
+      const latest = await latestFor(contact._id);
+      if (args.status && (latest?.status ?? "none") !== args.status) return false;
+      const stage = stageOf(latest, roster);
+      if (args.stage && (stage?.name ?? "none") !== args.stage) return false;
+      if (!needle) return true;
+
+      const text = [
+        contact.name,
+        contact.phone,
+        contact.email,
+        contact.company,
+        contact.remark,
+        contact.externalId,
+        handledByOf(latest, roster),
+        stage?.name,
+      ];
+      if (text.some((field) => field?.toLowerCase().includes(needle))) return true;
+      const books = await booksFor(contact._id);
+      return [...books.values()].some((row) =>
+        [row.reference, row.stage].some((field) => field?.toLowerCase().includes(needle))
+      );
+    };
+
+    const result = await stream(ctx.db, schema)
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .order("desc")
+      .filterWith(keep)
+      .paginate({
+        ...args.paginationOpts,
+        maximumRowsRead: args.paginationOpts.maximumRowsRead ?? PAGE_READ_BUDGET,
+      });
+
+    const rows = [];
+    for (const contact of result.page) {
+      rows.push(rowOf(contact, await latestFor(contact._id), await booksFor(contact._id), roster));
+    }
+    return { ...result, page: rows };
   },
 });
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex-helpers/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -310,6 +311,7 @@ const WINDOWS = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 50;
 
 // The lead stage filter's fixed entries. The stages themselves are appended at
 // render, since a workspace renames and adds to them.
@@ -319,9 +321,6 @@ const NO_STAGE = { value: "none", label: "Not filed yet" };
 export default function ContactsPage() {
   const workspace = useWorkspace();
   const base = `/w/${workspace.slug}`;
-  const contacts = useQuery(api.contacts.listByWorkspace, {
-    workspaceId: workspace._id,
-  });
   // A column per book, named by the workspace. The same names-only query the
   // sidebar reads, so this costs nothing extra on a page that already has it.
   const books = useQuery(api.records.listBookLinks, {
@@ -329,6 +328,7 @@ export default function ContactsPage() {
   });
   const stages = useQuery(api.leads.listStages, { workspaceId: workspace._id });
 
+  const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [channel, setChannel] = useState("all");
   const [status, setStatus] = useState("all");
@@ -339,50 +339,40 @@ export default function ContactsPage() {
   // value stable within a render pass.
   const now = useHourBucket();
 
-  const all = (contacts ?? []) as ContactRow[];
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchDraft.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchDraft]);
 
-  const term = search.trim().toLowerCase();
+  const contacts = usePaginatedQuery(
+    api.contacts.page,
+    {
+      workspaceId: workspace._id,
+      search: search || undefined,
+      channel: channel === "whatsapp" || channel === "web" ? channel : undefined,
+      status:
+        status === "open" || status === "escalated" || status === "closed" || status === "none"
+          ? status
+          : undefined,
+      stage: stage !== "all" ? stage : undefined,
+      seenSince: seen !== "all" ? now - Number(seen) * DAY_MS : undefined,
+    },
+    { initialNumItems: PAGE_SIZE }
+  );
+
+  const rows = contacts.results as ContactRow[];
+  const more = contacts.status === "CanLoadMore" || contacts.status === "LoadingMore";
+  const loadMore = () => contacts.loadMore(PAGE_SIZE);
+
   const filtered =
-    Boolean(term) ||
+    Boolean(searchDraft.trim()) ||
     channel !== "all" ||
     status !== "all" ||
     stage !== "all" ||
     seen !== "all";
 
-  const rows = all.filter((contact) => {
-    if (channel !== "all" && contact.channelType !== channel) return false;
-
-    if (status !== "all" && (contact.conversationStatus ?? "none") !== status) {
-      return false;
-    }
-
-    if (stage !== "all" && (contact.leadStage?.name ?? "none") !== stage) {
-      return false;
-    }
-
-    if (seen !== "all" && contact.lastSeenAt < now - Number(seen) * DAY_MS) {
-      return false;
-    }
-
-    if (!term) return true;
-    return [
-      contact.name,
-      contact.phone,
-      contact.email,
-      contact.company,
-      contact.remark,
-      contact.handledBy,
-      contact.externalId,
-      contact.leadStage?.name,
-      ...contact.records.flatMap((row) => [row.reference, row.stage]),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(term);
-  });
-
   const clear = () => {
+    setSearchDraft("");
     setSearch("");
     setChannel("all");
     setStatus("all");
@@ -424,10 +414,10 @@ export default function ContactsPage() {
         <div className="relative w-full max-w-xs min-w-56">
           <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={search}
+            value={searchDraft}
             placeholder="Search name, number, owner or remark…"
             className="pl-7"
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setSearchDraft(event.target.value)}
           />
         </div>
 
@@ -468,14 +458,35 @@ export default function ContactsPage() {
         {/* Which of the two shapes this takes is the cue that a filter is on,
             once the row itself has scrolled out of sight. */}
         <span className="ml-auto text-sm tabular-nums text-muted-foreground">
-          {filtered
-            ? `${rows.length} of ${all.length}`
-            : `${all.length} contact${all.length === 1 ? "" : "s"}`}
+          {more
+            ? `${rows.length} loaded so far`
+            : filtered
+              ? `${rows.length} match${rows.length === 1 ? "" : "es"}`
+              : `${rows.length} contact${rows.length === 1 ? "" : "s"}`}
         </span>
       </div>
 
-      {contacts === undefined ? (
+      {contacts.status === "LoadingFirstPage" ? (
         <TableSkeleton rows={8} columns={7 + columns.length} />
+      ) : rows.length === 0 && more ? (
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <MagnifyingGlassIcon />
+            </EmptyMedia>
+            <EmptyTitle>No matches yet</EmptyTitle>
+            <EmptyDescription>Only part of your contacts has been checked so far.</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              variant="outline"
+              disabled={contacts.status === "LoadingMore"}
+              onClick={loadMore}
+            >
+              {contacts.status === "LoadingMore" ? <Spinner /> : null} Keep looking
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : rows.length === 0 ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
@@ -672,6 +683,18 @@ export default function ContactsPage() {
               ))}
             </TableBody>
           </Table>
+          {more ? (
+            <div className="flex justify-center border-t p-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={contacts.status === "LoadingMore"}
+                onClick={loadMore}
+              >
+                {contacts.status === "LoadingMore" ? <Spinner /> : null} Show more
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

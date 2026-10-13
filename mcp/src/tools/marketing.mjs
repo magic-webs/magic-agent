@@ -59,8 +59,40 @@ const templateBrief = (t) => ({
   metaTemplateName: t.metaTemplateName ?? null,
   metaStatus: t.metaStatus ?? (t.metaTemplateName ? "LINKED" : "NOT_APPLIED"),
   rejectedReason: t.metaRejectedReason ?? null,
+  header: t.header ?? null,
+  footer: t.footer ?? null,
+  buttons: t.buttons ?? [],
   canSend: canSend(t),
 });
+
+const noVariable = (text) => !text.includes("{{");
+
+const partTextArg = z
+  .string()
+  .max(60)
+  .refine(noVariable, "A header or footer cannot hold a variable.");
+
+const buttonLabel = z.string().min(1).max(25).refine(noVariable, "A button label cannot hold a variable.");
+
+const buttonsArg = z
+  .array(
+    z.discriminatedUnion("type", [
+      z.object({ type: z.literal("quick_reply"), text: buttonLabel }),
+      z.object({
+        type: z.literal("url"),
+        text: buttonLabel,
+        url: z.string().regex(/^https:\/\/\S+\.\S+$/i, "A website button needs a full https:// address."),
+      }),
+      z.object({
+        type: z.literal("phone"),
+        text: buttonLabel,
+        phone: z.string().regex(/^\+\d{8,15}$/, "A call button needs a number with its country code, like +919876543210."),
+      }),
+    ])
+  )
+  .max(10)
+  .refine((buttons) => buttons.filter((b) => b.type === "url").length <= 2, "At most 2 website buttons.")
+  .refine((buttons) => buttons.filter((b) => b.type === "phone").length <= 1, "At most one call button.");
 
 const eventBrief = (e) => ({
   id: e._id,
@@ -220,7 +252,7 @@ export function register(server) {
     {
       title: "Save a marketing template",
       description:
-        "Create a template, or change one when `template` names it (omitted fields keep their value). Variables are written {{name}}, {{business}}, {{event}}, and for an event's reminders {{date}}, {{venue}} and {{message}}. Saving does not submit it: apply_marketing_template does. Editing the text of an approved template stops it sending until the change is applied.",
+        "Create a template, or change one when `template` names it (omitted fields keep their value). Variables are written {{name}}, {{business}}, {{event}}, and for an event's reminders {{date}}, {{venue}} and {{message}}. Optional header and footer (plain text, 60 characters, no variables) and up to 10 buttons: quick replies, at most 2 website links and 1 call button, labels up to 25 characters. A quick reply labelled \"Stop messages\" unsubscribes whoever taps it. Saving does not submit it: apply_marketing_template does. Editing the text or parts of an approved template stops it sending until the change is applied.",
       inputSchema: {
         ...workspaceArg,
         template: z.string().optional().describe("Name or id of the template to change; omit to create"),
@@ -243,6 +275,13 @@ export function register(server) {
           .describe(
             "Only to link a template already approved elsewhere. apply_marketing_template sets it otherwise."
           ),
+        header: partTextArg.optional().describe("A bold line above the body. Empty string removes it."),
+        footer: partTextArg.optional().describe("A small grey line under the body. Empty string removes it."),
+        buttons: buttonsArg
+          .optional()
+          .describe(
+            "Replaces every button; [] removes them. Each is {type:'quick_reply', text}, {type:'url', text, url} or {type:'phone', text, phone}."
+          ),
       },
     },
     handler(async ({ workspace, template, ...fields }) => {
@@ -263,6 +302,9 @@ export function register(server) {
         category: fields.category ?? existing?.category,
         languageCode: fields.languageCode ?? existing?.languageCode,
         metaTemplateName: fields.metaTemplateName ?? existing?.metaTemplateName,
+        header: fields.header,
+        footer: fields.footer,
+        buttons: fields.buttons,
       });
       return ok({
         templateId,

@@ -3,12 +3,17 @@
 A multi-tenant platform for building, configuring and running AI chat agents.
 Where `printly-ai-bot` is one hard-coded bot for one printing company, this is
 the generalised version: create a **Workspace** for any company or project,
-configure agents in the dashboard, and the same runtime serves both a web
-playground and WhatsApp.
+configure agents in the dashboard, and the same runtime serves WhatsApp,
+Instagram, an embeddable web chat widget and the dashboard's own playground.
+
+This repo is the web console and the whole backend. The phone app
+([magic-agent-app](https://github.com/magic-webs/magic-agent-app)) is a second
+client of the same Convex deployment, and an MCP server in `mcp/` exposes the
+platform to AI assistants.
 
 Stack: Next.js 16 (App Router) · Convex (database, vector search, actions, HTTP
-endpoints, file storage) · AI SDK v7 through the Vercel AI Gateway · Zod ·
-shadcn/ui.
+endpoints, crons) · Cloudflare R2 for files · AI SDK v7 through the Vercel AI
+Gateway · Zod · shadcn/ui on Base UI · Tailwind v4 · Razorpay · bun.
 
 ---
 
@@ -19,16 +24,23 @@ off it, so nothing about a vertical is baked into code:
 
 | Inside a workspace | What it is |
 | --- | --- |
-| **Agents** | A configured bot: name, role, job description, tone, rules, guardrails, model settings, tool permissions |
+| **Agents** | A front desk that answers first and routes, specialists it hands over to, a follow-up desk and a marketing desk. Each has a name, role, job description, tone, rules, guardrails, model settings and tool permissions |
 | **Knowledge base** | Pasted text, FAQs, URLs or uploaded files, chunked and embedded into Convex's vector index |
-| **Catalogue** | Products, plus the exact specification questions the agent must collect for each one |
-| **Orders** | Structured enquiries the agent captured, with every spec it collected |
+| **Catalogue** | Products, services, brochures (with a file) and other items, plus the exact specification questions the agent must collect for each |
+| **Record books** | What conversations collect, with fields and stages the workspace defines. Every workspace has an **Orders** book; a booking, a site visit or a membership gets a book of its own |
+| **Leads** | Every conversation filed at a lead stage by the follow-up desk, which also sends a couple of nudges |
 | **Custom tools** | Extra capabilities you define — an HTTP call or a read-only query over workspace data. Can be **generated from a plain-language task description** |
-| **Channels** | A WhatsApp number (WABA ID, phone number ID, access token) routed to one agent |
-| **Conversations** | Every thread across WhatsApp and web, including the tool trace for each turn |
+| **Integrations** | Google Sheets, Calendar and Drive, plus Magic Forms and Magic Reward |
+| **Channels** | WhatsApp numbers, Instagram accounts and web widgets, each routed to an agent |
+| **Conversations** | Every thread across every channel, with the tool trace for each turn, and human takeover |
+| **Marketing** | Audiences, WhatsApp templates, greetings, birthdays, event reminders and broadcasts |
+| **Alerts** | WhatsApp templates or emails sent when a record is filed or moves, an agent escalates, or another system posts in |
+| **Team** | Human agents with their own logins |
 
 Routes live under `/w/<slug>/…`. A marketing page sits at `/`, the platform
-console at `/admin`, and sign-in at `/login`.
+console at `/admin`, sign-in at `/login`, a human agent's escalations desk at
+`/desk`, the chat widget at `/widget/<channelKey>`, and the legal pages the
+stores require at `/privacy`, `/terms`, `/support` and `/delete-account`.
 
 ---
 
@@ -44,24 +56,50 @@ node -e '(async()=>{const p=await crypto.subtle.generateKey({name:"RSASSA-PKCS1-
 npx convex env set JWT_PRIVATE_KEY "<value from above>"
 npx convex env set JWT_PUBLIC_JWK  "<value from above>"
 
+# File storage — logos, team photos, product files, knowledge uploads
+npx convex env set R2_BUCKET            <bucket>
+npx convex env set R2_ENDPOINT          https://<account>.r2.cloudflarestorage.com
+npx convex env set R2_ACCESS_KEY_ID     <key id>
+npx convex env set R2_SECRET_ACCESS_KEY <secret>
+npx convex env set R2_PUBLIC_URL        https://<public bucket domain>
+
 bun dev
 ```
 
 `.env.local` needs `NEXT_PUBLIC_CONVEX_URL` and `NEXT_PUBLIC_CONVEX_SITE_URL`
-(both written by `convex dev`). The gateway key and the signing key must be set
-**on the Convex deployment**, not just in `.env.local`, because every model call
-and every token signature happens inside a Convex action.
+(both written by `convex dev`). The gateway key, the signing key and everything
+below must be set **on the Convex deployment**, not just in `.env.local`, because
+every model call, every token signature and every webhook happens inside Convex.
+[.env.example](.env.example) annotates each one.
+
+| Convex env var | Needed for |
+| --- | --- |
+| `PUBLIC_SITE_URL` | Optional. The public origin for webhook, tracked-link and OAuth URLs. Pair it with `NEXT_PUBLIC_SITE_URL` in Next, which proxies those paths to Convex |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google integrations |
+| `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | The Instagram channel. `META_APP_SECRET` is the fallback for checking webhook signatures |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Billing |
+| `ZEPTOMAIL_TOKEN` (+ optional `_URL`, `_FROM_EMAIL`, `_FROM_NAME`) | Email alerts |
+| `EXPO_ACCESS_TOKEN` | Optional. Push to the mobile app |
+| `FISH_VOICE_MALE`, `FISH_VOICE_FEMALE` | Spoken agent greetings |
+| `TRACKING_BASE_URL` | Optional. The base for marketing short links; `PUBLIC_SITE_URL` when unset |
+| `MAGIC_FORMS_API_URL`, `MAGIC_REWARD_API_URL` | Optional. Point the Magic apps at development deployments |
+
+To create or reset the platform administrator from `.env.local`
+(`ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`), run `bun run provision:admin`.
+`-- --generate` writes a fresh strong password for you. The command is safe to
+re-run: it resets the password and revokes that admin's sessions.
 
 ### Deploying
 
-`vercel.json` builds with `convex deploy --cmd 'bun run build'`, so the backend
-and the frontend ship in one step. They have to: the two halves are one program,
-and a frontend that knows about a Convex function the backend has not got yet
-does not fail at build — it fails in the browser, as a blank page, on whichever
-route calls it first.
+Build the backend and the frontend together, with the Vercel project's build
+command set to `bunx convex deploy --cmd 'bun run build'`. There is no
+`vercel.json`, so the command lives in the project settings. The two halves are
+one program. A frontend that knows about a Convex function the backend does not
+have yet does not fail at build. It fails in the browser, as a blank page, on
+whichever route calls it first.
 
 That build command needs **`CONVEX_DEPLOY_KEY`** in the Vercel project's
-environment variables — a production deploy key from the Convex dashboard
+environment variables: a production deploy key from the Convex dashboard
 (Settings → Deploy keys). Without it the build stops before Next runs.
 
 Open `/login`. While no administrator exists that page offers a one-time setup
@@ -69,21 +107,32 @@ form to create the first one; it locks itself the moment an account exists.
 
 Then, in the console:
 
-1. **New workspace** — name, description, locale, currency. The description and
-   "company facts" are injected into every agent prompt, so specificity pays off.
-2. **Knowledge base → Add source** — paste your delivery policy, minimum order,
-   artwork requirements. Anything your team actually answers from.
-3. **Catalogue** — add products manually, paste JSON, or let the model draft a
-   starter catalogue from the workspace description.
-4. **Agents → New agent → Draft from a brief** — describe the job in a sentence
-   and the model writes the persona, tone, rules and guardrails for you to review.
-5. **Test in chat** — talk to it in the web playground, with the tool trace visible.
-6. **Channels → Connect WhatsApp** — paste your WABA credentials, copy the
-   callback URL and verify token into Meta, flip it live.
-7. **Hand over the keys** — on `/admin`, open a workspace's **Access** dialog and
-   generate a password. It is shown once; send it to the company along with the
-   workspace ID, which is their username. They sign in at `/login` and land
-   straight in their own workspace.
+1. **New workspace.** On `/admin/workspaces`: name, description, locale and
+   currency.
+2. **Onboarding.** `/w/<slug>/onboarding` walks through six steps: profile,
+   company facts, agents, knowledge, catalogue and lead stages. Each step shows
+   what is still missing, and none of them blocks the rest of the console. The
+   description and the facts are injected into every agent prompt, so being
+   specific pays off.
+   [docs/onboarding-brief-template.md](docs/onboarding-brief-template.md) is
+   the questionnaire to send a client beforehand.
+3. **Agents.** A front desk comes with the workspace. Add specialists from a
+   template (sales, lead qualifier, support, after-sales, bookings, careers),
+   or **draft from a brief**: describe the job in a sentence and the model
+   writes the persona, tone, rules and guardrails for you to review. The
+   agents page has a map view of the routing.
+4. **Test in chat.** Talk to it in the playground, with the tool trace and any
+   handoff visible.
+5. **Channels.** Connect WhatsApp (paste the WABA credentials, then copy the
+   callback URL and verify token into Meta), sign in to Instagram, or create a
+   web widget and paste its one-line script into a site. Then switch it live.
+6. **Hand over the keys.** On `/admin/access`, generate a password for the
+   workspace. It is shown once. Send it to the company with the workspace ID,
+   which is their username. They sign in at `/login` and land straight in
+   their own workspace, and can then issue logins to their own human agents
+   from the Team page.
+
+An AI assistant can do most of this through the [MCP server](#mcp-server).
 
 ---
 
@@ -96,16 +145,24 @@ reaches all of them. The platform runs a fixed set, listed in `MODELS` in
 
 | Use | Model | Notes |
 | --- | --- | --- |
-| Chat (default) | `anthropic/claude-haiku-5.5` | Tool-capable, reads images, 1M context, $0.10/$0.50 per million tokens up to 100K prompt tokens, prompt-cached through the gateway |
+| Chat (default) | `anthropic/claude-haiku-5.5` | Tool-capable, reads images, 1M context, $0.10/$0.50 per million tokens, prompt-cached through the gateway |
 | Chat | `deepseek/deepseek-v4.1-flash` | Tool-capable, reads images, 1M context, $0.30/$1.20 per million tokens |
 | Embedding | `openai/text-embedding-3-small` | The `knowledgeChunks` vector index is pinned to 1536 dimensions — any other model stops matching and every source in every workspace needs re-embedding |
-| Classification | `typesafe-ai/jev` | Sorts and scores guests and imported contacts |
-| Voice notes | `openai/whisper-1` | Not token-priced |
+| Classification | `typesafe-ai/jev` | Sorts and scores imported contacts, reads RSVPs from event guests' replies |
+
+Two more are fixed in `convex/lib/gateway.ts` rather than listed: `openai/whisper-1`
+(`TRANSCRIPTION_MODEL`) transcribes WhatsApp voice notes, and
+`fish-audio/s2.1-pro-free` (`SPEECH_MODEL`) speaks an agent's greeting
+(`convex/speech.ts`), in the voice set by `FISH_VOICE_MALE` or
+`FISH_VOICE_FEMALE`.
 
 /admin/models can relabel and reprice these, take a chat model out of the agent
-picker, and switch prompt caching off for an Anthropic model. It cannot add
-models. An agent saved with a model outside the list runs on the default chat
-model.
+picker, and switch prompt caching off for an Anthropic model. It also holds the
+**image processing** switch: while it is off (the default), a photo a customer
+sends is described to the model rather than shown to it. It cannot add models.
+An agent saved with a model outside the list runs on the default chat model.
+Every call is costed into `usageEvents`, rolled up daily, and shown on
+**/admin/usage** (Tokens & cost).
 
 `convex/lib/gateway.ts` is the only file that builds a provider, and only the
 Node-runtime actions import it — `lib/shared.ts` is imported by React, so the
@@ -120,9 +177,10 @@ points, so the authorized dashboard path and the unauthenticated webhook path
 cannot drift:
 
 ```
-web playground ──→ api.engine.respondAsUser ──┐ (checks the caller may use this agent)
-                                              ├─→ runTurn ─→ generateText(tools)
-WhatsApp webhook ─→ internal.engine.respond ──┘              → reply + tool trace
+web playground ───→ api.engine.respondAsUser ──┐ (checks the caller may use this agent)
+web widget ───────→ api.engine.respondFromWidget ┤ (checks the channel key + registered visitor)
+WhatsApp webhook ─┐                              ├─→ runTurn ─→ generateText(tools)
+Instagram webhook ┴→ internal.engine.respond ────┘    ↺ handoff  → reply + tool trace
 ```
 
 A turn does:
@@ -135,7 +193,35 @@ A turn does:
    for follow-up lookups).
 3. Compile the system prompt from the workspace + agent configuration.
 4. `generateText` with the assembled toolset and `stopWhen: stepCountIs(maxSteps)`.
-5. `conversations.finishTurn` — persist the tool trace and the assistant reply.
+5. If the agent called `transfer_to_agent`, record the handoff, throw its draft
+   away, and run the turn again as the colleague (see below).
+6. `conversations.finishTurn` — persist the tool trace and the assistant reply.
+
+### Agents, the front desk and handoffs
+
+An agent has a `kind`:
+
+| Kind | Role |
+| --- | --- |
+| `router` | The **front desk**. One per workspace (`agents.ensureDefaultRouter`). It answers first on every channel and passes the conversation to a specialist |
+| `specialist` | Does the actual work: sales, support, bookings… Six templates in `convex/lib/agentTemplates.ts` |
+| `follow_up` | The **follow-up desk**. Never takes a live turn; it reviews conversations once they go quiet (see [Leads](#leads-and-the-follow-up-desk)) |
+| `marketing` | The **marketing desk**. Never takes a live turn; it writes and sends scheduled messages (see [Marketing](#marketing)) |
+
+Routing is driven entirely by each specialist's `routingDescription` ("hand
+over to me when…"). `agents.rosterForAgent` shows the agent holding the turn
+its colleagues' descriptions, so a specialist without one is close to
+invisible. The candidates are only **active** specialists that have not set
+`acceptsHandoff: false`, and never the router.
+
+The handoff is silent. `transfer_to_agent` only records a pending transfer.
+When generation stops, `runTurn` swaps in the colleague, rebuilds the prompt
+and toolset, and answers the same message again, so the customer only ever
+sees the colleague's reply. There is one handoff per turn at most
+(`MAX_HANDOFFS_PER_TURN`), and an agent that has already held the turn cannot
+be chosen again, so a turn cannot bounce back and forth. The router always
+has the tool. `chat_with_agent` in the MCP server and the playground both
+report the handoff path.
 
 ### Prompt compilation
 
@@ -171,8 +257,12 @@ consequential goes through a tool call:
 | `get_product_requirements` | The full spec checklist for one product |
 | `save_contact_detail` | Remember a name / email / company / preference |
 | `escalate_to_human` | Mark the conversation escalated, fire `escalation` |
+| `transfer_to_agent` | Hand the conversation to a colleague agent, silently |
+| `rich_messages` | One switch for eight tools: `send_buttons`, `send_list`, `send_media`, `send_link_button`, `request_location`, `request_address`, `send_location`, `send_contact_card`. They work the same on WhatsApp and the web widget, and fall back to text on Instagram |
 
-Each is toggled per agent.
+Each is toggled per agent. Each record book an agent is switched on for adds
+`file_<handle>`, plus `find_<handle>` and `update_<handle>` when the book
+allows them, and each connected integration or Magic app adds its own.
 
 Orders are not a builtin: every workspace has an **Orders record book**
 (`convex/lib/ordersBook.ts`), so an agent switched on for it takes orders with
@@ -186,6 +276,51 @@ book, moves agents off `create_order` / `lookup_orders`, and turns "New order"
 alerts into "Record filed" alerts on the book. Every call is wrapped so a thrown error becomes a
 value the model can reason about rather than a dead turn, and every call is
 recorded on the conversation — visible in the playground and the transcript view.
+
+### Record books
+
+Everything a conversation collects lands in a **record book**
+(`convex/records.ts`, `convex/lib/records.ts`). The workspace defines each
+book itself:
+
+- **Shape.** A name, a handle and a purpose, plus typed fields (text, number,
+  select, boolean or date) and its own stages. Each book is a draft, active or
+  archived.
+- **Tools.** An agent switched on for a book gets tools named after it:
+  `file_membership` always, and `find_membership` and `update_membership` when
+  the book allows lookups and updates.
+- **Numbering.** Each record gets a reference (the book's prefix plus six
+  characters) and a serial number in that book.
+- **Sources.** Records arrive from WhatsApp, the web, Instagram, the API, by
+  hand, or from a **Magic Forms** submission when the book is tied to a form
+  (`formSubmissions.ts`).
+- **Webhooks.** Each book can have its own webhooks (`recordWebhooks`) for
+  `record_filed`, `record_updated` and `record_stage_changed`, with an optional
+  secret, custom headers, a test send and a delivery log.
+- **Export.** Paged CSV export from the dashboard, filterable by stage.
+
+Books created before serial numbers existed need
+`npx convex run migrations:recordSerials` once.
+
+### Leads and the follow-up desk
+
+Every conversation can sit at a **lead stage**. A workspace starts with seven
+stages: New enquiry, Qualified, Details collected, Quoted, Negotiating, Won
+and Lost. Each stage's outcome is open, won or lost. Stages are edited and
+reordered on the Leads page.
+
+The follow-up desk files conversations at those stages (`convex/followUp.ts`):
+
+- **When it reviews.** A cron runs every 15 minutes and picks up conversations
+  that have been quiet for an hour and have new messages since the last review.
+- **How it decides.** It reads the transcript and matches it against every
+  stage's **description**, using structured output at a low temperature, so
+  the descriptions are the pipeline's real configuration. Write them as tests
+  someone could apply to a transcript.
+- **Nudges.** While the stage is open, it may send at most two follow-ups
+  (`MAX_FOLLOW_UPS`), and only inside WhatsApp's 24-hour window.
+- **Pinning.** A lead moved by hand (`leads.setStage`) is **pinned**, and the
+  desk leaves it alone until the stage is cleared.
 
 ### Custom tools, including auto-generated ones
 
@@ -333,14 +468,180 @@ verify token. `POST` acknowledges immediately and schedules
 `whatsapp.handleInbound`, so Meta never sees a slow response and never retries.
 
 `handleInbound` resolves the channel, marks the message read and shows a typing
-indicator, extracts the text (plain text, button replies, list replies, or a
-voice note transcribed with Whisper), runs the engine, and sends the reply back
-with that channel's credentials — split across messages if it exceeds
-WhatsApp's body limit.
+indicator, works out what the customer sent, runs the engine, and sends the
+reply back with that channel's credentials. A reply longer than WhatsApp's body
+limit is split across messages.
+
+Every inbound type is parsed:
+
+- **Text.** Plain text, button and list replies, catalogue orders, reactions,
+  locations and contact cards.
+- **Voice notes.** Transcribed with Whisper.
+- **Images.** Shown to the model only when the admin's image-processing switch
+  is on; otherwise the model is told a photo arrived. A burst of photos is
+  answered once: each image waits 15 seconds (`IMAGE_SETTLE_MS`), and only the
+  last one gets a reply.
+- **Documents and video.** Recorded with a signed proxy link
+  (`/whatsapp-media/<channelId>/<mediaId>?sig=`) for the transcript, but not read.
+
+The webhook also carries delivery statuses, which drive the transcript's ticks
+(pending → sent → delivered → read, or failed, and only ever forward), and the
+price Meta charged (see [the wallet](#the-wallet)).
 
 Credentials are stored per channel, so one workspace can run several numbers.
-Access tokens are masked (`••••••••1234`) in every public query; the full value
-is only readable by internal functions.
+Templates are submitted and synced through **the panel**, the WhatsApp
+provider each channel connects through at its `apiBaseUrl`. It speaks Meta's
+Cloud API shapes (`convex/lib/panel.ts`). Access tokens are masked
+(`••••••••1234`) in every public query; the full value is only readable by
+internal functions.
+
+### Instagram
+
+`convex/instagram.ts` connects an account with Instagram Login (OAuth). The
+redirect goes to `<PUBLIC_SITE_URL>/instagram/callback`, and the account's
+messages then arrive at:
+
+```
+https://<deployment>.convex.site/instagram/webhook
+```
+
+The webhook is verified with `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`, and each event's
+signature is checked against `INSTAGRAM_APP_SECRET`. Meta's
+`/instagram/deauthorize` and `/instagram/data-deletion` callbacks are served
+too. Tokens are refreshed by a daily cron. Rich messages fall back to text.
+
+### Web widget
+
+A web channel is a chat bubble for any website, added with one line:
+
+```html
+<script src="https://<app>/widget/<channelKey>/embed.js" async></script>
+```
+
+The loader (`app/widget/[channelKey]/embed.js/route.ts`) places a launcher
+button on the host page and opens `/widget/<channelKey>?embed=1` in an iframe
+on the first click. These `data-` attributes configure it:
+
+- `data-position` (left or right) and `data-z-index`
+- `data-color`, `data-icon` (whatsapp or chat) and `data-label`
+- `data-teaser`, and `data-auto-open` (milliseconds, once per tab)
+
+The loader passes on the host page's `utm_name` and `utm_phone` parameters, so a
+visitor who arrives from a campaign link does not have to type them again.
+
+Before chatting, a visitor gives a name and phone number (`widget.register`).
+The channel's **intake** setting decides how: `form` asks on a sign-in page
+first, `chat` asks inside the conversation. Turns go through
+`engine.respondFromWidget`, which is capped at 2,000 characters a message, and
+replies arrive over the `widget.session` subscription. There is no polling.
+
+### Inbox, human takeover and the desk
+
+The **Conversations** page is the inbox for every channel, with All, Open,
+Unread and Closed buckets, search, and an **Escalations** view of the threads
+an agent handed to a person. A team member can do these things in a thread:
+
+- **Take over.** `conversations.setHumanHandling` pauses the agent for 15
+  minutes to 24 hours. A cron hands abandoned takeovers back every 15 minutes.
+- **Reply.** `sendManualReply` sends text, optionally quoting a message,
+  attributed to a team member.
+- **React.** Send a reaction, and see the customer's.
+- **Mark as bot.** A contact who repeats the same message ten times
+  (`BOT_REPEAT_LIMIT`) is marked automatically.
+
+Contacts can opt out: STOP and START (Hindi included) set `optedOutAt`
+(`convex/lib/optOut.ts`).
+
+A **member**, a human agent with their own login, also gets **`/desk`**. It is
+the escalations view on its own: only the threads an agent handed to a person,
+with **Resolve** handing the thread back to the AI. Members are issued from the
+workspace's Team page (`convex/team.ts`), and each one takes a human-agent seat
+on the plan.
+
+### Marketing
+
+The marketing desk sends to every WhatsApp contact on a schedule, always as
+approved templates, because nothing else reaches someone outside the 24-hour
+window. Every message it sends is written into the contact's conversation,
+which is opened for them if they have none, so a reply carries on from it.
+
+- **Templates** (`marketingTemplates.ts`). Saved, submitted to Meta through the
+  panel, then checked every 30 minutes until they are approved or rejected.
+  Each has an occasion (birthday, festival, offer, event or general), a header,
+  footer, buttons and a category.
+- **Greetings and birthdays** (`marketing.ts`). Festival dates are preset in
+  `lib/marketing.ts`, and a five-minute cron sends what is due in batches.
+  Birthday wishes go out hourly, at each workspace's own local hour.
+- **Events** (`marketingCampaigns.ts`, `eventGuests.ts`). The business's own
+  events get reminders from up to a week before until the day after. The desk
+  writes each reminder line from the event's details (`marketingAi.ts`) and
+  sends it as the template's `{{message}}`. RSVPs are read from replies, and
+  check-in and attendance build guest segments.
+- **Broadcasts** (`marketingBroadcasts.ts`). One-off sends at 10 to 1,000 a
+  minute, which can be paused, resumed or cancelled, with a report afterwards.
+  **Re-engage** starts a new broadcast to the contacts with a given outcome:
+  delivered, read, replied, clicked, failed or not read. **Best send time**
+  sends in hourly waves, at each contact's most active hour.
+- **Audience** (`audience.ts`, `audienceImports.ts`, `lib/segments.ts`). Lists,
+  tags, categories and behavioural segments: read with no reply, ordered
+  recently, lapsed, silent, never read. A CSV import takes up to 10,000 rows,
+  and `typesafe-ai/jev` checks and categorises each one.
+- **Tracked links** (`lib/links.ts`). The first URL in a message becomes
+  `<site>/l/<code>` with UTM tags. A click is counted (link-preview bots are
+  ignored) and redirected.
+
+### Alerts
+
+`convex/notifications.ts` sends an alert when one of these happens:
+
+- a record is filed, updated or changes stage (optionally narrowed to one book
+  and stage)
+- an agent escalates
+- another system POSTs to the alert's own inbound URL,
+  `https://<deployment>.convex.site/notify/<inboundKey>`. The key can be
+  rotated, and a sample can be captured to map its fields.
+
+An alert goes out as either:
+
+- **WhatsApp:** an approved template synced from the panel.
+- **Email:** through ZeptoMail with the platform's token, from
+  "<workspace> via Magic Agent".
+
+Recipients and a template's blanks are text with `{{path}}` placeholders over
+the event's payload. Every send, skip and failure is logged with its reason
+(`notificationLogs`).
+
+Separately from alerts, every dashboard change is written to an **activity
+log** (`convex/activity.ts`, through the mutation wrapper in `functions.ts`)
+and kept for 90 days.
+
+### Push and the mobile app
+
+`convex/push.ts` sends Expo push notifications to the
+[mobile app](https://github.com/magic-webs/magic-agent-app) for these events:
+orders, escalations, records filed, forms submitted, offers played, a low
+wallet, a failed recharge and a failed subscription payment. The app's bell
+reads the same events from an in-app inbox that keeps a month of them. Orders
+and escalations play their own sound on Android channels named
+`orders-v1` and `escalations-v1`. To change a sound, rename the channel in
+both repos.
+
+The app has no backend of its own. It calls Convex functions by name, so
+renaming a function the app uses breaks the app's builds that are already
+installed.
+
+### Files
+
+Uploads (logos, team photos, product images and brochures, knowledge files and
+spoken greetings) are kept on **Cloudflare R2** through `@convex-dev/r2`
+(`convex/lib/files.ts`), and served from `R2_PUBLIC_URL`. Older rows that still
+hold a Convex `_storage` id keep resolving.
+
+### Owner assistant
+
+`convex/assistant.ts` answers the owner's questions about the business, such
+as "how did today go?". It reads a snapshot of the workspace, has no tools, and
+keeps its history. The mobile app's agent screen uses it.
 
 ### Billing
 
@@ -418,9 +719,12 @@ for its **conversation type** — Meta's four categories:
 
 Rates are set by an administrator on **/admin/billing**: one platform default,
 plus an optional rate card per account. Each sent message writes one
-`billingEvents` row with its amount fixed at send time and takes the same
-amount off the wallet in the same transaction (`convex/lib/charge.ts`), so
-the balance and the ledger cannot disagree. Amounts are integer millionths
+`billingEvents` row at an estimate and takes the same amount off the wallet
+in the same transaction (`convex/lib/charge.ts`), so the balance and the
+ledger cannot disagree. The row stays pending until WhatsApp's status webhook
+reports what Meta actually charged, which settles it and refunds or debits the
+difference. An hourly cron settles rows nothing ever arrived for at their
+estimate. Amounts are integer millionths
 of the currency, for the reason usage rows are nano-USD. Only a rate card in
 the wallet's currency (INR) is taken off the wallet; the billing pages warn
 when an account's rates are in anything else.
@@ -470,31 +774,39 @@ the Razorpay account.
 
 ### Outbound webhooks
 
-`order_created` and `escalation` are POSTed to the workspace's endpoint as JSON,
-signed with `X-Magic-Signature: sha256=<hmac>` over the raw body using the
-workspace secret. Every delivery attempt is logged and visible under Settings,
-with a **Send test event** button.
+Events are POSTed to the workspace's endpoint as JSON, signed with
+`X-Magic-Signature: sha256=<hmac>` over the raw body using the workspace
+secret: `escalation`, `record_filed` / `record_updated` /
+`record_stage_changed`, `form_submitted`, `offer_played`, `wallet_low`,
+`wallet_recharge_failed`, `subscription_payment_failed` and `test`
+(`order_created` is still sent for workspaces that subscribed to it). Every
+delivery attempt is logged and visible under Settings, with a **Send test
+event** button. The same events feed [alerts](#alerts) and
+[push](#push-and-the-mobile-app), and record books can have
+[webhooks of their own](#record-books).
 
 ---
 
 ## Authentication
 
-Three kinds of principal:
+Four kinds of principal:
 
 | Role | Username is | Can see |
 | --- | --- | --- |
-| **admin** | their email address | every workspace, and who has access to each |
+| **admin** | their email address | every workspace, or only the ones listed for them when the platform team gives them the Member role |
+| **user** | their email address | the several workspaces an administrator assigned to them (`/admin/users`), switching between them |
 | **workspace** | the workspace ID | only its own workspace |
-| **member** | `<workspace-id>.<name>` | its workspace's whole dashboard — but not its password, other people's logins, MCP tokens or the subscription |
+| **member** | `<workspace-id>.<name>` or their email | its workspace's whole dashboard and `/desk` — but not its password, other people's logins, MCP tokens or the subscription |
 
 A **member** is a human agent the company gave a login from its Team page.
 Each one takes a human-agent seat on the plan. What only the company itself
 may do is behind `requireOwner` rather than `requireWorkspace`.
 
-There is **one** sign-in form: username and password, no role picker. An email
-always contains `@` and a workspace ID never does, so `auth.login` resolves the
-namespace itself, then tells the route handler which area to open — `/admin` or
-`/w/<slug>`. A failed attempt returns the same generic message either way, and
+There is **one** sign-in form: username and password, no role picker.
+`auth.login` resolves the namespace itself (an admin's email, then a user's,
+then a workspace ID, then a member) and tells the route handler which area to
+open: `/admin`, `/w/<slug>` or `/desk`. A failed attempt returns the same
+generic message either way, and
 is compared against an unmatchable hash so response time cannot reveal whether
 the username exists.
 
@@ -563,9 +875,11 @@ takes the code. Setting it up issues ten one-time recovery codes, stored hashed.
 
 Inside Convex, not in the UI. `convex/lib/auth.ts` exposes `requireAdmin`,
 `requireWorkspace` and per-document guards (`requireAgent`, `requireOrder`, …)
-that resolve a record's owning workspace before deciding. All 60 public
-functions call one, so a direct request to the Convex HTTP API from outside the
-app is refused exactly as the UI would be.
+that resolve a record's owning workspace before deciding. Every dashboard
+function calls one, so a direct request to the Convex HTTP API from outside the
+app is refused exactly as the UI would be. The few public functions meant for
+the signed-out (sign-in, and the web widget, which checks its channel key and
+the visitor's session) say so in their own code.
 
 Each guard also **re-reads the underlying record**, so revoking a company's
 access locks it out on the very next request rather than when its token expires.
@@ -589,47 +903,161 @@ area. Forging its cookies buys nothing.
 - A failed sign-in is compared against a dummy hash, so response time does not
   reveal whether the account exists.
 
+---
+
+## MCP server
+
+`mcp/` exposes the platform's Convex functions as MCP tools, so an AI assistant
+can build a workspace end to end and then test it with `chat_with_agent`, which
+runs the real engine and reports the handoff path. The tool groups are:
+
+- **Setup:** agents, the catalogue, record books, knowledge, channels and
+  custom tools.
+- **Operations:** conversations, `send_message`, contacts, orders and usage.
+- **Sales and outreach:** leads, alerts and marketing.
+- **Platform administration:** admin only.
+
+It can be reached three ways:
+
+| How | Command or URL | For |
+| --- | --- | --- |
+| stdio | `bun run mcp` (registered in `.mcp.json`) | Claude Code, Claude Desktop |
+| Hosted | `https://<app>/api/mcp/<token>` (`app/api/mcp/[token]/route.ts`) | claude.ai connectors |
+| Standalone HTTP | `bun run mcp:http` → `127.0.0.1:8787/mcp/<token>` | self-hosting |
+
+It never bypasses authorization. Locally it signs in the way the dashboard does,
+with `MAGIC_AI_BOT_USERNAME` / `MAGIC_AI_BOT_PASSWORD`, or falls back to
+`ADMIN_*` in `.env.local`. Over HTTP the token in the path is the credential.
+That is either `MAGIC_AI_BOT_MCP_TOKEN` for the deployment, or a connector
+token issued on **/admin/mcp** (admin) or on a workspace's **Settings →
+Connect an AI assistant**. Connector tokens are hashed, rotatable and
+revocable. A workspace's token is read-only, plus `send_message`. A wrong token
+and a disabled MCP both answer 404. [mcp/README.md](mcp/README.md) has the
+details.
+
+---
+
+## Reference
+
+### HTTP routes on the Convex site
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/.well-known/openid-configuration`, `/.well-known/jwks.json` | Our own OIDC discovery and keys |
+| GET / POST | `/whatsapp/<channelKey>` | Meta verification; inbound messages, statuses, panel queue reports |
+| GET | `/whatsapp-media/<channelId>/<mediaId>?sig=` | Signed proxy for media in transcripts |
+| GET / POST | `/instagram/webhook` | Instagram verification and events |
+| GET | `/instagram/callback` | Instagram OAuth callback |
+| POST | `/instagram/deauthorize`, `/instagram/data-deletion` | Meta's account-removal callbacks (`data-deletion` also answers GET with a status page) |
+| GET | `/integrations/google/callback` | Google OAuth callback |
+| POST | `/integrations/google/<action>?token=` | Google tool calls |
+| POST | `/apps/<inboundKey>` | Magic Forms / Magic Reward results |
+| POST | `/notify/<inboundKey>` | Inbound alert URL |
+| GET | `/l/<code>` | Tracked-link redirect |
+| POST | `/razorpay/webhook` | Razorpay events |
+
+With `NEXT_PUBLIC_SITE_URL` / `PUBLIC_SITE_URL` set, `next.config.ts` proxies
+`/whatsapp`, `/instagram`, `/notify`, `/apps`, `/l` and `/integrations/google`
+from the app's own domain, so the URLs handed to Meta, Google and customers
+carry the brand rather than the Convex hostname.
+
+### Crons (`convex/crons.ts`)
+
+| Every | Job |
+| --- | --- |
+| 5 min | send due marketing greetings and event reminders |
+| 15 min | review quiet conversations (follow-up desk) · hand back abandoned takeovers |
+| 30 min | check marketing templates still in review |
+| hour | birthday wishes · settle message charges Meta never priced · sweep abandoned OAuth handshakes |
+| 6 h | prune the Magic apps delivery log |
+| day | purge expired sessions · prune the activity log (90 days) and push inbox (a month) · prune the Razorpay webhook log · recount inbox totals · refresh Instagram tokens |
+
+### Migrations
+
+One-off backfills live in `convex/migrations.ts` and run with
+`npx convex run migrations:<name>`. Examples are `ordersToRecords` (orders into
+the Orders record book) and `recordSerials` (serial numbers for older records).
+
+---
 
 ## Layout
 
 ```
 convex/
-  schema.ts           tables, indexes, vector index, shared validator fragments
-  auth.ts             password hashing, sessions, JWT signing (Node runtime)
-  authDb.ts           auth reads/writes, plus guards callable from actions
-  auth.config.ts      points Convex at our own JWKS
-  engine.ts           the turn: retrieval → toolset → generateText → persist
-  ai.ts               generateObject drafting: agents, tools, catalogues
-  http.ts             WhatsApp webhook (verification + inbound)
-  whatsapp.ts         inbound handling, Whisper transcription, outbound send
-  ingest.ts           extract → chunk → embed
-  workspaces.ts agents.ts knowledge.ts products.ts orders.ts
-  channels.ts tools.ts conversations.ts webhooks.ts
-  plans.ts            the plan catalogue and billing terms (admin)
-  subscriptions.ts    an account's plan, seats and standing
-  wallet.ts           balance, top-ups, auto-recharge preferences
-  razorpay.ts         every call to Razorpay
-  razorpayEvents.ts   what Razorpay reports, applied (webhook + Checkout)
-  lib/
-    auth.ts           requireAdmin / requireWorkspace / requireOwner / per-document guards
-    plans.ts          pricing, GST, seats, dashboard access (pure)
-    charge.ts         one sent message → ledger row + wallet debit
-    prompt.ts         configuration → system prompt (pure)
-    shared.ts         builtin tool catalogue, slugs, masking (pure)
-    toolSchema.ts     declarative parameters → JSON Schema, templating (pure)
+  schema.ts, schema/   tables, indexes, vector index, shared validator fragments
+  functions.ts         mutation wrapper that writes the activity log
+  http.ts              every public HTTP route (see Reference)
+  crons.ts             scheduled jobs
 
-proxy.ts              route gate: signed-out → /login, each role → its area
+  # the turn
+  engine.ts            retrieval → toolset → generateText → handoff → persist
+  conversations.ts     threads, messages, takeover, manual replies, reactions, opt-out
+  agents.ts            agents, desks, templates, handoff candidates
+  ai.ts                generateObject drafting: agents, tools, catalogues
+  tools.ts integrations.ts apps.ts formSubmissions.ts
+  knowledge.ts ingest.ts            sources → extract → chunk → embed
+  products.ts records.ts orders.ts  catalogue, record books, legacy order shape
+
+  # channels
+  channels.ts
+  whatsapp.ts whatsappImages.ts deliveries.ts
+  instagram.ts widget.ts
+
+  # the team and the business
+  leads.ts followUp.ts       lead stages, follow-up desk
+  desk.ts team.ts            escalations desk, human agents
+  contacts.ts analytics.ts assistant.ts assistantDb.ts
+  notifications.ts notificationsSend.ts webhooks.ts push.ts
+  marketing.ts marketingTemplates.ts marketingCampaigns.ts marketingBroadcasts.ts
+  marketingSend.ts marketingAi.ts marketingTracking.ts marketingOverview.ts
+  audience.ts audienceImports.ts eventGuests.ts
+  speech.ts activity.ts
+
+  # platform
+  auth.ts authDb.ts auth.config.ts users.ts workspaces.ts
+  models.ts usage.ts
+  plans.ts subscriptions.ts wallet.ts billing.ts razorpay.ts razorpayEvents.ts
+  migrations.ts
+
+  lib/
+    auth.ts            requireAdmin / requireWorkspace / requireOwner / per-document guards
+    prompt.ts          configuration → system prompt (pure)
+    shared.ts          builtin tools, models, default stages and desks (pure)
+    toolSchema.ts      declarative parameters → JSON Schema, templating (pure)
+    gateway.ts         the only file that builds a model provider
+    records.ts ordersBook.ts agentTemplates.ts
+    whatsappSend.ts whatsappMedia.ts panel.ts instagram.ts delivery.ts
+    notifications.ts marketing.ts segments.ts links.ts optOut.ts jev.ts
+    plans.ts charge.ts wallet.ts billing.ts pricing.ts
+    files.ts           R2 storage
 
 app/
-  page.tsx                              landing page, written for the company
-  login/page.tsx                        one username/password form, routes by role
-  admin/page.tsx                        workspace list + access management
-  api/auth/*                            login, logout, session, token exchange
-  w/[slug]/layout.tsx                   sidebar shell, resolves slug → workspace
-  w/[slug]/page.tsx                     overview + setup checklist
-  w/[slug]/agents/[agentId]/page.tsx    agent configuration (6 tabs)
-  w/[slug]/agents/[agentId]/test/       web chat playground with tool trace
-  w/[slug]/{knowledge,products,orders,tools,channels,conversations,settings}/
+  page.tsx                   landing page, written for the company
+  login/                     one form for every role: setup, 2FA, replace session
+  (legal)/                   privacy, terms, support, delete-account
+  desk/                      a human agent's escalations desk
+  widget/[channelKey]/       the chat inside the widget iframe, and embed.js
+  api/auth/*                 login, logout, session, token exchange
+  api/mcp/                   hosted MCP endpoint, tool catalogue
+  admin/                     platform console: workspaces, access, users, team,
+                             activity, usage, models, billing, plans,
+                             subscriptions, mcp
+  w/[slug]/
+    page.tsx                 overview dashboard
+    onboarding/              six-step setup hub
+    agents/                  roster, cards or routing map; [agentId] config + test playground
+    conversations/ contacts/ leads/ records/[bookId]/
+    products/ knowledge/ tools/ integrations/ channels/ notifications/
+    marketing/               overview, audience, campaigns, events, calendar, templates
+    team/ company/ settings/ billing/
+
+components/                  ui/ (shadcn on Base UI), landing/, onboarding/,
+                             marketing/, billing/, integrations/, notifications/
+lib/                         client helpers: session, CSV import/export, uploads
+mcp/                         the MCP server (see above)
+scripts/provision-admin.mjs  create or reset the platform administrator
+docs/                        onboarding brief template and a filled-in example
+proxy.ts                     route gate: signed-out → /login, each role → its area
 ```
 
 The dashboard is client-rendered against Convex, so lists, transcripts and
@@ -641,10 +1069,13 @@ ingestion status update live without polling.
 
 - **Password reset by email.** There is no self-service reset; an administrator
   reissues the password. Wiring email would remove that round trip.
-- **Rate limiting on sign-in.** Failed attempts are not throttled. Before
-  exposing this to the internet, add the `@convex-dev/rate-limiter` component to
+- **Rate limiting on sign-in.** Failed passwords are not throttled. Only
+  two-factor codes are locked out after repeated misses. Before exposing this
+  to the internet, add the `@convex-dev/rate-limiter` component to
   `auth.login`.
-- **Media into the knowledge base from WhatsApp.** Inbound images and documents
-  get a polite "send it as text" reply. Voice notes *are* transcribed.
+- **Reading documents and video sent on WhatsApp.** Both are kept in the
+  transcript, but the model is not shown their contents, and nothing a
+  customer sends reaches the knowledge base. Images reach the model only while
+  image processing is switched on.
 - **Scanned/image-only PDFs.** There is no OCR in the ingestion path; text is
   extracted from the PDF's text layer. Paste the content instead.

@@ -128,6 +128,7 @@ import type * as users from "../users.js";
 import type * as wallet from "../wallet.js";
 import type * as webhooks from "../webhooks.js";
 import type * as whatsapp from "../whatsapp.js";
+import type * as whatsappImages from "../whatsappImages.js";
 import type * as widget from "../widget.js";
 import type * as workspaces from "../workspaces.js";
 
@@ -258,6 +259,7 @@ declare const fullApi: ApiFromModules<{
   wallet: typeof wallet;
   webhooks: typeof webhooks;
   whatsapp: typeof whatsapp;
+  whatsappImages: typeof whatsappImages;
   widget: typeof widget;
   workspaces: typeof workspaces;
 }>;

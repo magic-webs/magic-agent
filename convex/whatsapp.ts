@@ -30,6 +30,8 @@ import {
 // WhatsApp caps a text body at 4096 characters, and every part is billed.
 const MAX_BODY = 4096;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// A burst of photos gets one reply: each waits this long, and only the last answers.
+const IMAGE_SETTLE_MS = 15_000;
 
 type WhatsAppConfig = {
   apiBaseUrl: string;
@@ -242,6 +244,7 @@ export const handleInbound = internalAction({
   args: {
     channelKey: v.string(),
     payload: v.any(),
+    settled: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
@@ -301,7 +304,7 @@ export const handleInbound = internalAction({
       return { handled: true, reason: "reaction" };
     }
 
-    await markReadAndTyping(config, messageId);
+    if (!args.settled) await markReadAndTyping(config, messageId);
 
     if (parsed.kind === "unsupported") {
       console.log("[whatsapp] unsupported inbound type", message.type);
@@ -321,6 +324,28 @@ export const handleInbound = internalAction({
       }
       return { handled: true, reason: "unsupported_type" };
     }
+
+    const isImage = parsed.media?.kind === "image";
+    if (isImage && !args.settled) {
+      await ctx.runMutation(internal.whatsappImages.noteImage, {
+        channelId: channel._id,
+        from,
+        wamid: messageId,
+      });
+      await ctx.scheduler.runAfter(IMAGE_SETTLE_MS, internal.whatsapp.handleInbound, {
+        ...args,
+        settled: true,
+      });
+      return { handled: true, reason: "image_waiting" };
+    }
+    const superseded =
+      isImage &&
+      !(await ctx.runMutation(internal.whatsappImages.claimImage, {
+        channelId: channel._id,
+        from,
+        wamid: messageId,
+      }));
+    if (args.settled && !superseded) await markReadAndTyping(config, messageId);
 
     let text = parsed.text;
     let payload = parsed.payload;
@@ -348,6 +373,7 @@ export const handleInbound = internalAction({
       } else {
         if (
           media.kind === "image" &&
+          !superseded &&
           (await ctx.runQuery(internal.models.imageProcessingEnabled, {}))
         ) {
           try {
@@ -364,7 +390,9 @@ export const handleInbound = internalAction({
           }
         }
         text = withCaption(
-          image ? `(sent ${media.noun})` : `(sent ${media.noun}, which you cannot open)`,
+          image || superseded
+            ? `(sent ${media.noun})`
+            : `(sent ${media.noun}, which you cannot open)`,
           media.caption
         );
       }
@@ -395,8 +423,10 @@ export const handleInbound = internalAction({
         ...(message.context?.id ? { replyToWamid: message.context.id } : {}),
       },
       image,
+      ...(superseded ? { fileOnly: true } : {}),
     });
 
+    if (superseded) return { handled: true, reason: "image_superseded" };
     return await deliverReply(ctx, channel, config, from, result);
   },
 });

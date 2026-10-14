@@ -234,6 +234,12 @@ export const conversationsTables = {
     .index("by_conversation", ["conversationId"])
     .index("by_workspace", ["workspaceId"]),
 
+  whatsappImageBursts: defineTable({
+    channelId: v.id("channels"),
+    from: v.string(),
+    wamid: v.string(),
+  }).index("by_channel_from", ["channelId", "from"]),
+
   whatsappMessageIds: defineTable({
     workspaceId: v.id("workspaces"),
     conversationId: v.id("conversations"),

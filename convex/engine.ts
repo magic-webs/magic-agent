@@ -1702,6 +1702,7 @@ const inboundArgs = {
     })
   ),
   image: v.optional(v.object({ data: v.bytes(), mediaType: v.string() })),
+  fileOnly: v.optional(v.boolean()),
 };
 
 type TurnArgs = {
@@ -1719,6 +1720,8 @@ type TurnArgs = {
     replyToWamid?: string;
   };
   image?: { data: ArrayBuffer; mediaType: string };
+  /** Record the message in the thread without the agent answering it. */
+  fileOnly?: boolean;
 };
 
 export type TurnResult = {
@@ -1847,7 +1850,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
     // A colleague is dealing with this thread by hand. The message is already
     // recorded by startTurn above — it belongs in the transcript either way,
     // and the person replying needs to see it — but no agent answers it.
-    if (session.humanHandling || session.limitReached) {
+    if (session.humanHandling || session.limitReached || args.fileOnly) {
       return {
         ok: true,
         text: null,

@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { kvPair } from "./validators";
+import { kvPair, workspaceStage } from "./validators";
 
 export const workspacesTables = {
   workspaces: defineTable({
@@ -26,6 +26,8 @@ export const workspacesTables = {
     maxMessagesPerConversation: v.optional(v.number()),
     facts: v.array(kvPair),
     status: v.union(v.literal("active"), v.literal("archived")),
+    stage: v.optional(workspaceStage),
+    stageLabel: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_slug", ["slug"]),

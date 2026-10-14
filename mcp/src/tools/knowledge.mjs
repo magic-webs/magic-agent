@@ -48,20 +48,26 @@ export function register(server) {
     {
       title: "Add knowledge",
       description:
-        "Add a policy, FAQ, spec sheet or web page to the knowledge base. It is chunked and embedded in the background, so it becomes searchable a few seconds later — check list_knowledge for status 'ready'. Uploading files is the dashboard's job; this takes text or a URL.",
+        "Add a policy, FAQ, spec sheet or web page to the knowledge base. It is chunked and embedded in the background, so it becomes searchable a few seconds later — check list_knowledge for status 'ready'. Uploading files is the dashboard's job; this takes text. For a web page, do not hand over the bare URL: fetch the page yourself, keep its readable content (headings, prose, prices, FAQs — no navigation, footers or scripts), and save that as kind text with the page's address in url.",
       inputSchema: {
         ...workspaceArg,
         title: z.string().describe("How this source is labelled in citations"),
         kind: z
-          .enum(["text", "faq", "url"])
+          .enum(["text", "faq"])
           .describe(
-            "text for prose, faq for question/answer pairs, url to fetch a page"
+            "text for prose and web pages, faq for question/answer pairs"
           ),
         content: z
           .string()
+          .describe(
+            "The text itself. For a web page, the page's content as you fetched it, as plain text or markdown."
+          ),
+        url: z
+          .string()
           .optional()
-          .describe("The text itself, for kind text or faq"),
-        url: z.string().optional().describe("The page to fetch, for kind url"),
+          .describe(
+            "The address the content was taken from, kept on the source for citations. It is not fetched."
+          ),
         agent: z
           .string()
           .optional()
@@ -80,8 +86,8 @@ export function register(server) {
         agentId: scoped?._id,
         title,
         kind,
-        rawText: kind === "url" ? undefined : content,
-        url: kind === "url" ? url : undefined,
+        rawText: content,
+        url,
         tags,
       });
       return ok({

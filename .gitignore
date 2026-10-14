@@ -47,3 +47,4 @@ next-env.d.ts
 # only a set of symlinks into it, written with absolute paths, so it is valid
 # on exactly one machine.
 /.claude/skills/
+changes.md

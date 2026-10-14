@@ -48,6 +48,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { WorkspaceAccessDialog } from "@/components/workspace-access";
 import { CompanyLogo } from "@/components/company-logo";
+import { InstagramLogo, WhatsAppLogo } from "@/components/brand-icons";
+import {
+  WorkspaceStageBadge,
+  WorkspaceStagePicker,
+} from "@/components/workspace-stage";
 import {
   CurrencyPicker,
   LocalePicker,
@@ -61,19 +66,22 @@ import {
   PlusIcon,
   ArrowRightIcon,
   ClockCounterClockwiseIcon,
+  GlobeIcon,
   SparkleIcon,
   TableIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
 import { friendlyError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
+import type { FunctionReturnType } from "convex/server";
 
 /**
  * The two ways to read the same list.
  *
  * List is the default: this is the page an administrator opens to find one
  * workspace among all of them, and a table puts four times as many on screen
- * with the slug — the thing you actually search by — in a column of its own.
+ * with each one's stage and channels in columns of their own.
  * Cards are the better read when there are a dozen and you are surveying
  * rather than looking something up, which is what the page used to assume.
  */
@@ -87,6 +95,64 @@ const VIEWS = [
   label: string;
   icon: Icon;
 }>;
+
+type WorkspaceChannel =
+  FunctionReturnType<typeof api.workspaces.list>[number]["channels"][number];
+
+const CHANNEL_KINDS = [
+  {
+    type: "whatsapp",
+    label: "WhatsApp",
+    icon: <WhatsAppLogo className="size-4 text-[#25D366]" />,
+  },
+  {
+    type: "instagram",
+    label: "Instagram",
+    icon: <InstagramLogo className="size-4 text-[#E4405F]" />,
+  },
+  {
+    type: "web",
+    label: "Web chat",
+    icon: <GlobeIcon className="size-4 text-sky-600" />,
+  },
+] as const;
+
+function ChannelIcons({ channels }: { channels: WorkspaceChannel[] }) {
+  const groups = CHANNEL_KINDS.map((kind) => ({
+    ...kind,
+    channels: channels.filter((channel) => channel.type === kind.type),
+  })).filter((group) => group.channels.length > 0);
+
+  if (groups.length === 0) {
+    return <span className="text-xs text-muted-foreground">None yet</span>;
+  }
+  return (
+    <span className="flex items-center gap-1.5">
+      {groups.map((group) => {
+        const live = group.channels.some((channel) => channel.status === "active");
+        return (
+          <span
+            key={group.type}
+            title={`${group.label}: ${group.channels
+              .map((channel) => `${channel.name} (${channel.status})`)
+              .join(", ")}`}
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-1",
+              !live && "opacity-40"
+            )}
+          >
+            {group.icon}
+            {group.channels.length > 1 ? (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {group.channels.length}
+              </span>
+            ) : null}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 function CreateWorkspaceDialog() {
   const router = useRouter();
@@ -372,8 +438,8 @@ export default function AdminWorkspacesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-44">Workspace</TableHead>
-                <TableHead className="min-w-36">Slug</TableHead>
-                <TableHead className="hidden lg:table-cell min-w-52">What it does</TableHead>
+                <TableHead className="min-w-36">Stage</TableHead>
+                <TableHead className="hidden sm:table-cell min-w-32">Channels</TableHead>
                 <TableHead className="hidden md:table-cell min-w-24">Created</TableHead>
                 <TableHead className="w-44" />
               </TableRow>
@@ -396,20 +462,24 @@ export default function AdminWorkspacesPage() {
                     </span>
                   </TableCell>
 
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    /{workspace.slug}
+                  <TableCell>
+                    {isAdmin ? (
+                      <WorkspaceStagePicker
+                        workspaceId={workspace._id}
+                        name={workspace.name}
+                        stage={workspace.stage}
+                        label={workspace.stageLabel}
+                      />
+                    ) : (
+                      <WorkspaceStageBadge
+                        stage={workspace.stage}
+                        label={workspace.stageLabel}
+                      />
+                    )}
                   </TableCell>
 
-                  <TableCell className="hidden lg:table-cell max-w-72 min-w-0">
-                    {/* Same fallback chain the card's description uses, so a
-                        workspace does not read as blank in one view and
-                        described in the other. */}
-                    <span className="line-clamp-1 text-sm text-muted-foreground">
-                      {workspace.tagline ||
-                        workspace.description ||
-                        workspace.industry ||
-                        "No description yet"}
-                    </span>
+                  <TableCell className="hidden sm:table-cell">
+                    <ChannelIcons channels={workspace.channels} />
                   </TableCell>
 
                   <TableCell className="hidden md:table-cell text-xs whitespace-nowrap text-muted-foreground">
@@ -473,6 +543,13 @@ export default function AdminWorkspacesPage() {
                 <span className="font-mono text-xs text-muted-foreground">
                   /{workspace.slug}
                 </span>
+                <div className="flex items-center justify-between gap-2">
+                  <WorkspaceStageBadge
+                    stage={workspace.stage}
+                    label={workspace.stageLabel}
+                  />
+                  <ChannelIcons channels={workspace.channels} />
+                </div>
                 <Separator />
                 <div className="flex items-center justify-between gap-1">
                   {isAdmin ? (

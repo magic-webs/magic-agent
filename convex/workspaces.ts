@@ -6,7 +6,7 @@ import {
 } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import { kvPair } from "./schema";
+import { kvPair, workspaceStage } from "./schema";
 import { slugify, randomKey } from "./lib/shared";
 import {
   requireAdmin,
@@ -98,10 +98,22 @@ export const list = query({
       ? all.filter((workspace) => allowed.includes(workspace._id))
       : all;
     return await Promise.all(
-      workspaces.map(async (workspace) => ({
-        ...workspace,
-        logoSrc: await logoSrcFor(ctx, workspace),
-      }))
+      workspaces.map(async (workspace) => {
+        const channels = await ctx.db
+          .query("channels")
+          .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+          .collect();
+        return {
+          ...workspace,
+          logoSrc: await logoSrcFor(ctx, workspace),
+          channels: channels.map((channel) => ({
+            _id: channel._id,
+            type: channel.type,
+            name: channel.name,
+            status: channel.status,
+          })),
+        };
+      })
     );
   },
 });
@@ -349,6 +361,30 @@ export const setStatus = mutation({
     await requireAdmin(ctx);
     await ctx.db.patch(args.workspaceId, {
       status: args.status,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const setStage = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    stage: workspaceStage,
+    label: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const label = args.label?.trim();
+    if (args.stage === "custom" && !label) {
+      throw new ConvexError("Name the custom stage");
+    }
+    if (label && label.length > 40) {
+      throw new ConvexError("Keep the stage name under 40 characters");
+    }
+    await ctx.db.patch(args.workspaceId, {
+      stage: args.stage,
+      stageLabel: args.stage === "custom" ? label : undefined,
       updatedAt: Date.now(),
     });
     return { success: true };

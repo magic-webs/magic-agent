@@ -86,6 +86,13 @@ export const deliveryStatus = v.union(
   v.literal("failed")
 );
 
+export const workspaceStage = v.union(
+  v.literal("onboarding"),
+  v.literal("setup_complete"),
+  v.literal("handed_over"),
+  v.literal("custom")
+);
+
 export const channelType = v.union(
   v.literal("whatsapp"),
   v.literal("web"),

@@ -7,12 +7,26 @@ import {
 } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { kvPair, requirementField, productImage } from "./schema";
+import {
+  catalogueKind as catalogueKindArg,
+  kvPair,
+  productFile,
+  productImage,
+  requirementField,
+} from "./schema";
 import { slugify, buildSearchBlob, randomKey } from "./lib/shared";
 import { requireProduct, requireWorkspace } from "./lib/auth";
 import { deleteFile, requireOwnKey, uploadUrlFor, urlFor } from "./lib/files";
+import {
+  catalogueKind,
+  isOrderable,
+  type CatalogueKind,
+} from "./lib/catalogue";
+
+const MAX_FILES = 10;
 
 const productInput = {
+  kind: v.optional(catalogueKindArg),
   sku: v.optional(v.string()),
   name: v.string(),
   category: v.optional(v.string()),
@@ -22,6 +36,7 @@ const productInput = {
   unit: v.optional(v.string()),
   requirementFields: v.optional(v.array(requirementField)),
   images: v.optional(v.array(productImage)),
+  files: v.optional(v.array(productFile)),
   attributes: v.optional(v.array(kvPair)),
   exampleSpec: v.optional(v.string()),
   notes: v.optional(v.string()),
@@ -29,6 +44,7 @@ const productInput = {
 };
 
 function blobFor(p: {
+  kind?: CatalogueKind;
   name: string;
   category?: string;
   description?: string;
@@ -36,6 +52,7 @@ function blobFor(p: {
   sku?: string;
 }): string {
   return buildSearchBlob([
+    p.kind && p.kind !== "product" ? p.kind : undefined,
     p.name,
     p.category,
     p.description,
@@ -94,11 +111,41 @@ async function resolveImages(
   return out;
 }
 
+type StoredFile = {
+  fileKey: string;
+  filename: string;
+  mimeType?: string;
+  size?: number;
+};
+
+async function resolveFiles(ctx: QueryCtx, files: StoredFile[] | undefined) {
+  const out: Array<{
+    url: string;
+    filename: string;
+    mimeType: string | null;
+    size: number | null;
+  }> = [];
+  for (const file of files ?? []) {
+    const url = await urlFor(ctx, file.fileKey);
+    if (url) {
+      out.push({
+        url,
+        filename: file.filename,
+        mimeType: file.mimeType ?? null,
+        size: file.size ?? null,
+      });
+    }
+  }
+  return out;
+}
+
 async function withImages(ctx: QueryCtx, products: Doc<"products">[]) {
   return await Promise.all(
     products.map(async (product) => ({
       ...product,
+      kind: catalogueKind(product),
       resolvedImages: await resolveImages(ctx, product.images),
+      resolvedFiles: await resolveFiles(ctx, product.files),
     }))
   );
 }
@@ -142,6 +189,54 @@ function requireOwnImages(
   }
 }
 
+function requireOwnFiles(
+  files: StoredFile[] | undefined,
+  workspaceId: Id<"workspaces">
+) {
+  if ((files?.length ?? 0) > MAX_FILES) {
+    throw new ConvexError(`Attach at most ${MAX_FILES} files`);
+  }
+  for (const file of files ?? []) {
+    requireOwnKey(file.fileKey, "products", workspaceId);
+  }
+}
+
+async function deleteOrphanedFiles(
+  ctx: MutationCtx,
+  before: StoredFile[] | undefined,
+  after: StoredFile[] | undefined
+) {
+  const kept = new Set((after ?? []).map((file) => file.fileKey));
+  for (const file of before ?? []) {
+    if (!kept.has(file.fileKey)) await deleteFile(ctx, file.fileKey);
+  }
+}
+
+async function listOfKind(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  kind: CatalogueKind
+) {
+  const typed = await ctx.db
+    .query("products")
+    .withIndex("by_workspace_kind", (q) =>
+      q.eq("workspaceId", workspaceId).eq("kind", kind)
+    )
+    .order("desc")
+    .take(200);
+  if (!isOrderable(kind)) return typed;
+  const untyped = await ctx.db
+    .query("products")
+    .withIndex("by_workspace_kind", (q) =>
+      q.eq("workspaceId", workspaceId).eq("kind", undefined)
+    )
+    .order("desc")
+    .take(200);
+  return [...typed, ...untyped.filter((p) => catalogueKind(p) === kind)]
+    .sort((a, b) => b._creationTime - a._creationTime)
+    .slice(0, 200);
+}
+
 export const generateUploadUrl = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
@@ -155,34 +250,48 @@ export const listByWorkspace = query({
     workspaceId: v.id("workspaces"),
     search: v.optional(v.string()),
     category: v.optional(v.string()),
+    kind: v.optional(catalogueKindArg),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    const ofKind = (rows: Doc<"products">[]) =>
+      args.kind ? rows.filter((p) => catalogueKind(p) === args.kind) : rows;
     const term = args.search?.trim();
     if (term) {
       return await withImages(
         ctx,
-        await ctx.db
-          .query("products")
-          .withSearchIndex("search_products", (q) =>
-            q
-              .search("searchBlob", term.toLowerCase())
-              .eq("workspaceId", args.workspaceId)
-          )
-          .take(100)
+        ofKind(
+          await ctx.db
+            .query("products")
+            .withSearchIndex("search_products", (q) =>
+              q
+                .search("searchBlob", term.toLowerCase())
+                .eq("workspaceId", args.workspaceId)
+            )
+            .take(100)
+        )
       );
     }
 
     if (args.category) {
       return await withImages(
         ctx,
-        await ctx.db
-          .query("products")
-          .withIndex("by_workspace_category", (q) =>
-            q.eq("workspaceId", args.workspaceId).eq("category", args.category!)
-          )
-          .order("desc")
-          .take(200)
+        ofKind(
+          await ctx.db
+            .query("products")
+            .withIndex("by_workspace_category", (q) =>
+              q.eq("workspaceId", args.workspaceId).eq("category", args.category!)
+            )
+            .order("desc")
+            .take(200)
+        )
+      );
+    }
+
+    if (args.kind) {
+      return await withImages(
+        ctx,
+        await listOfKind(ctx, args.workspaceId, args.kind)
       );
     }
 
@@ -209,6 +318,25 @@ export const categories = query({
   },
 });
 
+export const kindCounts = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+    const counts: Record<CatalogueKind, number> = {
+      product: 0,
+      service: 0,
+      brochure: 0,
+      other: 0,
+    };
+    for (const product of products) counts[catalogueKind(product)]++;
+    return counts;
+  },
+});
+
 export const get = query({
   args: { productId: v.id("products") },
   handler: async (ctx, args) => {
@@ -217,7 +345,9 @@ export const get = query({
     if (!product) return null;
     return {
       ...product,
+      kind: catalogueKind(product),
       resolvedImages: await resolveImages(ctx, product.images),
+      resolvedFiles: await resolveFiles(ctx, product.files),
     };
   },
 });
@@ -227,11 +357,13 @@ export const create = mutation({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     requireOwnImages(args.images, args.workspaceId);
+    requireOwnFiles(args.files, args.workspaceId);
     const now = Date.now();
     const slug = await uniqueProductSlug(ctx, args.workspaceId, args.name);
     return await ctx.db.insert("products", {
       workspaceId: args.workspaceId,
       slug,
+      kind: args.kind ?? "product",
       sku: args.sku,
       name: args.name.trim(),
       category: args.category?.trim() || "General",
@@ -241,6 +373,7 @@ export const create = mutation({
       unit: args.unit,
       requirementFields: args.requirementFields ?? [],
       images: args.images ?? [],
+      files: args.files ?? [],
       attributes: args.attributes ?? [],
       exampleSpec: args.exampleSpec,
       notes: args.notes,
@@ -289,8 +422,13 @@ export const update = mutation({
       requireOwnImages(args.images, existing.workspaceId);
       await deleteOrphanedImages(ctx, existing.images, args.images);
     }
+    if (args.files !== undefined) {
+      requireOwnFiles(args.files, existing.workspaceId);
+      await deleteOrphanedFiles(ctx, existing.files, args.files);
+    }
 
     patch.searchBlob = blobFor({
+      kind: (patch.kind as CatalogueKind) ?? catalogueKind(existing),
       name: (patch.name as string) ?? existing.name,
       category: (patch.category as string) ?? existing.category,
       description: (patch.description as string) ?? existing.description,
@@ -308,6 +446,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const product = await requireProduct(ctx, args.productId);
     await deleteOrphanedImages(ctx, product.images, []);
+    await deleteOrphanedFiles(ctx, product.files, []);
     await ctx.db.delete(args.productId);
     return { success: true };
   },
@@ -319,6 +458,7 @@ export const bulkImport = mutation({
     workspaceId: v.id("workspaces"),
     products: v.array(
       v.object({
+        kind: v.optional(catalogueKindArg),
         name: v.string(),
         sku: v.optional(v.string()),
         category: v.optional(v.string()),
@@ -359,6 +499,7 @@ export const bulkImport = mutation({
         .map((url) => ({ externalUrl: url }));
 
       const shared = {
+        ...(input.kind ? { kind: input.kind } : {}),
         sku: input.sku,
         name: input.name.trim(),
         category: input.category?.trim() || "General",
@@ -390,6 +531,7 @@ export const bulkImport = mutation({
         await ctx.db.insert("products", {
           workspaceId: args.workspaceId,
           slug: slug || `product-${randomKey(6)}`,
+          kind: input.kind ?? "product",
           status: "active",
           createdAt: now,
           images: images ?? [],
@@ -408,7 +550,10 @@ export const bulkImport = mutation({
 // ---------------------------------------------------------------------------
 
 function toToolShape(product: Doc<"products">) {
+  const kind = catalogueKind(product);
   return {
+    kind,
+    orderable: isOrderable(kind),
     slug: product.slug,
     name: product.name,
     category: product.category,
@@ -495,6 +640,7 @@ export const searchForTool = internalQuery({
     );
     return await Promise.all(
       products.map(async (p) => ({
+        kind: catalogueKind(p),
         slug: p.slug,
         name: p.name,
         category: p.category,
@@ -505,6 +651,10 @@ export const searchForTool = internalQuery({
         // So the agent knows a picture exists and can offer it, rather than
         // telling a customer there is nothing to look at.
         imageUrl: await primaryImageUrl(ctx, p),
+        files: (await resolveFiles(ctx, p.files)).map((file) => ({
+          url: file.url,
+          filename: file.filename,
+        })),
         requiredFieldCount: p.requirementFields.filter((f) => f.required).length,
       }))
     );
@@ -534,6 +684,10 @@ export const requirementsForTool = internalQuery({
       product: {
         ...toToolShape(matches[0]),
         images: await resolveImages(ctx, matches[0].images),
+        files: (await resolveFiles(ctx, matches[0].files)).map((file) => ({
+          url: file.url,
+          filename: file.filename,
+        })),
       },
       alternatives: matches.slice(1).map((p) => p.name),
     };

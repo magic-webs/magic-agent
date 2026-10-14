@@ -55,6 +55,20 @@ export const toolParameter = v.object({
   enumValues: v.optional(v.array(v.string())),
 });
 
+export const catalogueKind = v.union(
+  v.literal("product"),
+  v.literal("service"),
+  v.literal("brochure"),
+  v.literal("other")
+);
+
+export const productFile = v.object({
+  fileKey: v.string(),
+  filename: v.string(),
+  mimeType: v.optional(v.string()),
+  size: v.optional(v.number()),
+});
+
 export const productImage = v.object({
   fileKey: v.optional(v.string()),
   storageId: v.optional(v.id("_storage")),

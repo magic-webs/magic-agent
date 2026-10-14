@@ -3,9 +3,19 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
+import {
+  CATALOGUE_KINDS,
+  isOrderable,
+  type CatalogueKind,
+} from "@/convex/lib/catalogue";
 import { useWorkspace } from "@/components/workspace-provider";
-import { KeyValueEditor, ChipListEditor, type KeyValue } from "@/components/editors";
+import {
+  KeyValueEditor,
+  ChipListEditor,
+  type KeyValue,
+} from "@/components/editors";
 import {
   ProductImagesEditor,
   ProductThumbnail,
@@ -13,6 +23,14 @@ import {
   uploadDrafts,
   type ImageDraft,
 } from "@/components/product-images";
+import {
+  FileGlyph,
+  ProductFilesEditor,
+  filesFromProduct,
+  uploadFileDrafts,
+  type FileDraft,
+} from "@/components/product-files";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,11 +99,62 @@ import {
   WarningIcon,
   CheckCircleIcon,
   PencilSimpleIcon,
+  WrenchIcon,
+  BookOpenTextIcon,
+  FolderIcon,
+  type Icon,
 } from "@phosphor-icons/react";
 
-/** A catalogue row: the product document plus browser-ready image URLs. */
-type CatalogueProduct = Doc<"products"> & {
-  resolvedImages: Array<{ url: string; alt: string | null }>;
+type CatalogueProduct = FunctionReturnType<
+  typeof api.products.listByWorkspace
+>[number];
+
+const KINDS: Record<
+  CatalogueKind,
+  {
+    label: string;
+    plural: string;
+    noun: string;
+    icon: Icon;
+    name: string;
+    category: string;
+    unit?: string;
+  }
+> = {
+  product: {
+    label: "Product",
+    plural: "Products",
+    noun: "a product",
+    icon: PackageIcon,
+    name: "Business cards",
+    category: "Business stationery",
+    unit: "per 1000",
+  },
+  service: {
+    label: "Service",
+    plural: "Services",
+    noun: "a service",
+    icon: WrenchIcon,
+    name: "Logo design",
+    category: "Design services",
+    unit: "per hour",
+  },
+  brochure: {
+    label: "Brochure",
+    plural: "Brochures",
+    noun: "a brochure",
+    icon: BookOpenTextIcon,
+    name: "2026 product brochure",
+    category: "Brochures",
+  },
+  other: {
+    label: "Other",
+    plural: "Other",
+    noun: "a document",
+    icon: FolderIcon,
+    name: "Price list",
+    category: "Documents",
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -93,6 +162,7 @@ type CatalogueProduct = Doc<"products"> & {
 // ---------------------------------------------------------------------------
 
 type ProductForm = {
+  kind: CatalogueKind;
   name: string;
   sku: string;
   category: string;
@@ -105,9 +175,11 @@ type ProductForm = {
   attributes: KeyValue[];
   requirementFields: RequirementField[];
   images: ImageDraft[];
+  files: FileDraft[];
 };
 
-const emptyForm: ProductForm = {
+const emptyForm = (kind: CatalogueKind): ProductForm => ({
+  kind,
   name: "",
   sku: "",
   category: "",
@@ -120,13 +192,16 @@ const emptyForm: ProductForm = {
   attributes: [],
   requirementFields: [],
   images: [],
-};
+  files: [],
+});
 
 function ProductDialog({
   product,
+  defaultKind = "product",
   trigger,
 }: {
   product?: CatalogueProduct;
+  defaultKind?: CatalogueKind;
   trigger: React.ReactElement;
 }) {
   const workspace = useWorkspace();
@@ -139,6 +214,7 @@ function ProductDialog({
   const [form, setForm] = useState<ProductForm>(
     product
       ? {
+          kind: product.kind,
           name: product.name,
           sku: product.sku ?? "",
           category: product.category,
@@ -152,21 +228,29 @@ function ProductDialog({
           requirementFields: product.requirementFields,
           images: draftsFromProduct(
             product.images ?? [],
-            product.resolvedImages
+            product.resolvedImages,
           ),
+          files: filesFromProduct(product.files ?? [], product.resolvedFiles),
         }
-      : emptyForm
+      : emptyForm(defaultKind),
   );
+  const meta = KINDS[form.kind];
+  const priced = isOrderable(form.kind);
 
   const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const submit = async () => {
     if (!form.name.trim()) {
-      toast.add({ title: "A product name is required", type: "error" });
+      toast.add({ title: "A name is required", type: "error" });
       return;
     }
-    const parsedPrice = form.price.trim() ? Number(form.price) : undefined;
+    if (form.kind === "brochure" && form.files.length === 0) {
+      toast.add({ title: "Attach the brochure file", type: "error" });
+      return;
+    }
+    const parsedPrice =
+      priced && form.price.trim() ? Number(form.price) : undefined;
     if (parsedPrice !== undefined && !Number.isFinite(parsedPrice)) {
       toast.add({ title: "Price must be a number", type: "error" });
       return;
@@ -177,32 +261,43 @@ function ProductDialog({
       // Files chosen in this dialog are uploaded now rather than on selection,
       // so cancelling out of the dialog leaves nothing behind in storage.
       const images = await uploadDrafts(form.images, () =>
-        generateUploadUrl({ workspaceId: workspace._id })
+        generateUploadUrl({ workspaceId: workspace._id }),
+      );
+      const files = await uploadFileDrafts(form.files, () =>
+        generateUploadUrl({ workspaceId: workspace._id }),
       );
 
       const payload = {
+        kind: form.kind,
         name: form.name,
-        sku: form.sku || undefined,
+        sku: priced ? form.sku || undefined : undefined,
         category: form.category || undefined,
         description: form.description || undefined,
         price: parsedPrice,
         currency: parsedPrice !== undefined ? workspace.currency : undefined,
-        unit: form.unit || undefined,
-        exampleSpec: form.exampleSpec || undefined,
+        unit: priced ? form.unit || undefined : undefined,
+        exampleSpec: priced ? form.exampleSpec || undefined : undefined,
         notes: form.notes || undefined,
-        tags: form.tags,
+        tags: form.tags.filter((tag) => tag !== "service"),
         attributes: form.attributes.filter((a) => a.key.trim()),
-        requirementFields: form.requirementFields.filter((f) => f.key.trim()),
+        requirementFields: priced
+          ? form.requirementFields.filter((f) => f.key.trim())
+          : [],
         images,
+        files,
       };
 
       if (product) {
-        await updateProduct({ productId: product._id, ...payload });
-        toast.add({ title: "Product updated", type: "success" });
+        await updateProduct({
+          productId: product._id,
+          ...payload,
+          clearPrice: parsedPrice === undefined && product.price !== undefined,
+        });
+        toast.add({ title: `${meta.label} updated`, type: "success" });
       } else {
         await createProduct({ workspaceId: workspace._id, ...payload });
-        toast.add({ title: "Product added", type: "success" });
-        setForm(emptyForm);
+        toast.add({ title: `${meta.label} added`, type: "success" });
+        setForm(emptyForm(defaultKind));
       }
       setOpen(false);
     } catch (error) {
@@ -222,22 +317,41 @@ function ProductDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {product ? `Edit ${product.name}` : "Add a product"}
+            {product ? `Edit ${product.name}` : `Add ${meta.noun}`}
           </DialogTitle>
           <DialogDescription>
-            Leave the price empty if the team quotes manually — the agent is then
-            told never to quote.
+            {priced
+              ? "Leave the price empty if the team quotes manually — the agent is then told never to quote."
+              : "Upload the file agents should send when a customer asks for it."}
           </DialogDescription>
         </DialogHeader>
 
         <DialogBody>
+          <ToggleGroup
+            value={[form.kind]}
+            onValueChange={(value) => {
+              const next = value[0] as CatalogueKind | undefined;
+              if (next) set("kind", next);
+            }}
+            className="w-full rounded-lg border p-0.5"
+          >
+            {CATALOGUE_KINDS.map((kind) => {
+              const KindIcon = KINDS[kind].icon;
+              return (
+                <ToggleGroupItem key={kind} value={kind} className="flex-1">
+                  <KindIcon /> {KINDS[kind].label}
+                </ToggleGroupItem>
+              );
+            })}
+          </ToggleGroup>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="p-name">Name</Label>
               <Input
                 id="p-name"
                 value={form.name}
-                placeholder="Business cards"
+                placeholder={meta.name}
                 onChange={(event) => set("name", event.target.value)}
               />
             </div>
@@ -246,7 +360,7 @@ function ProductDialog({
               <Input
                 id="p-category"
                 value={form.category}
-                placeholder="Business stationery"
+                placeholder={meta.category}
                 onChange={(event) => set("category", event.target.value)}
               />
             </div>
@@ -262,34 +376,48 @@ function ProductDialog({
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-sku">SKU</Label>
-              <Input
-                id="p-sku"
-                value={form.sku}
-                onChange={(event) => set("sku", event.target.value)}
-              />
+          {priced ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-sku">SKU</Label>
+                <Input
+                  id="p-sku"
+                  value={form.sku}
+                  onChange={(event) => set("sku", event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-price">Price ({workspace.currency})</Label>
+                <Input
+                  id="p-price"
+                  value={form.price}
+                  placeholder="Leave empty for manual quoting"
+                  onChange={(event) => set("price", event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-unit">Unit</Label>
+                <Input
+                  id="p-unit"
+                  value={form.unit}
+                  placeholder={meta.unit}
+                  onChange={(event) => set("unit", event.target.value)}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-price">Price ({workspace.currency})</Label>
-              <Input
-                id="p-price"
-                value={form.price}
-                placeholder="Leave empty for manual quoting"
-                onChange={(event) => set("price", event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-unit">Unit</Label>
-              <Input
-                id="p-unit"
-                value={form.unit}
-                placeholder="per 1000"
-                onChange={(event) => set("unit", event.target.value)}
-              />
-            </div>
-          </div>
+          ) : null}
+
+          <Separator />
+
+          <ProductFilesEditor
+            value={form.files}
+            onChange={(next) => set("files", next)}
+            description={
+              priced
+                ? "Spec sheets, price lists or menus agents can send — PDFs and documents up to 25 MB each."
+                : undefined
+            }
+          />
 
           <Separator />
 
@@ -298,36 +426,40 @@ function ProductDialog({
             onChange={(next) => set("images", next)}
           />
 
-          <Separator />
+          {priced ? (
+            <>
+              <Separator />
 
-          <FieldListEditor
-            label="Specification questions"
-            description={
-              <>
-                The agent is handed this checklist by{" "}
-                <code>get_product_requirements</code> and must collect every
-                required field before it can create an order.
-              </>
-            }
-            value={form.requirementFields}
-            onChange={(next) => set("requirementFields", next)}
-          />
+              <FieldListEditor
+                label="Specification questions"
+                description={
+                  <>
+                    The agent is handed this checklist by{" "}
+                    <code>get_product_requirements</code> and must collect every
+                    required field before it can create an order.
+                  </>
+                }
+                value={form.requirementFields}
+                onChange={(next) => set("requirementFields", next)}
+              />
 
-          <Separator />
+              <Separator />
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="p-example">Example specification</Label>
-            <Input
-              id="p-example"
-              value={form.exampleSpec}
-              placeholder="55 × 85mm, 4 colour on 450gsm silk, matt laminated both sides"
-              onChange={(event) => set("exampleSpec", event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Given to the agent so it can offer a typical spec instead of asking
-              blind.
-            </p>
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-example">Example specification</Label>
+                <Input
+                  id="p-example"
+                  value={form.exampleSpec}
+                  placeholder="55 × 85mm, 4 colour on 450gsm silk, matt laminated both sides"
+                  onChange={(event) => set("exampleSpec", event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Given to the agent so it can offer a typical spec instead of
+                  asking blind.
+                </p>
+              </div>
+            </>
+          ) : null}
 
           <ChipListEditor
             label="Tags"
@@ -363,7 +495,7 @@ function ProductDialog({
           </Button>
           <Button onClick={submit} disabled={busy}>
             {busy ? <Spinner /> : <PlusIcon />}{" "}
-            {product ? "Save changes" : "Add product"}
+            {product ? "Save changes" : `Add ${meta.label.toLowerCase()}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -522,10 +654,10 @@ function ImportDialog() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <p className="mb-2 text-xs text-muted-foreground">
-                      One row per spec question. Leave <code>name</code> blank to
-                      add another question to the product on the row above; a
-                      product with no questions is a single row. Column order does
-                      not matter, and extra columns are ignored.
+                      One row per spec question. Leave <code>name</code> blank
+                      to add another question to the product on the row above; a
+                      product with no questions is a single row. Column order
+                      does not matter, and extra columns are ignored.
                     </p>
                     <div className="max-h-56 overflow-y-auto rounded-md border">
                       <Table>
@@ -581,8 +713,8 @@ function ImportDialog() {
                         {parsed.fieldCount === 1 ? "question" : "questions"}
                       </AlertTitle>
                       <AlertDescription>
-                        Matched by name — an existing product with the same name is
-                        updated rather than duplicated.
+                        Matched by name — an existing product with the same name
+                        is updated rather than duplicated.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -590,7 +722,10 @@ function ImportDialog() {
                   {parsed.unknownColumns.length > 0 ? (
                     <p className="text-xs text-muted-foreground">
                       Ignored{" "}
-                      {parsed.unknownColumns.length === 1 ? "column" : "columns"}:{" "}
+                      {parsed.unknownColumns.length === 1
+                        ? "column"
+                        : "columns"}
+                      :{" "}
                       <span className="font-mono">
                         {parsed.unknownColumns.join(", ")}
                       </span>
@@ -702,16 +837,74 @@ function ImportDialog() {
 
 // ---------------------------------------------------------------------------
 
+function TabCount({ value }: { value: number | undefined }) {
+  if (!value) return null;
+  return (
+    <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+  );
+}
+
+function ProductFileLinks({
+  files,
+}: {
+  files: CatalogueProduct["resolvedFiles"];
+}) {
+  if (files.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      {files.slice(0, 2).map((file) => (
+        <a
+          key={file.url}
+          href={file.url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex min-w-0 items-center gap-1.5 text-xs hover:underline"
+        >
+          <FileGlyph filename={file.filename} />
+          <span className="truncate">{file.filename}</span>
+        </a>
+      ))}
+      {files.length > 2 ? (
+        <span className="text-xs text-muted-foreground">
+          +{files.length - 2} more
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const workspace = useWorkspace();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [tab, setTab] = useState<"all" | CatalogueKind>("all");
+  const addKind: CatalogueKind = tab === "all" ? "product" : tab;
 
   const products = useQuery(api.products.listByWorkspace, {
     workspaceId: workspace._id,
     search: search.trim() || undefined,
     category: category === "all" ? undefined : category,
+    kind: tab === "all" ? undefined : tab,
   });
+  const counts = useQuery(api.products.kindCounts, {
+    workspaceId: workspace._id,
+  });
+  const total = counts
+    ? CATALOGUE_KINDS.reduce((sum, kind) => sum + counts[kind], 0)
+    : undefined;
+  const addButton = (
+    <ProductDialog
+      key={addKind}
+      defaultKind={addKind}
+      trigger={
+        <Button>
+          <PlusIcon /> Add {KINDS[addKind].label.toLowerCase()}
+        </Button>
+      }
+    />
+  );
   const categories = useQuery(api.products.categories, {
     workspaceId: workspace._id,
   });
@@ -725,20 +918,36 @@ export default function ProductsPage() {
             Catalogue
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            What agents may discuss, and what they must collect.
+            Products, services and brochures agents may discuss and send, and
+            what they must collect.
           </p>
         </div>
         <div className="flex gap-2">
           <ImportDialog />
-          <ProductDialog
-            trigger={
-              <Button>
-                <PlusIcon /> Add product
-              </Button>
-            }
-          />
+          {addButton}
         </div>
       </header>
+
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as "all" | CatalogueKind)}
+      >
+        <TabsList className="max-w-full overflow-x-auto">
+          <TabsTrigger value="all">
+            All
+            <TabCount value={total} />
+          </TabsTrigger>
+          {CATALOGUE_KINDS.map((kind) => {
+            const KindIcon = KINDS[kind].icon;
+            return (
+              <TabsTrigger key={kind} value={kind}>
+                <KindIcon /> {KINDS[kind].plural}
+                <TabCount value={counts?.[kind]} />
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-52">
@@ -765,7 +974,7 @@ export default function ProductsPage() {
       </div>
 
       {products === undefined ? (
-        <TableSkeleton rows={8} columns={4} />
+        <TableSkeleton rows={8} columns={5} />
       ) : products.length === 0 ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
@@ -773,25 +982,25 @@ export default function ProductsPage() {
               <PackageIcon />
             </EmptyMedia>
             <EmptyTitle>
-              {search ? "No products match" : "The catalogue is empty"}
+              {search
+                ? "Nothing matches"
+                : tab === "all"
+                  ? "The catalogue is empty"
+                  : `No ${KINDS[tab].plural.toLowerCase()} yet`}
             </EmptyTitle>
             <EmptyDescription>
               {search
                 ? "Try a different search term."
-                : "Agents refuse to discuss products that aren't listed here. Add them manually, import a CSV, or let the model draft a starter set."}
+                : tab === "brochure" || tab === "other"
+                  ? "Upload brochures, price lists and other documents, and agents can send them when a customer asks."
+                  : "Agents refuse to discuss products that aren't listed here. Add them manually, import a CSV, or let the model draft a starter set."}
             </EmptyDescription>
           </EmptyHeader>
           {!search ? (
             <EmptyContent>
               <div className="flex gap-2">
                 <ImportDialog />
-                <ProductDialog
-                  trigger={
-                    <Button>
-                      <PlusIcon /> Add product
-                    </Button>
-                  }
-                />
+                {addButton}
               </div>
             </EmptyContent>
           ) : null}
@@ -801,9 +1010,10 @@ export default function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Price</TableHead>
+                <TableHead className="hidden md:table-cell">Files</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -820,8 +1030,15 @@ export default function ProductsPage() {
                         alt={product.resolvedImages[0]?.alt ?? product.name}
                       />
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">
-                          {product.name}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-medium">
+                            {product.name}
+                          </span>
+                          {tab === "all" && product.kind !== "product" ? (
+                            <Badge variant="outline" className="font-normal">
+                              {KINDS[product.kind].label}
+                            </Badge>
+                          ) : null}
                         </span>
                         <span className="truncate text-xs text-muted-foreground">
                           {product.description || "No description"}
@@ -833,7 +1050,9 @@ export default function ProductsPage() {
                     <Badge variant="secondary">{product.category}</Badge>
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    {product.price !== undefined ? (
+                    {!isOrderable(product.kind) ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : product.price !== undefined ? (
                       <span>
                         {product.currency ?? workspace.currency}{" "}
                         {product.price.toFixed(2)}
@@ -849,6 +1068,9 @@ export default function ProductsPage() {
                       // reads as state rather than a price.
                       <span className="text-muted-foreground">On request</span>
                     )}
+                  </TableCell>
+                  <TableCell className="hidden max-w-56 md:table-cell">
+                    <ProductFileLinks files={product.resolvedFiles} />
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
@@ -873,7 +1095,7 @@ export default function ProductsPage() {
                             productId: product._id as Id<"products">,
                           });
                           toast.add({
-                            title: "Product deleted",
+                            title: `${KINDS[product.kind].label} deleted`,
                             type: "success",
                           });
                         }}

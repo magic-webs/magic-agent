@@ -48,6 +48,7 @@ import type * as lib_audience from "../lib/audience.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_billing from "../lib/billing.js";
 import type * as lib_branding from "../lib/branding.js";
+import type * as lib_catalogue from "../lib/catalogue.js";
 import type * as lib_charge from "../lib/charge.js";
 import type * as lib_contactActivity from "../lib/contactActivity.js";
 import type * as lib_contactClean from "../lib/contactClean.js";
@@ -177,6 +178,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/billing": typeof lib_billing;
   "lib/branding": typeof lib_branding;
+  "lib/catalogue": typeof lib_catalogue;
   "lib/charge": typeof lib_charge;
   "lib/contactActivity": typeof lib_contactActivity;
   "lib/contactClean": typeof lib_contactClean;

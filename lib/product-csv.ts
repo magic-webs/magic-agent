@@ -37,6 +37,7 @@ export type RequirementFieldInput = {
 
 /** Exactly the shape `products.bulkImport` accepts. */
 export type ProductImportInput = {
+  kind?: "product" | "service" | "brochure" | "other";
   name: string;
   sku?: string;
   category?: string;
@@ -81,6 +82,7 @@ export const CSV_COLUMNS: {
     detail:
       "Product name. Leave blank to add another spec question to the product on the row above.",
   },
+  { name: "kind", detail: "product, service, brochure or other. Defaults to product. Brochure files are uploaded in the dashboard." },
   { name: "sku", detail: "Your own product code. Optional." },
   { name: "category", detail: "Grouping shown in the catalogue. Defaults to General." },
   { name: "description", detail: "What the product is, in the agent's words." },
@@ -238,6 +240,19 @@ export function parseProductCsv(text: string): ParseResult {
 
       // Later non-blank values win, so a correction further down the file takes
       // effect; blanks never erase what an earlier row set.
+      const kind = cell("kind").toLowerCase();
+      if (kind) {
+        if (
+          kind === "product" ||
+          kind === "service" ||
+          kind === "brochure" ||
+          kind === "other"
+        ) {
+          current.kind = kind;
+        } else {
+          fail("kind", `"${kind}" is not product, service, brochure or other.`);
+        }
+      }
       const sku = cell("sku");
       if (sku) current.sku = sku;
       const category = cell("category");

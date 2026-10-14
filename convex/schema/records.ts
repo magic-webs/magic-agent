@@ -1,11 +1,19 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { kvPair, requirementField, productImage, orderStatus } from "./validators";
+import {
+  catalogueKind,
+  kvPair,
+  orderStatus,
+  productFile,
+  productImage,
+  requirementField,
+} from "./validators";
 
 export const recordsTables = {
   products: defineTable({
     workspaceId: v.id("workspaces"),
     slug: v.string(),
+    kind: v.optional(catalogueKind),
     sku: v.optional(v.string()),
     name: v.string(),
     category: v.string(),
@@ -15,6 +23,7 @@ export const recordsTables = {
     unit: v.optional(v.string()),
     requirementFields: v.array(requirementField),
     images: v.optional(v.array(productImage)),
+    files: v.optional(v.array(productFile)),
     attributes: v.array(kvPair),
     exampleSpec: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -27,6 +36,7 @@ export const recordsTables = {
     .index("by_workspace", ["workspaceId"])
     .index("by_workspace_slug", ["workspaceId", "slug"])
     .index("by_workspace_category", ["workspaceId", "category"])
+    .index("by_workspace_kind", ["workspaceId", "kind"])
     .searchIndex("search_products", {
       searchField: "searchBlob",
       filterFields: ["workspaceId", "status"],

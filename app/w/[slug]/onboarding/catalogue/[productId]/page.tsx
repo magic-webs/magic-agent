@@ -40,6 +40,7 @@ import {
   WarningIcon,
 } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
+import { catalogueKind } from "@/convex/lib/catalogue";
 
 /**
  * View and edit one catalogue entry.
@@ -132,7 +133,7 @@ export default function EditProductPage({
               <h1 className="font-heading text-2xl font-semibold tracking-tight">
                 {product.name}
               </h1>
-              {product.tags.includes("service") ? (
+              {catalogueKind(product) === "service" ? (
                 <Badge variant="outline">service</Badge>
               ) : null}
               {product.status === "archived" ? (

@@ -277,12 +277,14 @@ function buildBuiltinTools(
   if (enabled.has("search_products")) {
     registry.search_products = tool({
       description:
-        "Search the product catalogue by name, category or keyword to confirm what is actually offered.",
+        "Search the catalogue by name, category or keyword to confirm what is actually offered. It holds products, services, and documents such as brochures, price lists and menus (kind brochure or other) — search here when the customer asks for one.",
       inputSchema: z.object({
         query: z
           .string()
           .optional()
-          .describe("Product name or keyword. Omit to list the catalogue."),
+          .describe(
+            "Name or keyword, e.g. 'business cards' or 'brochure'. Omit to list the catalogue."
+          ),
       }),
       execute: traced(trace, "search_products", async ({ query }) => {
         const products = await ctx.runQuery(internal.products.searchForTool, {
@@ -291,21 +293,29 @@ function buildBuiltinTools(
           limit: 8,
         });
         const withImages = products.filter((p) => p.imageUrl).length;
+        const withFiles = products.filter((p) => p.files.length > 0).length;
+        const notes = [
+          withImages > 0 && enabled.has("rich_messages")
+            ? "imageUrl is for send_media, not for your reply. If the customer wants to see a product, call send_media with its imageUrl and a short caption — one call per product. Never write the URL out."
+            : withImages > 0
+              ? "Do not put imageUrl in your reply — the customer cannot open it. Describe the product instead."
+              : null,
+          withFiles > 0 && enabled.has("rich_messages")
+            ? "files are documents the customer can be sent. When they ask for a brochure, price list or document, call send_media with media 'document', the file's url and its filename. Never write the URL out."
+            : withFiles > 0
+              ? "Do not put a file url in your reply — the customer cannot open it. Offer to have the team send it."
+              : null,
+          products.some((p) => p.kind === "brochure" || p.kind === "other")
+            ? "Entries of kind brochure or other are shared, not ordered — never file an order for one."
+            : null,
+        ].filter(Boolean);
         return {
           count: products.length,
           products,
           // Said here rather than only in the prompt because this is where the
-          // URL is handed over, and a bare imageUrl reads as an invitation to
-          // paste it into the reply.
-          ...(withImages > 0 && enabled.has("rich_messages")
-            ? {
-                note: "imageUrl is for send_media, not for your reply. If the customer wants to see a product, call send_media with its imageUrl and a short caption — one call per product. Never write the URL out.",
-              }
-            : withImages > 0
-              ? {
-                  note: "Do not put imageUrl in your reply — the customer cannot open it. Describe the product instead.",
-                }
-              : {}),
+          // URL is handed over, and a bare URL reads as an invitation to paste
+          // it into the reply.
+          ...(notes.length > 0 ? { note: notes.join(" ") } : {}),
         };
       }),
     });
@@ -327,6 +337,12 @@ function buildBuiltinTools(
         // Which control each field wants, decided here where the option
         // counts are, rather than left to the model to remember. Reply buttons
         // hold three; anything more has to be a list.
+        if (result.found && result.product && !result.product.orderable) {
+          return {
+            ...result,
+            note: `${result.product.name} is a document to share, not something to order. Send its file instead.`,
+          };
+        }
         if (!enabled.has("rich_messages") || !result.found) return result;
         const choices = [
           ...(result.product?.requiredFields ?? []),

@@ -30,6 +30,11 @@ import {
   SparkleIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import {
+  catalogueKind,
+  isOrderable,
+  type CatalogueKind,
+} from "@/convex/lib/catalogue";
 
 /**
  * Step 5 — the catalogue.
@@ -45,8 +50,8 @@ import {
  * out. What is left here is the list, and what each row is still missing.
  */
 
-/** Products and services share a table; the tag is how they were told apart. */
-const isService = (tags: string[]) => tags.includes("service");
+const isService = (product: { kind?: CatalogueKind; tags: string[] }) =>
+  catalogueKind(product) === "service";
 
 /** The variant question, if the product has one — the first select field. */
 const variantsOf = (
@@ -98,8 +103,11 @@ export function CatalogueStep() {
     );
   }
 
-  const live = products.filter((product) => product.status === "active");
-  const services = live.filter((product) => isService(product.tags)).length;
+  const live = products.filter(
+    (product) =>
+      product.status === "active" && isOrderable(catalogueKind(product))
+  );
+  const services = live.filter(isService).length;
   const priced = live.filter(
     (product) => typeof product.price === "number"
   ).length;
@@ -175,7 +183,7 @@ export function CatalogueStep() {
                     >
                       {product.name}
                     </Link>
-                    {isService(product.tags) ? (
+                    {isService(product) ? (
                       <Badge variant="outline">service</Badge>
                     ) : null}
                   </div>

@@ -1,5 +1,6 @@
 /**
- * The product catalogue an agent is allowed to talk about.
+ * The catalogue an agent is allowed to talk about: products, services, and
+ * brochures or other documents it can send.
  */
 
 import { z } from "zod";
@@ -9,6 +10,74 @@ import { findProduct } from "../lookup.mjs";
 import { handler, ok, productBrief } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
+const KINDS = ["product", "service", "brochure", "other"];
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+const kindArg = z
+  .enum(KINDS)
+  .describe(
+    "product or service to sell; brochure or other for a document agents send rather than sell (price list, menu, spec sheet). Defaults to product."
+  );
+
+const fileArg = z.object({
+  url: z.string().describe("Public address of the file; it is copied into storage"),
+  filename: z
+    .string()
+    .optional()
+    .describe("The name the customer sees, e.g. 'Brochure 2026.pdf'. Defaults to the URL's last segment."),
+});
+
+const decoded = (text) => {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+};
+
+function filenameFrom(response, url) {
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const quoted = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  if (quoted) return decoded(quoted[1]);
+  const last = new URL(url).pathname.split("/").filter(Boolean).pop();
+  return last ? decoded(last) : "file";
+}
+
+async function copyFile(workspaceId, { url, filename }) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Fetching ${url} returned HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  if (blob.size > MAX_FILE_BYTES) {
+    throw new Error(`${url} is over 25 MB`);
+  }
+  const target = await call.mutation(api.products.generateUploadUrl, {
+    workspaceId,
+  });
+  const type = blob.type || "application/octet-stream";
+  const put = await fetch(target.url, {
+    method: "PUT",
+    headers: { "Content-Type": type },
+    body: blob,
+  });
+  if (!put.ok) {
+    throw new Error(`Uploading ${url} failed with HTTP ${put.status}`);
+  }
+  return {
+    fileKey: target.key,
+    filename: filename?.trim() || filenameFrom(response, url),
+    mimeType: blob.type || undefined,
+    size: blob.size,
+  };
+}
+
+const copyFiles = async (workspaceId, files) => {
+  const out = [];
+  for (const file of files) out.push(await copyFile(workspaceId, file));
+  return out;
+};
+
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
 export function register(server) {
   server.registerTool(
@@ -16,26 +85,29 @@ export function register(server) {
     {
       title: "List products",
       description:
-        "The catalogue. Agents refuse to discuss anything not listed here, and never quote a price a product does not carry.",
+        "The catalogue: products, services, and brochures or other documents with their files. Agents refuse to discuss anything not listed here, and never quote a price a product does not carry.",
       inputSchema: {
         ...workspaceArg,
         search: z.string().optional(),
         category: z.string().optional(),
+        kind: z.enum(KINDS).optional().describe("Only entries of this kind"),
       },
       annotations: { readOnlyHint: true },
     },
-    handler(async ({ workspace, search, category }) => {
+    handler(async ({ workspace, search, category, kind }) => {
       const found = await resolveWorkspace(workspace);
       const products = await call.query(api.products.listByWorkspace, {
         workspaceId: found._id,
         search,
         category,
+        kind,
       });
       return ok(products.map(productBrief));
     })
   );
 
   const productFields = {
+    kind: kindArg.optional(),
     sku: z.string().optional(),
     category: z.string().optional().describe("Defaults to 'General'"),
     description: z.string().optional(),
@@ -64,12 +136,7 @@ export function register(server) {
       ),
     exampleSpec: z.string().optional(),
     notes: z.string().optional().describe("Internal — never shown to customers"),
-    tags: z
-      .array(z.string())
-      .optional()
-      .describe(
-        "Products and services share this catalogue; tag a service 'service' so the dashboard counts it as one."
-      ),
+    tags: z.array(z.string()).optional(),
   };
 
   const toImages = (imageUrls) =>
@@ -85,7 +152,7 @@ export function register(server) {
     {
       title: "Create product",
       description:
-        "Add a product to the catalogue. Set requirementFields to the questions an agent must ask before it can take an order for it — that is what turns a chat into a complete enquiry.",
+        "Add a product, service, brochure or other document to the catalogue. For a product or service, set requirementFields to the questions an agent must ask before it can take an order — that is what turns a chat into a complete enquiry. For a brochure, pass its PDF in files; agents send it when a customer asks.",
       inputSchema: {
         ...workspaceArg,
         name: z.string(),
@@ -94,15 +161,23 @@ export function register(server) {
           .optional()
           .describe("Defaults to the workspace currency when a price is given"),
         ...productFields,
+        files: z
+          .array(fileArg)
+          .max(10)
+          .optional()
+          .describe(
+            "PDFs or documents agents can send — a brochure, price list or spec sheet. Each is downloaded and stored, up to 25 MB."
+          ),
       },
     },
-    handler(async ({ workspace, imageUrls, ...fields }) => {
+    handler(async ({ workspace, imageUrls, files, ...fields }) => {
       const found = await resolveWorkspace(workspace);
       const productId = await call.mutation(api.products.create, {
         workspaceId: found._id,
         currency: fields.price !== undefined ? fields.currency ?? found.currency : undefined,
         ...fields,
         images: toImages(imageUrls),
+        files: files ? await copyFiles(found._id, files) : undefined,
       });
       return ok({ productId, name: fields.name });
     })
@@ -113,7 +188,7 @@ export function register(server) {
     {
       title: "Update product",
       description:
-        "Change a product. Omitted fields are left alone; arrays replace the whole list. Omitting price therefore keeps the price it has — use clearPrice to take it off.",
+        "Change a catalogue entry. Omitted fields are left alone; arrays replace the whole list, except files, which change through addFiles and removeFiles. Omitting price therefore keeps the price it has — use clearPrice to take it off.",
       inputSchema: {
         ...workspaceArg,
         product: z.string().describe("Product name, SKU, slug or id"),
@@ -127,15 +202,34 @@ export function register(server) {
             "Remove the price, so agents stop quoting it and take the enquiry instead. There is no value of price that means 'none', which is why this is its own flag."
           ),
         ...productFields,
+        addFiles: z
+          .array(fileArg)
+          .optional()
+          .describe("Files to attach, each downloaded and stored, up to 25 MB"),
+        removeFiles: z
+          .array(z.string())
+          .optional()
+          .describe("Filenames of attached files to delete"),
       },
     },
-    handler(async ({ workspace, product, imageUrls, ...fields }) => {
+    handler(async ({ workspace, product, imageUrls, addFiles, removeFiles, ...fields }) => {
       const found = await resolveWorkspace(workspace);
       const target = await findProduct(found._id, product);
+      const removing = new Set((removeFiles ?? []).map((name) => name.trim()));
+      const files =
+        addFiles?.length || removing.size
+          ? [
+              ...(target.files ?? []).filter(
+                (file) => !removing.has(file.filename)
+              ),
+              ...(await copyFiles(found._id, addFiles ?? [])),
+            ]
+          : undefined;
       await call.mutation(api.products.update, {
         productId: target._id,
         ...fields,
         images: toImages(imageUrls),
+        files,
       });
       return ok(`Updated ${target.name}.`);
     })
@@ -146,7 +240,7 @@ export function register(server) {
     {
       title: "Delete product",
       description:
-        "Permanently delete a product and its uploaded images. Archiving with update_product status:'archived' is usually better — it keeps the record and stops agents offering it.",
+        "Permanently delete a catalogue entry and its uploaded images and files. Archiving with update_product status:'archived' is usually better — it keeps the record and stops agents offering it.",
       inputSchema: {
         ...workspaceArg,
         product: z.string().describe("Product name, SKU, slug or id"),
@@ -166,7 +260,7 @@ export function register(server) {
     {
       title: "Import products",
       description:
-        "Create or update many products at once, matched by name. A product already in the catalogue is updated rather than duplicated. Omitting imageUrls on an existing product keeps the images it already has.",
+        "Create or update many catalogue entries at once, matched by name. An entry already in the catalogue is updated rather than duplicated. Omitting imageUrls on an existing entry keeps the images it already has. Files are not imported — attach them with create_product or update_product.",
       inputSchema: {
         ...workspaceArg,
         products: z

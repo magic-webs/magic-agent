@@ -94,6 +94,7 @@ export const recordBookBrief = (book) => ({
 
 export const productBrief = (product) => ({
   id: product._id,
+  kind: product.kind ?? "product",
   name: product.name,
   sku: product.sku ?? null,
   slug: product.slug,
@@ -105,6 +106,10 @@ export const productBrief = (product) => ({
   status: product.status,
   tags: product.tags,
   images: (product.resolvedImages ?? []).map((image) => image.url),
+  files: (product.resolvedFiles ?? []).map((file) => ({
+    filename: file.filename,
+    url: file.url,
+  })),
   attributes: product.attributes,
   requirementFields: product.requirementFields,
   exampleSpec: product.exampleSpec ?? null,

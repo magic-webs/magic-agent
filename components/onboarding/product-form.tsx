@@ -49,6 +49,7 @@ import {
   PlusIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { catalogueKind } from "@/convex/lib/catalogue";
 
 /**
  * The add-a-product form.
@@ -69,8 +70,6 @@ import {
  */
 
 export type ProductDraft = {
-  /** Presentation and defaults only — stored as a tag, since products and
-      services are one table and differ in how they are talked about. */
   kind: "product" | "service";
   name: string;
   category: string;
@@ -216,13 +215,12 @@ export function draftFromProduct(
   );
 
   return {
-    kind: product.tags.includes("service") ? "service" : "product",
+    kind: catalogueKind(product) === "service" ? "service" : "product",
     name: product.name,
     category: product.category,
     description: product.description,
     price: product.price === undefined ? "" : String(product.price),
     unit: product.unit ?? "",
-    // `service` is how the kind is stored, so it is not also a tag to edit.
     tags: product.tags.filter((tag) => tag !== "service"),
     images: paired
       .filter((entry) => !variantSwatchUrls.has(entry.url))
@@ -641,11 +639,8 @@ export function ProductForm({
         description: draft.description.trim(),
         ...(priced ? { price: parsedPrice, currency: workspace.currency } : {}),
         unit: draft.unit.trim() || undefined,
-        // `service` rides along as a tag: products and services are one table,
-        // and the tag is what lets the catalogue label them apart.
-        tags: service
-          ? Array.from(new Set([...draft.tags, "service"]))
-          : draft.tags,
+        kind: draft.kind,
+        tags: draft.tags.filter((tag) => tag !== "service"),
         images,
         requirementFields: requirements,
         attributes: consequences.attribute ? [consequences.attribute] : [],

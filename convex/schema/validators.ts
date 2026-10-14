@@ -107,6 +107,8 @@ export const workspaceStage = v.union(
   v.literal("custom")
 );
 
+export const widgetIntake = v.union(v.literal("chat"), v.literal("form"));
+
 export const channelType = v.union(
   v.literal("whatsapp"),
   v.literal("web"),

@@ -39,6 +39,7 @@ export function register(server) {
           lastError: channel.lastError ?? null,
           ...(channel.type === "web"
             ? {
+                intake: channel.intake ?? "form",
                 embedSnippet: `<script src="${APP_URL}/widget/${channel.channelKey}/embed.js" async></script>`,
                 directLink: `${APP_URL}/widget/${channel.channelKey}`,
               }
@@ -67,7 +68,7 @@ export function register(server) {
     {
       title: "Create channel",
       description:
-        "Add a website widget or connect a WhatsApp number. Point it at the front desk unless you specifically want one agent to answer everything on it without routing. A web channel is live immediately; a WhatsApp one starts paused until its callback URL is configured in Meta.",
+        "Add a website widget or connect a WhatsApp number. Point it at the front desk unless you specifically want one agent to answer everything on it without routing. A web channel needs intake — ask the user which they want — and is live immediately; a WhatsApp one starts paused until its callback URL is configured in Meta.",
       inputSchema: {
         ...workspaceArg,
         type: z.enum(["web", "whatsapp"]),
@@ -76,6 +77,12 @@ export function register(server) {
           .string()
           .optional()
           .describe("Who answers here. Defaults to the front desk."),
+        intake: z
+          .enum(["chat", "form"])
+          .optional()
+          .describe(
+            "Web only, required: how the widget gets the visitor's name and number. chat asks for them inside the conversation; form shows a sign-in page before the chat opens."
+          ),
         phoneNumberId: z.string().optional().describe("WhatsApp only, required"),
         accessToken: z.string().optional().describe("WhatsApp only, required"),
         wabaId: z.string().optional(),
@@ -88,7 +95,7 @@ export function register(server) {
         apiVersion: z.string().optional(),
       },
     },
-    handler(async ({ workspace, type, name, agent, ...wa }) => {
+    handler(async ({ workspace, type, name, agent, intake, ...wa }) => {
       const found = await resolveWorkspace(workspace);
 
       let agentId;
@@ -111,6 +118,7 @@ export function register(server) {
         agentId,
         type,
         name,
+        intake: type === "web" ? intake : undefined,
         whatsapp:
           type === "whatsapp"
             ? {
@@ -147,6 +155,12 @@ export function register(server) {
         name: z.string().optional(),
         agent: z.string().optional().describe("Who answers here"),
         status: z.enum(["active", "paused"]).optional(),
+        intake: z
+          .enum(["chat", "form"])
+          .optional()
+          .describe(
+            "Web only: chat asks for name and number inside the conversation; form shows a sign-in page first"
+          ),
         wabaId: z
           .string()
           .optional()
@@ -158,7 +172,7 @@ export function register(server) {
         apiVersion: z.string().optional().describe("WhatsApp only"),
       },
     },
-    handler(async ({ workspace, channel, name, agent, status, ...connection }) => {
+    handler(async ({ workspace, channel, name, agent, status, intake, ...connection }) => {
       const found = await resolveWorkspace(workspace);
       const target = await findChannel(found._id, channel);
       const agentId = agent ? (await findAgent(found._id, agent))._id : undefined;
@@ -189,6 +203,7 @@ export function register(server) {
         name,
         agentId,
         status,
+        intake,
         ...(whatsapp ? { whatsapp } : {}),
       });
       return ok(`Updated ${target.name}.`);

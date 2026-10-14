@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { channelType, deliveryStatus, kvPair } from "./validators";
+import { channelType, deliveryStatus, kvPair, widgetIntake } from "./validators";
 
 export const conversationsTables = {
   channels: defineTable({
@@ -10,6 +10,7 @@ export const conversationsTables = {
     name: v.string(),
     channelKey: v.string(),
     externalId: v.optional(v.string()),
+    intake: v.optional(widgetIntake),
     whatsapp: v.optional(
       v.object({
         apiBaseUrl: v.string(),

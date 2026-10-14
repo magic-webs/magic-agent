@@ -536,12 +536,31 @@ function ChannelDialog({
 type WebChannelForm = {
   name: string;
   agentId: string;
+  intake: "chat" | "form" | "";
 };
 
 const emptyWebForm: WebChannelForm = {
   name: "Website Widget",
   agentId: "",
+  intake: "",
 };
+
+type InstagramChannelForm = Omit<WebChannelForm, "intake">;
+
+const INTAKE_OPTIONS = [
+  {
+    value: "chat",
+    title: "In the chat",
+    description:
+      "The widget opens on the conversation and the agent asks for the visitor's name, then their number with country code.",
+  },
+  {
+    value: "form",
+    title: "Sign-in page first",
+    description:
+      "Visitors fill in their name and number on a start page before the chat opens.",
+  },
+] as const;
 
 function WebChannelDialog({
   channelId,
@@ -574,6 +593,13 @@ function WebChannelDialog({
       toast.add({ title: "Pick the agent that answers here", type: "error" });
       return;
     }
+    if (!form.intake) {
+      toast.add({
+        title: "Choose how the widget asks for name and number",
+        type: "error",
+      });
+      return;
+    }
 
     setBusy(true);
     try {
@@ -582,6 +608,7 @@ function WebChannelDialog({
           channelId,
           name: form.name,
           agentId: selectedAgentId as Id<"agents">,
+          intake: form.intake,
         });
         toast.add({ title: "Channel updated", type: "success" });
       } else {
@@ -590,6 +617,7 @@ function WebChannelDialog({
           agentId: selectedAgentId as Id<"agents">,
           type: "web",
           name: form.name,
+          intake: form.intake,
         });
         toast.add({
           title: "Channel created",
@@ -650,6 +678,38 @@ function WebChannelDialog({
               </p>
             </div>
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Collect visitor details</Label>
+            <div
+              role="radiogroup"
+              aria-label="Collect visitor details"
+              className="grid gap-2 sm:grid-cols-2"
+            >
+              {INTAKE_OPTIONS.map((option) => {
+                const chosen = form.intake === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={chosen}
+                    onClick={() => set("intake", option.value)}
+                    className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                      chosen
+                        ? "border-primary bg-primary/5"
+                        : "hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{option.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
@@ -703,7 +763,7 @@ function InstagramDialog({
   trigger,
 }: {
   channelId?: Id<"channels">;
-  initial?: WebChannelForm;
+  initial?: InstagramChannelForm;
   trigger: React.ReactElement;
 }) {
   const workspace = useWorkspace();
@@ -715,7 +775,7 @@ function InstagramDialog({
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<WebChannelForm>(
+  const [form, setForm] = useState<InstagramChannelForm>(
     initial ?? { name: "Instagram", agentId: "" }
   );
   const busy = saving || connecting;
@@ -1131,6 +1191,7 @@ function ChannelControls({
               initial={{
                 name: channel.name,
                 agentId: channel.agentId,
+                intake: channel.intake ?? "form",
               }}
               trigger={
                 <DropdownMenuItem closeOnClick={false}>

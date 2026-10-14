@@ -121,7 +121,9 @@ export function buildSetupPrompt(
   if (options.leadStages)
     step("seed_default_lead_stages for the enquiry pipeline.");
   if (options.webChannel) {
-    step(`create_channel of type "web" pointed at the front desk.`);
+    step(
+      `create_channel of type "web" pointed at the front desk. Ask me first whether the widget should collect the visitor's name and number in the chat (intake "chat") or on a sign-in page (intake "form").`,
+    );
   }
   step(
     `Test. chat_with_agent on the front desk with three realistic customer messages — a product question, a support question and something the business does not do. Check handoffPath and that answers come from the knowledge base and catalogue; fix routingDescriptions or knowledge where they fall short.`,

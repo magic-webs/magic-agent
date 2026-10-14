@@ -308,6 +308,78 @@ function DialCodeSelect({
   );
 }
 
+/** A typed "+44…" moves the code select to that country instead of doubling the code. */
+function phoneChange(
+  iso: string,
+  raw: string
+): { iso: string; phone: string } {
+  const value = raw.trim();
+  if (value.startsWith("+")) {
+    const split = splitDialCode(value);
+    return { iso: split.iso, phone: clampPhone(split.iso, split.rest) };
+  }
+  return { iso, phone: clampPhone(iso, value) };
+}
+
+function PhoneInput({
+  id,
+  iso,
+  phone,
+  disabled,
+  autoFocus,
+  className,
+  onChange,
+}: {
+  id: string;
+  iso: string;
+  phone: string;
+  disabled?: boolean;
+  autoFocus?: boolean;
+  className: string;
+  onChange: (next: { iso: string; phone: string }) => void;
+}) {
+  return (
+    <div
+      className={`flex items-stretch overflow-hidden transition-[color,box-shadow] ${className}`}
+    >
+      <DialCodeSelect
+        iso={iso}
+        disabled={disabled}
+        onChange={(next) =>
+          onChange({ iso: next, phone: clampPhone(next, phone) })
+        }
+      />
+      <span aria-hidden className="my-2 w-px shrink-0 bg-border" />
+      <Input
+        id={id}
+        type="tel"
+        inputMode="numeric"
+        autoComplete="tel-national"
+        autoFocus={autoFocus}
+        placeholder={`${mobileDigits(iso).max}-digit number`}
+        className="h-auto min-w-0 flex-1 rounded-none border-0 bg-transparent px-3 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
+        value={phone}
+        disabled={disabled}
+        onChange={(event) => onChange(phoneChange(iso, event.target.value))}
+      />
+    </div>
+  );
+}
+
+/** The national number, or a toast saying what a valid one looks like. */
+function checkedNational(iso: string, phone: string): string | null {
+  const national = nationalNumber(iso, phone);
+  if (!national) {
+    const { min, max } = mobileDigits(iso);
+    toast.add({
+      title: "Enter a valid phone number",
+      description: `${dialCodeFor(iso).name} numbers have ${min === max ? min : `${min}–${max}`} digits.`,
+      type: "error",
+    });
+  }
+  return national;
+}
+
 // utm_name / utm_phone let a site that already knows the visitor skip the form.
 // The loader forwards them from the host page.
 function prefillFromQuery(): { name?: string; phone?: string } {
@@ -470,12 +542,21 @@ export default function WidgetPage({
   if (!session.registered) {
     return theme(
       <WidgetShell title={title} logoSrc={widget.logoSrc} embedded={embedded}>
-        <RegisterForm
-          channelKey={channelKey}
-          sessionId={sessionId}
-          workspaceName={widget.workspaceName}
-          defaultIso={isoFromLocale(widget.locale)}
-        />
+        {widget.intake === "chat" ? (
+          <ChatIntake
+            channelKey={channelKey}
+            sessionId={sessionId}
+            greeting={widget.agent.greeting}
+            defaultIso={isoFromLocale(widget.locale)}
+          />
+        ) : (
+          <RegisterForm
+            channelKey={channelKey}
+            sessionId={sessionId}
+            workspaceName={widget.workspaceName}
+            defaultIso={isoFromLocale(widget.locale)}
+          />
+        )}
       </WidgetShell>
     );
   }
@@ -538,16 +619,8 @@ function RegisterForm({
       toast.add({ title: "Please fill in both fields", type: "error" });
       return;
     }
-    const national = nationalNumber(iso, form.phone);
-    if (!national) {
-      const { min, max } = mobileDigits(iso);
-      toast.add({
-        title: "Enter a valid phone number",
-        description: `${dialCodeFor(iso).name} numbers have ${min === max ? min : `${min}–${max}`} digits.`,
-        type: "error",
-      });
-      return;
-    }
+    const national = checkedNational(iso, form.phone);
+    if (!national) return;
 
     setSubmitting(true);
     try {
@@ -640,43 +713,14 @@ function RegisterForm({
                 moves the input's focus ring out to the whole group, which is
                 what stops a focused number field from looking detached from
                 the code beside it. */}
-            <div className="flex h-11 items-stretch overflow-hidden rounded-xl border bg-transparent transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
-              <DialCodeSelect
-                iso={iso}
-                disabled={submitting}
-                onChange={(iso) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    iso,
-                    phone: clampPhone(iso, prev.phone),
-                  }))
-                }
-              />
-              <span aria-hidden className="my-2 w-px shrink-0 bg-border" />
-              <Input
-                id="widget-phone"
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                placeholder={`${mobileDigits(iso).max}-digit number`}
-                className="h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-3 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
-                value={form.phone}
-                disabled={submitting}
-                onChange={(event) => {
-                  const value = event.target.value.trim();
-                  if (value.startsWith("+")) {
-                    const split = splitDialCode(value);
-                    setForm((prev) => ({
-                      ...prev,
-                      iso: split.iso,
-                      phone: clampPhone(split.iso, split.rest),
-                    }));
-                    return;
-                  }
-                  setForm((prev) => ({ ...prev, phone: clampPhone(iso, value) }));
-                }}
-              />
-            </div>
+            <PhoneInput
+              id="widget-phone"
+              iso={iso}
+              phone={form.phone}
+              disabled={submitting}
+              className="h-11 rounded-xl border bg-transparent focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
+              onChange={(next) => setForm((prev) => ({ ...prev, ...next }))}
+            />
           </div>
           <Button
             type="submit"
@@ -701,6 +745,205 @@ function RegisterForm({
   );
 }
 
+function ChatIntake({
+  channelKey,
+  sessionId,
+  greeting,
+  defaultIso,
+}: {
+  channelKey: string;
+  sessionId: string;
+  greeting: string;
+  defaultIso: string | null;
+}) {
+  const register = useMutation(api.widget.register);
+  const guessed = useGuessedIso();
+  const [openedAt] = useState(() => Date.now());
+  const [state, setState] = useState(() => {
+    const prefill = prefillFromQuery();
+    const split = splitDialCode(prefill.phone ?? "");
+    const name = prefill.name?.trim().slice(0, 120) ?? "";
+    return {
+      name,
+      nameAt: name ? Date.now() : null,
+      draft: "",
+      phone: prefill.phone ? clampPhone(split.iso, split.rest) : "",
+      iso: prefill.phone ? split.iso : (null as string | null),
+      sent: null as { phone: string; at: number } | null,
+    };
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const iso = state.iso ?? defaultIso ?? guessed;
+  const askingPhone = state.nameAt !== null;
+  const firstName = state.name.split(/\s+/)[0];
+
+  const submitName = () => {
+    const name = state.draft.trim().slice(0, 120);
+    if (!name) return;
+    setState((prev) => ({ ...prev, name, nameAt: Date.now(), draft: "" }));
+  };
+
+  const submitPhone = async () => {
+    const national = checkedNational(iso, state.phone);
+    if (!national) return;
+    const phone = `${dialCodeFor(iso).dial} ${national}`;
+    setState((prev) => ({ ...prev, sent: { phone, at: Date.now() } }));
+    setSubmitting(true);
+    try {
+      await register({ channelKey, sessionId, name: state.name, phone });
+    } catch (error) {
+      setState((prev) => ({ ...prev, sent: null }));
+      toast.add({
+        title: "Could not start the chat",
+        description: friendlyError(error),
+        type: "error",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const bot = (key: string, text: string, at: number) => (
+    <MessageScrollerItem messageId={key}>
+      <ChatBubble
+        mine={false}
+        text={text}
+        rich={null}
+        quote={null}
+        meta={{ time: clockTime(at) }}
+        onPick={() => undefined}
+      />
+    </MessageScrollerItem>
+  );
+  const mine = (
+    key: string,
+    text: string,
+    at: number,
+    footer?: React.ReactNode
+  ) => (
+    <MessageScrollerItem messageId={key}>
+      <ChatBubble
+        mine
+        text={text}
+        rich={null}
+        quote={null}
+        meta={{ time: clockTime(at) }}
+        onPick={() => undefined}
+        footer={footer}
+      />
+    </MessageScrollerItem>
+  );
+
+  return (
+    <div data-chat="whatsapp" className="flex min-h-0 flex-1 flex-col">
+      <MessageScrollerProvider autoScroll defaultScrollPosition="end">
+        <MessageScroller className="min-h-0 min-w-0 flex-1">
+          <MessageScrollerViewport aria-label="Conversation">
+            <MessageScrollerContent className="mx-auto w-full max-w-2xl justify-end gap-1.5 px-3 py-3">
+              <MessageScrollerItem messageId="day">
+                <DayChip label={dayLabel(openedAt, openedAt)} />
+              </MessageScrollerItem>
+              {bot("greeting", greeting, openedAt)}
+              {bot("ask-name", "Before we start, what's your name?", openedAt)}
+              {state.nameAt !== null
+                ? mine(
+                    "name",
+                    state.name,
+                    state.nameAt,
+                    state.sent ? null : (
+                      <button
+                        type="button"
+                        className="text-[0.6875rem] font-medium text-muted-foreground hover:underline"
+                        onClick={() =>
+                          setState((prev) => ({
+                            ...prev,
+                            draft: prev.name,
+                            nameAt: null,
+                          }))
+                        }
+                      >
+                        Change
+                      </button>
+                    )
+                  )
+                : null}
+              {state.nameAt !== null
+                ? bot(
+                    "ask-phone",
+                    `Thanks, ${firstName}! What number can we reach you on?`,
+                    state.nameAt
+                  )
+                : null}
+              {state.sent ? mine("phone", state.sent.phone, state.sent.at) : null}
+              {submitting ? (
+                <MessageScrollerItem messageId="typing">
+                  <TypingBubble />
+                </MessageScrollerItem>
+              ) : null}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+        <FollowOutbox signal={askingPhone ? "phone" : "name"} />
+
+        <div className="shrink-0 bg-(--chat-ground) px-2 pt-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+          <form
+            className="mx-auto flex w-full max-w-2xl items-end gap-1.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (askingPhone) void submitPhone();
+              else submitName();
+            }}
+          >
+            {askingPhone ? (
+              <PhoneInput
+                id="widget-chat-phone"
+                iso={iso}
+                phone={state.phone}
+                disabled={submitting}
+                autoFocus
+                className="h-11 min-w-0 flex-1 rounded-3xl bg-background shadow-xs"
+                onChange={(next) => setState((prev) => ({ ...prev, ...next }))}
+              />
+            ) : (
+              <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-3xl bg-background px-4 shadow-xs">
+                <input
+                  value={state.draft}
+                  placeholder="Your name"
+                  aria-label="Your name"
+                  autoComplete="name"
+                  maxLength={120}
+                  autoFocus
+                  className="w-full bg-transparent py-2.5 text-[0.9375rem] leading-snug outline-none placeholder:text-muted-foreground"
+                  onChange={(event) =>
+                    setState((prev) => ({ ...prev, draft: event.target.value }))
+                  }
+                />
+              </div>
+            )}
+            <button
+              type="submit"
+              aria-label={askingPhone ? "Send number" : "Send name"}
+              disabled={
+                submitting ||
+                (askingPhone ? !state.phone.trim() : !state.draft.trim())
+              }
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-xs transition-[opacity,transform] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60"
+            >
+              {submitting ? (
+                <Spinner />
+              ) : (
+                <PaperPlaneRightIcon weight="fill" className="size-5" />
+              )}
+            </button>
+          </form>
+          <PoweredBy className="pt-1" />
+        </div>
+      </MessageScrollerProvider>
+    </div>
+  );
+}
 
 type WidgetMessage = {
   id: string;

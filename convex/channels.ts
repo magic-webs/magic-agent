@@ -7,6 +7,7 @@ import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";
+import { widgetIntake } from "./schema";
 import {
   requireChannel,
   requireWorkspace,
@@ -127,10 +128,16 @@ export const create = mutation({
     agentId: v.id("agents"),
     type: v.union(v.literal("whatsapp"), v.literal("web")),
     name: v.string(),
+    intake: v.optional(widgetIntake),
     whatsapp: v.optional(whatsappInput),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    if (args.type === "web" && !args.intake) {
+      throw new ConvexError(
+        "Choose how the widget asks for the visitor's name and number"
+      );
+    }
     if (args.type === "whatsapp") {
       if (!args.whatsapp?.phoneNumberId?.trim()) {
         throw new ConvexError("A WhatsApp phone number ID is required");
@@ -148,6 +155,7 @@ export const create = mutation({
       name: args.name.trim() || "WhatsApp",
       channelKey: randomKey(28),
       externalId: args.whatsapp?.phoneNumberId,
+      intake: args.type === "web" ? args.intake : undefined,
       whatsapp:
         args.type === "whatsapp" && args.whatsapp
           ? {
@@ -176,6 +184,7 @@ export const update = mutation({
     channelId: v.id("channels"),
     name: v.optional(v.string()),
     agentId: v.optional(v.id("agents")),
+    intake: v.optional(widgetIntake),
     whatsapp: v.optional(whatsappInput),
     status: v.optional(
       v.union(v.literal("active"), v.literal("paused"), v.literal("error"))
@@ -190,6 +199,12 @@ export const update = mutation({
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.agentId !== undefined) patch.agentId = args.agentId;
     if (args.status !== undefined) patch.status = args.status;
+    if (args.intake !== undefined) {
+      if (existing.type !== "web") {
+        throw new ConvexError("Only a web widget collects visitor details");
+      }
+      patch.intake = args.intake;
+    }
 
     if (args.whatsapp) {
       const incomingToken = args.whatsapp.accessToken?.trim();

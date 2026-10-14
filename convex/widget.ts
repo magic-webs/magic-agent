@@ -76,6 +76,7 @@ export const bootstrap = query({
       channelName: channel.name,
       workspaceName: workspace.name,
       locale: workspace.locale,
+      intake: channel.intake ?? "form",
       // The company's own logo for the chat header, or null for the robot
       // mark the widget has always drawn. Public by nature: it is already on
       // the site the chat is embedded in.

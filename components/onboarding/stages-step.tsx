@@ -158,7 +158,7 @@ function StageRow({
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Quoted"
+            placeholder="Stage name"
           />
         </FormRow>
         <FormRow label="What belongs at this stage">
@@ -166,7 +166,7 @@ function StageRow({
             rows={2}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="A price has been given and the customer has not yet said yes or no."
+            placeholder="What has happened when a lead is at this stage"
           />
         </FormRow>
         <OutcomePicker value={outcome} onChange={setOutcome} />
@@ -340,7 +340,7 @@ export function StagesStep() {
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Awaiting deposit"
+                  placeholder="Stage name"
                 />
               </FormRow>
               <FormRow
@@ -351,7 +351,7 @@ export function StagesStep() {
                   rows={2}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  placeholder="The quote is accepted and we are waiting for the 50% deposit to land."
+                  placeholder="What has happened when a lead is at this stage"
                 />
               </FormRow>
               <OutcomePicker value={outcome} onChange={setOutcome} />

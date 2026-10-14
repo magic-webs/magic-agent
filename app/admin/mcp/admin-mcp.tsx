@@ -317,7 +317,7 @@ function ConnectorsCard({
               id="connector-name"
               value={name}
               maxLength={60}
-              placeholder="Name it for where it goes, e.g. Claude.ai"
+              placeholder="Where this connector will be used"
               onChange={(event) => setName(event.target.value)}
             />
             <Button type="submit" disabled={adding || !name.trim()}>

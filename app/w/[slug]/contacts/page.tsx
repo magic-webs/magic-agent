@@ -262,7 +262,7 @@ function ContactDialog({
             <Textarea
               id="ct-remark"
               rows={3}
-              placeholder="Called back Tuesday, wants the 5000L quote by Friday."
+              placeholder="Notes about this contact"
               value={draft.remark}
               onChange={(event) => set("remark", event.target.value)}
             />

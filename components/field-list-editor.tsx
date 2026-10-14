@@ -38,7 +38,7 @@ export function FieldListEditor({
   label,
   description,
   addLabel = "Add question",
-  labelPlaceholder = "Label — e.g. Paper weight",
+  labelPlaceholder = "Label",
   examplePlaceholder = "Example answer — helps the agent phrase the question",
 }: {
   value: CollectedField[];

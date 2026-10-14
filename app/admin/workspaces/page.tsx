@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -59,6 +60,14 @@ import {
   TimezonePicker,
 } from "@/components/regional-pickers";
 import { toast } from "@/components/ui/toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DEFAULT_SETUP_OPTIONS,
+  SetupPromptFields,
+  buildSetupPrompt,
+  type SetupOptions,
+  type WorkspaceBasics,
+} from "@/components/workspace-setup-prompt";
 import { CardGridSkeleton, TableSkeleton } from "@/components/skeletons";
 import {
   BuildingsIcon,
@@ -66,7 +75,9 @@ import {
   PlusIcon,
   ArrowRightIcon,
   ClockCounterClockwiseIcon,
+  CopyIcon,
   GlobeIcon,
+  MagicWandIcon,
   SparkleIcon,
   TableIcon,
   type Icon,
@@ -96,8 +107,9 @@ const VIEWS = [
   icon: Icon;
 }>;
 
-type WorkspaceChannel =
-  FunctionReturnType<typeof api.workspaces.list>[number]["channels"][number];
+type WorkspaceChannel = FunctionReturnType<
+  typeof api.workspaces.list
+>[number]["channels"][number];
 
 const CHANNEL_KINDS = [
   {
@@ -129,7 +141,9 @@ function ChannelIcons({ channels }: { channels: WorkspaceChannel[] }) {
   return (
     <span className="flex items-center gap-1.5">
       {groups.map((group) => {
-        const live = group.channels.some((channel) => channel.status === "active");
+        const live = group.channels.some(
+          (channel) => channel.status === "active",
+        );
         return (
           <span
             key={group.type}
@@ -138,7 +152,7 @@ function ChannelIcons({ channels }: { channels: WorkspaceChannel[] }) {
               .join(", ")}`}
             className={cn(
               "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-1",
-              !live && "opacity-40"
+              !live && "opacity-40",
             )}
           >
             {group.icon}
@@ -159,17 +173,39 @@ function CreateWorkspaceDialog() {
   const createWorkspace = useMutation(api.workspaces.create);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
+  const [mode, setMode] = useState<"form" | "prompt">("form");
+  const [options, setOptions] = useState<SetupOptions>(DEFAULT_SETUP_OPTIONS);
+  const [form, setForm] = useState<WorkspaceBasics>({
     name: "",
     tagline: "",
     industry: "",
     description: "",
     website: "",
     supportEmail: "",
-    locale: "en-GB",
-    currency: "GBP",
-    timezone: "Europe/London",
+    supportPhone: "",
+    ownerName: "",
+    address: "",
+    locale: "",
+    currency: "",
+    timezone: "",
   });
+
+  const copyPrompt = async () => {
+    if (!form.name.trim()) {
+      toast.add({ title: "A company name is required", type: "error" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(buildSetupPrompt(form, options));
+      toast.add({ title: "Prompt copied", type: "success" });
+    } catch {
+      toast.add({
+        title: "Copy failed",
+        description: "Select the prompt and copy it manually.",
+        type: "error",
+      });
+    }
+  };
 
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -177,6 +213,13 @@ function CreateWorkspaceDialog() {
   const submit = async () => {
     if (!form.name.trim()) {
       toast.add({ title: "A workspace name is required", type: "error" });
+      return;
+    }
+    if (!form.locale || !form.currency || !form.timezone) {
+      toast.add({
+        title: "Pick a locale, currency and timezone",
+        type: "error",
+      });
       return;
     }
     setBusy(true);
@@ -188,6 +231,9 @@ function CreateWorkspaceDialog() {
         description: form.description || undefined,
         website: form.website || undefined,
         supportEmail: form.supportEmail || undefined,
+        supportPhone: form.supportPhone || undefined,
+        ownerName: form.ownerName || undefined,
+        address: form.address || undefined,
         locale: form.locale,
         currency: form.currency,
         timezone: form.timezone,
@@ -209,8 +255,14 @@ function CreateWorkspaceDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button><PlusIcon /> New workspace</Button>} />
-      <DialogContent className="sm:max-w-lg">
+      <DialogTrigger
+        render={
+          <Button>
+            <PlusIcon /> New workspace
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create a workspace</DialogTitle>
           <DialogDescription>
@@ -219,110 +271,145 @@ function CreateWorkspaceDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ws-name">Company or project name</Label>
-            <Input
-              id="ws-name"
-              value={form.name}
-              placeholder="Northwind Print Co"
-              onChange={(event) => set("name")(event.target.value)}
-            />
-          </div>
+        <DialogBody>
+          <Tabs
+            value={mode}
+            onValueChange={(value) => setMode(value as "form" | "prompt")}
+          >
+            <TabsList className="w-full">
+              <TabsTrigger value="form">
+                <PlusIcon /> Create now
+              </TabsTrigger>
+              <TabsTrigger value="prompt">
+                <MagicWandIcon /> Setup prompt
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ws-tagline">Tagline</Label>
-              <Input
-                id="ws-tagline"
-                value={form.tagline}
-                placeholder="Commercial print & packaging"
-                onChange={(event) => set("tagline")(event.target.value)}
+            <TabsContent value="prompt" className="pt-3">
+              <SetupPromptFields
+                basics={form}
+                setBasic={set}
+                options={options}
+                setOptions={setOptions}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ws-industry">Industry</Label>
-              <Input
-                id="ws-industry"
-                value={form.industry}
-                placeholder="Commercial printing"
-                onChange={(event) => set("industry")(event.target.value)}
-              />
-            </div>
-          </div>
+            </TabsContent>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ws-description">
-              What the business does
-              <span className="ml-1 font-normal text-muted-foreground">
-                — agents are grounded in this
-              </span>
-            </Label>
-            <Textarea
-              id="ws-description"
-              rows={3}
-              value={form.description}
-              placeholder="Northwind supplies business stationery, marketing print and branded merchandise to UK businesses. Quotes are prepared by the sales team."
-              onChange={(event) => set("description")(event.target.value)}
-            />
-          </div>
+            <TabsContent value="form" className="pt-3">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ws-name">Company or project name</Label>
+                  <Input
+                    id="ws-name"
+                    value={form.name}
+                    placeholder="Company or project name"
+                    onChange={(event) => set("name")(event.target.value)}
+                  />
+                </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ws-website">Website</Label>
-              <Input
-                id="ws-website"
-                value={form.website}
-                placeholder="https://example.com"
-                onChange={(event) => set("website")(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ws-email">Support email</Label>
-              <Input
-                id="ws-email"
-                value={form.supportEmail}
-                placeholder="hello@example.com"
-                onChange={(event) => set("supportEmail")(event.target.value)}
-              />
-            </div>
-          </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-tagline">Tagline</Label>
+                    <Input
+                      id="ws-tagline"
+                      value={form.tagline}
+                      placeholder="A short line on what the company offers"
+                      onChange={(event) => set("tagline")(event.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-industry">Industry</Label>
+                    <Input
+                      id="ws-industry"
+                      value={form.industry}
+                      placeholder="The industry the company works in"
+                      onChange={(event) => set("industry")(event.target.value)}
+                    />
+                  </div>
+                </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="ws-locale">Locale</Label>
-              <LocalePicker
-                id="ws-locale"
-                value={form.locale}
-                onValueChange={set("locale")}
-              />
-            </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="ws-currency">Currency</Label>
-              <CurrencyPicker
-                id="ws-currency"
-                value={form.currency}
-                onValueChange={set("currency")}
-              />
-            </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="ws-tz">Timezone</Label>
-              <TimezonePicker
-                id="ws-tz"
-                value={form.timezone}
-                onValueChange={set("timezone")}
-              />
-            </div>
-          </div>
-        </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ws-description">
+                    What the business does
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      — agents are grounded in this
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="ws-description"
+                    rows={3}
+                    value={form.description}
+                    placeholder="What the company sells, who its customers are and how it works with them"
+                    onChange={(event) => set("description")(event.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-website">Website</Label>
+                    <Input
+                      id="ws-website"
+                      value={form.website}
+                      placeholder="Website address"
+                      onChange={(event) => set("website")(event.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="ws-email">Support email</Label>
+                    <Input
+                      id="ws-email"
+                      value={form.supportEmail}
+                      placeholder="Email address"
+                      onChange={(event) =>
+                        set("supportEmail")(event.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="ws-locale">Locale</Label>
+                    <LocalePicker
+                      id="ws-locale"
+                      value={form.locale}
+                      onValueChange={set("locale")}
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="ws-currency">Currency</Label>
+                    <CurrencyPicker
+                      id="ws-currency"
+                      value={form.currency}
+                      onValueChange={set("currency")}
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-1.5">
+                    <Label htmlFor="ws-tz">Timezone</Label>
+                    <TimezonePicker
+                      id="ws-tz"
+                      value={form.timezone}
+                      onValueChange={set("timezone")}
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />} Create workspace
-          </Button>
+          {mode === "prompt" ? (
+            <Button onClick={copyPrompt}>
+              <CopyIcon /> Copy prompt
+            </Button>
+          ) : (
+            <Button onClick={submit} disabled={busy}>
+              {busy ? <Spinner /> : <PlusIcon />} Create workspace
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -439,8 +526,12 @@ export default function AdminWorkspacesPage() {
               <TableRow>
                 <TableHead className="min-w-44">Workspace</TableHead>
                 <TableHead className="min-w-36">Stage</TableHead>
-                <TableHead className="hidden sm:table-cell min-w-32">Channels</TableHead>
-                <TableHead className="hidden md:table-cell min-w-24">Created</TableHead>
+                <TableHead className="hidden sm:table-cell min-w-32">
+                  Channels
+                </TableHead>
+                <TableHead className="hidden md:table-cell min-w-24">
+                  Created
+                </TableHead>
                 <TableHead className="w-44" />
               </TableRow>
             </TableHeader>
@@ -501,7 +592,11 @@ export default function AdminWorkspacesPage() {
                         size="sm"
                         variant="ghost"
                         nativeButton={false}
-                        render={<Link href={`/admin/activity?workspace=${workspace._id}`} />}
+                        render={
+                          <Link
+                            href={`/admin/activity?workspace=${workspace._id}`}
+                          />
+                        }
                       >
                         <ClockCounterClockwiseIcon /> Activity
                       </Button>
@@ -527,7 +622,9 @@ export default function AdminWorkspacesPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CompanyLogo src={workspace.logoSrc} className="size-9" />
-                  <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {workspace.name}
+                  </span>
                   {workspace.status === "archived" ? (
                     <Badge variant="secondary">archived</Badge>
                   ) : null}
@@ -567,7 +664,11 @@ export default function AdminWorkspacesPage() {
                       variant="ghost"
                       nativeButton={false}
                       aria-label="Activity"
-                      render={<Link href={`/admin/activity?workspace=${workspace._id}`} />}
+                      render={
+                        <Link
+                          href={`/admin/activity?workspace=${workspace._id}`}
+                        />
+                      }
                     >
                       <ClockCounterClockwiseIcon />
                     </Button>

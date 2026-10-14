@@ -144,13 +144,43 @@ const FALLBACK_TIMEZONES = [
   "Pacific/Auckland",
 ];
 
+/** ICU still lists these under names the cities no longer use. */
+const RENAMED_TIMEZONES: Record<string, string> = {
+  "Asia/Calcutta": "Asia/Kolkata",
+  "Asia/Katmandu": "Asia/Kathmandu",
+  "Asia/Rangoon": "Asia/Yangon",
+  "Asia/Saigon": "Asia/Ho_Chi_Minh",
+  "Europe/Kiev": "Europe/Kyiv",
+};
+
+/** Countries for the zones people search by country name. */
+export const TIMEZONE_COUNTRIES: Record<string, string> = {
+  "Asia/Kolkata": "India",
+  "Asia/Dubai": "UAE",
+  "Asia/Riyadh": "Saudi Arabia",
+  "Asia/Qatar": "Qatar",
+  "Asia/Karachi": "Pakistan",
+  "Asia/Dhaka": "Bangladesh",
+  "Asia/Kathmandu": "Nepal",
+  "Asia/Colombo": "Sri Lanka",
+  "Asia/Singapore": "Singapore",
+  "Europe/London": "United Kingdom",
+  "America/New_York": "United States",
+  "Africa/Dar_es_Salaam": "Tanzania",
+  "Africa/Nairobi": "Kenya",
+  "Africa/Lagos": "Nigeria",
+  "Africa/Johannesburg": "South Africa",
+  "Australia/Sydney": "Australia",
+};
+
 /** Every IANA zone this runtime knows, UTC first. */
 export function allTimezones(): string[] {
   const enumerate = (
     Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
   ).supportedValuesOf;
   const zones = enumerate ? enumerate("timeZone") : FALLBACK_TIMEZONES;
-  return ["UTC", ...zones.filter((zone) => zone !== "UTC")];
+  const named = zones.map((zone) => RENAMED_TIMEZONES[zone] ?? zone);
+  return ["UTC", ...new Set(named.filter((zone) => zone !== "UTC"))];
 }
 
 /** "Africa/Dar_es_Salaam" → "Dar es Salaam", for a label a person reads. */

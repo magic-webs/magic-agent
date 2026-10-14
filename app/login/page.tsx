@@ -206,7 +206,7 @@ function LoginForm() {
                   type="email"
                   autoComplete="username"
                   value={setup.email}
-                  placeholder="you@company.com"
+                  placeholder="Email address"
                   onChange={(event) =>
                     setSetup((prev) => ({ ...prev, email: event.target.value }))
                   }
@@ -263,7 +263,7 @@ function LoginForm() {
                     autoFocus
                     autoComplete="off"
                     spellCheck={false}
-                    placeholder="abcde-fghjk"
+                    placeholder="Recovery code"
                     className="font-mono"
                     value={code}
                     onChange={(event) => setCode(event.target.value)}

@@ -24,7 +24,7 @@ import {
 } from "@/convex/lib/templateParts";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
-import { EVENT_TEMPLATE_BODY, templateStanding } from "@/components/marketing/format";
+import { templateStanding } from "@/components/marketing/format";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -287,7 +287,7 @@ export function TemplateDialog({
                 id="template-name"
                 value={draft.name}
                 maxLength={60}
-                placeholder="Diwali wishes"
+                placeholder="Template name"
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               />
             </div>
@@ -324,7 +324,7 @@ export function TemplateDialog({
               id="template-header"
               value={draft.header}
               maxLength={HEADER_LIMIT}
-              placeholder="Festive offer inside"
+              placeholder="Header text"
               onChange={(event) => setDraft({ ...draft, header: event.target.value })}
             />
           </div>
@@ -344,8 +344,8 @@ export function TemplateDialog({
               maxLength={1024}
               placeholder={
                 draft.occasion === "event"
-                  ? EVENT_TEMPLATE_BODY
-                  : "Happy {{event}}, {{name}}! Wishing you and your family joy and light. — {{business}}"
+                  ? "The message — use {{name}}, {{message}}, {{event}}, {{date}} and {{business}}"
+                  : "The message — use {{name}}, {{event}} and {{business}}"
               }
               onChange={(event) => setDraft({ ...draft, body: event.target.value })}
             />
@@ -366,7 +366,7 @@ export function TemplateDialog({
               id="template-footer"
               value={draft.footer}
               maxLength={FOOTER_LIMIT}
-              placeholder="Reply STOP to opt out"
+              placeholder="Footer text"
               onChange={(event) => setDraft({ ...draft, footer: event.target.value })}
             />
           </div>
@@ -400,7 +400,7 @@ export function TemplateDialog({
                     <Input
                       aria-label="Web address"
                       value={button.url}
-                      placeholder="https://example.com/offer"
+                      placeholder="Link address"
                       className="h-8 min-w-0 flex-1 font-mono text-xs"
                       onChange={(event) => setButton(index, { ...button, url: event.target.value })}
                     />
@@ -409,7 +409,7 @@ export function TemplateDialog({
                       aria-label="Phone number"
                       value={button.phone}
                       inputMode="tel"
-                      placeholder="+919876543210"
+                      placeholder="Phone number"
                       className="h-8 min-w-0 flex-1 font-mono text-xs"
                       onChange={(event) => setButton(index, { ...button, phone: event.target.value })}
                     />
@@ -496,7 +496,7 @@ export function TemplateDialog({
               <Input
                 id="template-meta"
                 value={draft.metaTemplateName}
-                placeholder={metaNameFor(draft.name || "Diwali wishes")}
+                placeholder={metaNameFor(draft.name || "Template name")}
                 className="font-mono"
                 onChange={(event) => setDraft({ ...draft, metaTemplateName: event.target.value })}
               />
@@ -511,7 +511,7 @@ export function TemplateDialog({
                 id="template-language"
                 value={draft.languageCode}
                 maxLength={10}
-                placeholder="en"
+                placeholder="Language code"
                 className="font-mono"
                 onChange={(event) => setDraft({ ...draft, languageCode: event.target.value })}
               />

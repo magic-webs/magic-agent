@@ -103,7 +103,7 @@ function ParametersEditor({
             <Input
               className="w-44 font-mono"
               value={parameter.name}
-              placeholder="postcode"
+              placeholder="parameter_name"
               onChange={(event) => patch(index, { name: event.target.value })}
             />
             <SelectField
@@ -143,7 +143,7 @@ function ParametersEditor({
           </div>
           <Input
             value={parameter.description}
-            placeholder="The UK delivery postcode, e.g. SW1A 1AA"
+            placeholder="What this parameter holds"
             onChange={(event) =>
               patch(index, { description: event.target.value })
             }
@@ -270,7 +270,7 @@ function DraftToolDialog() {
               id="t-task"
               rows={4}
               value={task}
-              placeholder="Check whether we deliver to a given UK postcode and how many working days it takes."
+              placeholder="What the tool should do"
               onChange={(event) => setTask(event.target.value)}
             />
           </div>
@@ -287,7 +287,7 @@ function DraftToolDialog() {
               rows={3}
               className="font-mono"
               value={apiHint}
-              placeholder={`GET https://api.example.com/v1/delivery?postcode={postcode}\nHeader: Authorization: Bearer <token>`}
+              placeholder="Endpoint, method and auth, if known"
               onChange={(event) => setApiHint(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
@@ -525,7 +525,7 @@ function ToolDialog({
               <Input
                 id="tf-display"
                 value={form.displayName}
-                placeholder="Check delivery postcode"
+                placeholder="Display name"
                 onChange={(event) => set("displayName", event.target.value)}
               />
             </div>
@@ -541,7 +541,7 @@ function ToolDialog({
                 className="font-mono"
                 disabled={Boolean(tool)}
                 value={form.name}
-                placeholder="check_delivery_postcode"
+                placeholder="snake_case_name"
                 onChange={(event) => set("name", event.target.value)}
               />
             </div>
@@ -553,7 +553,7 @@ function ToolDialog({
               id="tf-description"
               rows={2}
               value={form.description}
-              placeholder="Check whether we deliver to a UK postcode and how many working days it takes."
+              placeholder="What the tool does"
               onChange={(event) => set("description", event.target.value)}
             />
           </div>
@@ -563,7 +563,7 @@ function ToolDialog({
             <Input
               id="tf-when"
               value={form.whenToUse}
-              placeholder="Call it as soon as the customer gives a postcode."
+              placeholder="When the agent should call it"
               onChange={(event) => set("whenToUse", event.target.value)}
             />
           </div>
@@ -646,7 +646,7 @@ function ToolDialog({
                 <Input
                   className="flex-1 font-mono"
                   value={form.urlTemplate}
-                  placeholder="https://api.example.com/delivery?postcode={{postcode}}"
+                  placeholder="Endpoint URL — put inputs in {{double braces}}"
                   onChange={(event) => set("urlTemplate", event.target.value)}
                 />
               </div>
@@ -661,8 +661,8 @@ function ToolDialog({
                 description="Values also support {{parameter}} placeholders."
                 value={form.headers}
                 onChange={(next) => set("headers", next)}
-                keyPlaceholder="Authorization"
-                valuePlaceholder="Bearer …"
+                keyPlaceholder="Header name"
+                valuePlaceholder="Header value"
               />
 
               {form.method !== "GET" && form.method !== "DELETE" ? (
@@ -673,7 +673,7 @@ function ToolDialog({
                     rows={4}
                     className="font-mono"
                     value={form.bodyTemplate}
-                    placeholder={`{ "postcode": "{{postcode}}" }`}
+                    placeholder={`{ "key": "{{parameter_name}}" }`}
                     onChange={(event) =>
                       set("bodyTemplate", event.target.value)
                     }
@@ -708,7 +708,7 @@ function ToolDialog({
                   id="tf-search"
                   className="font-mono"
                   value={form.searchParam}
-                  placeholder="query"
+                  placeholder="parameter_name"
                   onChange={(event) => set("searchParam", event.target.value)}
                 />
               </div>

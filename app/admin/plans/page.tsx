@@ -691,7 +691,7 @@ function PlanForm({
           <Input
             id="plan-name"
             value={draft.name}
-            placeholder="Growth"
+            placeholder="Plan name"
             aria-invalid={(tried && problems.name) || undefined}
             onChange={(event) => set("name", event.target.value)}
           />
@@ -702,7 +702,7 @@ function PlanForm({
             id="plan-description"
             rows={2}
             value={draft.description}
-            placeholder="For a team with several desks and people on the inbox."
+            placeholder="Who this plan is for"
             onChange={(event) => set("description", event.target.value)}
           />
         </Field>
@@ -713,7 +713,7 @@ function PlanForm({
               id="plan-price"
               prefix={symbol}
               value={draft.price}
-              placeholder="9999"
+              placeholder="Monthly price"
               invalid={tried && problems.price}
               onChange={(value) => set("price", value)}
             />
@@ -787,9 +787,7 @@ function PlanForm({
             id="plan-features"
             rows={5}
             value={draft.features}
-            placeholder={
-              "Front desk that answers first and routes every chat\n5 custom agents\n3 human agents with full access"
-            }
+            placeholder="One feature per line"
             onChange={(event) => set("features", event.target.value)}
           />
         </Field>

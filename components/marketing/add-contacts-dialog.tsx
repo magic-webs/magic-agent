@@ -241,7 +241,7 @@ export function AddContactsDialog({
                   id="add-name"
                   value={name}
                   autoFocus
-                  placeholder="Asha Rao"
+                  placeholder="Name"
                   onChange={(event) => {
                   setName(event.target.value);
                   setProgress(null);
@@ -254,7 +254,7 @@ export function AddContactsDialog({
                   id="add-phone"
                   type="tel"
                   value={phone}
-                  placeholder="98765 43210"
+                  placeholder="Phone number"
                   onChange={(event) => {
                   setPhone(event.target.value);
                   setProgress(null);
@@ -266,7 +266,7 @@ export function AddContactsDialog({
                 <Input
                   id="add-birthday"
                   value={birthday}
-                  placeholder="Optional — 25/12 or 25 December"
+                  placeholder="Optional — day and month"
                   aria-invalid={birthdayInvalid || undefined}
                   onChange={(event) => {
                   setBirthday(event.target.value);
@@ -289,7 +289,7 @@ export function AddContactsDialog({
                 value={list}
                 autoFocus
                 className="font-mono text-xs"
-                placeholder={"Asha Rao, 98765 43210, 25/12\nVikram, +91 91234 56789\n98111 22233"}
+                placeholder="One person per line: name, phone number, birthday"
                 onChange={(event) => {
                   setList(event.target.value);
                   setProgress(null);

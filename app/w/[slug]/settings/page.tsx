@@ -275,7 +275,7 @@ export default function WorkspaceSettingsPage() {
                     id="s-webhook"
                     className="font-mono"
                     value={form.webhookUrl}
-                    placeholder="https://your-crm.example.com/hooks/magic"
+                    placeholder="Webhook URL"
                     onChange={(event) => set("webhookUrl", event.target.value)}
                   />
                 </div>

@@ -167,7 +167,7 @@ export function ImportUpload({
               id="import-name"
               value={name}
               maxLength={80}
-              placeholder="e.g. Expo visitors, March"
+              placeholder="List name"
               onChange={(event) => setName(event.target.value)}
             />
           </div>
@@ -234,7 +234,7 @@ export function ImportUpload({
             <Textarea
               rows={7}
               value={pasted}
-              placeholder={"Asha Rao, +91 98765 43210, Regular customer\nVikram, 91234 56789, Supplier"}
+              placeholder="One person per line: name, phone number, note"
               onChange={(event) => setPasted(event.target.value)}
             />
             <span className="text-xs text-muted-foreground">

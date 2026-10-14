@@ -190,7 +190,7 @@ export function CampaignComposer({
             <Input
               value={draft.title}
               maxLength={80}
-              placeholder="e.g. Monsoon sale — early access"
+              placeholder="Campaign name"
               onChange={(e) => set({ title: e.target.value })}
             />
           </Section>
@@ -225,7 +225,7 @@ export function CampaignComposer({
                   rows={2}
                   maxLength={400}
                   value={draft.message}
-                  placeholder="Flat 20% off everything this weekend, in store and online."
+                  placeholder="The message to send"
                   onChange={(e) => set({ message: e.target.value })}
                 />
               </div>

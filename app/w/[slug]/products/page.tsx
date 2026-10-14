@@ -126,34 +126,34 @@ const KINDS: Record<
     plural: "Products",
     noun: "a product",
     icon: PackageIcon,
-    name: "Business cards",
-    category: "Business stationery",
-    unit: "per 1000",
+    name: "Product name",
+    category: "Category",
+    unit: "What the price is per",
   },
   service: {
     label: "Service",
     plural: "Services",
     noun: "a service",
     icon: WrenchIcon,
-    name: "Logo design",
-    category: "Design services",
-    unit: "per hour",
+    name: "Service name",
+    category: "Category",
+    unit: "What the price is per",
   },
   brochure: {
     label: "Brochure",
     plural: "Brochures",
     noun: "a brochure",
     icon: BookOpenTextIcon,
-    name: "2026 product brochure",
-    category: "Brochures",
+    name: "Brochure name",
+    category: "Category",
   },
   other: {
     label: "Other",
     plural: "Other",
     noun: "a document",
     icon: FolderIcon,
-    name: "Price list",
-    category: "Documents",
+    name: "Document name",
+    category: "Category",
   },
 };
 
@@ -450,7 +450,7 @@ function ProductDialog({
                 <Input
                   id="p-example"
                   value={form.exampleSpec}
-                  placeholder="55 × 85mm, 4 colour on 450gsm silk, matt laminated both sides"
+                  placeholder="A typical specification"
                   onChange={(event) => set("exampleSpec", event.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -465,7 +465,7 @@ function ProductDialog({
             label="Tags"
             value={form.tags}
             onChange={(next) => set("tags", next)}
-            placeholder="corporate"
+            placeholder="Tag"
           />
 
           <KeyValueEditor
@@ -473,8 +473,8 @@ function ProductDialog({
             description="Extra facts the agent may state — lead time, minimum order, finish options."
             value={form.attributes}
             onChange={(next) => set("attributes", next)}
-            keyPlaceholder="Lead time"
-            valuePlaceholder="5 working days"
+            keyPlaceholder="Attribute"
+            valuePlaceholder="Value"
           />
 
           <div className="flex flex-col gap-1.5">
@@ -483,7 +483,7 @@ function ProductDialog({
               id="p-notes"
               rows={2}
               value={form.notes}
-              placeholder="Always ask whether they need matching letterheads."
+              placeholder="Anything the agent should keep in mind"
               onChange={(event) => set("notes", event.target.value)}
             />
           </div>
@@ -624,7 +624,7 @@ function ImportDialog() {
               <Textarea
                 rows={4}
                 value={brief}
-                placeholder="Optional: anything specific about the range — e.g. we only do litho, no digital; packaging is our biggest line."
+                placeholder="Optional: anything specific about the range"
                 onChange={(event) => setBrief(event.target.value)}
               />
               <Button onClick={runDraft} disabled={busy}>

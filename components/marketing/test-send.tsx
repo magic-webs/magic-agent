@@ -115,7 +115,7 @@ export function TestSendButton({
             type="tel"
             value={number}
             autoFocus
-            placeholder="98765 43210"
+            placeholder="Phone number"
             onChange={(event) => setNumber(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && number.trim() && !busy) void send();

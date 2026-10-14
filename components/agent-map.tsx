@@ -171,7 +171,7 @@ function Inspector({
               id="routing"
               rows={4}
               value={draft.routingDescription}
-              placeholder="…the person asks about escrow, payouts or when they will be paid."
+              placeholder="When this agent should take over the conversation"
               onChange={(event) =>
                 set("routingDescription", event.target.value)
               }

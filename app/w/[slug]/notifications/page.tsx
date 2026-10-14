@@ -231,7 +231,7 @@ function SendersDialog({
                     id="country-code"
                     value={countryCode}
                     inputMode="numeric"
-                    placeholder="91"
+                    placeholder="Country code"
                     onChange={(change) =>
                       setCountryCode(change.target.value.replace(/\D/g, "").slice(0, 4))
                     }
@@ -268,7 +268,7 @@ function SendersDialog({
                   id="reply-to"
                   type="email"
                   value={replyTo}
-                  placeholder="support@yourcompany.com"
+                  placeholder="Email address"
                   onChange={(change) => setReplyTo(change.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -288,7 +288,7 @@ function SendersDialog({
               <Input
                 type="email"
                 value={testTo}
-                placeholder="you@yourcompany.com"
+                placeholder="Email address"
                 onChange={(change) => setTestTo(change.target.value)}
               />
               <Button
@@ -427,7 +427,7 @@ function TemplateDialog({
                   <Input
                     id="send-to"
                     value={to}
-                    placeholder="+91 98765 43210"
+                    placeholder="Phone number"
                     onChange={(change) => setTo(change.target.value)}
                   />
                 </div>
@@ -596,7 +596,7 @@ function EmailDialog({
                 id="email-name"
                 value={name}
                 maxLength={60}
-                placeholder="Booking confirmation"
+                placeholder="Template name"
                 onChange={(change) => setName(change.target.value)}
               />
             </div>
@@ -606,7 +606,7 @@ function EmailDialog({
                 id="email-subject"
                 {...fields.bind("subject")}
                 value={subject}
-                placeholder="Your booking {{record.reference}} is confirmed"
+                placeholder="Subject — use {{variables}} from the event"
                 onChange={(change) => setSubject(change.target.value)}
               />
             </div>
@@ -635,8 +635,8 @@ function EmailDialog({
               className={cn(format === "html" && "font-mono text-xs")}
               placeholder={
                 format === "html"
-                  ? "<p>Hi {{record.person.name}},</p>\n<p>Thanks — we have your booking.</p>"
-                  : "Hi {{record.person.name}},\n\nThanks — we have your booking."
+                  ? "The message as HTML — use {{variables}} from the event"
+                  : "The message — use {{variables}} from the event"
               }
               onChange={(change) => setBody(change.target.value)}
             />
@@ -705,7 +705,7 @@ function EmailDialog({
                           id="email-to"
                           type="email"
                           value={to}
-                          placeholder="name@company.com"
+                          placeholder="Email address"
                           onChange={(change) => setTo(change.target.value)}
                         />
                       </div>

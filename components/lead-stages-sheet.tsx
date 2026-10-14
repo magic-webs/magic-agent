@@ -219,7 +219,7 @@ function StageForm({
           <Input
             id="stage-name"
             value={name}
-            placeholder="Site visit booked"
+            placeholder="Stage name"
             onChange={(event) => setName(event.target.value)}
           />
         </div>
@@ -229,7 +229,7 @@ function StageForm({
             id="stage-description"
             rows={5}
             value={description}
-            placeholder="They have agreed a date to visit the site and it has been confirmed with them."
+            placeholder="What has happened when a lead is at this stage"
             onChange={(event) => setDescription(event.target.value)}
           />
         </div>

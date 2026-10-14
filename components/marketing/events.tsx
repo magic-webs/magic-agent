@@ -555,7 +555,7 @@ export function CampaignDialog({
               id="campaign-title"
               value={draft.title}
               maxLength={80}
-              placeholder="Store launch, pottery workshop, monsoon sale…"
+              placeholder="Event name"
               onChange={(event) => set("title", event.target.value)}
             />
           </div>
@@ -585,7 +585,7 @@ export function CampaignDialog({
                 id="campaign-venue"
                 value={draft.venue}
                 maxLength={120}
-                placeholder="MG Road store, or online"
+                placeholder="Where it happens"
                 onChange={(event) => set("venue", event.target.value)}
               />
             </div>
@@ -610,7 +610,7 @@ export function CampaignDialog({
                 id="campaign-offer"
                 value={draft.offer}
                 maxLength={200}
-                placeholder="Optional — 20% off for anyone who comes"
+                placeholder="Optional — what attendees get"
                 onChange={(event) => set("offer", event.target.value)}
               />
             </div>

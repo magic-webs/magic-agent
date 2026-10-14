@@ -1185,7 +1185,7 @@ function ContactNotes({
       <Textarea
         value={draft}
         rows={3}
-        placeholder="Anything the team should know — preferences, what was promised, who to ask for."
+        placeholder="Notes for the team"
         className="min-h-20 bg-background text-xs"
         aria-label="Notes on this contact"
         onChange={(event) => setDraft(event.target.value)}

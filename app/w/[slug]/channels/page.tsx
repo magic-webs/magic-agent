@@ -411,7 +411,7 @@ function ChannelDialog({
               <Input
                 id="c-name"
                 value={form.name}
-                placeholder="Sales line"
+                placeholder="Channel name"
                 onChange={(event) => set("name", event.target.value)}
               />
             </div>
@@ -437,7 +437,7 @@ function ChannelDialog({
                 id="c-phone-id"
                 className="font-mono"
                 value={form.phoneNumberId}
-                placeholder="1193127380558970"
+                placeholder="Phone number ID"
                 onChange={(event) => set("phoneNumberId", event.target.value)}
               />
             </div>
@@ -446,7 +446,7 @@ function ChannelDialog({
               <Input
                 id="c-display"
                 value={form.displayPhoneNumber}
-                placeholder="+44 20 1234 5678"
+                placeholder="Phone number"
                 onChange={(event) =>
                   set("displayPhoneNumber", event.target.value)
                 }
@@ -458,7 +458,7 @@ function ChannelDialog({
                 id="c-waba"
                 className="font-mono"
                 value={form.wabaId}
-                placeholder="929631712864905"
+                placeholder="WABA ID"
                 onChange={(event) => set("wabaId", event.target.value)}
               />
             </div>
@@ -468,7 +468,7 @@ function ChannelDialog({
                 id="c-business"
                 className="font-mono"
                 value={form.businessId}
-                placeholder="137585743854089"
+                placeholder="Business ID"
                 onChange={(event) => set("businessId", event.target.value)}
               />
             </div>
@@ -488,7 +488,7 @@ function ChannelDialog({
               type="password"
               className="font-mono"
               value={form.accessToken}
-              placeholder={channelId ? "••••••••" : "EAAG…"}
+              placeholder={channelId ? "••••••••" : "Access token"}
               onChange={(event) => set("accessToken", event.target.value)}
             />
           </div>
@@ -630,7 +630,7 @@ function WebChannelDialog({
               <Input
                 id="w-name"
                 value={form.name}
-                placeholder="Homepage Chat"
+                placeholder="Channel name"
                 onChange={(event) => set("name", event.target.value)}
               />
             </div>
@@ -774,7 +774,7 @@ function InstagramDialog({
             <Input
               id="ig-name"
               value={form.name}
-              placeholder="Instagram"
+              placeholder="Channel name"
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, name: event.target.value }))
               }

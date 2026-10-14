@@ -559,7 +559,7 @@ export function EventDialog({
                   id="event-title"
                   value={draft.title}
                   maxLength={80}
-                  placeholder="Diwali, store anniversary, summer sale…"
+                  placeholder="Occasion name"
                   onChange={(event) => setDraft({ ...draft, title: event.target.value })}
                 />
                 <p className="text-xs text-muted-foreground">

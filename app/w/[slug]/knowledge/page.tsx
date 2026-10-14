@@ -221,7 +221,7 @@ function AddSourceDialog() {
             <Input
               id="src-title"
               value={title}
-              placeholder="Delivery and returns policy"
+              placeholder="Title"
               onChange={(event) => setTitle(event.target.value)}
             />
           </div>
@@ -276,7 +276,7 @@ function AddSourceDialog() {
               rows={9}
               value={text}
               placeholder={
-                "Q: Do you deliver outside the UK?\nA: No, UK mainland only.\n\nQ: What is the minimum order?\nA: £75 excluding VAT."
+                "Q: Question\nA: Answer\n\nQ: Question\nA: Answer"
               }
               onChange={(event) => setText(event.target.value)}
             />
@@ -291,7 +291,7 @@ function AddSourceDialog() {
           <TabsContent value="url" className="flex flex-col gap-3 pt-3">
             <Input
               value={url}
-              placeholder="https://example.com/delivery-policy"
+              placeholder="Page address"
               onChange={(event) => setUrl(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">

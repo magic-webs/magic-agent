@@ -334,7 +334,7 @@ function NewAgentDialog() {
                 id="brief"
                 rows={5}
                 value={brief}
-                placeholder="Qualify inbound printing enquiries on WhatsApp. Find out the product, quantity and specs, never quote a price, collect delivery details, then hand a complete enquiry to the sales team."
+                placeholder="What this agent should achieve"
                 onChange={(event) => setBrief(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
@@ -353,7 +353,7 @@ function NewAgentDialog() {
               <Input
                 id="agent-name"
                 value={manual.name}
-                placeholder="Sales qualifier"
+                placeholder="Agent name"
                 onChange={(event) =>
                   setManual((prev) => ({ ...prev, name: event.target.value }))
                 }
@@ -365,7 +365,7 @@ function NewAgentDialog() {
                 <Input
                   id="bot-name"
                   value={manual.botName}
-                  placeholder="John"
+                  placeholder="Display name"
                   onChange={(event) =>
                     setManual((prev) => ({
                       ...prev,
@@ -379,7 +379,7 @@ function NewAgentDialog() {
                 <Input
                   id="agent-role"
                   value={manual.role}
-                  placeholder="AI Sales Consultant"
+                  placeholder="Role"
                   onChange={(event) =>
                     setManual((prev) => ({ ...prev, role: event.target.value }))
                   }
@@ -392,7 +392,7 @@ function NewAgentDialog() {
                 id="agent-routing"
                 rows={2}
                 value={manual.routingDescription}
-                placeholder="the customer wants a quote, a price, or to place an order"
+                placeholder="Situations this agent should handle"
                 onChange={(event) =>
                   setManual((prev) => ({
                     ...prev,

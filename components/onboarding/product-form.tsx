@@ -338,7 +338,7 @@ function VariantEditor({
               onChange={(event) =>
                 onChange({ ...value, label: event.target.value })
               }
-              placeholder="Colour"
+              placeholder="Option name"
               className="max-w-60"
             />
           </FormRow>
@@ -369,7 +369,7 @@ function VariantEditor({
               className="flex-1"
               value={option.name}
               onChange={(event) => patchOption(index, { name: event.target.value })}
-              placeholder="Black"
+              placeholder="Option value"
             />
             <label className="relative shrink-0" aria-label={`Colour for ${option.name || "this option"}`}>
               <input
@@ -434,7 +434,7 @@ function VariantEditor({
             });
             setCustom("");
           }}
-          placeholder="Or type your own — “Emerald”, “Small”, “Matt”"
+          placeholder="Or type your own"
         />
         <Button
           variant="outline"
@@ -488,7 +488,7 @@ function RequirementEditor({
             <Input
               className="flex-1"
               value={field.label}
-              placeholder="Ring size"
+              placeholder="Label"
               onChange={(event) =>
                 patch(index, {
                   label: event.target.value,
@@ -757,9 +757,7 @@ export function ProductForm({
             <Input
               value={draft.name}
               onChange={(event) => set("name", event.target.value)}
-              placeholder={
-                service ? "Site survey and installation" : "Illuminated fascia sign"
-              }
+              placeholder={service ? "Service name" : "Product name"}
             />
           </FormRow>
 
@@ -773,8 +771,8 @@ export function ProductForm({
               onChange={(event) => set("description", event.target.value)}
               placeholder={
                 service
-                  ? "We measure on site, check the fixing and fit the finished sign. Covers travel within 30 miles."
-                  : "Aluminium tray with an acrylic face and LED illumination, made to your shopfront width and installed by us."
+                  ? "A short description of the service"
+                  : "A short description of the product"
               }
             />
           </FormRow>
@@ -788,7 +786,7 @@ export function ProductForm({
               <Input
                 value={draft.category}
                 onChange={(event) => set("category", event.target.value)}
-                placeholder={service ? "Services" : "Shopfront signage"}
+                placeholder="Category"
               />
             </FormRow>
             <FormRow
@@ -799,7 +797,7 @@ export function ProductForm({
               <Input
                 value={draft.price}
                 onChange={(event) => set("price", event.target.value)}
-                placeholder="450"
+                placeholder="Price"
                 aria-invalid={priceBroken}
               />
             </FormRow>
@@ -811,7 +809,7 @@ export function ProductForm({
               <Input
                 value={draft.unit}
                 onChange={(event) => set("unit", event.target.value)}
-                placeholder={service ? "per visit" : "per linear metre"}
+                placeholder="What the price is per"
               />
             </FormRow>
           </div>
@@ -826,7 +824,7 @@ export function ProductForm({
             label="Tags"
             value={draft.tags}
             onChange={(tags) => set("tags", tags)}
-            placeholder="made to measure"
+            placeholder="Add a tag"
           />
         </CardContent>
       </Card>
@@ -915,7 +913,7 @@ export function ProductForm({
               rows={2}
               value={draft.notes}
               onChange={(event) => set("notes", event.target.value)}
-              placeholder="Under 10 pieces carries a small-run surcharge."
+              placeholder="Notes for the agent only"
             />
           </FormRow>
         </CardContent>

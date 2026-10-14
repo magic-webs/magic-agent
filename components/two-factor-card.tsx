@@ -411,7 +411,7 @@ function DisableDialog({ onClose }: { onClose: () => void }) {
           {useRecovery ? (
             <Input
               autoFocus
-              placeholder="abcde-fghjk"
+              placeholder="Recovery code"
               className="font-mono"
               value={code}
               onChange={(event) => setCode(event.target.value)}

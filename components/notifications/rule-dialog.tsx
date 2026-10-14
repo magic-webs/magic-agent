@@ -375,7 +375,7 @@ export function RuleDialog({
                 id="rule-name"
                 value={name}
                 maxLength={60}
-                placeholder="Booking confirmation"
+                placeholder="Alert name"
                 onChange={(change) => setName(change.target.value)}
               />
             </div>
@@ -828,8 +828,8 @@ export function RuleDialog({
                 value={recipientDraft}
                 placeholder={
                   channel === "whatsapp"
-                    ? "+91 98765 43210, or a {{variable}}"
-                    : "name@company.com, or a {{variable}}"
+                    ? "Phone number, or a {{variable}}"
+                    : "Email address, or a {{variable}}"
                 }
                 onChange={(change) => setRecipientDraft(change.target.value)}
                 onKeyDown={(press) => {

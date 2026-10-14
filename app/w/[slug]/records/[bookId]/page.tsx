@@ -513,7 +513,7 @@ function WebhookDialog({
             <Input
               id="hook-name"
               value={form.name}
-              placeholder="Zapier, Ops Slack, membership system…"
+              placeholder="Webhook name"
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, name: event.target.value }))
               }
@@ -525,7 +525,7 @@ function WebhookDialog({
             <Input
               id="hook-url"
               value={form.url}
-              placeholder="https://hooks.zapier.com/…"
+              placeholder="Webhook address"
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, url: event.target.value }))
               }
@@ -1270,7 +1270,7 @@ export default function RecordBookPage({
                   </>
                 }
                 addLabel="Add detail"
-                labelPlaceholder="Label — e.g. Preferred date"
+                labelPlaceholder="Label"
                 examplePlaceholder="Example answer — helps the agent phrase the question"
                 value={draft.fields}
                 onChange={(next) => setDraft({ ...draft, fields: next })}
@@ -1281,7 +1281,7 @@ export default function RecordBookPage({
               <StringListEditor
                 label="Stages"
                 description="What one of these moves through after it is filed. The first is where a new one starts. Leave empty if it is simply a thing that happened."
-                placeholder="Requested"
+                placeholder="Stage name"
                 value={draft.stages}
                 onChange={(next) => setDraft({ ...draft, stages: next })}
               />

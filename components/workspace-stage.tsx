@@ -163,7 +163,7 @@ export function WorkspaceStagePicker({
               id="ws-stage"
               value={draft}
               maxLength={40}
-              placeholder="Waiting on WhatsApp approval"
+              placeholder="Stage name"
               autoFocus
               onChange={(event) => setDraft(event.target.value)}
             />

@@ -253,7 +253,7 @@ function NewBookDialog({ base }: { base: string }) {
               id="book-name"
               autoFocus
               value={name}
-              placeholder="Membership"
+              placeholder="Book name"
               onChange={(event) => setName(event.target.value)}
             />
             {name.trim() ? (
@@ -268,7 +268,7 @@ function NewBookDialog({ base }: { base: string }) {
             <Input
               id="book-plural"
               value={plural}
-              placeholder={name.trim() ? `${name.trim()}s` : "Memberships"}
+              placeholder={name.trim() ? `${name.trim()}s` : "Plural name"}
               onChange={(event) => setPlural(event.target.value)}
             />
           </div>
@@ -279,7 +279,7 @@ function NewBookDialog({ base }: { base: string }) {
               id="book-purpose"
               rows={2}
               value={purpose}
-              placeholder="When someone signs up, asks to join, or wants to renew."
+              placeholder="When an agent should file one"
               onChange={(event) => setPurpose(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">

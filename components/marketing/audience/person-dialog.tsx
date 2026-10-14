@@ -158,7 +158,7 @@ export function PersonDialog({
               <Input
                 id="person-birthday"
                 value={birthday}
-                placeholder="25 Dec"
+                placeholder="Day and month"
                 onChange={(e) => setBirthday(e.target.value)}
               />
             </div>

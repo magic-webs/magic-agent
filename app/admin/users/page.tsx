@@ -169,7 +169,7 @@ function UserDialog({
                 type="email"
                 autoComplete="off"
                 value={form.email}
-                placeholder="owner@company.com"
+                placeholder="Email address"
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, email: event.target.value }))
                 }

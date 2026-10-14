@@ -144,7 +144,7 @@ function AgentForm({
           <Input
             value={draft.name}
             onChange={(event) => set("name", event.target.value)}
-            placeholder="Sales qualifier"
+            placeholder="Agent name"
           />
         </FormRow>
         <FormRow
@@ -155,7 +155,7 @@ function AgentForm({
           <Input
             value={draft.botName}
             onChange={(event) => set("botName", event.target.value)}
-            placeholder="Priya"
+            placeholder="Name customers see"
           />
         </FormRow>
       </div>
@@ -186,7 +186,7 @@ function AgentForm({
         <Input
           value={draft.role}
           onChange={(event) => set("role", event.target.value)}
-          placeholder="AI sales consultant"
+          placeholder="Role"
         />
       </FormRow>
 
@@ -199,7 +199,7 @@ function AgentForm({
           rows={2}
           value={draft.objective}
           onChange={(event) => set("objective", event.target.value)}
-          placeholder="Work out what the customer needs, quote from the catalogue, and capture a complete enquiry."
+          placeholder="What a successful conversation achieves"
         />
       </FormRow>
 
@@ -212,9 +212,7 @@ function AgentForm({
           rows={4}
           value={draft.jobDescription}
           onChange={(event) => set("jobDescription", event.target.value)}
-          placeholder={
-            "Greet the customer.\nAsk what they are making and how many.\nCheck the catalogue before quoting.\nConfirm everything back, then record the enquiry."
-          }
+          placeholder="The steps the agent should follow, one per line"
         />
       </FormRow>
 
@@ -226,7 +224,7 @@ function AgentForm({
           rows={2}
           value={draft.routingDescription}
           onChange={(event) => set("routingDescription", event.target.value)}
-          placeholder="the customer asks about pricing, quantities, lead times or anything in the catalogue"
+          placeholder="When this agent should take over the conversation"
         />
       </FormRow>
 
@@ -235,7 +233,7 @@ function AgentForm({
         description="Hard instructions, added to every reply this agent writes."
         value={draft.rules}
         onChange={(rules) => set("rules", rules)}
-        placeholder="Quote only prices stored on the product"
+        placeholder="Add an instruction"
       />
 
       <StringListEditor
@@ -243,7 +241,7 @@ function AgentForm({
         description="Hard limits, not preferences."
         value={draft.guardrails}
         onChange={(guardrails) => set("guardrails", guardrails)}
-        placeholder="Promise a delivery date you have not been given"
+        placeholder="Add a limit"
       />
 
       <div className="flex gap-2">

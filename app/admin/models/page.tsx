@@ -225,7 +225,7 @@ function EditDialog({
                 id="m-notes"
                 rows={2}
                 value={form.notes}
-                placeholder="Re-check the catalogue price in March."
+                placeholder="Anything to remember about this model"
                 onChange={(event) => set("notes", event.target.value)}
               />
             </div>

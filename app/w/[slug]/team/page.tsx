@@ -586,7 +586,7 @@ function MemberDialog({
               <Input
                 id="member-name"
                 value={name}
-                placeholder="Priya Raman"
+                placeholder="Full name"
                 onChange={(event) => setName(event.target.value)}
               />
             </div>
@@ -595,7 +595,7 @@ function MemberDialog({
               <Input
                 id="member-role"
                 value={role}
-                placeholder="Sales lead"
+                placeholder="Role"
                 onChange={(event) => setRole(event.target.value)}
               />
             </div>
@@ -605,7 +605,7 @@ function MemberDialog({
                 id="member-email"
                 type="email"
                 value={email}
-                placeholder="priya@example.com"
+                placeholder="Email address"
                 onChange={(event) => setEmail(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
@@ -617,7 +617,7 @@ function MemberDialog({
               <Input
                 id="member-phone"
                 value={phone}
-                placeholder="+91 98200 12345"
+                placeholder="Phone number"
                 onChange={(event) => setPhone(event.target.value)}
               />
             </div>
@@ -629,7 +629,7 @@ function MemberDialog({
               id="member-note"
               value={note}
               rows={2}
-              placeholder="Covers weekends. Escalate wiring questions here."
+              placeholder="Notes about this member"
               onChange={(event) => setNote(event.target.value)}
             />
           </div>

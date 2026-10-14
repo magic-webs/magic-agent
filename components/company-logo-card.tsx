@@ -165,7 +165,7 @@ export function CompanyLogoCard() {
               <Input
                 id="c-logo-link"
                 value={link}
-                placeholder="https://example.com/logo.png"
+                placeholder="Image address"
                 onChange={(event) => setLink(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") void applyLink();

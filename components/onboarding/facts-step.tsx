@@ -37,18 +37,6 @@ import { FloppyDiskIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 /** A row carries its own id: two facts can share a key while being typed. */
 type Row = { id: number; key: string; value: string };
 
-/** What each suggested key is usually filled with, as the placeholder. */
-const EXAMPLES: Record<string, string> = {
-  "Opening hours": "Mon–Fri 8am–6pm, Sat 9am–1pm, closed Sunday",
-  Delivery: "Free within 20 miles, £35 nationwide, 3–5 working days",
-  "Payment terms": "50% deposit to start, balance on completion. Card or BACS.",
-  "Lead time": "Standard jobs ship in 7 working days, rush in 48 hours",
-  "Returns policy": "Bespoke items are not returnable; stock items 14 days",
-  "Service area": "Yorkshire and the north east; nationwide by arrangement",
-  "Minimum order": "£150 excluding VAT",
-  Warranty: "Two years on all installed signage, parts and labour",
-};
-
 export function FactsStep() {
   const workspace = useWorkspace();
   const router = useRouter();
@@ -142,7 +130,7 @@ export function FactsStep() {
                       onChange={(event) =>
                         patch(row.id, { key: event.target.value })
                       }
-                      placeholder="Opening hours"
+                      placeholder="Topic"
                     />
                   </FormRow>
                 </div>
@@ -173,7 +161,7 @@ export function FactsStep() {
                   onChange={(event) =>
                     patch(row.id, { value: event.target.value })
                   }
-                  placeholder={EXAMPLES[row.key.trim()] ?? "Mon–Fri 8am–6pm"}
+                  placeholder="What the agents should tell customers"
                 />
               </FormRow>
             </div>

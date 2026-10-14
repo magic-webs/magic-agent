@@ -14,6 +14,7 @@ import {
   CURRENCIES,
   LOCALES,
   allTimezones,
+  TIMEZONE_COUNTRIES,
   timezoneCity,
   timezoneOffset,
 } from "@/convex/lib/regional";
@@ -171,7 +172,7 @@ export function CurrencyPicker(props: PickerProps) {
       {...props}
       options={CURRENCY_OPTIONS}
       placeholder="Pick a currency"
-      searchPlaceholder="Search, e.g. TZS or shilling"
+      searchPlaceholder="Search a currency"
       emptyLabel="No currency matches."
     />
   );
@@ -189,7 +190,7 @@ export function LocalePicker(props: PickerProps) {
       {...props}
       options={LOCALE_OPTIONS}
       placeholder="Pick a locale"
-      searchPlaceholder="Search, e.g. Swahili or en-TZ"
+      searchPlaceholder="Search a language or region"
       emptyLabel="No locale matches."
     />
   );
@@ -201,7 +202,9 @@ export function TimezonePicker(props: PickerProps) {
   const options = useMemo<Option[]>(() => {
     const now = new Date();
     return allTimezones().map((zone) => {
-      const region = zone.includes("/") ? zone.split("/")[0] : null;
+      const region =
+        TIMEZONE_COUNTRIES[zone] ??
+        (zone.includes("/") ? zone.split("/")[0] : null);
       return {
         value: zone,
         label: region ? `${timezoneCity(zone)} · ${region}` : zone,
@@ -215,7 +218,7 @@ export function TimezonePicker(props: PickerProps) {
       {...props}
       options={options}
       placeholder="Pick a timezone"
-      searchPlaceholder="Search a city, e.g. Dar es Salaam"
+      searchPlaceholder="Search a city or country"
       emptyLabel="No timezone matches."
     />
   );

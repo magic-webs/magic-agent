@@ -306,7 +306,7 @@ export default function AgentTestPage({
             rows={2}
             value={input}
             disabled={!sessionId}
-            placeholder="Type as a customer would — e.g. “I need 500 business cards”"
+            placeholder="Type as a customer would"
             className="resize-none"
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {

@@ -234,7 +234,7 @@ export function KnowledgeStep() {
                 <Input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Delivery and returns"
+                  placeholder="Title"
                 />
               </FormRow>
 
@@ -243,7 +243,7 @@ export function KnowledgeStep() {
                   <Input
                     value={url}
                     onChange={(event) => setUrl(event.target.value)}
-                    placeholder="https://northgatesigns.co.uk/delivery"
+                    placeholder="Page address"
                   />
                 </FormRow>
               ) : (
@@ -256,8 +256,8 @@ export function KnowledgeStep() {
                     onChange={(event) => setBody(event.target.value)}
                     placeholder={
                       kind === "faq"
-                        ? "Q: How long does delivery take?\nA: Three to five working days within the UK.\n\nQ: Do you install?\nA: Yes, anywhere in Yorkshire."
-                        : "Free delivery within 20 miles of Leeds. Nationwide is £35 and takes three to five working days…"
+                        ? "Q: Question\nA: Answer\n\nQ: Question\nA: Answer"
+                        : "What the agents should know"
                     }
                   />
                 </FormRow>

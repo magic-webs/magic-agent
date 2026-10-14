@@ -1131,7 +1131,7 @@ function BillingDetails({
         {field("billingPhone", "Phone, with country code", {
           type: "tel",
           autoComplete: "tel",
-          placeholder: "+919876543210",
+          placeholder: "Phone number",
         })}
         <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="billing-address">Address</Label>
@@ -1145,7 +1145,7 @@ function BillingDetails({
             onChange={(event) => set("billingAddress")(event.target.value)}
           />
         </div>
-        {field("billingState", "State", { placeholder: "Karnataka" })}
+        {field("billingState", "State", { placeholder: "State" })}
       </CardContent>
       {canEdit ? (
         // Not held back until something changes: until the first save the

@@ -579,7 +579,7 @@ export default function AgentConfigPage({
                   <Input
                     id="f-greeting"
                     value={draft.greeting}
-                    placeholder={`Hello, you're through to ${draft.botName} at ${workspace.name}. How can I help?`}
+                    placeholder="First message customers see"
                     onChange={(event) => set("greeting", event.target.value)}
                   />
                 </div>
@@ -662,7 +662,7 @@ export default function AgentConfigPage({
                         id="f-routing"
                         rows={3}
                         value={draft.routingDescription}
-                        placeholder="the customer asks about a price, a quote, or wants to place an order"
+                        placeholder="Situations this agent should handle"
                         onChange={(event) =>
                           set("routingDescription", event.target.value)
                         }
@@ -761,14 +761,14 @@ export default function AgentConfigPage({
                     value={draft.tone.traits}
                     onChange={(next) => setTone("traits", next)}
                     suggestions={TONE_TRAIT_SUGGESTIONS}
-                    placeholder="professional"
+                    placeholder="Add a trait"
                   />
                   <ChipListEditor
                     label="Should never sound"
                     value={draft.tone.avoid}
                     onChange={(next) => setTone("avoid", next)}
                     suggestions={TONE_AVOID_SUGGESTIONS}
-                    placeholder="pushy"
+                    placeholder="Add a trait"
                   />
                 </div>
 
@@ -841,7 +841,7 @@ export default function AgentConfigPage({
                   value={draft.tone.languages}
                   onChange={(next) => setTone("languages", next)}
                   suggestions={["english", "hinglish", "hindi", "german"]}
-                  placeholder="english"
+                  placeholder="Add a language"
                 />
 
                 <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
@@ -898,7 +898,7 @@ export default function AgentConfigPage({
                     label="Rules"
                     value={draft.rules}
                     onChange={(next) => set("rules", next)}
-                    placeholder="Ask for the delivery postcode before discussing lead times"
+                    placeholder="A rule the agent must follow"
                   />
                 </CardContent>
               </Card>
@@ -915,7 +915,7 @@ export default function AgentConfigPage({
                     label="Guardrails"
                     value={draft.guardrails}
                     onChange={(next) => set("guardrails", next)}
-                    placeholder="Never quote a price, even an estimate"
+                    placeholder="Something the agent must never do"
                   />
                 </CardContent>
               </Card>

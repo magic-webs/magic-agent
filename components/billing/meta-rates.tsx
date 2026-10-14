@@ -331,7 +331,7 @@ export function ImportMetaRatesDialog({
               id="meta-text"
               rows={6}
               value={text}
-              placeholder={"Market,Marketing,Utility,Authentication,Authentication-International,Service\nIndia,0.8631,0.115,0.115,2.4971,0.115"}
+              placeholder={"Market,Marketing,Utility,Authentication,Authentication-International,Service\nOne row per market, with its rate in each column"}
               className="max-h-48 font-mono text-xs"
               onChange={(event) => setText(event.target.value)}
             />

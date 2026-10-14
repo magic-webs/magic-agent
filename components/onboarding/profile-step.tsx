@@ -170,7 +170,7 @@ export function ProfileStep() {
               id="name"
               value={form.name}
               onChange={(event) => set("name", event.target.value)}
-              placeholder="Northgate Signs"
+              placeholder="Company name"
             />
           </FormRow>
 
@@ -184,7 +184,7 @@ export function ProfileStep() {
               rows={4}
               value={form.description}
               onChange={(event) => set("description", event.target.value)}
-              placeholder="We design, print and install shop signage for independent retailers across the north of England. Everything is made in our own workshop."
+              placeholder="What your business does and who it serves"
             />
           </FormRow>
 
@@ -197,7 +197,7 @@ export function ProfileStep() {
               id="industry"
               value={form.industry}
               onChange={(event) => set("industry", event.target.value)}
-              placeholder="Signage and print"
+              placeholder="Industry"
             />
           </FormRow>
 
@@ -206,7 +206,7 @@ export function ProfileStep() {
               id="tagline"
               value={form.tagline}
               onChange={(event) => set("tagline", event.target.value)}
-              placeholder="Shopfront signage, made in Leeds"
+              placeholder="Tagline"
             />
           </FormRow>
         </CardContent>
@@ -227,7 +227,7 @@ export function ProfileStep() {
                 id="phone"
                 value={form.supportPhone}
                 onChange={(event) => set("supportPhone", event.target.value)}
-                placeholder="+44 113 496 0000"
+                placeholder="Phone number"
               />
             </FormRow>
             <FormRow label="Email" htmlFor="email">
@@ -236,7 +236,7 @@ export function ProfileStep() {
                 type="email"
                 value={form.supportEmail}
                 onChange={(event) => set("supportEmail", event.target.value)}
-                placeholder="hello@northgatesigns.co.uk"
+                placeholder="Email address"
               />
             </FormRow>
           </div>
@@ -246,7 +246,7 @@ export function ProfileStep() {
               id="website"
               value={form.website}
               onChange={(event) => set("website", event.target.value)}
-              placeholder="https://northgatesigns.co.uk"
+              placeholder="Website address"
             />
           </FormRow>
 
@@ -256,7 +256,7 @@ export function ProfileStep() {
               rows={2}
               value={form.address}
               onChange={(event) => set("address", event.target.value)}
-              placeholder="Unit 4, Sheepscar Way, Leeds LS7 2BB"
+              placeholder="Address"
             />
           </FormRow>
         </CardContent>
@@ -341,7 +341,7 @@ export function ProfileStep() {
               id="ownerName"
               value={form.ownerName}
               onChange={(event) => set("ownerName", event.target.value)}
-              placeholder="Sanjeev"
+              placeholder="Your name"
               className="max-w-80"
             />
           </FormRow>

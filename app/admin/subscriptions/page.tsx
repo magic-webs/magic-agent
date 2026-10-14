@@ -1114,7 +1114,7 @@ function WalletSection({ account }: { account: AccountRow }) {
               inputMode="decimal"
               step="any"
               value={amount}
-              placeholder="500 or -500"
+              placeholder="Negative to deduct"
               aria-invalid={badAmount || undefined}
               className="pl-6 tabular-nums"
               onChange={(event) => setAmount(event.target.value)}
@@ -1126,7 +1126,7 @@ function WalletSection({ account }: { account: AccountRow }) {
             id="manage-adjust-note"
             value={note}
             maxLength={200}
-            placeholder="Refund for the failed campaign on 3 Sep"
+            placeholder="Reason for the adjustment"
             onChange={(event) => setNote(event.target.value)}
           />
         </Field>
@@ -1160,7 +1160,7 @@ function NoteSection({ account }: { account: AccountRow }) {
         aria-label="Admin note"
         rows={3}
         value={note}
-        placeholder="Six months at 20% off agreed with the owner on the call of 2 Sep."
+        placeholder="What was agreed, and with whom"
         onChange={(event) => setNote(event.target.value)}
       />
       <SaveButton busy={busy} disabled={!dirty} onClick={save}>

@@ -184,7 +184,7 @@ function MemberDialog({
                 type="email"
                 autoComplete="off"
                 value={form.email}
-                placeholder="ops@example.com"
+                placeholder="Email address"
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, email: event.target.value }))
                 }

@@ -14,6 +14,8 @@ import {
   STATUS_OPTIONS,
 } from "@/components/conversation-detail";
 import { NewConversationDialog } from "@/components/new-conversation-dialog";
+import { CrmImportDialog } from "@/components/crm-import-dialog";
+import { useSession } from "@/components/use-session";
 import { ChannelMark } from "@/components/channel-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +104,7 @@ function activitySince(activity: string, now: number): number | undefined {
 
 export default function ConversationsPage() {
   const workspace = useWorkspace();
+  const { me } = useSession();
   const agents = useQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
@@ -280,6 +283,7 @@ export default function ConversationsPage() {
               />
             </>
           ) : null}
+          {me && me.role !== "member" ? <CrmImportDialog /> : null}
           <NewConversationDialog onStarted={setSelected} />
         </div>
       </header>

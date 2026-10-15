@@ -1339,6 +1339,9 @@ export const startTurn = internalMutation({
       // A thread the marketing desk opened becomes a real conversation the
       // moment the customer answers it.
       ...(conversation.marketingOnly ? { marketingOnly: undefined } : {}),
+      ...(conversation.importedAt
+        ? { importedAt: undefined, status: conversation.status === "closed" ? "open" : conversation.status }
+        : {}),
       }
     );
 

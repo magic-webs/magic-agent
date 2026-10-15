@@ -153,6 +153,7 @@ export const conversationsTables = {
     followUpCount: v.optional(v.number()),
     lastFollowUpAt: v.optional(v.number()),
     marketingOnly: v.optional(v.boolean()),
+    importedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
@@ -233,6 +234,35 @@ export const conversationsTables = {
   })
     .index("by_conversation", ["conversationId"])
     .index("by_workspace", ["workspaceId"]),
+
+  crmImports: defineTable({
+    workspaceId: v.id("workspaces"),
+    channelId: v.id("channels"),
+    baseUrl: v.string(),
+    apiKey: v.optional(v.string()),
+    status: v.union(
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+    page: v.number(),
+    lastFirstChatId: v.optional(v.string()),
+    chats: v.number(),
+    messages: v.number(),
+    skipped: v.number(),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  }).index("by_workspace", ["workspaceId"]),
+
+  crmImportedChats: defineTable({
+    workspaceId: v.id("workspaces"),
+    chatId: v.string(),
+    conversationId: v.id("conversations"),
+    lastMessageAt: v.number(),
+  }).index("by_workspace_chat", ["workspaceId", "chatId"]),
 
   whatsappImageBursts: defineTable({
     channelId: v.id("channels"),

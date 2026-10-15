@@ -4,9 +4,17 @@ export const INSTAGRAM_AUTHORIZE_URL = "https://www.instagram.com/oauth/authoriz
 export const INSTAGRAM_TOKEN_URL = "https://api.instagram.com/oauth/access_token";
 export const INSTAGRAM_GRAPH = "https://graph.instagram.com";
 export const INSTAGRAM_API_VERSION = "v23.0";
+export const COMMENTS_SCOPE = "instagram_business_manage_comments";
 export const INSTAGRAM_SCOPES = [
   "instagram_business_basic",
   "instagram_business_manage_messages",
+  COMMENTS_SCOPE,
+];
+export const INSTAGRAM_WEBHOOK_FIELDS = [
+  "messages",
+  "messaging_postbacks",
+  "comments",
+  "live_comments",
 ];
 export const INSTAGRAM_TEXT_LIMIT = 1000;
 
@@ -70,6 +78,19 @@ export function instagramMessage(message: Outbound): Json | null {
     default:
       return null;
   }
+}
+
+/** The scopes a token-exchange response says were granted, in either shape Meta returns. */
+export function grantedPermissions(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    return value.split(",").map((scope) => scope.trim()).filter(Boolean);
+  }
+  return undefined;
+}
+
+export function canManageComments(permissions: string[] | undefined): boolean {
+  return Boolean(permissions?.includes(COMMENTS_SCOPE));
 }
 
 function quickReplies(
@@ -181,4 +202,77 @@ export async function parseSignedRequest(
   } catch {
     return null;
   }
+}
+
+export const MAX_ICE_BREAKERS = 4;
+export const MAX_RULE_POSTS = 20;
+export const PUBLIC_REPLY_LIMIT = 300;
+
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function tidyWords(words: string[]): string[] {
+  const seen = new Set<string>();
+  for (const word of words) {
+    const clean = word.trim().toLowerCase();
+    if (clean) seen.add(clean.slice(0, 60));
+  }
+  return [...seen].slice(0, 50);
+}
+
+/** Whole-word, case-insensitive: "price" matches "Price?" but not "priceless". */
+export function containsWord(text: string, word: string): boolean {
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escapeRegex(word.toLowerCase())}($|[^\\p{L}\\p{N}])`,
+    "u"
+  );
+  return pattern.test(text.toLowerCase());
+}
+
+const LINK_PATTERN =
+  /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|in|net|org|io|co|me|ly|xyz|info|biz|link|shop|site|online|store|top)\b)/i;
+
+/** Why a comment breaks the moderation rules without asking a model, or null. */
+export function moderationReason(
+  moderation: { blockLinks: boolean; blockedWords: string[] },
+  text: string
+): string | null {
+  if (moderation.blockLinks && LINK_PATTERN.test(text)) return "Contains a link";
+  const word = moderation.blockedWords.find((blocked) => containsWord(text, blocked));
+  return word ? `Blocked word: ${word}` : null;
+}
+
+type RuleLike = {
+  enabled: boolean;
+  match: "any" | "keywords";
+  keywords: string[];
+  posts: Array<{ id: string }>;
+  updatedAt: number;
+};
+
+/** The rule a comment fires: a keyword rule before a catch-all, a post-specific one before an account-wide one. */
+export function pickRule<T extends RuleLike>(
+  rules: T[],
+  comment: { text: string; mediaId?: string }
+): T | null {
+  const fits = rules.filter(
+    (rule) =>
+      rule.enabled &&
+      (rule.posts.length === 0 ||
+        (comment.mediaId !== undefined &&
+          rule.posts.some((post) => post.id === comment.mediaId))) &&
+      (rule.match === "any" ||
+        rule.keywords.some((keyword) => containsWord(comment.text, keyword)))
+  );
+  const rank = (rule: T) =>
+    (rule.match === "keywords" ? 0 : 2) + (rule.posts.length > 0 ? 0 : 1);
+  fits.sort((a, b) => rank(a) - rank(b) || b.updatedAt - a.updatedAt);
+  return fits[0] ?? null;
+}
+
+export function fillUsername(text: string, username: string | undefined): string {
+  return text
+    .replace(/\{\{\s*username\s*\}\}/gi, username ? `@${username}` : "")
+    .replace(/[ \t]+([!?.,])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }

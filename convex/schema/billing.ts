@@ -12,7 +12,8 @@ const usageSource = v.union(
   v.literal("review"),
   v.literal("assistant"),
   v.literal("draft_marketing"),
-  v.literal("sort_contacts")
+  v.literal("sort_contacts"),
+  v.literal("instagram")
 );
 const markup = v.object({ fixedMicros: v.number(), percent: v.number() });
 

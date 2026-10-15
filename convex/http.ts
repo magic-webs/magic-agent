@@ -513,7 +513,11 @@ http.route({
 
     let payload: {
       object?: string;
-      entry?: Array<{ id?: string | number; messaging?: unknown[] }>;
+      entry?: Array<{
+        id?: string | number;
+        messaging?: unknown[];
+        changes?: Array<{ field?: string; value?: unknown }>;
+      }>;
     };
     try {
       payload = JSON.parse(raw);
@@ -522,7 +526,7 @@ http.route({
     }
 
     console.log(
-      `[instagram] webhook object=${payload.object} entries=${payload.entry?.length ?? 0} events=${(payload.entry ?? []).reduce((n, e) => n + (e.messaging?.length ?? 0), 0)}`
+      `[instagram] webhook object=${payload.object} entries=${payload.entry?.length ?? 0} events=${(payload.entry ?? []).reduce((n, e) => n + (e.messaging?.length ?? 0), 0)} changes=${(payload.entry ?? []).reduce((n, e) => n + (e.changes?.length ?? 0), 0)}`
     );
     if (payload.object === "instagram") {
       for (const entry of payload.entry ?? []) {
@@ -531,6 +535,13 @@ http.route({
           await ctx.scheduler.runAfter(0, internal.instagram.handleInbound, {
             userId: String(entry.id),
             event,
+          });
+        }
+        for (const change of entry.changes ?? []) {
+          if (change.field !== "comments" && change.field !== "live_comments") continue;
+          await ctx.scheduler.runAfter(0, internal.instagramAutomation.handleComment, {
+            userId: String(entry.id),
+            comment: change.value ?? null,
           });
         }
       }

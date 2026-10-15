@@ -74,6 +74,11 @@ import {
   UserMultipleIcon,
   WhatsappIcon,
   Wrench01Icon,
+  InstagramIcon,
+  Comment01Icon,
+  Shield01Icon,
+  BubbleChatIcon,
+  Activity01Icon,
 } from "@hugeicons/core-free-icons";
 
 type NavItem = {
@@ -87,6 +92,24 @@ type NavItem = {
    * this both sections would light up on a book page.
    */
   exact?: boolean;
+};
+
+const INSTAGRAM_SECTION: {
+  label: string;
+  icon: IconSvgElement;
+  href?: string;
+  view?: string;
+  items: NavItem[];
+} = {
+  label: "Instagram",
+  icon: InstagramIcon,
+  items: [
+    { href: "/instagram", label: "Overview", icon: Analytics01Icon, exact: true },
+    { href: "/instagram/comments", label: "Comment rules", icon: Comment01Icon },
+    { href: "/instagram/moderation", label: "Moderation", icon: Shield01Icon },
+    { href: "/instagram/messages", label: "DM tools", icon: BubbleChatIcon },
+    { href: "/instagram/activity", label: "Activity", icon: Activity01Icon },
+  ],
 };
 
 // Eight rows where there were sixteen. Sections that hold more than one page
@@ -312,21 +335,30 @@ export default function WorkspaceLayout({
     workspace ? { workspaceId: workspace._id } : "skip"
   );
 
+  const channels = useQuery(
+    api.channels.inboxChannels,
+    workspace ? { workspaceId: workspace._id } : "skip"
+  );
+  const hasInstagram = Boolean(channels?.some((channel) => channel.type === "instagram"));
+
   const nav = useMemo(() => {
-    if (!books?.length) return NAV;
     // Plural, because the row leads to the table of them, not to one.
-    const rows: NavItem[] = books.map((book) => ({
+    const rows: NavItem[] = (books ?? []).map((book) => ({
       href: `/records/${book._id}`,
       label: book.pluralName,
       // The Orders book keeps the receipt it had as its own page.
       icon: book.handle === ORDERS_HANDLE ? ReceiptIcon : Folder01Icon,
     }));
-    return NAV.map((section) =>
-      section.label === "Leads"
-        ? { ...section, items: [...(section.items ?? []), ...rows] }
-        : section
-    );
-  }, [books]);
+    return NAV.flatMap((section) => {
+      const withBooks =
+        section.label === "Leads" && rows.length
+          ? { ...section, items: [...(section.items ?? []), ...rows] }
+          : section;
+      return section.label === "Marketing" && hasInstagram
+        ? [withBooks, INSTAGRAM_SECTION]
+        : [withBooks];
+    });
+  }, [books, hasInstagram]);
 
   if (session.me && !allowed) {
     return (

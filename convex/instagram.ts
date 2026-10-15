@@ -17,6 +17,8 @@ import {
   INSTAGRAM_GRAPH,
   INSTAGRAM_SCOPES,
   INSTAGRAM_TOKEN_URL,
+  INSTAGRAM_WEBHOOK_FIELDS,
+  grantedPermissions,
   graphUrl,
   instagramMessage,
   instagramRedirectUri,
@@ -27,10 +29,11 @@ import type { Outbound } from "./lib/whatsappSend";
 const STATE_TTL_MS = 15 * 60_000;
 const REFRESH_WITHIN_MS = 10 * 24 * 60 * 60_000;
 const EVENT_TTL_MS = 3 * 24 * 60 * 60_000;
+const ACTIVITY_TTL_MS = 90 * 24 * 60 * 60_000;
 const UNSUPPORTED =
   "Instagram cannot show that kind of message. Write it out as plain text instead.";
 
-type InstagramConfig = NonNullable<Doc<"channels">["instagram"]>;
+export type InstagramConfig = NonNullable<Doc<"channels">["instagram"]>;
 type SendResult = { ok: boolean; error?: string; wamid?: string };
 
 function appCredentials() {
@@ -39,7 +42,7 @@ function appCredentials() {
   return appId && appSecret ? { appId, appSecret } : null;
 }
 
-async function graphError(response: Response): Promise<string> {
+export async function graphError(response: Response): Promise<string> {
   const text = await response.text().catch(() => "");
   let body: unknown = null;
   try {
@@ -178,9 +181,13 @@ export const finishConnect = internalAction({
     }
     const exchanged = (await exchange.json()) as {
       access_token?: string;
-      data?: Array<{ access_token?: string }>;
+      permissions?: unknown;
+      data?: Array<{ access_token?: string; permissions?: unknown }>;
     };
     const shortToken = exchanged.access_token ?? exchanged.data?.[0]?.access_token;
+    const permissions = grantedPermissions(
+      exchanged.permissions ?? exchanged.data?.[0]?.permissions
+    );
     if (!shortToken) return fail("Instagram did not return an access token.");
 
     const longParams = new URLSearchParams({
@@ -220,7 +227,7 @@ export const finishConnect = internalAction({
     }
 
     const subscribe = await fetch(
-      graphUrl("me/subscribed_apps?subscribed_fields=messages,messaging_postbacks"),
+      graphUrl(`me/subscribed_apps?subscribed_fields=${INSTAGRAM_WEBHOOK_FIELDS.join(",")}`),
       { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!subscribe.ok) {
@@ -240,6 +247,7 @@ export const finishConnect = internalAction({
         profilePictureUrl: profile.profile_picture_url || undefined,
         accessToken,
         tokenExpiresAt,
+        permissions,
       },
     });
     if (!saved.ok) return fail(saved.error);
@@ -255,6 +263,7 @@ const instagramConfig = v.object({
   profilePictureUrl: v.optional(v.string()),
   accessToken: v.string(),
   tokenExpiresAt: v.number(),
+  permissions: v.optional(v.array(v.string())),
 });
 
 export const saveConnection = internalMutation({
@@ -334,7 +343,7 @@ export const claimEvent = internalMutation({
   },
 });
 
-async function sendOne(
+export async function sendOne(
   config: InstagramConfig,
   recipient: Record<string, string>,
   body: Record<string, unknown>
@@ -380,7 +389,7 @@ async function senderAction(
   await sendOne(config, { id: to }, { sender_action: action }).catch(() => undefined);
 }
 
-async function senderName(
+export async function senderName(
   config: InstagramConfig,
   senderId: string
 ): Promise<string | undefined> {
@@ -440,7 +449,7 @@ type InboundEvent = {
     is_echo?: boolean;
     is_deleted?: boolean;
     is_unsupported?: boolean;
-    attachments?: Array<{ type?: string }>;
+    attachments?: Array<{ type?: string; payload?: { url?: string } }>;
   };
   postback?: { mid?: string; title?: string; payload?: string };
 };
@@ -530,6 +539,13 @@ export const handleInbound = internalAction({
     await senderAction(config, from, "mark_seen");
 
     const text = (message?.text ?? event.postback?.title ?? "").trim();
+    if (message?.attachments?.some((attachment) => attachment.type === "story_mention")) {
+      return await ctx.runAction(internal.instagramAutomation.answerStoryMention, {
+        channelId: channel._id,
+        fromId: from,
+        mid,
+      });
+    }
     if (!text) {
       await send(config, from, {
         kind: "text",
@@ -746,5 +762,11 @@ export const sweep = internalMutation({
     for (const state of states) {
       if (now - state.createdAt > STATE_TTL_MS) await ctx.db.delete(state._id);
     }
+
+    const activity = await ctx.db
+      .query("instagramActivity")
+      .withIndex("by_createdAt", (q) => q.lt("createdAt", now - ACTIVITY_TTL_MS))
+      .take(1000);
+    for (const row of activity) await ctx.db.delete(row._id);
   },
 });

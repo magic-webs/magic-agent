@@ -30,6 +30,7 @@ export const conversationsTables = {
         profilePictureUrl: v.optional(v.string()),
         accessToken: v.string(),
         tokenExpiresAt: v.number(),
+        permissions: v.optional(v.array(v.string())),
       })
     ),
     status: v.union(

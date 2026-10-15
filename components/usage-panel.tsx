@@ -65,6 +65,7 @@ const SOURCE_LABELS: Record<string, string> = {
   review: "Lead reviews",
   draft_marketing: "Drafting marketing",
   sort_contacts: "Sorting contacts",
+  instagram: "Instagram automation",
 };
 
 const CHANNEL_LABELS: Record<string, string> = {

@@ -348,6 +348,10 @@ it to storage, so agents can send it with `send_media`.
 `update_birthday_wishes`,
 `add_marketing_contacts`, `export_contacts`
 
+**Instagram** — `list_instagram_rules`, `save_instagram_rule`,
+`delete_instagram_rule`, `get_instagram_settings`, `update_instagram_settings`,
+`list_instagram_activity`
+
 **Platform administration** (admin sign-in only) — `create_workspace`,
 `issue_workspace_password`, `set_workspace_access`, `set_workspace_status`,
 `delete_workspace`, `workspace_access_report`, `platform_usage`

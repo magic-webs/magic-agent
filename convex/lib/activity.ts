@@ -57,6 +57,7 @@ export const LOGGED_TABLES: Partial<Record<TableNames, TableConfig>> = {
   marketingCampaigns: { entity: "Marketing campaign", name: field("title") },
   marketingSettings: { entity: "Marketing settings" },
   audiences: { entity: "Audience", name: field("name") },
+  instagramRules: { entity: "Instagram rule", name: field("name") },
   notificationSettings: { entity: "Notification settings" },
   notificationRules: { entity: "Alert", name: field("name") },
   emailTemplates: { entity: "Email template", name: field("name") },

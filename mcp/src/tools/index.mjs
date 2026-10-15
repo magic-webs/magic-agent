@@ -21,6 +21,7 @@ import { register as operations } from "./operations.mjs";
 import { register as leads } from "./leads.mjs";
 import { register as notifications } from "./notifications.mjs";
 import { register as marketing } from "./marketing.mjs";
+import { register as instagram } from "./instagram.mjs";
 import { register as admin } from "./admin.mjs";
 
 const GROUPS = [
@@ -35,6 +36,7 @@ const GROUPS = [
   { title: "Leads", register: leads },
   { title: "Notifications", register: notifications },
   { title: "Marketing", register: marketing },
+  { title: "Instagram", register: instagram },
   { title: "Platform administration", register: admin, admin: true },
 ];
 

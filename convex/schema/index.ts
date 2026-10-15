@@ -8,8 +8,10 @@ import { integrationsTables } from "./integrations";
 import { billingTables } from "./billing";
 import { marketingTables } from "./marketing";
 import { notificationsTables } from "./notifications";
+import { instagramTables } from "./instagram";
 
 export * from "./validators";
+export * from "./instagram";
 
 export default defineSchema({
   ...authTables,
@@ -21,4 +23,5 @@ export default defineSchema({
   ...billingTables,
   ...marketingTables,
   ...notificationsTables,
+  ...instagramTables,
 });

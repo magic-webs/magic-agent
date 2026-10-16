@@ -97,15 +97,38 @@ export const list = query({
     const workspaces = allowed
       ? all.filter((workspace) => allowed.includes(workspace._id))
       : all;
+    const staff = (await ctx.db.query("admins").collect()).filter(
+      (admin) => admin.role === "member"
+    );
     return await Promise.all(
       workspaces.map(async (workspace) => {
-        const channels = await ctx.db
-          .query("channels")
-          .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
-          .collect();
+        const [channels, companyLogin, memberLogins] = await Promise.all([
+          ctx.db
+            .query("channels")
+            .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+            .collect(),
+          ctx.db
+            .query("workspaceCredentials")
+            .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+            .unique(),
+          ctx.db
+            .query("memberCredentials")
+            .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+            .collect(),
+        ]);
+        const logins = [companyLogin, ...memberLogins]
+          .map((login) => login?.lastLoginAt ?? 0)
+          .filter((time) => time > 0);
         return {
           ...workspace,
           logoSrc: await logoSrcFor(ctx, workspace),
+          managers: staff
+            .filter((admin) => admin.workspaceIds?.includes(workspace._id))
+            .map((admin) => ({
+              _id: admin._id,
+              name: admin.name?.trim() || admin.email,
+            })),
+          lastLoginAt: logins.length ? Math.max(...logins) : null,
           channels: channels.map((channel) => ({
             _id: channel._id,
             type: channel.type,

@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -111,11 +112,11 @@ export function ListSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 /** The KPI row plus the charts under it. */
-export function DashboardSkeleton() {
+export function DashboardSkeleton({ tiles = 4 }: { tiles?: number }) {
   return (
     <div className="flex flex-col gap-5" aria-hidden>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
+      <div className={cn("grid gap-3 sm:grid-cols-2", tiles > 2 && "lg:grid-cols-4")}>
+        {Array.from({ length: tiles }, (_, i) => (
           <div
             key={i}
             className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"

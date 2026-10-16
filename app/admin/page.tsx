@@ -148,7 +148,7 @@ export default function AdminOverviewPage() {
   const spending = new Set(usage.byWorkspace.map((row) => row.key));
   const quiet = active.filter((row) => !spending.has(row._id as string));
 
-  // ChannelSplit takes the two real channels; a call with no channel is the
+  // ChannelSplit takes the real channels; a call with no channel is the
   // playground and internal jobs, which is a third thing and counted below.
   const callsOn = (key: string) =>
     usage.byChannel.find((row) => row.key === key)?.calls ?? 0;
@@ -395,6 +395,7 @@ export default function AdminOverviewPage() {
           <CardContent className="flex flex-col gap-3">
             <ChannelSplit
               whatsapp={callsOn("whatsapp")}
+              instagram={callsOn("instagram")}
               web={callsOn("web")}
             />
             {/* The playground, the follow-up sweep and anything else with no

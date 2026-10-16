@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { query } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -8,6 +8,37 @@ import { AuthError, requireStaff } from "./lib/auth";
 
 const RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const PRUNE_BATCH = 500;
+
+type Actor = { actorId: string; actorLabel: string; actorRole: string };
+
+function actorNames(ctx: QueryCtx) {
+  const cache = new Map<string, Promise<string | null>>();
+  const lookup = async ({ actorId, actorRole }: Actor) => {
+    if (actorRole === "admin") {
+      const id = ctx.db.normalizeId("admins", actorId);
+      const admin = id && (await ctx.db.get("admins", id));
+      return admin ? admin.name?.trim() || null : null;
+    }
+    if (actorRole === "user") {
+      const id = ctx.db.normalizeId("users", actorId);
+      const user = id && (await ctx.db.get("users", id));
+      return user ? user.name?.trim() || null : null;
+    }
+    if (actorRole === "member") {
+      const id = ctx.db.normalizeId("teamMembers", actorId);
+      const member = id && (await ctx.db.get("teamMembers", id));
+      return member?.name.trim() || null;
+    }
+    const id = ctx.db.normalizeId("workspaces", actorId);
+    const workspace = id && (await ctx.db.get("workspaces", id));
+    return workspace?.name.trim() || null;
+  };
+  return async (actor: Actor) => {
+    const key = `${actor.actorRole}|${actor.actorId}`;
+    if (!cache.has(key)) cache.set(key, lookup(actor));
+    return (await cache.get(key)) ?? actor.actorLabel;
+  };
+}
 
 export const list = query({
   args: {
@@ -51,12 +82,16 @@ export const list = query({
       const workspace = await ctx.db.get("workspaces", row.workspaceId);
       names.set(row.workspaceId, workspace?.name ?? "Deleted workspace");
     }
+    const nameOf = actorNames(ctx);
     return {
       ...result,
-      page: result.page.map((row) => ({
-        ...row,
-        workspaceName: names.get(row.workspaceId)!,
-      })),
+      page: await Promise.all(
+        result.page.map(async (row) => ({
+          ...row,
+          actorLabel: await nameOf(row),
+          workspaceName: names.get(row.workspaceId)!,
+        }))
+      ),
     };
   },
 });
@@ -78,7 +113,7 @@ export const actors = query({
     )
       .order("desc")
       .take(500);
-    const seen = new Map<string, { actorId: string; actorLabel: string; actorRole: string }>();
+    const seen = new Map<string, Actor>();
     for (const row of rows) {
       if (!seen.has(row.actorId)) {
         seen.set(row.actorId, {
@@ -88,7 +123,13 @@ export const actors = query({
         });
       }
     }
-    return [...seen.values()];
+    const nameOf = actorNames(ctx);
+    return await Promise.all(
+      [...seen.values()].map(async (actor) => ({
+        ...actor,
+        actorLabel: await nameOf(actor),
+      }))
+    );
   },
 });
 

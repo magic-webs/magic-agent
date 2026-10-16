@@ -93,6 +93,7 @@
      against the real card surfaces (#ffffff / #1c1917). */
   --viz-series: var(--chart-3);
   --viz-series-alt: var(--chart-4);
+  --viz-series-3: var(--chart-5);
   --radius: 0.875rem;
   --sidebar: oklch(0.988 0 0);
   --sidebar-foreground: oklch(0.153 0 0);
@@ -136,6 +137,7 @@
   /* The ramp's light end — 3.65:1 against the #1c1917 card. */
   --viz-series: var(--chart-1);
   --viz-series-alt: var(--chart-2);
+  --viz-series-3: var(--chart-3);
   --sidebar: oklch(0.228 0 0);
   --sidebar-foreground: oklch(0.988 0 0);
   --sidebar-primary: oklch(0.644 0.165 150.787);
@@ -246,6 +248,7 @@
      floor — so the step is selected per mode, not reused. */
   --viz-series: var(--chart-2);
   --viz-series-alt: var(--chart-4);
+  --viz-series-3: var(--chart-5);
   --radius: 0.875rem;
   --sidebar: oklch(0.988 0.003 106.5);
   --sidebar-foreground: oklch(0.153 0.006 107.1);
@@ -289,6 +292,7 @@
   /* The ramp's light end — #009689 measures 4.62:1 on the #1d1d16 card. */
   --viz-series: var(--chart-1);
   --viz-series-alt: var(--chart-3);
+  --viz-series-3: var(--chart-5);
   --sidebar: oklch(0.228 0.013 107.4);
   --sidebar-foreground: oklch(0.988 0.003 106.5);
   --sidebar-primary: oklch(0.696 0.17 162.48);

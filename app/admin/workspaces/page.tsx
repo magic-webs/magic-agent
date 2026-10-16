@@ -168,6 +168,26 @@ function ChannelIcons({ channels }: { channels: WorkspaceChannel[] }) {
   );
 }
 
+type WorkspaceManager = FunctionReturnType<
+  typeof api.workspaces.list
+>[number]["managers"][number];
+
+function Managers({ managers }: { managers: WorkspaceManager[] }) {
+  if (managers.length === 0) {
+    return <span className="text-xs text-muted-foreground">Unassigned</span>;
+  }
+  const names = managers.map((manager) => manager.name).join(", ");
+  return (
+    <span title={names} className="block truncate text-sm">
+      {names}
+    </span>
+  );
+}
+
+function lastLogin(time: number | null): string {
+  return time ? formatDistanceToNow(time, { addSuffix: true }) : "Never";
+}
+
 function CreateWorkspaceDialog() {
   const router = useRouter();
   const createWorkspace = useMutation(api.workspaces.create);
@@ -472,7 +492,7 @@ export default function AdminWorkspacesPage() {
             className="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           />
         ) : (
-          <TableSkeleton rows={8} columns={5} />
+          <TableSkeleton rows={8} columns={7} />
         )
       ) : workspaces.length === 0 && !isAdmin ? (
         <Empty className="border border-dashed">
@@ -529,7 +549,13 @@ export default function AdminWorkspacesPage() {
                 <TableHead className="hidden sm:table-cell min-w-32">
                   Channels
                 </TableHead>
-                <TableHead className="hidden md:table-cell min-w-24">
+                <TableHead className="hidden md:table-cell min-w-32">
+                  RM
+                </TableHead>
+                <TableHead className="hidden lg:table-cell min-w-28">
+                  Last login
+                </TableHead>
+                <TableHead className="hidden xl:table-cell min-w-24">
                   Created
                 </TableHead>
                 <TableHead className="w-44" />
@@ -573,7 +599,15 @@ export default function AdminWorkspacesPage() {
                     <ChannelIcons channels={workspace.channels} />
                   </TableCell>
 
-                  <TableCell className="hidden md:table-cell text-xs whitespace-nowrap text-muted-foreground">
+                  <TableCell className="hidden md:table-cell max-w-44">
+                    <Managers managers={workspace.managers} />
+                  </TableCell>
+
+                  <TableCell className="hidden lg:table-cell text-xs whitespace-nowrap text-muted-foreground">
+                    {lastLogin(workspace.lastLoginAt)}
+                  </TableCell>
+
+                  <TableCell className="hidden xl:table-cell text-xs whitespace-nowrap text-muted-foreground">
                     {formatDistanceToNow(workspace.createdAt, {
                       addSuffix: true,
                     })}
@@ -646,6 +680,17 @@ export default function AdminWorkspacesPage() {
                     label={workspace.stageLabel}
                   />
                   <ChannelIcons channels={workspace.channels} />
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span className="min-w-0 truncate">
+                    RM:{" "}
+                    {workspace.managers.length
+                      ? workspace.managers.map((m) => m.name).join(", ")
+                      : "Unassigned"}
+                  </span>
+                  <span className="shrink-0">
+                    Login {lastLogin(workspace.lastLoginAt).toLowerCase()}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between gap-1">

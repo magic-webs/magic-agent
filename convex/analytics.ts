@@ -145,9 +145,11 @@ export const dashboard = query({
     }
 
     let whatsapp = 0;
+    let instagram = 0;
     let web = 0;
     for (const conversation of conversations) {
       if (conversation.channelType === "whatsapp") whatsapp += 1;
+      else if (conversation.channelType === "instagram") instagram += 1;
       else web += 1;
     }
 
@@ -176,7 +178,7 @@ export const dashboard = query({
         status,
         count: statusCounts.get(status) ?? 0,
       })),
-      channels: { whatsapp, web },
+      channels: { whatsapp, instagram, web },
       toolUsage: tools
         .filter((tool) => tool.callCount > 0)
         .sort((a, b) => b.callCount - a.callCount)

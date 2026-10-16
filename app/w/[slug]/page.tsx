@@ -131,11 +131,11 @@ export default function WorkspaceOverviewPage() {
       ) : null}
 
       {stats === undefined ? (
-        <DashboardSkeleton />
+        <DashboardSkeleton tiles={2} />
       ) : (
         <>
           {/* ------------------------------------------------------ KPI row */}
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-3 sm:grid-cols-2">
             <StatTile
               label="Messages"
               value={stats.totals.messages}
@@ -149,30 +149,6 @@ export default function WorkspaceOverviewPage() {
               previous={stats.previous.conversations}
               data={stats.daily}
               dataKey="conversations"
-            />
-            <StatTile
-              label="Orders captured"
-              value={stats.totals.orders}
-              previous={stats.previous.orders}
-              data={stats.daily}
-              dataKey="orders"
-            />
-            <StatTile
-              label="Avg reply time"
-              value={
-                stats.totals.avgLatencyMs === null
-                  ? null
-                  : Math.round(stats.totals.avgLatencyMs / 100) / 10
-              }
-              previous={
-                stats.previous.avgLatencyMs === null
-                  ? null
-                  : Math.round(stats.previous.avgLatencyMs / 100) / 10
-              }
-              suffix="s"
-              lowerIsBetter
-              data={stats.daily}
-              dataKey="replySeconds"
             />
           </section>
 
@@ -197,6 +173,7 @@ export default function WorkspaceOverviewPage() {
               <CardContent>
                 <ChannelSplit
                   whatsapp={stats.channels.whatsapp}
+                  instagram={stats.channels.instagram}
                   web={stats.channels.web}
                 />
               </CardContent>

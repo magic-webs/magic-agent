@@ -50,6 +50,7 @@ import { ChartLineIcon, TableIcon } from "@phosphor-icons/react";
 
 const SERIES = "var(--viz-series)"; // light --chart-3 / dark --chart-1
 const SERIES_ALT = "var(--viz-series-alt)"; // light --chart-4 / dark --chart-2
+const SERIES_THIRD = "var(--viz-series-3)";
 
 function formatDay(iso: string): string {
   const date = new Date(`${iso}T00:00:00Z`);
@@ -456,12 +457,14 @@ export function RankedBars({
 
 export function ChannelSplit({
   whatsapp,
+  instagram,
   web,
 }: {
   whatsapp: number;
+  instagram: number;
   web: number;
 }) {
-  const total = whatsapp + web;
+  const total = whatsapp + instagram + web;
   if (total === 0) {
     return (
       <NoData label="Conversations are grouped by where they arrived from." />
@@ -470,7 +473,8 @@ export function ChannelSplit({
 
   const rows = [
     { key: "whatsapp", label: "WhatsApp", value: whatsapp, tone: SERIES },
-    { key: "web", label: "Web playground", value: web, tone: SERIES_ALT },
+    { key: "instagram", label: "Instagram", value: instagram, tone: SERIES_ALT },
+    { key: "web", label: "Web chat", value: web, tone: SERIES_THIRD },
   ];
 
   return (
@@ -479,7 +483,7 @@ export function ChannelSplit({
       <div
         className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full"
         role="img"
-        aria-label={`WhatsApp ${whatsapp}, web ${web}, of ${total} conversations`}
+        aria-label={`WhatsApp ${whatsapp}, Instagram ${instagram}, web ${web}, of ${total} conversations`}
       >
         {rows
           .filter((row) => row.value > 0)

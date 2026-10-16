@@ -9,6 +9,14 @@ export const audienceSelection = v.object({
   tags: v.array(v.string()),
   excludeAudienceIds: v.array(v.id("audiences")),
   segments: v.optional(v.array(v.string())),
+  records: v.optional(
+    v.array(
+      v.object({
+        bookId: v.id("recordBooks"),
+        stages: v.optional(v.array(v.string())),
+      })
+    )
+  ),
 });
 
 export const guestSegment = v.union(

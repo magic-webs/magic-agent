@@ -44,7 +44,7 @@ async function contactForPhone(
   workspaceId: Id<"workspaces">,
   phone: string | undefined
 ) {
-  const digits = phone ? normalisePhone(phone) : null;
+  const digits = phone ? normalisePhone(phone, "91") : null;
   if (!digits) return null;
   return await ctx.db
     .query("contacts")

@@ -6,6 +6,7 @@ import { sentRecently } from "./marketingStats";
 import { tidyName } from "./contactClean";
 import { marketOf } from "./markets";
 import { inSegments } from "./segments";
+import { normalisePhone } from "./notifications";
 
 const SIZE_SCAN_CAP = 5000;
 const CAP_CHECKS = 1500;
@@ -66,15 +67,56 @@ export function knownCategories(
   return new Set((settings?.categories ?? []).map((category) => category.key));
 }
 
-export type Scope = { known?: ReadonlySet<string>; now: number };
+export type RecordMatch = { contactIds: Set<string>; phones: Set<string> };
+
+export type Scope = { known?: ReadonlySet<string>; now: number; records?: RecordMatch };
 
 export function isEveryone(selection: AudienceSelection | undefined): boolean {
   return (
     !selection ||
     (selection.audienceIds.length === 0 &&
       selection.categories.length === 0 &&
-      selection.tags.length === 0)
+      selection.tags.length === 0 &&
+      !selection.records?.length)
   );
+}
+
+/** Who has a record in the chosen books: linked contacts, and phones for the rest. */
+export async function loadRecordMatch(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  selection: AudienceSelection | undefined,
+  limit = SIZE_SCAN_CAP
+): Promise<RecordMatch | undefined> {
+  if (!selection?.records?.length) return undefined;
+  const match: RecordMatch = { contactIds: new Set(), phones: new Set() };
+  for (const choice of selection.records) {
+    const book = await ctx.db.get("recordBooks", choice.bookId);
+    if (!book || book.workspaceId !== workspaceId) continue;
+    const stages = choice.stages?.length ? choice.stages : [undefined];
+    for (const stage of stages) {
+      const rows = stage
+        ? await ctx.db
+            .query("records")
+            .withIndex("by_book_stage", (q) => q.eq("bookId", choice.bookId).eq("stage", stage))
+            .take(limit)
+        : await ctx.db
+            .query("records")
+            .withIndex("by_book", (q) => q.eq("bookId", choice.bookId))
+            .take(limit);
+      for (const row of rows) {
+        if (row.contactId) match.contactIds.add(row.contactId);
+        const digits = row.person?.phone ? normalisePhone(row.person.phone, "91") : null;
+        if (digits) match.phones.add(digits);
+      }
+    }
+  }
+  return match;
+}
+
+function inRecords(contact: Doc<"contacts">, records: RecordMatch | undefined): boolean {
+  if (!records) return false;
+  return records.contactIds.has(contact._id) || records.phones.has(contact.externalId);
 }
 
 export async function membershipsOf(
@@ -103,6 +145,11 @@ export async function inSelection(
   if (isEveryone(selection)) return true;
   if (selection.categories.includes(categoryOf(contact, scope.known))) return true;
   if (contact.tags?.some((tag) => selection.tags.includes(tag))) return true;
+  if (selection.records?.length) {
+    const records =
+      scope.records ?? (await loadRecordMatch(ctx, contact.workspaceId, selection));
+    if (inRecords(contact, records)) return true;
+  }
   return selection.audienceIds.some((id) => lists.has(id));
 }
 
@@ -135,6 +182,7 @@ export function matchesWith(
   if (isEveryone(selection)) return true;
   if (selection.categories.includes(categoryOf(contact, scope.known))) return true;
   if (contact.tags?.some((tag) => selection.tags.includes(tag))) return true;
+  if (inRecords(contact, scope.records)) return true;
   return selection.audienceIds.some(member);
 }
 
@@ -162,6 +210,7 @@ export async function measureAudience(
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .take(SIZE_SCAN_CAP);
   const sets = await loadMemberSets(ctx, selection, SIZE_SCAN_CAP);
+  const records = await loadRecordMatch(ctx, workspaceId, selection);
   const known = knownCategories(settings);
   let matched = 0;
   let optedOut = 0;
@@ -170,7 +219,7 @@ export async function measureAudience(
   const byMarket: Record<string, number> = {};
   for (const contact of contacts) {
     if (contact.channelType !== "whatsapp") continue;
-    if (!matchesWith(contact, selection, sets, { known, now })) continue;
+    if (!matchesWith(contact, selection, sets, { known, now, records })) continue;
     if (!reachable(contact)) {
       optedOut++;
       continue;

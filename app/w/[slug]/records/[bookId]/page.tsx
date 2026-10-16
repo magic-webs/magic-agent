@@ -78,6 +78,7 @@ import {
   DownloadSimpleIcon,
   EyeIcon,
   FolderOpenIcon,
+  MegaphoneIcon,
   PaperPlaneTiltIcon,
   PlusIcon,
   TrashIcon,
@@ -988,6 +989,13 @@ export default function RecordBookPage({
                 {book.status === "active" ? "Collecting" : "Paused"}
               </span>
             </div>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`${base}/marketing/campaigns/new?book=${book._id}`} />}
+            >
+              <MegaphoneIcon /> Send a campaign
+            </Button>
             <ImportRecordsDialog book={book} />
             <AddRecordDialog book={book} />
           </div>

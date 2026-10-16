@@ -39,6 +39,10 @@ async function checkAudience(
     const audience = await ctx.db.get("audiences", id);
     if (!audience || audience.workspaceId !== workspaceId) throw new ConvexError("A list was not found.");
   }
+  for (const choice of selection.records ?? []) {
+    const book = await ctx.db.get("recordBooks", choice.bookId);
+    if (!book || book.workspaceId !== workspaceId) throw new ConvexError("A record book was not found.");
+  }
 }
 
 export const list = query({

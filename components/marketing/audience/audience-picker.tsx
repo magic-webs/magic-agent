@@ -20,7 +20,10 @@ export type AudienceChoice = {
   tags: string[];
   excludeAudienceIds: Id<"audiences">[];
   segments?: string[];
+  records?: RecordChoice[];
 };
+
+export type RecordChoice = { bookId: Id<"recordBooks">; stages?: string[] };
 
 export const EVERYONE: AudienceChoice = {
   audienceIds: [],
@@ -30,7 +33,12 @@ export const EVERYONE: AudienceChoice = {
 };
 
 export function isEveryone(choice: AudienceChoice) {
-  return choice.audienceIds.length === 0 && choice.categories.length === 0 && choice.tags.length === 0;
+  return (
+    choice.audienceIds.length === 0 &&
+    choice.categories.length === 0 &&
+    choice.tags.length === 0 &&
+    !choice.records?.length
+  );
 }
 
 function toggle<T>(list: T[], value: T): T[] {
@@ -84,6 +92,7 @@ export function AudiencePicker({
   const workspace = useWorkspace();
   const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
   const summary = useQuery(api.audience.tags, { workspaceId: workspace._id });
+  const books = useQuery(api.records.listBooks, { workspaceId: workspace._id });
   const [mode, setMode] = useState<"everyone" | "some">(isEveryone(value) ? "everyone" : "some");
   const everyone = mode === "everyone";
   const nobody = !everyone && isEveryone(value);
@@ -92,6 +101,24 @@ export function AudiencePicker({
     onChange(next);
     onValidChange?.(nextMode === "everyone" || !isEveryone(next));
   };
+
+  const records = value.records ?? [];
+  const setRecords = (next: RecordChoice[]) =>
+    change({ ...value, records: next.length ? next : undefined });
+  const toggleBook = (bookId: Id<"recordBooks">) =>
+    setRecords(
+      records.some((choice) => choice.bookId === bookId)
+        ? records.filter((choice) => choice.bookId !== bookId)
+        : [...records, { bookId }]
+    );
+  const toggleStage = (bookId: Id<"recordBooks">, stage: string) =>
+    setRecords(
+      records.map((choice) => {
+        if (choice.bookId !== bookId) return choice;
+        const stages = toggle(choice.stages ?? [], stage);
+        return stages.length ? { bookId, stages } : { bookId };
+      })
+    );
 
   return (
     <div className="flex flex-col gap-3">
@@ -173,9 +200,55 @@ export function AudiencePicker({
               </div>
             </div>
           ) : null}
+          {books && books.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Record books</p>
+              <div className="flex flex-wrap gap-1.5">
+                {books.map((book) => (
+                  <Chip
+                    key={book._id}
+                    active={records.some((choice) => choice.bookId === book._id)}
+                    count={book.recordCount}
+                    onClick={() => toggleBook(book._id)}
+                  >
+                    {book.pluralName}
+                  </Chip>
+                ))}
+              </div>
+              {records.map((choice) => {
+                const book = books.find((row) => row._id === choice.bookId);
+                if (!book || book.stages.length === 0) return null;
+                return (
+                  <div key={choice.bookId} className="flex flex-wrap items-center gap-1.5 pl-2">
+                    <span className="text-xs text-muted-foreground">
+                      {book.pluralName} at
+                    </span>
+                    {book.stages.map((stage) => (
+                      <Chip
+                        key={stage}
+                        active={(choice.stages ?? []).includes(stage)}
+                        onClick={() => toggleStage(book._id, stage)}
+                      >
+                        {stage}
+                      </Chip>
+                    ))}
+                    {!choice.stages?.length ? (
+                      <span className="text-xs text-muted-foreground">any stage</span>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {records.length ? (
+                <p className="text-xs text-muted-foreground">
+                  The people those records are about, matched by their contact or
+                  phone number.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {nobody ? (
             <p className="text-xs text-destructive">
-              Pick at least one category, list or tag, or switch to everyone subscribed.
+              Pick at least one category, list, tag or record book, or switch to everyone subscribed.
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">

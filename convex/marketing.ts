@@ -52,7 +52,14 @@ import {
   audienceSelection as audienceSelectionValidator,
   guestSegment as guestSegmentValidator,
 } from "./schema/marketing";
-import { inSelection, isBuiltIn, knownCategories, reachable, withBuiltIns } from "./lib/audience";
+import {
+  inSelection,
+  isBuiltIn,
+  knownCategories,
+  loadRecordMatch,
+  reachable,
+  withBuiltIns,
+} from "./lib/audience";
 import { partsProblems, sameParts, templateButton, tidyParts } from "./lib/templateParts";
 
 /** How many contacts one send batch covers. */
@@ -995,6 +1002,9 @@ export const audiencePage = internalQuery({
     const settings = await settingsFor(ctx, args.workspaceId);
     const cap = !monthDay && args.now ? (settings?.weeklyCap ?? 0) : 0;
     const known = knownCategories(settings);
+    const records = fromGuests
+      ? undefined
+      : await loadRecordMatch(ctx, args.workspaceId, args.audience);
 
     const contacts: Array<{
       contactId: Id<"contacts">;
@@ -1007,7 +1017,11 @@ export const audiencePage = internalQuery({
       if (!reachable(contact)) continue;
       if (
         !fromGuests &&
-        !(await inSelection(ctx, contact, args.audience, { known, now: args.now ?? Date.now() }))
+        !(await inSelection(ctx, contact, args.audience, {
+          known,
+          now: args.now ?? Date.now(),
+          records,
+        }))
       ) {
         continue;
       }

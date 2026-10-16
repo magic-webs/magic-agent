@@ -169,6 +169,12 @@ export const save = mutation({
       const list = await ctx.db.get("audiences", id);
       if (!list || list.workspaceId !== args.workspaceId) throw new ConvexError("A list was not found.");
     }
+    for (const choice of args.audience?.records ?? []) {
+      const book = await ctx.db.get("recordBooks", choice.bookId);
+      if (!book || book.workspaceId !== args.workspaceId) {
+        throw new ConvexError("A record book was not found.");
+      }
+    }
     const fields = {
       audience: args.audience,
       title,

@@ -31,6 +31,7 @@ export default function NewCampaignPage() {
   const fromId = params.get("from") as Id<"marketingEvents"> | null;
   const sourceId = editId ?? fromId;
   const followUpList = params.get("audience") as Id<"audiences"> | null;
+  const fromBook = params.get("book") as Id<"recordBooks"> | null;
 
   const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
   const source = useQuery(api.marketingBroadcasts.get, sourceId ? { eventId: sourceId } : "skip");
@@ -71,7 +72,9 @@ export default function NewCampaignPage() {
         trackLinks: source.trackLinks ?? true,
         smartTiming: source.smartTiming ?? false,
       }
-    : emptyCampaign(today);
+    : fromBook
+      ? { ...emptyCampaign(today), audience: { ...EVERYONE, records: [{ bookId: fromBook }] } }
+      : emptyCampaign(today);
 
   return (
     <div className="flex flex-col gap-4">

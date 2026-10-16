@@ -6,7 +6,14 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { kvPair } from "./schema";
 import { checkValues, type RecordField } from "./lib/records";
 import { personFromAnswers } from "./lib/apps";
-import { normalisePhone } from "./lib/notifications";
+import { leafPaths, lookup, normalisePhone, trimSample } from "./lib/notifications";
+import {
+  applyTarget,
+  sameSource,
+  validTarget,
+  type MappedRecord,
+  type MappingRow,
+} from "./lib/recordMapping";
 import { noteConversion } from "./lib/marketingStats";
 import { noteContactActivity } from "./lib/contactActivity";
 import { ORDERS_HANDLE } from "./lib/ordersBook";
@@ -17,6 +24,7 @@ import { claimSerial, freshReference, searchBlobFor } from "./records";
 
 const MAX_IMPORT_ROWS = 200;
 const MAX_VALUE_LENGTH = 2000;
+const MAX_SAMPLE = 16_000;
 
 type Pair = { key: string; value: string };
 type Person = { name?: string; phone?: string; email?: string; company?: string };
@@ -153,6 +161,40 @@ export const importRecords = mutation({
   },
 });
 
+const MAX_MAPPING_ROWS = 200;
+const mappingRow = v.object({ source: v.string(), target: v.string() });
+
+function cleanMapping(book: Doc<"recordBooks">, mapping: MappingRow[]): MappingRow[] {
+  const out: MappingRow[] = [];
+  for (const row of mapping) {
+    const source = row.source.trim().slice(0, 200);
+    if (!source) continue;
+    if (!validTarget(book, row.target)) {
+      throw new ConvexError(`"${row.target}" is not a place in ${book.pluralName} a value can go.`);
+    }
+    if (out.some((kept) => sameSource(kept.source, source))) continue;
+    out.push({ source, target: row.target });
+  }
+  return out.slice(0, MAX_MAPPING_ROWS);
+}
+
+/** Remembers which column went where, so the next file from the same place lines up. */
+export const saveImportMapping = mutation({
+  args: { bookId: v.id("recordBooks"), mapping: v.array(mappingRow) },
+  handler: async (ctx, args) => {
+    const book = await requireRecordBook(ctx, args.bookId);
+    const fresh = cleanMapping(book, args.mapping);
+    const kept = (book.importMapping ?? []).filter(
+      (row) => !fresh.some((next) => sameSource(next.source, row.source))
+    );
+    await ctx.db.patch(args.bookId, {
+      importMapping: [...fresh, ...kept].slice(0, MAX_MAPPING_ROWS),
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Incoming webhook
 // ---------------------------------------------------------------------------
@@ -165,13 +207,51 @@ export const inboundSettings = query({
   args: { bookId: v.id("recordBooks") },
   handler: async (ctx, args) => {
     const book = await requireRecordBook(ctx, args.bookId);
+    let parsed: unknown = null;
+    try {
+      parsed = book.lastInboundPayload ? JSON.parse(book.lastInboundPayload) : null;
+    } catch {
+      parsed = null;
+    }
     return {
       enabled: book.inboundEnabled ?? false,
       url: inboundUrl(book.inboundKey),
       lastInboundAt: book.lastInboundAt ?? null,
       lastInboundPayload: book.lastInboundPayload ?? null,
       count: book.inboundCount ?? 0,
+      sampleAt: book.inboundSampleAt ?? book.lastInboundAt ?? null,
+      capturing: book.inboundCapture ?? false,
+      samplePaths: parsed
+        ? leafPaths(parsed, 100).map((path) => ({
+            path,
+            sample: (asValue(lookup(parsed, path)) ?? "").slice(0, 80),
+          }))
+        : [],
+      mapping: book.inboundMapping ?? [],
     };
+  },
+});
+
+export const saveInboundMapping = mutation({
+  args: { bookId: v.id("recordBooks"), mapping: v.array(mappingRow) },
+  handler: async (ctx, args) => {
+    const book = await requireRecordBook(ctx, args.bookId);
+    const mapping = cleanMapping(book, args.mapping);
+    await ctx.db.patch(args.bookId, {
+      inboundMapping: mapping.length ? mapping : undefined,
+      updatedAt: Date.now(),
+    });
+    return { saved: mapping.length };
+  },
+});
+
+/** Takes the next call as the sample the mapping is picked from. */
+export const captureInboundSample = mutation({
+  args: { bookId: v.id("recordBooks"), capture: v.boolean() },
+  handler: async (ctx, args) => {
+    await requireRecordBook(ctx, args.bookId);
+    await ctx.db.patch(args.bookId, { inboundCapture: args.capture ? true : undefined });
+    return { success: true };
   },
 });
 
@@ -222,14 +302,45 @@ function asValue(raw: unknown): string | null {
   return JSON.stringify(raw);
 }
 
-/** A posted body as the book's own field keys, the person, and the extras. */
+/**
+ * A posted body as the book's own field keys, the person, and the extras.
+ * Paths the book has a saved mapping for go where it says; everything else is
+ * matched by name, and a mapped value wins over a guessed one.
+ */
 function mapPayload(book: Doc<"recordBooks">, data: Record<string, unknown>) {
+  const mapping = book.inboundMapping ?? [];
+  const mapped: MappedRecord = { values: [] };
+  for (const row of mapping) {
+    const value = asValue(lookup(data, row.source));
+    if (value) applyTarget(mapped, row.target, row.source, value);
+  }
+  const covered = (path: string) =>
+    mapping.some(
+      (row) => row.source === path || row.source.startsWith(`${path}.`)
+    );
+
+  const guessed = guessPayload(book, data, covered);
+  return {
+    values: [...guessed.values, ...mapped.values],
+    person: { ...guessed.person, ...mapped.person },
+    stage: mapped.stage ?? guessed.stage,
+    notes: mapped.notes ?? guessed.notes,
+  };
+}
+
+function guessPayload(
+  book: Doc<"recordBooks">,
+  data: Record<string, unknown>,
+  covered: (path: string) => boolean
+) {
+  const paths = new Map<string, string>(Object.keys(data).map((key) => [key, key]));
   let source = data;
   for (const key of NESTED_KEYS) {
     const nested = data[key];
     if (nested && typeof nested === "object" && !Array.isArray(nested)) {
       source = { ...data, ...(nested as Record<string, unknown>) };
       delete source[key];
+      for (const child of Object.keys(nested)) paths.set(child, `${key}.${child}`);
       break;
     }
   }
@@ -246,7 +357,7 @@ function mapPayload(book: Doc<"recordBooks">, data: Record<string, unknown>) {
   let notes: string | undefined;
   for (const [key, raw] of Object.entries(source)) {
     const value = asValue(raw);
-    if (!value?.trim() || key === "query") continue;
+    if (!value?.trim() || key === "query" || covered(paths.get(key) ?? key)) continue;
     const name = fieldKey(key);
     const field = byName.get(name);
     if (field) {
@@ -275,13 +386,23 @@ export const acceptInbound = internalMutation({
     if (!book) return "unknown";
 
     const now = Date.now();
+    const data = JSON.parse(args.payload) as Record<string, unknown>;
+    const takeSample = !book.lastInboundPayload || book.inboundCapture;
     await ctx.db.patch(book._id, {
-      lastInboundPayload: args.payload.slice(0, 8000),
       lastInboundAt: now,
+      ...(takeSample
+        ? {
+            lastInboundPayload: (args.payload.length > MAX_SAMPLE
+              ? JSON.stringify(trimSample(data))
+              : args.payload
+            ).slice(0, MAX_SAMPLE),
+            inboundSampleAt: now,
+            inboundCapture: undefined,
+          }
+        : {}),
     });
     if (!book.inboundEnabled || book.status === "archived") return "disabled";
 
-    const data = JSON.parse(args.payload) as Record<string, unknown>;
     const recordId = await fileOutside(ctx, book, {
       ...mapPayload(book, data),
       source: "webhook",

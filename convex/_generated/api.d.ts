@@ -81,6 +81,7 @@ import type * as lib_pricing from "../lib/pricing.js";
 import type * as lib_prompt from "../lib/prompt.js";
 import type * as lib_publicUrl from "../lib/publicUrl.js";
 import type * as lib_razorpay from "../lib/razorpay.js";
+import type * as lib_recordMapping from "../lib/recordMapping.js";
 import type * as lib_records from "../lib/records.js";
 import type * as lib_regional from "../lib/regional.js";
 import type * as lib_segments from "../lib/segments.js";
@@ -218,6 +219,7 @@ declare const fullApi: ApiFromModules<{
   "lib/prompt": typeof lib_prompt;
   "lib/publicUrl": typeof lib_publicUrl;
   "lib/razorpay": typeof lib_razorpay;
+  "lib/recordMapping": typeof lib_recordMapping;
   "lib/records": typeof lib_records;
   "lib/regional": typeof lib_regional;
   "lib/segments": typeof lib_segments;

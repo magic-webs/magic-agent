@@ -6,7 +6,15 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { parseCsv } from "@/lib/csv";
 import { readXlsx } from "@/components/billing/xlsx";
+import {
+  applyTarget,
+  guessTarget,
+  savedTarget,
+  targetOptions,
+  type MappedRecord,
+} from "@/convex/lib/recordMapping";
 import { SelectField } from "@/components/select-field";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,69 +42,17 @@ import { UploadSimpleIcon } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
 
 const BATCH = 200;
-const SKIP = "skip";
-const EXTRA = "extra";
 
 type Book = Doc<"recordBooks">;
-type Row = {
-  values: Array<{ key: string; value: string }>;
-  person?: { name?: string; phone?: string; email?: string; company?: string };
-  stage?: string;
-  notes?: string;
-};
 
-const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-const PERSON: Record<string, string> = {
-  name: "person.name",
-  fullname: "person.name",
-  customername: "person.name",
-  phone: "person.phone",
-  mobile: "person.phone",
-  phonenumber: "person.phone",
-  whatsapp: "person.phone",
-  email: "person.email",
-  emailaddress: "person.email",
-  company: "person.company",
-  companyname: "person.company",
-};
-
-const IGNORED = new Set(["serial", "reference", "source", "filedby", "filedat", "updatedat"]);
-
-function guessTarget(book: Book, header: string): string {
-  const key = norm(header);
-  const field = book.fields.find(
-    (option) => norm(option.key) === key || norm(option.label) === key
-  );
-  if (field) return `field:${field.key}`;
-  if (PERSON[key]) return PERSON[key];
-  if (key === "stage" && book.stages.length > 0) return "stage";
-  if (key === "notes" || key === "note") return "notes";
-  if (IGNORED.has(key) || !key) return SKIP;
-  return EXTRA;
-}
-
-function toRows(headers: string[], body: string[][], targets: string[]): Row[] {
+function toRows(headers: string[], body: string[][], targets: string[]): MappedRecord[] {
   return body
     .map((cells) => {
-      const row: Row = { values: [] };
-      const person: NonNullable<Row["person"]> = {};
+      const row: MappedRecord = { values: [] };
       targets.forEach((target, index) => {
-        const value = (cells[index] ?? "").trim();
-        if (!value || target === SKIP) return;
-        if (target.startsWith("field:")) {
-          row.values.push({ key: target.slice(6), value });
-        } else if (target.startsWith("person.")) {
-          person[target.slice(7) as keyof typeof person] = value;
-        } else if (target === "stage") {
-          row.stage = value;
-        } else if (target === "notes") {
-          row.notes = value;
-        } else {
-          row.values.push({ key: headers[index].trim() || `column_${index + 1}`, value });
-        }
+        const source = headers[index].trim() || `column_${index + 1}`;
+        applyTarget(row, target, source, cells[index] ?? "");
       });
-      if (Object.keys(person).length) row.person = person;
       return row;
     })
     .filter((row) => row.values.length || row.person || row.notes);
@@ -104,6 +60,8 @@ function toRows(headers: string[], body: string[][], targets: string[]): Row[] {
 
 export function ImportRecordsDialog({ book }: { book: Book }) {
   const importRecords = useMutation(api.recordIntake.importRecords);
+  const saveMapping = useMutation(api.recordIntake.saveImportMapping);
+  const [remember, setRemember] = useState(true);
   const [open, setOpen] = useState(false);
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
@@ -111,23 +69,7 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
   const [targets, setTargets] = useState<string[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
 
-  const options = useMemo(
-    () => [
-      { value: SKIP, label: "Skip this column" },
-      ...book.fields.map((field) => ({
-        value: `field:${field.key}`,
-        label: field.label,
-      })),
-      { value: "person.name", label: "Person · name" },
-      { value: "person.phone", label: "Person · phone" },
-      { value: "person.email", label: "Person · email" },
-      { value: "person.company", label: "Person · company" },
-      ...(book.stages.length ? [{ value: "stage", label: "Stage" }] : []),
-      { value: "notes", label: "Notes" },
-      { value: EXTRA, label: "Keep as an extra detail" },
-    ],
-    [book]
-  );
+  const options = useMemo(() => targetOptions(book), [book]);
 
   const reset = () => {
     setFileName("");
@@ -150,7 +92,11 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
       setFileName(file.name);
       setHeaders(head);
       setBody(rest);
-      setTargets(head.map((header) => guessTarget(book, header)));
+      setTargets(
+        head.map(
+          (header) => savedTarget(book, book.importMapping, header) ?? guessTarget(book, header)
+        )
+      );
     } catch (error) {
       reset();
       toast.add({
@@ -174,6 +120,14 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
     let done = 0;
     setProgress(0);
     try {
+      if (remember) {
+        await saveMapping({
+          bookId: book._id,
+          mapping: headers
+            .map((header, index) => ({ source: header, target: targets[index] }))
+            .filter((row) => row.source.trim()),
+        });
+      }
       for (let start = 0; start < rows.length; start += BATCH) {
         await importRecords({ bookId: book._id, rows: rows.slice(start, start + BATCH) });
         done = Math.min(rows.length, start + BATCH);
@@ -215,9 +169,9 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
         <DialogHeader>
           <DialogTitle>Import {book.pluralName.toLowerCase()}</DialogTitle>
           <DialogDescription>
-            A CSV or Excel file with a header row. Columns are matched to this
-            book&apos;s fields by name — check the matches before importing. A
-            file exported from this page imports back as it is.
+            A CSV or Excel file with a header row. Pick where each column goes —
+            columns you mapped before line up on their own, the rest are matched
+            by name. A file exported from this page imports back as it is.
           </DialogDescription>
         </DialogHeader>
 
@@ -276,6 +230,16 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
                 </TableBody>
               </Table>
             </div>
+          ) : null}
+
+          {headers.length ? (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={remember}
+                onCheckedChange={(checked) => setRemember(checked === true)}
+              />
+              Remember this mapping for the next file
+            </label>
           ) : null}
 
           {headers.length && missing.length ? (

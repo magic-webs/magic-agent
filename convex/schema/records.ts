@@ -116,6 +116,10 @@ export const recordsTables = {
     lastInboundPayload: v.optional(v.string()),
     lastInboundAt: v.optional(v.number()),
     inboundCount: v.optional(v.number()),
+    inboundSampleAt: v.optional(v.number()),
+    inboundCapture: v.optional(v.boolean()),
+    inboundMapping: v.optional(v.array(v.object({ source: v.string(), target: v.string() }))),
+    importMapping: v.optional(v.array(v.object({ source: v.string(), target: v.string() }))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

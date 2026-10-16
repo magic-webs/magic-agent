@@ -173,7 +173,7 @@ const PLACEHOLDER = /\{\{\s*([^{}]+?)\s*\}\}/g;
 
 type Json = Record<string, unknown>;
 
-function lookup(context: unknown, path: string): unknown {
+export function lookup(context: unknown, path: string): unknown {
   let node: unknown = context;
   for (const part of path.split(".")) {
     if (node === null || node === undefined) return undefined;

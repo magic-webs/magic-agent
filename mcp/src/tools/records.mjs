@@ -395,22 +395,43 @@ export function register(server) {
     {
       title: "Take records from another system",
       description:
-        "Switch a record book's own incoming URL on or off. Another system POSTs JSON or a form to it and each call files a record: keys matching the book's field keys or labels fill those fields, name/phone/email/company fill the person, stage and notes set those, and anything else is kept as an extra. Returns the URL.",
+        "Switch a record book's own incoming URL on or off, and optionally set where each value in the posted body goes. Another system POSTs JSON or a form to it and each call files a record. Mapped paths go where the mapping says; any key without one is matched by name: keys matching the book's field keys or labels fill those fields, name/phone/email/company fill the person, stage and notes set those, and anything else is kept as an extra. Returns the URL.",
       inputSchema: {
         ...workspaceArg,
         book: z.string().describe("Record book name, plural name, handle or id"),
         enabled: z.boolean(),
+        mapping: z
+          .array(
+            z.object({
+              path: z
+                .string()
+                .describe("Dotted path in the posted body, e.g. contact.phone or items.0.name"),
+              target: z
+                .string()
+                .describe(
+                  'Where it goes: "field:<field key>", "person.name", "person.phone", "person.email", "person.company", "stage", "notes", "extra" or "skip"'
+                ),
+            })
+          )
+          .optional()
+          .describe("Replaces the book's saved mapping when given; an empty list clears it"),
       },
       annotations: { idempotentHint: true },
     },
-    handler(async ({ workspace, book, enabled }) => {
+    handler(async ({ workspace, book, enabled, mapping }) => {
       const found = await resolveWorkspace(workspace);
       const target = await findRecordBook(found._id, book);
       const { url } = await call.mutation(api.recordIntake.setInboundEnabled, {
         bookId: target._id,
         enabled,
       });
-      return ok({ book: target.name, enabled, url });
+      if (mapping) {
+        await call.mutation(api.recordIntake.saveInboundMapping, {
+          bookId: target._id,
+          mapping: mapping.map((row) => ({ source: row.path, target: row.target })),
+        });
+      }
+      return ok({ book: target.name, enabled, url, ...(mapping ? { mapped: mapping.length } : {}) });
     })
   );
 

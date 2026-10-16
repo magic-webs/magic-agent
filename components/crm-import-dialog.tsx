@@ -98,7 +98,7 @@ export function CrmImportDialog() {
           <DialogTitle>Import old chats from the CRM</DialogTitle>
           <DialogDescription>
             Brings every contact&apos;s chat history from the 1Automations CRM into
-            the inbox. Imported threads land closed, and reopen when the customer
+            the inbox. Imported threads land resolved, and reopen when the customer
             writes again. Contacts who already have a thread here are skipped.
           </DialogDescription>
         </DialogHeader>

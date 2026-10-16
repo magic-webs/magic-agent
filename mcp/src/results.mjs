@@ -115,3 +115,5 @@ export const productBrief = (product) => ({
   exampleSpec: product.exampleSpec ?? null,
   notes: product.notes ?? null,
 });
+
+export const statusName = (status) => (status === "closed" ? "resolved" : status);

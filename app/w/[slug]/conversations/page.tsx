@@ -60,7 +60,7 @@ const BUCKETS = [
   { value: "all", label: "All" },
   { value: "open", label: "Open" },
   { value: "unread", label: "Unread" },
-  { value: "closed", label: "Closed" },
+  { value: "closed", label: "Resolved" },
 ] as const;
 
 /**
@@ -241,7 +241,7 @@ export default function ConversationsPage() {
           </h1>
           <p className="mt-1 hidden max-w-2xl text-sm text-muted-foreground sm:block">
             {view === "escalations"
-              ? "Threads an agent has handed to your team. Set one back to open, or close it, once it is dealt with."
+              ? "Threads an agent has handed to your team. Set one back to open, or mark it resolved, once it is dealt with."
               : "Threads across every WhatsApp number and the web chat."}
           </p>
         </div>

@@ -15,7 +15,7 @@ import { z } from "zod";
 import { workspaceArg } from "../args.mjs";
 import { api, call } from "../convex.mjs";
 import { findLeadStage, pickByName } from "../lookup.mjs";
-import { handler, ok } from "../results.mjs";
+import { handler, ok, statusName } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
 const outcomeArg = z
@@ -335,7 +335,7 @@ export function register(server) {
             reviewedAt: row.reviewedAt
               ? new Date(row.reviewedAt).toISOString()
               : null,
-            status: row.status,
+            status: statusName(row.status),
             channel: row.channelType,
             heldBy: row.handledBy,
             lastMessageAt: new Date(row.lastMessageAt).toISOString(),

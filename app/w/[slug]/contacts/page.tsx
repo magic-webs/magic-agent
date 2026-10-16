@@ -299,7 +299,7 @@ const STATUSES = [
   { value: "all", label: "Any status" },
   { value: "open", label: "Open" },
   { value: "escalated", label: "Escalated" },
-  { value: "closed", label: "Closed" },
+  { value: "closed", label: "Resolved" },
   { value: "none", label: "Never messaged" },
 ];
 

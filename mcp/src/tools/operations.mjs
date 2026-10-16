@@ -6,7 +6,7 @@ import { z } from "zod";
 import { workspaceArg } from "../args.mjs";
 import { api, call } from "../convex.mjs";
 import { findAgent } from "../lookup.mjs";
-import { handler, money, ok } from "../results.mjs";
+import { handler, money, ok, statusName } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
@@ -20,7 +20,7 @@ export function register(server) {
       inputSchema: {
         ...workspaceArg,
         agent: z.string().optional().describe("Only threads that arrived at this agent"),
-        status: z.enum(["open", "escalated", "closed"]).optional(),
+        status: z.enum(["open", "escalated", "resolved"]).optional(),
         limit: z.number().int().min(1).max(200).optional(),
       },
       annotations: { readOnlyHint: true },
@@ -37,7 +37,7 @@ export function register(server) {
 
       return ok(
         rows
-          .filter((row) => !status || row.status === status)
+          .filter((row) => !status || statusName(row.status) === status)
           .map((row) => ({
             id: row._id,
             contact: row.contactLabel,
@@ -45,7 +45,7 @@ export function register(server) {
             arrivedAt: row.agentName,
             heldBy: row.activeAgentName,
             handedOff: row.handedOff,
-            status: row.status,
+            status: statusName(row.status),
             messages: row.messageCount,
             lastMessageAt: new Date(row.lastMessageAt).toISOString(),
             preview: row.lastMessagePreview ?? null,
@@ -87,7 +87,7 @@ export function register(server) {
           remark: detail.contact?.remark ?? null,
         },
         arrivedAt: detail.agent?.botName ?? null,
-        status: detail.conversation.status,
+        status: statusName(detail.conversation.status),
         transcript: messages
           .filter((message) => withTools || message.kind === "text")
           .map((message) => {

@@ -94,8 +94,12 @@ export type Status = "open" | "escalated" | "closed";
 export const STATUS_OPTIONS = [
   { value: "open", label: "open" },
   { value: "escalated", label: "escalated" },
-  { value: "closed", label: "closed" },
+  { value: "closed", label: "resolved" },
 ];
+
+export function statusLabel(status: Status): string {
+  return status === "closed" ? "resolved" : status;
+}
 
 // Auto-generated web session ids are noise in a list; show something readable.
 export function displayContact(row: {
@@ -218,7 +222,7 @@ export function ConversationRow({
           </span>
           {showStatus && row.status !== "open" ? (
             <Badge variant={statusVariant(row.status)} className="shrink-0">
-              {row.status}
+              {statusLabel(row.status)}
             </Badge>
           ) : null}
           {row.markedBot ? (
@@ -539,7 +543,7 @@ export function ConversationDetail({
                 {label}
               </h2>
               <Badge variant={statusVariant(conversation.status)}>
-                {conversation.status}
+                {statusLabel(conversation.status)}
               </Badge>
               {/* Only while a person holds the thread. Nothing is shown in the
                   ordinary case, which is the agent answering. */}
@@ -1112,7 +1116,7 @@ function ThreadDetails({
       <DetailSection title="This thread">
         <dl className="flex flex-col gap-1.5 text-xs">
           <Fact term="Status">
-            <span className="capitalize">{conversation.status}</span>
+            <span className="capitalize">{statusLabel(conversation.status)}</span>
           </Fact>
           <Fact term="Started">
             {new Date(conversation.createdAt).toLocaleString()}

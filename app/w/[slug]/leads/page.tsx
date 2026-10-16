@@ -242,7 +242,7 @@ const STATUSES = [
   { value: "all", label: "Any status" },
   { value: "open", label: "Open" },
   { value: "escalated", label: "Escalated" },
-  { value: "closed", label: "Closed" },
+  { value: "closed", label: "Resolved" },
 ];
 
 const WINDOWS = [
@@ -753,7 +753,7 @@ function LeadTable({
                     <Badge variant="destructive">escalated</Badge>
                   ) : (
                     <span className="text-sm text-muted-foreground capitalize">
-                      {lead.status}
+                      {lead.status === "closed" ? "resolved" : lead.status}
                     </span>
                   )}
                 </TableCell>

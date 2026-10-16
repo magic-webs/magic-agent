@@ -134,6 +134,9 @@ export const list = query({
             type: channel.type,
             name: channel.name,
             status: channel.status,
+            channelKey: channel.channelKey,
+            phone: (channel.whatsapp?.displayPhoneNumber ?? "").replace(/[^0-9]/g, ""),
+            instagramUsername: channel.instagram?.username ?? null,
           })),
         };
       })

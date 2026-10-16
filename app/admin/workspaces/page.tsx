@@ -47,7 +47,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { WorkspaceAccessDialog } from "@/components/workspace-access";
+import QRCode from "react-qr-code";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { copyText } from "@/components/notifications/shared";
 import { CompanyLogo } from "@/components/company-logo";
 import { InstagramLogo, WhatsAppLogo } from "@/components/brand-icons";
 import {
@@ -74,6 +80,7 @@ import {
   CardsThreeIcon,
   PlusIcon,
   ArrowRightIcon,
+  ArrowSquareOutIcon,
   ClockCounterClockwiseIcon,
   CopyIcon,
   GlobeIcon,
@@ -129,6 +136,72 @@ const CHANNEL_KINDS = [
   },
 ] as const;
 
+function channelLink(channel: WorkspaceChannel): string | null {
+  if (channel.type === "web") {
+    return typeof window === "undefined"
+      ? null
+      : `${window.location.origin}/widget/${channel.channelKey}`;
+  }
+  if (channel.type === "instagram") {
+    return channel.instagramUsername
+      ? `https://ig.me/m/${channel.instagramUsername}`
+      : null;
+  }
+  return channel.phone ? `https://wa.me/${channel.phone}` : null;
+}
+
+function ChannelLink({ channel }: { channel: WorkspaceChannel }) {
+  const url = channelLink(channel);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate font-medium">{channel.name}</span>
+        <Badge variant={channel.status === "active" ? "default" : "secondary"}>
+          {channel.status}
+        </Badge>
+      </div>
+      {url ? (
+        <>
+          <div className="self-center rounded-lg bg-white p-3">
+            <QRCode
+              value={url}
+              size={160}
+              level="M"
+              bgColor="#ffffff"
+              fgColor="#0b1c12"
+            />
+          </div>
+          <p className="break-all font-mono text-[11px] text-muted-foreground">
+            {url}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void copyText(url, "Link")}
+            >
+              <CopyIcon /> Copy
+            </Button>
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<a href={url} target="_blank" rel="noopener noreferrer" />}
+            >
+              <ArrowSquareOutIcon /> Open
+            </Button>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {channel.type === "whatsapp"
+            ? "No display phone number saved for this channel."
+            : "No link for this channel yet."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ChannelIcons({ channels }: { channels: WorkspaceChannel[] }) {
   const groups = CHANNEL_KINDS.map((kind) => ({
     ...kind,
@@ -145,23 +218,32 @@ function ChannelIcons({ channels }: { channels: WorkspaceChannel[] }) {
           (channel) => channel.status === "active",
         );
         return (
-          <span
-            key={group.type}
-            title={`${group.label}: ${group.channels
-              .map((channel) => `${channel.name} (${channel.status})`)
-              .join(", ")}`}
-            className={cn(
-              "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-1",
-              !live && "opacity-40",
-            )}
-          >
-            {group.icon}
-            {group.channels.length > 1 ? (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {group.channels.length}
-              </span>
-            ) : null}
-          </span>
+          <Popover key={group.type}>
+            <PopoverTrigger
+              title={`${group.label}: ${group.channels
+                .map((channel) => `${channel.name} (${channel.status})`)
+                .join(", ")}`}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-0.5 rounded-md border px-1.5 py-1 hover:bg-muted",
+                !live && "opacity-40",
+              )}
+            >
+              {group.icon}
+              {group.channels.length > 1 ? (
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {group.channels.length}
+                </span>
+              ) : null}
+            </PopoverTrigger>
+            <PopoverContent className="max-h-[70vh] overflow-y-auto">
+              {group.channels.map((channel, index) => (
+                <div key={channel._id} className="flex flex-col gap-2.5">
+                  {index > 0 ? <Separator /> : null}
+                  <ChannelLink channel={channel} />
+                </div>
+              ))}
+            </PopoverContent>
+          </Popover>
         );
       })}
     </span>
@@ -615,13 +697,6 @@ export default function AdminWorkspacesPage() {
 
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      {isAdmin ? (
-                        <WorkspaceAccessDialog
-                          workspaceId={workspace._id}
-                          name={workspace.name}
-                          slug={workspace.slug}
-                        />
-                      ) : null}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -693,16 +768,7 @@ export default function AdminWorkspacesPage() {
                   </span>
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between gap-1">
-                  {isAdmin ? (
-                    <WorkspaceAccessDialog
-                      workspaceId={workspace._id}
-                      name={workspace.name}
-                      slug={workspace.slug}
-                    />
-                  ) : (
-                    <span />
-                  )}
+                <div className="flex items-center justify-end gap-1">
                   <div className="flex items-center gap-1">
                     <Button
                       size="lg"

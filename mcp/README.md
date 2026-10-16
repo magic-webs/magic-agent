@@ -328,7 +328,8 @@ it to storage, so agents can send it with `send_media`.
 
 **Leads** — `list_lead_stages`, `seed_default_lead_stages`,
 `create_lead_stage`, `update_lead_stage`, `reorder_lead_stages`,
-`delete_lead_stage`, `list_leads`, `set_lead_stage`
+`delete_lead_stage`, `list_lead_tags`, `create_lead_tag`, `update_lead_tag`,
+`delete_lead_tag`, `list_leads`, `set_lead_stage`, `set_lead_tags`
 
 **Notifications** — `get_notification_settings`, `update_notification_settings`,
 `send_test_email`, `sync_whatsapp_templates`, `list_whatsapp_templates`,

@@ -12,6 +12,7 @@ import {
   query,
   internalQuery,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { mutation, internalMutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
@@ -21,7 +22,9 @@ import { noteMessage } from "./lib/inbox";
 import {
   DEFAULT_LEAD_STAGES,
   DORMANT_AFTER_MINUTES,
+  LEAD_TAG_COLORS,
   MAX_FOLLOW_UPS,
+  MAX_LEAD_TAGS,
 } from "./lib/shared";
 import {
   requireConversation,
@@ -213,6 +216,158 @@ export const removeStage = mutation({
 });
 
 // ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+function tagColor(color: string | undefined): string {
+  return LEAD_TAG_COLORS.includes(color as (typeof LEAD_TAG_COLORS)[number])
+    ? color!
+    : "slate";
+}
+
+async function workspaceTags(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
+  const tags = await ctx.db
+    .query("leadTags")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(MAX_LEAD_TAGS);
+  return tags.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export const listTags = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const tags = await workspaceTags(ctx, args.workspaceId);
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+    const counts = new Map<string, number>();
+    for (const row of conversations) {
+      for (const tagId of row.leadTagIds ?? []) {
+        counts.set(tagId, (counts.get(tagId) ?? 0) + 1);
+      }
+    }
+    return tags.map((tag) => ({
+      _id: tag._id,
+      name: tag.name,
+      color: tag.color,
+      description: tag.description ?? "",
+      leadCount: counts.get(tag._id) ?? 0,
+    }));
+  },
+});
+
+export const createTag = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    color: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const name = args.name.trim();
+    if (!name) throw new ConvexError("A tag needs a name.");
+    const tags = await workspaceTags(ctx, args.workspaceId);
+    if (tags.length >= MAX_LEAD_TAGS) {
+      throw new ConvexError(`A workspace can have up to ${MAX_LEAD_TAGS} tags.`);
+    }
+    if (tags.some((tag) => tag.name.toLowerCase() === name.toLowerCase())) {
+      throw new ConvexError(`There is already a tag called "${name}".`);
+    }
+    const now = Date.now();
+    return await ctx.db.insert("leadTags", {
+      workspaceId: args.workspaceId,
+      name,
+      color: tagColor(args.color),
+      description: args.description?.trim() || undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const updateTag = mutation({
+  args: {
+    tagId: v.id("leadTags"),
+    name: v.optional(v.string()),
+    color: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const tag = await ctx.db.get("leadTags", args.tagId);
+    if (!tag) throw new ConvexError("Tag not found");
+    await requireWorkspace(ctx, tag.workspaceId);
+
+    const name = args.name?.trim();
+    if (args.name !== undefined && !name) {
+      throw new ConvexError("A tag needs a name.");
+    }
+    if (name && name.toLowerCase() !== tag.name.toLowerCase()) {
+      const tags = await workspaceTags(ctx, tag.workspaceId);
+      if (tags.some((other) => other.name.toLowerCase() === name.toLowerCase())) {
+        throw new ConvexError(`There is already a tag called "${name}".`);
+      }
+    }
+    await ctx.db.patch(args.tagId, {
+      ...(name ? { name } : {}),
+      ...(args.color !== undefined ? { color: tagColor(args.color) } : {}),
+      ...(args.description !== undefined
+        ? { description: args.description.trim() || undefined }
+        : {}),
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const removeTag = mutation({
+  args: { tagId: v.id("leadTags") },
+  handler: async (ctx, args) => {
+    const tag = await ctx.db.get("leadTags", args.tagId);
+    if (!tag) return { success: true, cleared: 0 };
+    await requireWorkspace(ctx, tag.workspaceId);
+
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", tag.workspaceId))
+      .collect();
+    let cleared = 0;
+    for (const row of conversations) {
+      if (!row.leadTagIds?.includes(args.tagId)) continue;
+      const rest = row.leadTagIds.filter((id) => id !== args.tagId);
+      await ctx.db.patch(row._id, {
+        leadTagIds: rest.length ? rest : undefined,
+      });
+      cleared += 1;
+    }
+    await ctx.db.delete(args.tagId);
+    return { success: true, cleared };
+  },
+});
+
+/** Tagging a lead by hand. Pinned, so reviews stop changing its tags. */
+export const setTags = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    tagIds: v.array(v.id("leadTags")),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await requireConversation(ctx, args.conversationId);
+    const known = new Set(
+      (await workspaceTags(ctx, conversation.workspaceId)).map((tag) => tag._id)
+    );
+    const tagIds = [...new Set(args.tagIds)].filter((id) => known.has(id));
+    await ctx.db.patch(args.conversationId, {
+      leadTagIds: tagIds.length ? tagIds : undefined,
+      leadTagsPinned: true,
+    });
+    return { success: true };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // The pipeline view
 // ---------------------------------------------------------------------------
 
@@ -241,6 +396,8 @@ export const pipeline = query({
         leadStageId: row.leadStageId ?? null,
         leadStageNote: row.leadStageNote ?? null,
         leadStagePinned: row.leadStagePinned ?? false,
+        leadTagIds: row.leadTagIds ?? [],
+        leadTagsPinned: row.leadTagsPinned ?? false,
         reviewedAt: row.reviewedAt ?? null,
         followUpCount: row.followUpCount ?? 0,
         status: row.status,
@@ -373,6 +530,8 @@ export const reviewContext = internalQuery({
         .take(80)
     ).reverse();
 
+    const tags = await workspaceTags(ctx, conversation.workspaceId);
+
     const contact = await ctx.db.get("contacts", conversation.contactId);
     const channel = conversation.channelId
       ? await ctx.db.get("channels", conversation.channelId)
@@ -394,6 +553,14 @@ export const reviewContext = internalQuery({
         description: stage.description,
         outcome: stage.outcome,
       })),
+      tags: tags
+        .filter((tag) => tag.description)
+        .map((tag) => ({
+          id: tag._id,
+          name: tag.name,
+          description: tag.description!,
+        })),
+      tagsPinned: conversation.leadTagsPinned ?? false,
       transcript: rows
         .filter(
           (row) =>
@@ -441,6 +608,7 @@ export const recordReview = internalMutation({
     conversationId: v.id("conversations"),
     workspaceId: v.id("workspaces"),
     stageId: v.optional(v.id("leadStages")),
+    tagIds: v.optional(v.array(v.id("leadTags"))),
     note: v.string(),
     reviewedAt: v.number(),
     /** Set when a follow-up actually went out, so the cap can be enforced. */
@@ -450,7 +618,27 @@ export const recordReview = internalMutation({
     const conversation = await ctx.db.get("conversations", args.conversationId);
     if (!conversation) return { success: false };
 
+    let leadTagIds: Id<"leadTags">[] | undefined;
+    if (args.tagIds && !conversation.leadTagsPinned) {
+      const tags = await workspaceTags(ctx, args.workspaceId);
+      const handOnly = new Set(
+        tags.filter((tag) => !tag.description).map((tag) => tag._id as string)
+      );
+      const desk = new Set(
+        tags.filter((tag) => tag.description).map((tag) => tag._id as string)
+      );
+      leadTagIds = [
+        ...new Set([
+          ...(conversation.leadTagIds ?? []).filter((id) => handOnly.has(id)),
+          ...args.tagIds.filter((id) => desk.has(id)),
+        ]),
+      ];
+    }
+
     await ctx.db.patch(args.conversationId, {
+      ...(leadTagIds
+        ? { leadTagIds: leadTagIds.length ? leadTagIds : undefined }
+        : {}),
       // The nudge itself moved lastMessageAt past this review; without the max
       // the thread is due again an hour later and reviewed for nothing.
       reviewedAt: args.followedUp

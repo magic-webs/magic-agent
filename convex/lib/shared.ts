@@ -458,3 +458,19 @@ export const FOLLOW_UP_DEFAULTS = {
     "Never follow up a conversation that ended with a complaint or an escalation; those belong to a person.",
   ],
 } as const;
+
+export const LEAD_TAG_COLORS = [
+  "slate",
+  "red",
+  "orange",
+  "amber",
+  "green",
+  "teal",
+  "sky",
+  "violet",
+  "pink",
+] as const;
+
+export type LeadTagColor = (typeof LEAD_TAG_COLORS)[number];
+
+export const MAX_LEAD_TAGS = 50;

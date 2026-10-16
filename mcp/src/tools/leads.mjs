@@ -57,6 +57,36 @@ function positionAfter(stages, after) {
   return next ? (anchor.position + next.position) / 2 : anchor.position + 10;
 }
 
+// Mirrors LEAD_TAG_COLORS in convex/lib/shared.ts.
+const colorArg = z.enum([
+  "slate",
+  "red",
+  "orange",
+  "amber",
+  "green",
+  "teal",
+  "sky",
+  "violet",
+  "pink",
+]);
+
+const tagBrief = (tag) => ({
+  id: tag._id,
+  name: tag.name,
+  color: tag.color,
+  appliedByDesk: Boolean(tag.description),
+  description: tag.description || null,
+  leads: tag.leadCount,
+});
+
+async function findTag(workspaceId, wanted) {
+  const tags = await call.query(api.leads.listTags, { workspaceId });
+  return (
+    tags.find((tag) => tag._id === wanted) ??
+    pickByName(tags, wanted, "lead tag", ["name"])
+  );
+}
+
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
 export function register(server) {
   server.registerTool(
@@ -283,6 +313,134 @@ export function register(server) {
     })
   );
 
+  // ------------------------------------------------------------- the tags
+
+  server.registerTool(
+    "list_lead_tags",
+    {
+      title: "List lead tags",
+      description:
+        "The workspace's own labels for leads, with how many leads carry each. A tag with a description is also applied by the follow-up desk when it reviews a conversation; one without is applied by hand only.",
+      inputSchema: { ...workspaceArg },
+      annotations: { readOnlyHint: true },
+    },
+    handler(async ({ workspace }) => {
+      const found = await resolveWorkspace(workspace);
+      const tags = await call.query(api.leads.listTags, { workspaceId: found._id });
+      return ok(tags.map(tagBrief));
+    })
+  );
+
+  server.registerTool(
+    "create_lead_tag",
+    {
+      title: "Create lead tag",
+      description:
+        "Add a label for leads — a type of enquiry, a priority, a source. Give it a description, written as a test against a transcript, if the follow-up desk should apply it on its own.",
+      inputSchema: {
+        ...workspaceArg,
+        name: z.string(),
+        color: colorArg.optional(),
+        description: z
+          .string()
+          .optional()
+          .describe("When the follow-up desk should apply it. Omit for a hand-only tag."),
+      },
+    },
+    handler(async ({ workspace, name, color, description }) => {
+      const found = await resolveWorkspace(workspace);
+      const id = await call.mutation(api.leads.createTag, {
+        workspaceId: found._id,
+        name,
+        color,
+        description,
+      });
+      return ok({ id, name });
+    })
+  );
+
+  server.registerTool(
+    "update_lead_tag",
+    {
+      title: "Update lead tag",
+      description:
+        "Rename a tag, change its colour, or change when the follow-up desk applies it. Pass description '' to make it hand-only.",
+      inputSchema: {
+        ...workspaceArg,
+        tag: z.string().describe("Tag name or id"),
+        name: z.string().optional(),
+        color: colorArg.optional(),
+        description: z.string().optional(),
+      },
+      annotations: { idempotentHint: true },
+    },
+    handler(async ({ workspace, tag, name, color, description }) => {
+      const found = await resolveWorkspace(workspace);
+      const target = await findTag(found._id, tag);
+      await call.mutation(api.leads.updateTag, {
+        tagId: target._id,
+        name,
+        color,
+        description,
+      });
+      return ok(`Updated "${name ?? target.name}".`);
+    })
+  );
+
+  server.registerTool(
+    "delete_lead_tag",
+    {
+      title: "Delete lead tag",
+      description: "Remove a tag and take it off every lead that carries it. Cannot be undone.",
+      inputSchema: {
+        ...workspaceArg,
+        tag: z.string().describe("Tag name or id"),
+      },
+      annotations: { destructiveHint: true },
+    },
+    handler(async ({ workspace, tag }) => {
+      const found = await resolveWorkspace(workspace);
+      const target = await findTag(found._id, tag);
+      const { cleared } = await call.mutation(api.leads.removeTag, {
+        tagId: target._id,
+      });
+      return ok(`Deleted "${target.name}" and removed it from ${cleared} lead(s).`);
+    })
+  );
+
+  server.registerTool(
+    "set_lead_tags",
+    {
+      title: "Tag a lead",
+      description:
+        "Replace one conversation's tags. Tags set this way are pinned: the follow-up desk stops changing this lead's tags. Pass an empty list to clear them.",
+      inputSchema: {
+        ...workspaceArg,
+        conversationId: z.string().describe("From list_leads or list_conversations"),
+        tags: z.array(z.string()).describe("Tag names or ids"),
+      },
+      annotations: { idempotentHint: true },
+    },
+    handler(async ({ workspace, conversationId, tags }) => {
+      const found = await resolveWorkspace(workspace);
+      const all = await call.query(api.leads.listTags, { workspaceId: found._id });
+      const picked = tags.map(
+        (wanted) =>
+          all.find((tag) => tag._id === wanted) ??
+          pickByName(all, wanted, "lead tag", ["name"])
+      );
+      await call.mutation(api.leads.setTags, {
+        conversationId,
+        tagIds: picked.map((tag) => tag._id),
+      });
+      return ok(
+        picked.length
+          ? `Tagged ${picked.map((tag) => `"${tag.name}"`).join(", ")}.`
+          : "Tags cleared."
+      );
+    })
+  );
+
   // ------------------------------------------------------------ the leads
 
   server.registerTool(
@@ -303,14 +461,16 @@ export function register(server) {
     },
     handler(async ({ workspace, stage, limit }) => {
       const found = await resolveWorkspace(workspace);
-      const [stages, rows] = await Promise.all([
+      const [stages, tags, rows] = await Promise.all([
         call.query(api.leads.listStages, { workspaceId: found._id }),
+        call.query(api.leads.listTags, { workspaceId: found._id }),
         call.query(api.leads.pipeline, {
           workspaceId: found._id,
           limit: limit ?? 100,
         }),
       ]);
       const names = new Map(stages.map((s) => [s._id, s.name]));
+      const tagNames = new Map(tags.map((t) => [t._id, t.name]));
 
       let wanted;
       if (stage && stage.trim().toLowerCase() === "unfiled") wanted = null;
@@ -331,6 +491,8 @@ export function register(server) {
             stage: row.leadStageId ? (names.get(row.leadStageId) ?? null) : null,
             why: row.leadStageNote,
             pinnedByHand: row.leadStagePinned,
+            tags: row.leadTagIds.map((id) => tagNames.get(id)).filter(Boolean),
+            tagsPinnedByHand: row.leadTagsPinned,
             followUpsSent: row.followUpCount,
             reviewedAt: row.reviewedAt
               ? new Date(row.reviewedAt).toISOString()

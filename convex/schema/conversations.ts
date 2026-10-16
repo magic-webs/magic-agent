@@ -150,6 +150,8 @@ export const conversationsTables = {
     leadStageId: v.optional(v.id("leadStages")),
     leadStageNote: v.optional(v.string()),
     leadStagePinned: v.optional(v.boolean()),
+    leadTagIds: v.optional(v.array(v.id("leadTags"))),
+    leadTagsPinned: v.optional(v.boolean()),
     reviewedAt: v.optional(v.number()),
     followUpCount: v.optional(v.number()),
     lastFollowUpAt: v.optional(v.number()),
@@ -291,6 +293,15 @@ export const conversationsTables = {
       v.literal("won"),
       v.literal("lost")
     ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_workspace", ["workspaceId"]),
+
+  leadTags: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    color: v.string(),
+    description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),

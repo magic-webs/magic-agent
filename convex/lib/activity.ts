@@ -36,6 +36,7 @@ export const LOGGED_TABLES: Partial<Record<TableNames, TableConfig>> = {
   records: { entity: "Record", name: field("reference") },
   recordWebhooks: { entity: "Record webhook", name: field("name") },
   leadStages: { entity: "Lead stage", name: field("name") },
+  leadTags: { entity: "Lead tag", name: field("name") },
   contacts: {
     entity: "Contact",
     name: field("name", "phone", "email"),
@@ -43,7 +44,7 @@ export const LOGGED_TABLES: Partial<Record<TableNames, TableConfig>> = {
   },
   conversations: {
     entity: "Conversation",
-    only: ["status", "humanHandling", "markedBot", "leadStageId"],
+    only: ["status", "humanHandling", "markedBot", "leadStageId", "leadTagIds"],
     skipInsert: () => true,
   },
   teamMembers: { entity: "Team member", name: field("name") },
@@ -117,6 +118,7 @@ const RENAMED: Record<string, string> = {
   passwordHash: "password",
   tokenHash: "token",
   leadStageId: "lead stage",
+  leadTagIds: "lead tags",
   humanHandling: "human takeover",
   markedBot: "bot flag",
 };

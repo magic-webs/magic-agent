@@ -59,6 +59,13 @@ const reviewSchema = z.object({
     .describe(
       "The message to send, or null when sendFollowUp is false. One or two sentences, naming the specific thing left open."
     ),
+  tags: z
+    .array(z.string())
+    .nullable()
+    .optional()
+    .describe(
+      "Names of every tag from the tag list whose description fits this conversation, copied exactly. Empty when none fit or there is no tag list."
+    ),
 });
 
 /**
@@ -140,6 +147,11 @@ export const review = internalAction({
       )
       .join("\n");
 
+    const tagging = context.tags.length > 0 && !context.tagsPinned;
+    const tagList = context.tags
+      .map((tag) => `- ${tag.name}: ${tag.description}`)
+      .join("\n");
+
     const system = [
       `You review finished conversations for ${workspace.name}${
         workspace.industry ? `, ${workspace.industry}` : ""
@@ -158,6 +170,9 @@ export const review = internalAction({
       stageList,
       "",
       "Pick the furthest stage the conversation actually reached — not the one you hope it reaches, and not the next one along.",
+      tagging
+        ? `\nTags. Apply every one whose description fits what was actually said, and none that only might:\n${tagList}`
+        : "There is no tag list, so leave tags empty.",
       deliverable
         ? "If a follow-up is worth sending, write it as the company's assistant speaking to the customer directly. Reference what they actually said."
         : "A follow-up cannot be sent on this conversation, so set sendFollowUp to false and leave followUpMessage empty. Still file the stage.",
@@ -266,6 +281,17 @@ export const review = internalAction({
         : undefined) ??
       null;
 
+    const tagIds = tagging
+      ? [
+          ...new Set(
+            (decision.tags ?? []).flatMap((name) => {
+              const match = context.tags.find((tag) => key(tag.name) === key(name));
+              return match ? [match.id] : [];
+            })
+          ),
+        ]
+      : undefined;
+
     // Nothing is chased once it is won or lost, whatever the model wrote.
     const terminal = stage?.outcome !== "open";
     const followUpText = (decision.followUpMessage ?? "").trim();
@@ -335,6 +361,7 @@ export const review = internalAction({
       conversationId: args.conversationId,
       workspaceId: args.workspaceId,
       stageId: stage?.id,
+      tagIds,
       note,
       reviewedAt: now,
       followedUp,

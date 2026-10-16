@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { createContext, useContext, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -9,6 +9,12 @@ import { MAX_FOLLOW_UPS } from "@/convex/lib/shared";
 import { useWorkspace } from "@/components/workspace-provider";
 import { SelectField } from "@/components/select-field";
 import { LeadStagesSheet, type LeadStage } from "@/components/lead-stages-sheet";
+import {
+  LeadTagsSheet,
+  LeadTagsSubmenu,
+  TagChips,
+  type LeadTag,
+} from "@/components/lead-tags";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -61,6 +67,7 @@ import {
   SignpostIcon,
   SparkleIcon,
   TableIcon,
+  TagIcon,
   TrophyIcon,
   UserIcon,
   WarningIcon,
@@ -80,6 +87,8 @@ type Lead = {
   leadStageId: Id<"leadStages"> | null;
   leadStageNote: string | null;
   leadStagePinned: boolean;
+  leadTagIds: Id<"leadTags">[];
+  leadTagsPinned: boolean;
   reviewedAt: number | null;
   followUpCount: number;
   status: string;
@@ -295,8 +304,11 @@ function nudgeState(lead: Lead, outcome: LeadStage["outcome"]): string {
   return "Can still be nudged";
 }
 
+const TagsContext = createContext<LeadTag[]>([]);
+
 function LeadMenu({ lead, base }: { lead: Lead; base: string }) {
   const setStage = useMutation(api.leads.setStage);
+  const tags = useContext(TagsContext);
 
   return (
     <DropdownMenu>
@@ -320,6 +332,11 @@ function LeadMenu({ lead, base }: { lead: Lead; base: string }) {
         >
           <ChatsIcon /> Open conversation
         </DropdownMenuItem>
+        <LeadTagsSubmenu
+          conversationId={lead.conversationId}
+          tagIds={lead.leadTagIds}
+          tags={tags}
+        />
         {lead.leadStageId ? (
           <DropdownMenuItem
             onClick={async () => {
@@ -355,6 +372,7 @@ function LeadCard({
   base: string;
 }) {
   const setStage = useMutation(api.leads.setStage);
+  const tags = useContext(TagsContext);
   const tone = TONES[group.tone];
 
   return (
@@ -414,6 +432,8 @@ function LeadCard({
           {lead.lastMessagePreview}
         </p>
       ) : null}
+
+      <TagChips tagIds={lead.leadTagIds} tags={tags} />
 
       {/* Why the desk filed it here, and what it will do next. The single most
           useful line on this page when a stage looks wrong. */}
@@ -656,6 +676,7 @@ function LeadTable({
   base: string;
 }) {
   const setStage = useMutation(api.leads.setStage);
+  const tags = useContext(TagsContext);
   const sorted = [...rows].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 
   return (
@@ -709,6 +730,11 @@ function LeadTable({
                       {lead.contactCompany ? (
                         <span className="block truncate text-xs text-muted-foreground">
                           {lead.contactCompany}
+                        </span>
+                      ) : null}
+                      {lead.leadTagIds.length ? (
+                        <span className="mt-1 block">
+                          <TagChips tagIds={lead.leadTagIds} tags={tags} />
                         </span>
                       ) : null}
                     </span>
@@ -845,6 +871,9 @@ export default function LeadsPage() {
   const leads = useQuery(api.leads.pipeline, {
     workspaceId: workspace._id,
   }) as Lead[] | undefined;
+  const tags = useQuery(api.leads.listTags, {
+    workspaceId: workspace._id,
+  }) as LeadTag[] | undefined;
   const ensureStages = useMutation(api.leads.ensureDefaultStages);
   const ensureDesk = useMutation(api.agents.ensureDefaultFollowUpDesk);
   const agents = useQuery(api.agents.listByWorkspace, {
@@ -852,6 +881,8 @@ export default function LeadsPage() {
   });
 
   const [stagesOpen, setStagesOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tag, setTag] = useState("all");
   const [view, setView] = useState<View>("kanban");
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("all");
@@ -868,7 +899,11 @@ export default function LeadsPage() {
   // The stage is left out of this: it has its own row of chips, which show
   // their own selected state and clear on a second click.
   const narrowed =
-    Boolean(term) || channel !== "all" || status !== "all" || seen !== "all";
+    Boolean(term) ||
+    channel !== "all" ||
+    status !== "all" ||
+    seen !== "all" ||
+    tag !== "all";
 
   // Everything except the stage, so a chip's count answers "how many are here
   // under the filters in force" rather than being filtered by itself.
@@ -876,6 +911,14 @@ export default function LeadsPage() {
     return (leads ?? []).filter((lead) => {
       if (channel !== "all" && lead.channelType !== channel) return false;
       if (status !== "all" && lead.status !== status) return false;
+      if (tag === "none" && lead.leadTagIds.length > 0) return false;
+      if (
+        tag !== "all" &&
+        tag !== "none" &&
+        !lead.leadTagIds.includes(tag as Id<"leadTags">)
+      ) {
+        return false;
+      }
       if (seen !== "all" && lead.lastMessageAt < now - Number(seen) * DAY_MS) {
         return false;
       }
@@ -893,7 +936,7 @@ export default function LeadsPage() {
         .toLowerCase()
         .includes(term);
     });
-  }, [leads, channel, status, seen, term, now]);
+  }, [leads, channel, status, seen, tag, term, now]);
 
   // Grouped in pipeline order, with the unfiled last: they are the ones the
   // desk has not read yet, which is a queue rather than a stage.
@@ -977,268 +1020,299 @@ export default function LeadsPage() {
     setChannel("all");
     setStatus("all");
     setSeen("all");
+    setTag("all");
   };
 
   const loading = stages === undefined || leads === undefined;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Leads
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every conversation, filed at the stage it has reached.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Icons only: three labelled buttons is a wider control than the
-              heading beside it, and each one carries its name as a tooltip
-              and an aria-label. */}
-          <ToggleGroup
-            value={[view]}
-            onValueChange={(value) => {
-              const next = value[0] as View | undefined;
-              if (next) setView(next);
-            }}
-            className="rounded-lg border p-0.5"
-          >
-            {VIEWS.map((option) => (
-              <ToggleGroupItem
-                key={option.value}
-                value={option.value}
-                title={`${option.label} view`}
-                aria-label={`${option.label} view`}
-              >
-                <option.icon className="size-4" />
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+    <TagsContext.Provider value={tags ?? []}>
+      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              Leads
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Every conversation, filed at the stage it has reached.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Icons only: three labelled buttons is a wider control than the
+                heading beside it, and each one carries its name as a tooltip
+                and an aria-label. */}
+            <ToggleGroup
+              value={[view]}
+              onValueChange={(value) => {
+                const next = value[0] as View | undefined;
+                if (next) setView(next);
+              }}
+              className="rounded-lg border p-0.5"
+            >
+              {VIEWS.map((option) => (
+                <ToggleGroupItem
+                  key={option.value}
+                  value={option.value}
+                  title={`${option.label} view`}
+                  aria-label={`${option.label} view`}
+                >
+                  <option.icon className="size-4" />
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
 
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setStagesOpen(true)}
-          >
-            <SignpostIcon /> Manage stages
-          </Button>
-        </div>
-      </header>
-
-      {stages ? (
-        <LeadStagesSheet
-          workspaceId={workspace._id}
-          stages={stages}
-          open={stagesOpen}
-          onOpenChange={setStagesOpen}
-        />
-      ) : null}
-
-      {/* The funnel as a row you can click through. A second click on the
-          selected chip goes back to all of them. */}
-      {!loading && rows.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          <StatChip
-            icon={FunnelIcon}
-            tone="slate"
-            label="All"
-            blurb="All leads"
-            count={rows.length}
-            selected={stage === "all"}
-            onSelect={() => setStage("all")}
-          />
-          {filled.map((group) => (
-            <StatChip
-              key={group.key}
-              icon={group.icon}
-              tone={group.tone}
-              label={group.title}
-              blurb={group.blurb}
-              count={group.rows.length}
-              selected={stage === group.key}
-              onSelect={() =>
-                setStage((prev) => (prev === group.key ? "all" : group.key))
-              }
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {/* No visible field labels: three selects and a search box would run the
-          row wider than the panels below. Each select's resting option names
-          its own dimension, with an aria-label for anyone who cannot see it. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs min-w-56">
-          <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            placeholder="Search leads…"
-            className="pl-7"
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-
-        <SelectField
-          aria-label="Filter by channel"
-          value={channel}
-          onValueChange={setChannel}
-          options={CHANNELS}
-        />
-
-        <SelectField
-          aria-label="Filter by conversation status"
-          value={status}
-          onValueChange={setStatus}
-          options={STATUSES}
-        />
-
-        <SelectField
-          aria-label="Filter by when the lead last said something"
-          value={seen}
-          onValueChange={setSeen}
-          options={WINDOWS}
-        />
-
-        {narrowed ? (
-          <Button variant="ghost" onClick={clear}>
-            <XIcon /> Clear
-          </Button>
-        ) : null}
-
-        <span className="ml-auto text-sm tabular-nums text-muted-foreground">
-          {narrowed
-            ? `${rows.length} of ${total}`
-            : `${total} lead${total === 1 ? "" : "s"}`}
-        </span>
-      </div>
-
-      {!desk && agents !== undefined ? (
-        <Alert>
-          <WarningIcon />
-          <AlertTitle>No follow-up desk yet</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-2">
-            <span>
-              Nothing is filed or followed up until this workspace has one.
-            </span>
             <Button
               size="lg"
-              onClick={async () => {
-                await ensureStages({ workspaceId: workspace._id });
-                await ensureDesk({ workspaceId: workspace._id });
-                toast.add({ title: "Follow-up desk created", type: "success" });
-              }}
+              variant="outline"
+              onClick={() => setStagesOpen(true)}
             >
-              <PlusIcon /> Create the follow-up desk
+              <SignpostIcon /> Manage stages
             </Button>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+            <Button size="lg" variant="outline" onClick={() => setTagsOpen(true)}>
+              <TagIcon /> Manage tags
+            </Button>
+          </div>
+        </header>
 
-      {loading ? (
-        <ListSkeleton rows={6} />
-      ) : rows.length === 0 ? (
-        <Empty className="border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <FunnelIcon />
-            </EmptyMedia>
-            <EmptyTitle>
-              {narrowed ? "No leads match" : "No leads yet"}
-            </EmptyTitle>
-            <EmptyDescription>
-              {narrowed
-                ? "Nothing matches every filter at once."
-                : "Every conversation becomes a lead. Talk to an agent, and it will appear here."}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            {narrowed ? (
-              <Button variant="outline" onClick={clear}>
-                <XIcon /> Clear filters
-              </Button>
-            ) : (
+        {stages ? (
+          <LeadStagesSheet
+            workspaceId={workspace._id}
+            stages={stages}
+            open={stagesOpen}
+            onOpenChange={setStagesOpen}
+          />
+        ) : null}
+
+        {tags ? (
+          <LeadTagsSheet
+            workspaceId={workspace._id}
+            tags={tags}
+            open={tagsOpen}
+            onOpenChange={setTagsOpen}
+          />
+        ) : null}
+
+        {/* The funnel as a row you can click through. A second click on the
+            selected chip goes back to all of them. */}
+        {!loading && rows.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            <StatChip
+              icon={FunnelIcon}
+              tone="slate"
+              label="All"
+              blurb="All leads"
+              count={rows.length}
+              selected={stage === "all"}
+              onSelect={() => setStage("all")}
+            />
+            {filled.map((group) => (
+              <StatChip
+                key={group.key}
+                icon={group.icon}
+                tone={group.tone}
+                label={group.title}
+                blurb={group.blurb}
+                count={group.rows.length}
+                selected={stage === group.key}
+                onSelect={() =>
+                  setStage((prev) => (prev === group.key ? "all" : group.key))
+                }
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {/* No visible field labels: three selects and a search box would run the
+            row wider than the panels below. Each select's resting option names
+            its own dimension, with an aria-label for anyone who cannot see it. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full max-w-xs min-w-56">
+            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              placeholder="Search leads…"
+              className="pl-7"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+
+          <SelectField
+            aria-label="Filter by channel"
+            value={channel}
+            onValueChange={setChannel}
+            options={CHANNELS}
+          />
+
+          <SelectField
+            aria-label="Filter by conversation status"
+            value={status}
+            onValueChange={setStatus}
+            options={STATUSES}
+          />
+
+          {tags?.length ? (
+            <SelectField
+              aria-label="Filter by tag"
+              value={tag}
+              onValueChange={setTag}
+              options={[
+                { value: "all", label: "Any tag" },
+                ...tags.map((option) => ({
+                  value: option._id as string,
+                  label: option.name,
+                })),
+                { value: "none", label: "No tags" },
+              ]}
+            />
+          ) : null}
+
+          <SelectField
+            aria-label="Filter by when the lead last said something"
+            value={seen}
+            onValueChange={setSeen}
+            options={WINDOWS}
+          />
+
+          {narrowed ? (
+            <Button variant="ghost" onClick={clear}>
+              <XIcon /> Clear
+            </Button>
+          ) : null}
+
+          <span className="ml-auto text-sm tabular-nums text-muted-foreground">
+            {narrowed
+              ? `${rows.length} of ${total}`
+              : `${total} lead${total === 1 ? "" : "s"}`}
+          </span>
+        </div>
+
+        {!desk && agents !== undefined ? (
+          <Alert>
+            <WarningIcon />
+            <AlertTitle>No follow-up desk yet</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-2">
+              <span>
+                Nothing is filed or followed up until this workspace has one.
+              </span>
               <Button
                 size="lg"
-                variant="outline"
-                nativeButton={false}
-                render={<Link href={`${base}/conversations`} />}
+                onClick={async () => {
+                  await ensureStages({ workspaceId: workspace._id });
+                  await ensureDesk({ workspaceId: workspace._id });
+                  toast.add({ title: "Follow-up desk created", type: "success" });
+                }}
               >
-                <ChatsIcon /> Open conversations
+                <PlusIcon /> Create the follow-up desk
               </Button>
-            )}
-          </EmptyContent>
-        </Empty>
-      ) : view === "kanban" ? (
-        <KanbanBoard groups={columns} stages={stages} base={base} />
-      ) : view === "list" ? (
-        <LeadTable rows={rows} groupOf={groupOf} stages={stages} base={base} />
-      ) : (
-        /* The stages still in play take the full width and run their cards
-           two-up; the closed outcomes and the unreviewed queue share a row
-           below, because what is left to do matters more than what is done. */
-        <div className="grid gap-4 lg:grid-cols-2">
-          {shown.map((group) => {
-            const wide = group.outcome === "open" || stage !== "all";
-            const tone = TONES[group.tone];
-            return (
-              <section
-                key={group.key}
-                className={cn(
-                  "rounded-2xl border p-3 sm:p-4",
-                  tone.panel,
-                  wide && "lg:col-span-2"
-                )}
-              >
-                <header className="mb-3 flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-lg",
-                      tone.tile
-                    )}
-                  >
-                    <group.icon className="size-4" />
-                  </span>
-                  <h2
-                    className={cn(
-                      "font-heading text-base font-semibold",
-                      tone.title
-                    )}
-                    title={group.hint}
-                  >
-                    {group.title}
-                  </h2>
-                  <Badge variant="ghost" className="tabular-nums">
-                    {group.rows.length}
-                  </Badge>
-                  {stage === "all" ? (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="ml-auto text-muted-foreground"
-                      onClick={() => setStage(group.key)}
-                    >
-                      View all <ArrowRightIcon />
-                    </Button>
-                  ) : null}
-                </header>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
-                <div className={cn("grid gap-3", wide && "md:grid-cols-2")}>
-                  {group.rows.map((lead) => (
-                    <LeadCard
-                      key={lead.conversationId}
-                      lead={lead}
-                      group={group}
-                      stages={stages}
-                      base={base}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </div>
+        {loading ? (
+          <ListSkeleton rows={6} />
+        ) : rows.length === 0 ? (
+          <Empty className="border border-dashed">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FunnelIcon />
+              </EmptyMedia>
+              <EmptyTitle>
+                {narrowed ? "No leads match" : "No leads yet"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {narrowed
+                  ? "Nothing matches every filter at once."
+                  : "Every conversation becomes a lead. Talk to an agent, and it will appear here."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              {narrowed ? (
+                <Button variant="outline" onClick={clear}>
+                  <XIcon /> Clear filters
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link href={`${base}/conversations`} />}
+                >
+                  <ChatsIcon /> Open conversations
+                </Button>
+              )}
+            </EmptyContent>
+          </Empty>
+        ) : view === "kanban" ? (
+          <KanbanBoard groups={columns} stages={stages} base={base} />
+        ) : view === "list" ? (
+          <LeadTable rows={rows} groupOf={groupOf} stages={stages} base={base} />
+        ) : (
+          /* The stages still in play take the full width and run their cards
+             two-up; the closed outcomes and the unreviewed queue share a row
+             below, because what is left to do matters more than what is done. */
+          <div className="grid gap-4 lg:grid-cols-2">
+            {shown.map((group) => {
+              const wide = group.outcome === "open" || stage !== "all";
+              const tone = TONES[group.tone];
+              return (
+                <section
+                  key={group.key}
+                  className={cn(
+                    "rounded-2xl border p-3 sm:p-4",
+                    tone.panel,
+                    wide && "lg:col-span-2"
+                  )}
+                >
+                  <header className="mb-3 flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-lg",
+                        tone.tile
+                      )}
+                    >
+                      <group.icon className="size-4" />
+                    </span>
+                    <h2
+                      className={cn(
+                        "font-heading text-base font-semibold",
+                        tone.title
+                      )}
+                      title={group.hint}
+                    >
+                      {group.title}
+                    </h2>
+                    <Badge variant="ghost" className="tabular-nums">
+                      {group.rows.length}
+                    </Badge>
+                    {stage === "all" ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-auto text-muted-foreground"
+                        onClick={() => setStage(group.key)}
+                      >
+                        View all <ArrowRightIcon />
+                      </Button>
+                    ) : null}
+                  </header>
+
+                  <div className={cn("grid gap-3", wide && "md:grid-cols-2")}>
+                    {group.rows.map((lead) => (
+                      <LeadCard
+                        key={lead.conversationId}
+                        lead={lead}
+                        group={group}
+                        stages={stages}
+                        base={base}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </TagsContext.Provider>
   );
 }

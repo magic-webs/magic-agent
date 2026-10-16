@@ -76,7 +76,10 @@ export function FieldListEditor({
                   label: event.target.value,
                   // Only while the key is still untouched: once someone has
                   // corrected it by hand, retyping the label must not undo it.
-                  key: field.key || keyFromLabel(event.target.value),
+                  key:
+                    !field.key || field.key === keyFromLabel(field.label)
+                      ? keyFromLabel(event.target.value)
+                      : field.key,
                 })
               }
             />

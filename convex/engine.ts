@@ -53,6 +53,7 @@ import {
 } from "./lib/toolSchema";
 import {
   checkValues,
+  isFieldKey,
   recordToolNames,
   type RecordField,
 } from "./lib/records";
@@ -1004,7 +1005,7 @@ function recordInputSchema(fields: RecordField[], forUpdate: boolean) {
 
   for (const field of fields) {
     const key = field.key.trim();
-    if (!key) continue;
+    if (!isFieldKey(key) || properties[key]) continue;
 
     const property: Record<string, unknown> = {
       // Everything crosses as a string. A date the customer gave as "next

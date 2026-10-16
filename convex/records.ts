@@ -22,6 +22,7 @@ import { kvPair, requirementField } from "./schema";
 import { buildSearchBlob } from "./lib/shared";
 import {
   checkValues,
+  fieldKeyProblem,
   makeReference,
   mergeValues,
   referenceAlphabet,
@@ -317,6 +318,8 @@ export async function insertBook(
 ): Promise<{ bookId: Id<"recordBooks">; handle: string }> {
   const name = args.name.trim();
   if (!name) throw new ConvexError("Give the record a name, such as “Membership”.");
+  const keyProblem = fieldKeyProblem(args.fields ?? []);
+  if (keyProblem) throw new ConvexError(keyProblem);
 
   // The handle is the model's tool name, so two books cannot share one —
   // `file_membership` can only mean one thing.
@@ -392,6 +395,10 @@ export const updateBook = mutation({
       patch.referencePrefix =
         patch.referencePrefix.trim().toUpperCase() || undefined;
       if (!patch.referencePrefix) delete patch.referencePrefix;
+    }
+    if (Array.isArray(patch.fields)) {
+      const keyProblem = fieldKeyProblem(patch.fields as RecordField[]);
+      if (keyProblem) throw new ConvexError(keyProblem);
     }
     if (Array.isArray(patch.stages)) {
       patch.stages = (patch.stages as string[])

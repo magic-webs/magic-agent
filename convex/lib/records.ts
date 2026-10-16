@@ -25,6 +25,34 @@ export type RecordField = {
   example?: string;
 };
 
+const FIELD_KEY = /^[A-Za-z0-9_.-]{1,64}$/;
+const RESERVED_KEYS = new Set([
+  "personName",
+  "personPhone",
+  "personEmail",
+  "personCompany",
+  "notes",
+]);
+
+export function isFieldKey(key: string): boolean {
+  return FIELD_KEY.test(key) && !RESERVED_KEYS.has(key);
+}
+
+export function fieldKeyProblem(fields: RecordField[]): string | null {
+  const seen = new Set<string>();
+  for (const field of fields) {
+    const key = field.key;
+    if (!isFieldKey(key)) {
+      return `“${field.label || key}” needs a key of up to 64 letters, numbers, _ . or -, other than ${[...RESERVED_KEYS].join(", ")}.`;
+    }
+    if (seen.has(key)) {
+      return `Two fields share the key “${key}”. Give each its own.`;
+    }
+    seen.add(key);
+  }
+  return null;
+}
+
 export const RECORD_FIELD_TYPES: Array<{
   value: RecordFieldType;
   label: string;

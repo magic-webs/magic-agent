@@ -195,6 +195,8 @@ export type Outbound =
       templateName: string;
       languageCode: string;
       bodyVariables?: string[];
+      /** The image or video an approved media header shows, by public link. */
+      headerMedia?: { type: "image" | "video"; link: string };
       /** What the customer reads, for the transcript. Never sent. */
       preview?: string;
     };
@@ -579,20 +581,35 @@ function payloadFor(message: Outbound): Json {
         template: {
           name: message.templateName,
           language: { policy: "deterministic", code: message.languageCode },
-          components: message.bodyVariables?.length
-            ? [
-                {
-                  type: "body",
-                  // Meta rejects a parameter holding a newline, a tab or a run
-                  // of spaces, and rejects an empty one — either way the whole
-                  // send fails, so both are answered here.
-                  parameters: message.bodyVariables.map((text) => ({
-                    type: "text",
-                    text: text.replace(/\s+/g, " ").trim() || "-",
-                  })),
-                },
-              ]
-            : [],
+          components: [
+            ...(message.headerMedia
+              ? [
+                  {
+                    type: "header",
+                    parameters: [
+                      {
+                        type: message.headerMedia.type,
+                        [message.headerMedia.type]: { link: message.headerMedia.link },
+                      },
+                    ],
+                  },
+                ]
+              : []),
+            ...(message.bodyVariables?.length
+              ? [
+                  {
+                    type: "body",
+                    // Meta rejects a parameter holding a newline, a tab or a run
+                    // of spaces, and rejects an empty one — either way the whole
+                    // send fails, so both are answered here.
+                    parameters: message.bodyVariables.map((text) => ({
+                      type: "text",
+                      text: text.replace(/\s+/g, " ").trim() || "-",
+                    })),
+                  },
+                ]
+              : []),
+          ],
         },
       };
   }

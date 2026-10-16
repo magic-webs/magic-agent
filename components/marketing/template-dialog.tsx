@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CATEGORY_LABELS } from "@/convex/lib/billing";
@@ -14,14 +14,17 @@ import {
   BUTTON_TEXT_LIMIT,
   FOOTER_LIMIT,
   HEADER_LIMIT,
+  HEADER_MEDIA_TYPES,
   MAX_BUTTONS,
   MAX_PHONE_BUTTONS,
   MAX_URL_BUTTONS,
   STOP_BUTTON,
   partsProblems,
   sameParts,
+  type HeaderMedia,
   type TemplateButton,
 } from "@/convex/lib/templateParts";
+import { putFile } from "@/lib/upload";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { templateStanding } from "@/components/marketing/format";
@@ -32,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Dialog,
   DialogBody,
@@ -48,16 +52,27 @@ import {
   ArrowSquareOutIcon,
   ArrowUUpLeftIcon,
   HandPalmIcon,
+  ImageIcon,
   PaperPlaneTiltIcon,
   PhoneIcon,
   SparkleIcon,
   TrashIcon,
+  UploadSimpleIcon,
+  VideoCameraIcon,
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { fail, type Occasion, type Template } from "@/components/marketing/calendar";
 
 type TemplateCategory = NonNullable<Doc<"marketingTemplates">["category"]>;
+type HeaderKind = "none" | "text" | HeaderMedia["type"];
+
+const HEADER_KINDS: { value: HeaderKind; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "text", label: "Text" },
+  { value: "image", label: "Image" },
+  { value: "video", label: "Video" },
+];
 
 /**
  * Meta's template categories, which are also what each send is billed at.
@@ -85,10 +100,23 @@ export type TemplateDraft = {
   body: string;
   metaTemplateName: string;
   languageCode: string;
+  headerKind: HeaderKind;
   header: string;
+  headerMedia: (HeaderMedia & { url: string }) | null;
   footer: string;
   buttons: TemplateButton[];
 };
+
+function draftParts(draft: TemplateDraft) {
+  const media =
+    draft.headerMedia && draft.headerMedia.type === draft.headerKind ? draft.headerMedia : null;
+  return {
+    header: draft.headerKind === "text" ? draft.header : "",
+    headerMedia: media ? { type: media.type, key: media.key, mimeType: media.mimeType } : undefined,
+    footer: draft.footer,
+    buttons: draft.buttons,
+  };
+}
 
 const BUTTON_KINDS: Array<{
   type: TemplateButton["type"];
@@ -120,7 +148,9 @@ export function TemplateDialog({
   const removeTemplate = useMutation(api.marketing.removeTemplate);
   const draftTemplate = useAction(api.marketingAi.draft);
   const applyTemplate = useAction(api.marketingTemplates.apply);
+  const generateUploadUrl = useMutation(api.marketing.generateTemplateUploadUrl);
   const [busy, setBusy] = useState<string | null>(null);
+  const mediaInput = useRef<HTMLInputElement>(null);
 
   if (!draft) {
     return <Dialog open={false} />;
@@ -136,12 +166,19 @@ export function TemplateDialog({
     (draft.body.trim() !== saved.body ||
       draft.category !== (saved.category ?? "marketing") ||
       draft.languageCode.trim() !== saved.languageCode ||
-      !sameParts(draft, saved));
+      !sameParts(draftParts(draft), saved));
   const inReview = status === "PENDING" || status === "IN_APPEAL";
   // Approved, or linked by hand, and not touched since: nothing to apply.
   const settled =
     !!saved?.metaTemplateName && (status === undefined || status === "APPROVED") && !edited;
-  const problems = [...templateProblems(draft.body), ...partsProblems(draft)];
+  const parts = draftParts(draft);
+  const mediaKind =
+    draft.headerKind === "image" || draft.headerKind === "video" ? draft.headerKind : null;
+  const problems = [
+    ...templateProblems(draft.body),
+    ...partsProblems(parts),
+    ...(mediaKind && !parts.headerMedia ? [`Add the header ${mediaKind} first.`] : []),
+  ];
   const approvedChange = edited && saved?.metaStatus === "APPROVED";
   const urlButtons = draft.buttons.filter((button) => button.type === "url").length;
   const phoneButtons = draft.buttons.filter((button) => button.type === "phone").length;
@@ -164,10 +201,35 @@ export function TemplateDialog({
     body: draft.body,
     metaTemplateName: draft.metaTemplateName,
     languageCode: draft.languageCode,
-    header: draft.header,
-    footer: draft.footer,
-    buttons: draft.buttons,
+    header: parts.header,
+    headerMedia: parts.headerMedia ?? null,
+    footer: parts.footer,
+    buttons: parts.buttons,
   });
+
+  const uploadMedia = async (file: File | undefined) => {
+    if (!file || !mediaKind) return;
+    const allowed = HEADER_MEDIA_TYPES[mediaKind];
+    if (
+      !(allowed.mimeTypes as readonly string[]).includes(file.type) ||
+      file.size > allowed.maxBytes
+    ) {
+      toast.add({ title: `The ${mediaKind} must be ${allowed.label}`, type: "error" });
+      return;
+    }
+    setBusy("upload");
+    try {
+      const key = await putFile(await generateUploadUrl({ workspaceId: workspace._id }), file);
+      setDraft({
+        ...draft,
+        headerMedia: { type: mediaKind, key, mimeType: file.type, url: URL.createObjectURL(file) },
+      });
+    } catch (error) {
+      fail(`Could not upload the ${mediaKind}`, error);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const saveAndApply = async () => {
     setBusy("apply");
@@ -314,19 +376,93 @@ export function TemplateDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="template-header">Header</Label>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                Optional · {draft.header.length}/{HEADER_LIMIT}
-              </span>
+              <ToggleGroup
+                value={[draft.headerKind]}
+                onValueChange={(value) => {
+                  const next = value[0] as HeaderKind | undefined;
+                  if (next) setDraft({ ...draft, headerKind: next });
+                }}
+                variant="outline"
+                size="sm"
+                aria-label="Header type"
+              >
+                {HEADER_KINDS.map((kind) => (
+                  <ToggleGroupItem key={kind.value} value={kind.value}>
+                    {kind.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </div>
-            <Input
-              id="template-header"
-              value={draft.header}
-              maxLength={HEADER_LIMIT}
-              placeholder="Header text"
-              onChange={(event) => setDraft({ ...draft, header: event.target.value })}
-            />
+            {draft.headerKind === "text" ? (
+              <>
+                <Input
+                  id="template-header"
+                  value={draft.header}
+                  maxLength={HEADER_LIMIT}
+                  placeholder="Header text"
+                  onChange={(event) => setDraft({ ...draft, header: event.target.value })}
+                />
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {draft.header.length}/{HEADER_LIMIT}
+                </span>
+              </>
+            ) : mediaKind ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-2.5">
+                {parts.headerMedia && draft.headerMedia ? (
+                  mediaKind === "image" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={draft.headerMedia.url}
+                      alt=""
+                      className="size-14 shrink-0 rounded-md object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={draft.headerMedia.url}
+                      muted
+                      className="size-14 shrink-0 rounded-md bg-muted object-cover"
+                    />
+                  )
+                ) : (
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    {mediaKind === "image" ? (
+                      <ImageIcon className="size-5" />
+                    ) : (
+                      <VideoCameraIcon className="size-5" />
+                    )}
+                  </span>
+                )}
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium">
+                    {parts.headerMedia ? `Header ${mediaKind}` : `No ${mediaKind} yet`}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {HEADER_MEDIA_TYPES[mediaKind].label}
+                  </span>
+                </div>
+                <input
+                  ref={mediaInput}
+                  type="file"
+                  hidden
+                  accept={HEADER_MEDIA_TYPES[mediaKind].mimeTypes.join(",")}
+                  onChange={(event) => {
+                    void uploadMedia(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => mediaInput.current?.click()}
+                >
+                  {busy === "upload" ? <Spinner /> : <UploadSimpleIcon />}
+                  {parts.headerMedia ? "Replace" : "Upload"}
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -524,7 +660,14 @@ export function TemplateDialog({
           </p>
           <WhatsAppPreview
             body={draft.body}
-            header={draft.header}
+            header={parts.header}
+            headerMedia={
+              parts.headerMedia && draft.headerMedia
+                ? { type: parts.headerMedia.type, url: draft.headerMedia.url }
+                : mediaKind
+                  ? { type: mediaKind }
+                  : undefined
+            }
             footer={draft.footer}
             buttons={draft.buttons}
             business={workspace.name}
@@ -595,7 +738,12 @@ export function draftFor(template?: Template): TemplateDraft {
         body: template.body,
         metaTemplateName: template.metaTemplateName ?? "",
         languageCode: template.languageCode,
+        headerKind: template.headerMedia?.type ?? (template.header ? "text" : "none"),
         header: template.header ?? "",
+        headerMedia:
+          template.headerMedia && template.headerMediaUrl
+            ? { ...template.headerMedia, url: template.headerMediaUrl }
+            : null,
         footer: template.footer ?? "",
         buttons: template.buttons ?? [],
       }
@@ -606,7 +754,9 @@ export function draftFor(template?: Template): TemplateDraft {
         body: "",
         metaTemplateName: "",
         languageCode: "en",
+        headerKind: "none",
         header: "",
+        headerMedia: null,
         footer: "",
         buttons: [],
       };

@@ -36,10 +36,11 @@ export function errorText(error: unknown): string {
 
 export async function request(
   url: string,
-  init: RequestInit
+  init: RequestInit,
+  timeoutMs = TIMEOUT_MS
 ): Promise<{ status: number; ok: boolean; body: unknown; text: string }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
     const text = await response.text().catch(() => "");

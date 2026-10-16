@@ -24,6 +24,7 @@ import type { AudienceSelection } from "./lib/audience";
 import { slug, trackFirstLink } from "./lib/links";
 import { errorText, providerError } from "./lib/panel";
 import { publicSiteUrl } from "./lib/publicUrl";
+import { fileUrl } from "./lib/files";
 
 /** Every variable but the customer's own name, which is filled per contact. */
 type SharedValues = Omit<Record<TemplateVariable, string>, "name">;
@@ -56,6 +57,9 @@ async function sendTemplate(
           templateName: template.metaTemplateName!,
           languageCode: template.languageCode,
           bodyVariables: parameters,
+          headerMedia: template.headerMedia
+            ? { type: template.headerMedia.type, link: fileUrl(template.headerMedia.key) }
+            : undefined,
           preview,
         })
       ),

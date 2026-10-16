@@ -54,7 +54,9 @@ export default function MarketingEventsPage() {
             body: EVENT_TEMPLATE_BODY,
             metaTemplateName: "",
             languageCode: "en",
+            headerKind: "none",
             header: "",
+            headerMedia: null,
             footer: "",
             buttons: [],
           })

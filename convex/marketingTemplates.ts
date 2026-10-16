@@ -36,11 +36,47 @@ import {
   type Json,
   type PanelConfig,
 } from "./lib/panel";
-import { metaParts, partsProblems } from "./lib/templateParts";
+import { metaParts, partsProblems, type HeaderMedia } from "./lib/templateParts";
+import { fileUrl } from "./lib/files";
 
 const NO_PANEL = "Connect a WhatsApp number under Channels first — templates are applied through it.";
 const NO_WABA =
   "The WhatsApp channel has no WABA ID. Add it on the channel under Channels, then apply again.";
+
+const UPLOAD_TIMEOUT_MS = 60_000;
+
+/**
+ * The sample Meta reviews a media header against. Meta wants a handle from
+ * its resumable upload, so the file goes up through the panel first; a panel
+ * that does not pass uploads through gets the file's public address instead.
+ */
+async function mediaHandle(panel: PanelConfig, media: HeaderMedia): Promise<string> {
+  const link = fileUrl(media.key);
+  try {
+    const file = await fetch(link);
+    if (!file.ok) return link;
+    const bytes = await file.arrayBuffer();
+    const session = await request(
+      `${panelRoot(panel)}/app/uploads?file_length=${bytes.byteLength}&file_type=${encodeURIComponent(media.mimeType)}`,
+      { method: "POST", headers: channelHeaders(panel) }
+    );
+    const id = ((session.body ?? {}) as Json).id;
+    if (!session.ok || typeof id !== "string") return link;
+    const upload = await request(
+      `${panelRoot(panel)}/${id}`,
+      {
+        method: "POST",
+        headers: { ...channelHeaders(panel), "Content-Type": media.mimeType, file_offset: "0" },
+        body: bytes,
+      },
+      UPLOAD_TIMEOUT_MS
+    );
+    const handle = ((upload.body ?? {}) as Json).h;
+    return upload.ok && typeof handle === "string" ? handle : link;
+  } catch {
+    return link;
+  }
+}
 
 /** A language code Meta and the panel may write differently: "en_US" is "en-US". */
 const sameLanguage = (a: string, b: string) =>
@@ -67,7 +103,10 @@ export const apply = action({
       text,
       ...(samples.length ? { example: { body_text: [samples] } } : {}),
     };
-    const parts: Json[] = metaParts(template);
+    const parts: Json[] = metaParts(
+      template,
+      template.headerMedia ? await mediaHandle(panel, template.headerMedia) : undefined
+    );
     const components = [
       ...parts.filter((part) => part.type === "HEADER"),
       body,

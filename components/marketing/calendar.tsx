@@ -68,7 +68,10 @@ import {
 } from "@phosphor-icons/react";
 
 
-export type Template = Doc<"marketingTemplates"> & { metaBody: string };
+export type Template = Doc<"marketingTemplates"> & {
+  metaBody: string;
+  headerMediaUrl: string | null;
+};
 export type Occasion = Doc<"marketingTemplates">["occasion"];
 export type CalendarEvent = Doc<"marketingEvents"> & { templateName: string | null };
 export type Festival = { key: string; name: string; date: string };

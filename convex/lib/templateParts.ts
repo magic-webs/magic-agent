@@ -6,9 +6,17 @@ export const templateButton = v.union(
   v.object({ type: v.literal("phone"), text: v.string(), phone: v.string() })
 );
 
+export const headerMedia = v.object({
+  type: v.union(v.literal("image"), v.literal("video")),
+  key: v.string(),
+  mimeType: v.string(),
+});
+
 export type TemplateButton = Infer<typeof templateButton>;
+export type HeaderMedia = Infer<typeof headerMedia>;
 export type TemplateParts = {
   header?: string;
+  headerMedia?: HeaderMedia;
   footer?: string;
   buttons?: TemplateButton[];
 };
@@ -21,10 +29,18 @@ export const MAX_URL_BUTTONS = 2;
 export const MAX_PHONE_BUTTONS = 1;
 export const STOP_BUTTON = "Stop messages";
 
+export const HEADER_MEDIA_TYPES = {
+  image: { mimeTypes: ["image/jpeg", "image/png"], maxBytes: 5 * 1024 * 1024, label: "JPG or PNG, up to 5 MB" },
+  video: { mimeTypes: ["video/mp4"], maxBytes: 16 * 1024 * 1024, label: "MP4, up to 16 MB" },
+} as const;
+
 const VARIABLE = /\{\{/;
 
 export function tidyParts(parts: TemplateParts): TemplateParts {
-  const header = parts.header?.trim() || undefined;
+  const headerMedia = parts.headerMedia
+    ? { type: parts.headerMedia.type, key: parts.headerMedia.key, mimeType: parts.headerMedia.mimeType }
+    : undefined;
+  const header = headerMedia ? undefined : parts.header?.trim() || undefined;
   const footer = parts.footer?.trim() || undefined;
   const buttons = (parts.buttons ?? [])
     .map((button) => ({ ...button, text: button.text.trim() }))
@@ -35,12 +51,18 @@ export function tidyParts(parts: TemplateParts): TemplateParts {
           ? { ...button, phone: button.phone.replace(/[^\d+]/g, "") }
           : button
     );
-  return { header, footer, buttons: buttons.length > 0 ? buttons : undefined };
+  return { header, headerMedia, footer, buttons: buttons.length > 0 ? buttons : undefined };
 }
 
 export function partsProblems(parts: TemplateParts): string[] {
-  const { header, footer, buttons = [] } = tidyParts(parts);
+  const { header, headerMedia, footer, buttons = [] } = tidyParts(parts);
   const problems: string[] = [];
+  if (headerMedia) {
+    const allowed = HEADER_MEDIA_TYPES[headerMedia.type];
+    if (!(allowed.mimeTypes as readonly string[]).includes(headerMedia.mimeType)) {
+      problems.push(`The header ${headerMedia.type} must be ${allowed.label}.`);
+    }
+  }
   if (header && header.length > HEADER_LIMIT) {
     problems.push(`Keep the header under ${HEADER_LIMIT} characters.`);
   }
@@ -90,10 +112,20 @@ export function orderedButtons(buttons: TemplateButton[] = []): TemplateButton[]
   ];
 }
 
-export function metaParts(parts: TemplateParts) {
-  const { header, footer, buttons } = tidyParts(parts);
+export function metaParts(parts: TemplateParts, mediaHandle?: string) {
+  const { header, headerMedia, footer, buttons } = tidyParts(parts);
   return [
-    ...(header ? [{ type: "HEADER", format: "TEXT", text: header }] : []),
+    ...(headerMedia
+      ? [
+          {
+            type: "HEADER",
+            format: headerMedia.type.toUpperCase(),
+            ...(mediaHandle ? { example: { header_handle: [mediaHandle] } } : {}),
+          },
+        ]
+      : header
+        ? [{ type: "HEADER", format: "TEXT", text: header }]
+        : []),
     ...(footer ? [{ type: "FOOTER", text: footer }] : []),
     ...(buttons?.length
       ? [

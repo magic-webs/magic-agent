@@ -131,6 +131,11 @@ export default function MarketingTemplatesPage() {
                 size="card"
                 body={template.body}
                 header={template.header}
+                headerMedia={
+                  template.headerMedia
+                    ? { type: template.headerMedia.type, url: template.headerMediaUrl ?? undefined }
+                    : undefined
+                }
                 footer={template.footer}
                 buttons={template.buttons}
                 business={workspace.name}

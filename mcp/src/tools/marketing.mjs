@@ -60,12 +60,38 @@ const templateBrief = (t) => ({
   metaStatus: t.metaStatus ?? (t.metaTemplateName ? "LINKED" : "NOT_APPLIED"),
   rejectedReason: t.metaRejectedReason ?? null,
   header: t.header ?? null,
+  headerMedia: t.headerMedia ? { type: t.headerMedia.type, url: t.headerMediaUrl } : null,
   footer: t.footer ?? null,
   buttons: t.buttons ?? [],
   canSend: canSend(t),
 });
 
 const noVariable = (text) => !text.includes("{{");
+
+// Mirrors HEADER_MEDIA_TYPES in convex/lib/templateParts.ts.
+const HEADER_MEDIA = {
+  image: { mimeTypes: ["image/jpeg", "image/png"], maxBytes: 5 * 1024 * 1024, label: "JPG or PNG, up to 5 MB" },
+  video: { mimeTypes: ["video/mp4"], maxBytes: 16 * 1024 * 1024, label: "MP4, up to 16 MB" },
+};
+
+async function copyHeaderMedia(workspaceId, { type, url }) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Fetching ${url} returned HTTP ${response.status}`);
+  const blob = await response.blob();
+  const mimeType = (blob.type || response.headers.get("content-type") || "").split(";")[0].trim();
+  const allowed = HEADER_MEDIA[type];
+  if (!allowed.mimeTypes.includes(mimeType) || blob.size > allowed.maxBytes) {
+    throw new Error(`The header ${type} must be ${allowed.label}; ${url} is ${mimeType || "an unknown type"}.`);
+  }
+  const target = await call.mutation(api.marketing.generateTemplateUploadUrl, { workspaceId });
+  const put = await fetch(target.url, {
+    method: "PUT",
+    headers: { "Content-Type": mimeType },
+    body: blob,
+  });
+  if (!put.ok) throw new Error(`Uploading ${url} failed with HTTP ${put.status}`);
+  return { type, key: target.key, mimeType };
+}
 
 const partTextArg = z
   .string()
@@ -252,7 +278,7 @@ export function register(server) {
     {
       title: "Save a marketing template",
       description:
-        "Create a template, or change one when `template` names it (omitted fields keep their value). Variables are written {{name}}, {{business}}, {{event}}, and for an event's reminders {{date}}, {{venue}} and {{message}}. Optional header and footer (plain text, 60 characters, no variables) and up to 10 buttons: quick replies, at most 2 website links and 1 call button, labels up to 25 characters. A quick reply labelled \"Stop messages\" unsubscribes whoever taps it. Saving does not submit it: apply_marketing_template does. Editing the text or parts of an approved template stops it sending until the change is applied.",
+        "Create a template, or change one when `template` names it (omitted fields keep their value). Variables are written {{name}}, {{business}}, {{event}}, and for an event's reminders {{date}}, {{venue}} and {{message}}. Optional header — plain text, or an image or video through headerMedia — and footer (plain text, 60 characters, no variables) and up to 10 buttons: quick replies, at most 2 website links and 1 call button, labels up to 25 characters. A quick reply labelled \"Stop messages\" unsubscribes whoever taps it. Saving does not submit it: apply_marketing_template does. Editing the text or parts of an approved template stops it sending until the change is applied.",
       inputSchema: {
         ...workspaceArg,
         template: z.string().optional().describe("Name or id of the template to change; omit to create"),
@@ -276,6 +302,16 @@ export function register(server) {
             "Only to link a template already approved elsewhere. apply_marketing_template sets it otherwise."
           ),
         header: partTextArg.optional().describe("A bold line above the body. Empty string removes it."),
+        headerMedia: z
+          .object({
+            type: z.enum(["image", "video"]),
+            url: z.string().describe("Public address of the file; it is copied into storage"),
+          })
+          .nullable()
+          .optional()
+          .describe(
+            "An image (JPG or PNG, up to 5 MB) or video (MP4, up to 16 MB) shown above the body in place of a text header. null removes it."
+          ),
         footer: partTextArg.optional().describe("A small grey line under the body. Empty string removes it."),
         buttons: buttonsArg
           .optional()
@@ -303,6 +339,9 @@ export function register(server) {
         languageCode: fields.languageCode ?? existing?.languageCode,
         metaTemplateName: fields.metaTemplateName ?? existing?.metaTemplateName,
         header: fields.header,
+        headerMedia: fields.headerMedia
+          ? await copyHeaderMedia(found._id, fields.headerMedia)
+          : fields.headerMedia,
         footer: fields.footer,
         buttons: fields.buttons,
       });

@@ -11,6 +11,8 @@ import {
   CameraIcon,
   CaretLeftIcon,
   CellSignalFullIcon,
+  ImageIcon,
+  PlayIcon,
   ListBulletsIcon,
   MicrophoneIcon,
   PaperclipIcon,
@@ -29,6 +31,7 @@ const BUTTON_ICON = {
 export function WhatsAppPreview({
   body,
   header,
+  headerMedia,
   footer,
   buttons,
   business,
@@ -38,6 +41,7 @@ export function WhatsAppPreview({
 }: {
   body: string;
   header?: string;
+  headerMedia?: { type: "image" | "video"; url?: string };
   footer?: string;
   buttons?: TemplateButton[];
   business: string;
@@ -55,7 +59,23 @@ export function WhatsAppPreview({
   const message = (
     <div className="flex max-w-[88%] flex-col self-start">
       <div className="relative rounded-lg rounded-tl-none bg-background px-2.5 pt-1.5 pb-1 text-[12.5px] leading-snug text-foreground shadow-sm">
-        {parts.header ? (
+        {headerMedia ? (
+          <div className="relative -mx-1.5 mb-1.5 flex aspect-[1.91/1] items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground">
+            {headerMedia.url && headerMedia.type === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={headerMedia.url} alt="" className="size-full object-cover" />
+            ) : headerMedia.url ? (
+              <video src={headerMedia.url} muted className="size-full object-cover" />
+            ) : (
+              <ImageIcon className="size-6" />
+            )}
+            {headerMedia.type === "video" ? (
+              <span className="absolute flex size-9 items-center justify-center rounded-full bg-black/50 text-white">
+                <PlayIcon weight="fill" className="size-4" />
+              </span>
+            ) : null}
+          </div>
+        ) : parts.header ? (
           <p className="mb-1 font-semibold break-words">{parts.header}</p>
         ) : null}
         {text ? (

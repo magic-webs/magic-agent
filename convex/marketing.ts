@@ -60,7 +60,14 @@ import {
   reachable,
   withBuiltIns,
 } from "./lib/audience";
-import { partsProblems, sameParts, templateButton, tidyParts } from "./lib/templateParts";
+import {
+  headerMedia as headerMediaValidator,
+  partsProblems,
+  sameParts,
+  templateButton,
+  tidyParts,
+} from "./lib/templateParts";
+import { deleteFile, fileUrl, requireOwnKey, uploadUrlFor } from "./lib/files";
 
 /** How many contacts one send batch covers. */
 export const SEND_BATCH = 40;
@@ -144,7 +151,11 @@ export function clampHour(hour: number): number {
 }
 
 function withMeta(template: Doc<"marketingTemplates">) {
-  return { ...template, metaBody: metaBody(template.body) };
+  return {
+    ...template,
+    metaBody: metaBody(template.body),
+    headerMediaUrl: template.headerMedia ? fileUrl(template.headerMedia.key) : null,
+  };
 }
 
 // ------------------------------------------------------------------ queries
@@ -389,6 +400,14 @@ export const ensureDesk = mutation({
   },
 });
 
+export const generateTemplateUploadUrl = mutation({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    return await uploadUrlFor("templates", args.workspaceId);
+  },
+});
+
 export const saveTemplate = mutation({
   args: {
     workspaceId: v.id("workspaces"),
@@ -400,14 +419,16 @@ export const saveTemplate = mutation({
     languageCode: v.optional(v.string()),
     category: v.optional(templateCategory),
     header: v.optional(v.string()),
+    headerMedia: v.optional(v.union(headerMediaValidator, v.null())),
     footer: v.optional(v.string()),
     buttons: v.optional(v.array(templateButton)),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    requireOwnKey(args.headerMedia?.key, "templates", args.workspaceId);
     const name = args.name.trim();
     const body = args.body.trim();
-    const parts = tidyParts(args);
+    const parts = tidyParts({ ...args, headerMedia: args.headerMedia ?? undefined });
     const partProblems = partsProblems(parts);
     if (partProblems.length > 0) throw new ConvexError(partProblems[0]);
     if (!name) throw new ConvexError("Give the template a name.");
@@ -432,6 +453,10 @@ export const saveTemplate = mutation({
       const existing = await templateInWorkspace(ctx, args.workspaceId, args.templateId);
       const kept = tidyParts({
         header: args.header ?? existing.header,
+        headerMedia:
+          args.headerMedia === undefined && !args.header?.trim()
+            ? existing.headerMedia
+            : args.headerMedia ?? undefined,
         footer: args.footer ?? existing.footer,
         buttons: args.buttons ?? existing.buttons,
       });
@@ -471,11 +496,15 @@ export const saveTemplate = mutation({
         // cannot quietly move a utility template back to marketing.
         ...(args.category ? { category: args.category } : {}),
         header: kept.header,
+        headerMedia: kept.headerMedia,
         footer: kept.footer,
         buttons: kept.buttons,
         ...review,
         updatedAt: now,
       });
+      if (existing.headerMedia && existing.headerMedia.key !== kept.headerMedia?.key) {
+        await deleteFile(ctx, existing.headerMedia.key);
+      }
       return args.templateId;
     }
 
@@ -551,6 +580,7 @@ export const removeTemplate = mutation({
     }
 
     await ctx.db.delete("marketingTemplates", args.templateId);
+    await deleteFile(ctx, template.headerMedia?.key);
     return { success: true };
   },
 });

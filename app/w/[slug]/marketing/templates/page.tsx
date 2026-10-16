@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { ArrowClockwiseIcon, MegaphoneIcon, PlusIcon, WhatsappLogoIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, MegaphoneIcon, PlusIcon, WhatsappLogoIcon } from "@phosphor-icons/react";
 
 const OCCASION_LABELS: Record<string, string> = {
   festival: "Festival",
@@ -32,7 +32,7 @@ export default function MarketingTemplatesPage() {
   const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
   const [draft, setDraft] = useState<TemplateDraft | null>(null);
-  const checkStatus = useAction(api.marketingTemplates.checkStatus);
+  const syncTemplates = useAction(api.marketingTemplates.sync);
   const [checking, setChecking] = useState(false);
 
   const unlinked = templates.filter((t) => !templateReady(t)).length;
@@ -41,15 +41,23 @@ export default function MarketingTemplatesPage() {
   const runStatusCheck = async () => {
     setChecking(true);
     try {
-      const { changed } = await checkStatus({ workspaceId: workspace._id });
+      const { total, imported, skipped, changed } = await syncTemplates({
+        workspaceId: workspace._id,
+      });
       toast.add({
-        title: changed
-          ? `${changed} ${changed === 1 ? "template" : "templates"} updated from Meta`
-          : "No decision from Meta yet",
-        type: changed ? "success" : undefined,
+        title: "Templates synced",
+        description: [
+          `${total} in WhatsApp`,
+          `${imported} added`,
+          changed ? `${changed} updated` : null,
+          skipped ? `${skipped} skipped — they need values the desk can't fill` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        type: "success",
       });
     } catch (error) {
-      fail("Could not check with Meta", error);
+      fail("Could not sync templates", error);
     } finally {
       setChecking(false);
     }
@@ -64,9 +72,14 @@ export default function MarketingTemplatesPage() {
             The WhatsApp templates campaigns, events and greetings go out as.
           </p>
         </div>
-        <Button onClick={() => setDraft(draftFor())}>
-          <PlusIcon /> New template
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={checking} onClick={() => void runStatusCheck()}>
+            {checking ? <Spinner /> : <ArrowsClockwiseIcon />} Sync templates
+          </Button>
+          <Button onClick={() => setDraft(draftFor())}>
+            <PlusIcon /> New template
+          </Button>
+        </div>
       </div>
 
       {unlinked > 0 ? (
@@ -83,7 +96,7 @@ export default function MarketingTemplatesPage() {
             </p>
             {inReview ? (
               <Button size="sm" variant="outline" disabled={checking} onClick={() => void runStatusCheck()}>
-                {checking ? <Spinner /> : <ArrowClockwiseIcon />} Check status now
+                {checking ? <Spinner /> : <ArrowsClockwiseIcon />} Check status now
               </Button>
             ) : null}
           </AlertDescription>

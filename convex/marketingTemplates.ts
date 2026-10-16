@@ -35,9 +35,16 @@ import {
   request,
   type Json,
   type PanelConfig,
+  type PanelTemplate,
 } from "./lib/panel";
-import { metaParts, partsProblems, type HeaderMedia } from "./lib/templateParts";
-import { fileUrl } from "./lib/files";
+import {
+  HEADER_MEDIA_TYPES,
+  metaParts,
+  partsProblems,
+  type HeaderMedia,
+  type TemplateButton,
+} from "./lib/templateParts";
+import { fileUrl, newFileKey, r2 } from "./lib/files";
 
 const NO_PANEL = "Connect a WhatsApp number under Channels first — templates are applied through it.";
 const NO_WABA =
@@ -161,27 +168,34 @@ export const apply = action({
   },
 });
 
-/**
- * Reads the panel's template list and records where each of this
- * workspace's templates stands. Returns how many changed.
- */
-async function reviewWorkspace(
-  ctx: ActionCtx,
-  workspaceId: Id<"workspaces">
-): Promise<number> {
-  const context = await ctx.runQuery(internal.marketing.reviewContext, { workspaceId });
-  if (!context.panel) throw new ConvexError(NO_PANEL);
-  if (context.templates.length === 0) return 0;
+type LinkedTemplate = {
+  templateId: Id<"marketingTemplates">;
+  metaTemplateName: string;
+  languageCode: string;
+};
 
-  const panel: PanelConfig = context.panel;
-  const wabaId = context.panel.wabaId ?? (await discoverWaba(panel));
+const linkedTo = (row: PanelTemplate, templates: LinkedTemplate[]) =>
+  templates.find(
+    (template) =>
+      row.name === template.metaTemplateName &&
+      sameLanguage(row.language, template.languageCode)
+  );
+
+async function listPanel(panel: PanelConfig & { wabaId?: string | null }) {
+  const wabaId = panel.wabaId ?? (await discoverWaba(panel));
   if (!wabaId) throw new ConvexError(NO_WABA);
-
   const listed = await listTemplates(panel, wabaId);
   if (!listed.ok) throw new ConvexError(listed.error);
+  return listed.templates;
+}
 
-  const rows = context.templates.flatMap((template) => {
-    const found = listed.templates.find(
+async function recordReviews(
+  ctx: ActionCtx,
+  templates: LinkedTemplate[],
+  listed: PanelTemplate[]
+): Promise<number> {
+  const rows = templates.flatMap((template) => {
+    const found = listed.find(
       (row) =>
         row.name === template.metaTemplateName &&
         sameLanguage(row.language, template.languageCode)
@@ -202,6 +216,194 @@ async function reviewWorkspace(
   const { changed } = await ctx.runMutation(internal.marketing.recordReviews, { rows });
   return changed;
 }
+
+/**
+ * Reads the panel's template list and records where each of this
+ * workspace's templates stands. Returns how many changed.
+ */
+async function reviewWorkspace(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">
+): Promise<number> {
+  const context = await ctx.runQuery(internal.marketing.reviewContext, { workspaceId });
+  if (!context.panel) throw new ConvexError(NO_PANEL);
+  if (context.templates.length === 0) return 0;
+  return await recordReviews(ctx, context.templates, await listPanel(context.panel));
+}
+
+const NAMED_VARIABLES = ["name", "message", "event", "date", "venue", "business"] as const;
+const GONE = new Set(["DELETED", "DISABLED", "ARCHIVED", "PENDING_DELETION"]);
+
+type Imported = {
+  name: string;
+  body: string;
+  metaTemplateName: string;
+  languageCode: string;
+  category: "marketing" | "utility";
+  metaStatus: string;
+  metaTemplateId?: string;
+  metaRejectedReason?: string;
+  header?: string;
+  footer?: string;
+  buttons?: TemplateButton[];
+  media?: { type: "image" | "video"; url: string };
+};
+
+/**
+ * A template made in WhatsApp Manager, in the desk's terms — or null when it
+ * needs something the desk cannot fill: named or repeated parameters, a
+ * variable in the header or a button, or a kind of button it does not send.
+ */
+function fromPanel(row: PanelTemplate): Imported | null {
+  const category = row.category.toLowerCase();
+  if (category !== "marketing" && category !== "utility") return null;
+
+  let components: Json[];
+  try {
+    components = JSON.parse(row.components) as Json[];
+  } catch {
+    return null;
+  }
+  const part = (type: string) =>
+    components.find((c) => String(c.type ?? "").toUpperCase() === type);
+
+  const bodyText = part("BODY")?.text;
+  if (typeof bodyText !== "string" || !bodyText.trim()) return null;
+  const variables = [...bodyText.matchAll(/\{\{\s*([^}]*?)\s*\}\}/g)].map((m) => m[1]);
+  if (variables.length > NAMED_VARIABLES.length) return null;
+  if (variables.some((value, index) => value !== String(index + 1))) return null;
+  const body = bodyText.replace(
+    /\{\{\s*(\d+)\s*\}\}/g,
+    (_, n: string) => `{{${NAMED_VARIABLES[Number(n) - 1]}}}`
+  );
+
+  const imported: Imported = {
+    name: row.name.replace(/_+/g, " ").trim().replace(/^./, (c) => c.toUpperCase()),
+    body,
+    metaTemplateName: row.name,
+    languageCode: row.language,
+    category,
+    metaStatus: row.status,
+    metaTemplateId: row.providerId,
+    metaRejectedReason: row.status === "REJECTED" ? row.rejectedReason : undefined,
+  };
+
+  const header = part("HEADER");
+  if (header) {
+    const format = String(header.format ?? "TEXT").toUpperCase();
+    if (format === "TEXT") {
+      const text = typeof header.text === "string" ? header.text : "";
+      if (text.includes("{{")) return null;
+      imported.header = text || undefined;
+    } else if (format === "IMAGE" || format === "VIDEO") {
+      const handles = (header.example as Json | undefined)?.header_handle;
+      const url = Array.isArray(handles) ? handles[0] : undefined;
+      if (typeof url !== "string") return null;
+      imported.media = { type: format === "IMAGE" ? "image" : "video", url };
+    } else {
+      return null;
+    }
+  }
+
+  const footer = part("FOOTER")?.text;
+  if (typeof footer === "string") imported.footer = footer;
+
+  const buttons = part("BUTTONS")?.buttons;
+  const mapped: TemplateButton[] = [];
+  for (const button of Array.isArray(buttons) ? (buttons as Json[]) : []) {
+    const type = String(button.type ?? "").toUpperCase();
+    const text = String(button.text ?? "");
+    if (type === "QUICK_REPLY") {
+      mapped.push({ type: "quick_reply", text });
+    } else if (type === "URL" && typeof button.url === "string" && !button.url.includes("{{")) {
+      mapped.push({ type: "url", text, url: button.url });
+    } else if (type === "PHONE_NUMBER" && typeof button.phone_number === "string") {
+      mapped.push({ type: "phone", text, phone: button.phone_number });
+    } else {
+      return null;
+    }
+  }
+  if (mapped.length > 0) imported.buttons = mapped;
+  return imported;
+}
+
+/** Copies a header sample from Meta into the workspace's own files. */
+async function storeMedia(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">,
+  media: { type: "image" | "video"; url: string }
+): Promise<HeaderMedia | null> {
+  try {
+    const response = await fetch(media.url);
+    if (!response.ok) return null;
+    const mimeType =
+      response.headers.get("content-type")?.split(";")[0].trim() ||
+      (media.type === "image" ? "image/jpeg" : "video/mp4");
+    const allowed = HEADER_MEDIA_TYPES[media.type];
+    if (!(allowed.mimeTypes as readonly string[]).includes(mimeType)) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > allowed.maxBytes) return null;
+    const key = await r2.store(ctx, bytes, {
+      key: newFileKey("templates", workspaceId),
+      type: mimeType,
+    });
+    return { type: media.type, key, mimeType };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * "Sync templates" on the Templates tab: every template in the business
+ * account comes in, and the ones already here take Meta's latest standing.
+ */
+export const sync = action({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ total: number; imported: number; skipped: number; changed: number }> => {
+    await ctx.runQuery(internal.marketing.assertWorkspace, {
+      workspaceId: args.workspaceId,
+    });
+    const context = await ctx.runQuery(internal.marketing.reviewContext, {
+      workspaceId: args.workspaceId,
+    });
+    if (!context.panel) throw new ConvexError(NO_PANEL);
+    const listed = (await listPanel(context.panel)).filter((row) => !GONE.has(row.status));
+    const changed = await recordReviews(ctx, context.templates, listed);
+
+    const ready = [];
+    let skipped = 0;
+    for (const row of listed) {
+      if (linkedTo(row, context.templates)) continue;
+      const found = fromPanel(row);
+      if (!found) {
+        skipped++;
+        continue;
+      }
+      const { media, ...template } = found;
+      if (!media) {
+        ready.push(template);
+        continue;
+      }
+      const headerMedia = await storeMedia(ctx, args.workspaceId, media);
+      if (!headerMedia) {
+        skipped++;
+        continue;
+      }
+      ready.push({ ...template, headerMedia });
+    }
+
+    const { imported } = ready.length
+      ? await ctx.runMutation(internal.marketing.importTemplates, {
+          workspaceId: args.workspaceId,
+          templates: ready,
+        })
+      : { imported: 0 };
+    return { total: listed.length, imported, skipped, changed };
+  },
+});
 
 /** "Check status" on the Templates tab. */
 export const checkStatus = action({

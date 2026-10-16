@@ -469,7 +469,7 @@ export const saveTemplate = mutation({
       // it loses the id an edit would go to.
       const relinked = metaTemplateName !== existing.metaTemplateName;
       const reworded =
-        body !== existing.body ||
+        metaBody(body) !== metaBody(existing.body) ||
         languageCode !== existing.languageCode ||
         (args.category !== undefined && args.category !== (existing.category ?? "marketing")) ||
         !sameParts(kept, existing);
@@ -1587,6 +1587,54 @@ export const recordReviews = internalMutation({
       changed++;
     }
     return { changed };
+  },
+});
+
+export const importTemplates = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    templates: v.array(
+      v.object({
+        name: v.string(),
+        body: v.string(),
+        metaTemplateName: v.string(),
+        languageCode: v.string(),
+        category: templateCategory,
+        metaStatus: v.string(),
+        metaTemplateId: v.optional(v.string()),
+        metaRejectedReason: v.optional(v.string()),
+        header: v.optional(v.string()),
+        headerMedia: v.optional(headerMediaValidator),
+        footer: v.optional(v.string()),
+        buttons: v.optional(v.array(templateButton)),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("marketingTemplates")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(500);
+    const taken = new Set(existing.map((t) => `${t.metaTemplateName}|${t.languageCode}`));
+    let imported = 0;
+    const now = Date.now();
+    for (const template of args.templates) {
+      const key = `${template.metaTemplateName}|${template.languageCode}`;
+      if (taken.has(key)) {
+        if (template.headerMedia) await deleteFile(ctx, template.headerMedia.key);
+        continue;
+      }
+      taken.add(key);
+      await ctx.db.insert("marketingTemplates", {
+        workspaceId: args.workspaceId,
+        occasion: "general",
+        ...template,
+        createdAt: now,
+        updatedAt: now,
+      });
+      imported++;
+    }
+    return { imported };
   },
 });
 

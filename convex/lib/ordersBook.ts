@@ -205,7 +205,10 @@ export function recordAsOrder(record: Doc<"records">, currency: string) {
     total: Number.isFinite(total) && value("total") ? total : undefined,
     currency: Number.isFinite(total) && value("total") ? currency : undefined,
     source:
-      record.source === "manual" || record.source === "form"
+      record.source === "manual" ||
+      record.source === "form" ||
+      record.source === "import" ||
+      record.source === "webhook"
         ? ("api" as const)
         : record.source,
     status: statusForStage(record.stage),

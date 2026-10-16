@@ -387,4 +387,52 @@ export function register(server) {
       );
     })
   );
+
+  // ------------------------------------------------------ incoming records
+
+  server.registerTool(
+    "set_record_inbound_url",
+    {
+      title: "Take records from another system",
+      description:
+        "Switch a record book's own incoming URL on or off. Another system POSTs JSON or a form to it and each call files a record: keys matching the book's field keys or labels fill those fields, name/phone/email/company fill the person, stage and notes set those, and anything else is kept as an extra. Returns the URL.",
+      inputSchema: {
+        ...workspaceArg,
+        book: z.string().describe("Record book name, plural name, handle or id"),
+        enabled: z.boolean(),
+      },
+      annotations: { idempotentHint: true },
+    },
+    handler(async ({ workspace, book, enabled }) => {
+      const found = await resolveWorkspace(workspace);
+      const target = await findRecordBook(found._id, book);
+      const { url } = await call.mutation(api.recordIntake.setInboundEnabled, {
+        bookId: target._id,
+        enabled,
+      });
+      return ok({ book: target.name, enabled, url });
+    })
+  );
+
+  server.registerTool(
+    "rotate_record_inbound_url",
+    {
+      title: "New incoming URL for a record book",
+      description:
+        "Replace a record book's incoming URL with a new one, when the old one has leaked. The old URL stops working at once.",
+      inputSchema: {
+        ...workspaceArg,
+        book: z.string().describe("Record book name, plural name, handle or id"),
+      },
+      annotations: { destructiveHint: true },
+    },
+    handler(async ({ workspace, book }) => {
+      const found = await resolveWorkspace(workspace);
+      const target = await findRecordBook(found._id, book);
+      const { url } = await call.mutation(api.recordIntake.rotateInboundKey, {
+        bookId: target._id,
+      });
+      return ok({ book: target.name, url });
+    })
+  );
 }

@@ -111,12 +111,18 @@ export const recordsTables = {
     ),
     lastSerial: v.optional(v.number()),
     recordCount: v.optional(v.number()),
+    inboundKey: v.optional(v.string()),
+    inboundEnabled: v.optional(v.boolean()),
+    lastInboundPayload: v.optional(v.string()),
+    lastInboundAt: v.optional(v.number()),
+    inboundCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
     .index("by_workspace_handle", ["workspaceId", "handle"])
-    .index("by_workspace_status", ["workspaceId", "status"]),
+    .index("by_workspace_status", ["workspaceId", "status"])
+    .index("by_inboundKey", ["inboundKey"]),
 
   records: defineTable({
     workspaceId: v.id("workspaces"),
@@ -143,7 +149,9 @@ export const recordsTables = {
       v.literal("instagram"),
       v.literal("api"),
       v.literal("manual"),
-      v.literal("form")
+      v.literal("form"),
+      v.literal("import"),
+      v.literal("webhook")
     ),
     searchBlob: v.string(),
     createdAt: v.number(),

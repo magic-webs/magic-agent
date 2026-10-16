@@ -687,6 +687,61 @@ http.route({
   }),
 });
 
+// --- Incoming records ----------------------------------------------------------
+//
+//   https://<deployment>.convex.site/records/<inboundKey>
+//
+// Another system posts here and the record book that owns the key files it.
+
+http.route({
+  pathPrefix: "/records/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const key = url.pathname.replace(/^\/records\//, "").replace(/\/+$/, "");
+    if (!key || key.includes("/")) {
+      return inboundResponse(404, { ok: false, error: "Not found." });
+    }
+
+    const text = await request.text();
+    if (text.length > MAX_INBOUND_BYTES) {
+      return inboundResponse(413, { ok: false, error: "Body too large." });
+    }
+
+    let body: unknown = {};
+    const type = request.headers.get("content-type") ?? "";
+    if (type.includes("application/x-www-form-urlencoded")) {
+      body = Object.fromEntries(new URLSearchParams(text));
+    } else if (text.trim()) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        return inboundResponse(400, { ok: false, error: "Send JSON or a form post." });
+      }
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return inboundResponse(400, { ok: false, error: "Send one record as an object." });
+    }
+    const data = {
+      ...Object.fromEntries(url.searchParams),
+      ...(body as Record<string, unknown>),
+    };
+
+    const status = await ctx.runMutation(internal.recordIntake.acceptInbound, {
+      inboundKey: key,
+      payload: JSON.stringify(data),
+    });
+    if (status === "unknown") {
+      return inboundResponse(404, { ok: false, error: "No record book has this address." });
+    }
+    return inboundResponse(status === "filed" ? 201 : 200, {
+      ok: true,
+      filed: status === "filed",
+      ...(status === "disabled" ? { reason: "This record book is not taking records." } : {}),
+    });
+  }),
+});
+
 // --- Results from the Magic apps ---------------------------------------------
 //
 //   https://<deployment>.convex.site/apps/<inboundKey>

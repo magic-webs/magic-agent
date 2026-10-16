@@ -23,6 +23,8 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { SelectField } from "@/components/select-field";
 import { ExportRecordsButton } from "@/components/export-records-button";
+import { ImportRecordsDialog } from "@/components/records/import-records-dialog";
+import { InboundWebhookCard } from "@/components/records/inbound-webhook-card";
 import { useSession } from "@/components/use-session";
 import {
   Card,
@@ -72,6 +74,8 @@ import { TableSkeleton } from "@/components/skeletons";
 import {
   ArrowLeftIcon,
   BroadcastIcon,
+  ChatsIcon,
+  DownloadSimpleIcon,
   EyeIcon,
   FolderOpenIcon,
   PaperPlaneTiltIcon,
@@ -92,7 +96,18 @@ type BookDraft = {
   allowLookup: boolean;
   allowUpdate: boolean;
 };
-type RecordRow = Doc<"records"> & { filedBy: string | null };
+type RecordRow = Doc<"records"> & {
+  filedBy: string | null;
+  threadId: Id<"conversations"> | null;
+};
+
+function provenance(row: RecordRow): string {
+  if (row.source === "manual") return "Added by your team";
+  if (row.source === "form") return "Submitted on Magic Forms";
+  if (row.source === "import") return "Imported from a file";
+  if (row.source === "webhook") return "Received from another system";
+  return `Collected by ${row.filedBy ?? "an agent"} on ${row.source}`;
+}
 
 function detailsOf(row: Doc<"records">): Record<string, string> {
   const out: Record<string, string> = {};
@@ -110,7 +125,15 @@ function personLine(row: Doc<"records">): string {
 // One filed record
 // ---------------------------------------------------------------------------
 
-function RecordDetail({ book, row }: { book: Book; row: RecordRow }) {
+function RecordDetail({
+  book,
+  row,
+  base,
+}: {
+  book: Book;
+  row: RecordRow;
+  base: string;
+}) {
   const updateRecord = useMutation(api.records.updateRecord);
   const [stage, setStage] = useState(row.stage ?? "");
   const details = detailsOf(row);
@@ -135,14 +158,20 @@ function RecordDetail({ book, row }: { book: Book; row: RecordRow }) {
             {row.reference}
           </DialogTitle>
           <DialogDescription>
-            {row.source === "manual"
-              ? "Added by your team"
-              : row.source === "form"
-                ? "Submitted on Magic Forms"
-                : `Collected by ${row.filedBy ?? "an agent"} on ${row.source}`}{" "}
-            · {new Date(row.createdAt).toLocaleString()}
+            {provenance(row)} · {new Date(row.createdAt).toLocaleString()}
           </DialogDescription>
         </DialogHeader>
+
+        {row.threadId ? (
+          <Button
+            variant="outline"
+            className="self-start"
+            nativeButton={false}
+            render={<Link href={`${base}/conversations?c=${row.threadId}`} />}
+          >
+            <ChatsIcon /> Open conversation
+          </Button>
+        ) : null}
 
         <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto">
           {row.person ? (
@@ -959,6 +988,7 @@ export default function RecordBookPage({
                 {book.status === "active" ? "Collecting" : "Paused"}
               </span>
             </div>
+            <ImportRecordsDialog book={book} />
             <AddRecordDialog book={book} />
           </div>
         </div>
@@ -1014,10 +1044,17 @@ export default function RecordBookPage({
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="setup">What to collect</TabsTrigger>
+          <TabsTrigger value="receive">
+            <DownloadSimpleIcon className="size-4" /> Receive from elsewhere
+          </TabsTrigger>
           <TabsTrigger value="webhooks">
             <BroadcastIcon className="size-4" /> Send elsewhere
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="receive" className="flex flex-col gap-4">
+          <InboundWebhookCard book={book} />
+        </TabsContent>
 
         {/* ------------------------------------------------------------- */}
         <TabsContent value="filed" className="flex flex-col gap-4">
@@ -1118,7 +1155,23 @@ export default function RecordBookPage({
                         {new Date(row.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <RecordDetail book={book} row={row} />
+                        <div className="flex items-center justify-end gap-1">
+                          {row.threadId ? (
+                            <Button
+                              size="icon-lg"
+                              variant="ghost"
+                              aria-label={`Open the conversation for ${row.reference}`}
+                              title="Open conversation"
+                              nativeButton={false}
+                              render={
+                                <Link href={`${base}/conversations?c=${row.threadId}`} />
+                              }
+                            >
+                              <ChatsIcon />
+                            </Button>
+                          ) : null}
+                          <RecordDetail book={book} row={row} base={base} />
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

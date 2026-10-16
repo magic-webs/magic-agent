@@ -313,7 +313,7 @@ it to storage, so agents can send it with `send_media`.
 **Records** — `list_record_books`, `create_record_book`, `update_record_book`,
 `delete_record_book`, `list_records`, `list_record_webhooks`,
 `create_record_webhook`, `update_record_webhook`, `delete_record_webhook`,
-`test_record_webhook`
+`test_record_webhook`, `set_record_inbound_url`, `rotate_record_inbound_url`
 
 **Knowledge** — `list_knowledge`, `add_knowledge`, `delete_knowledge`
 

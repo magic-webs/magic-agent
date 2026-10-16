@@ -500,9 +500,25 @@ export const listRecords = query({
       .collect();
     const byId = new Map(agents.map((agent) => [agent._id, agent.botName]));
 
+    const threads = new Map<Id<"contacts">, Id<"conversations"> | null>();
+    for (const row of filtered) {
+      if (row.conversationId || !row.contactId || threads.has(row.contactId)) continue;
+      const contactId = row.contactId;
+      const latest = (
+        await ctx.db
+          .query("conversations")
+          .withIndex("by_contact_agent", (q) => q.eq("contactId", contactId))
+          .collect()
+      ).sort((a, b) => b.lastMessageAt - a.lastMessageAt)[0];
+      threads.set(contactId, latest?._id ?? null);
+    }
+
     return filtered.map((row) => ({
       ...row,
       filedBy: row.agentId ? (byId.get(row.agentId) ?? null) : null,
+      threadId:
+        row.conversationId ??
+        (row.contactId ? (threads.get(row.contactId) ?? null) : null),
     }));
   },
 });

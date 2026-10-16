@@ -111,6 +111,7 @@ import type * as products from "../products.js";
 import type * as push from "../push.js";
 import type * as razorpay from "../razorpay.js";
 import type * as razorpayEvents from "../razorpayEvents.js";
+import type * as recordIntake from "../recordIntake.js";
 import type * as records from "../records.js";
 import type * as schema_agents from "../schema/agents.js";
 import type * as schema_auth from "../schema/auth.js";
@@ -247,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   push: typeof push;
   razorpay: typeof razorpay;
   razorpayEvents: typeof razorpayEvents;
+  recordIntake: typeof recordIntake;
   records: typeof records;
   "schema/agents": typeof schema_agents;
   "schema/auth": typeof schema_auth;

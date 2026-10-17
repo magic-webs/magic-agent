@@ -5,7 +5,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireScope, requireSignedIn } from "./lib/auth";
 import { userWorkspaceSlugs } from "./authDb";
 import { logoSrcFor } from "./lib/branding";
@@ -63,20 +63,38 @@ export const myWorkspaces = query({
   args: {},
   handler: async (ctx) => {
     const principal = await requireSignedIn(ctx);
+    const listed = async (rows: (Doc<"workspaces"> | null)[]) => {
+      const out = [];
+      for (const workspace of rows) {
+        if (!workspace) continue;
+        out.push({
+          _id: workspace._id,
+          name: workspace.name,
+          slug: workspace.slug,
+          logoSrc: await logoSrcFor(ctx, workspace),
+        });
+      }
+      return out;
+    };
+
+    // The platform team, by what their role reaches. A full administrator
+    // works from the console rather than one workspace at a time.
+    if (principal.role === "admin") {
+      if (principal.scopes === null) return [];
+      const rows = principal.workspaceIds
+        ? await Promise.all(principal.workspaceIds.map((id) => ctx.db.get("workspaces", id)))
+        : await ctx.db.query("workspaces").collect();
+      return await listed(
+        rows
+          .filter((row) => row?.status !== "archived")
+          .sort((a, b) => (a?.name ?? "").localeCompare(b?.name ?? ""))
+      );
+    }
+
     if (principal.role !== "user") return [];
     const slugs = new Set(await userWorkspaceSlugs(ctx, principal.workspaceIds));
-    const out = [];
-    for (const id of principal.workspaceIds) {
-      const workspace = await ctx.db.get("workspaces", id);
-      if (!workspace || !slugs.has(workspace.slug)) continue;
-      out.push({
-        _id: workspace._id,
-        name: workspace.name,
-        slug: workspace.slug,
-        logoSrc: await logoSrcFor(ctx, workspace),
-      });
-    }
-    return out;
+    const rows = await Promise.all(principal.workspaceIds.map((id) => ctx.db.get("workspaces", id)));
+    return await listed(rows.filter((row) => row && slugs.has(row.slug)));
   },
 });
 

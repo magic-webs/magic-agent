@@ -9,7 +9,12 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { messageCategory } from "./schema";
-import { requireScope, requireWorkspace } from "./lib/auth";
+import {
+  covers,
+  requireScope,
+  requireScopedWorkspace,
+  requireWorkspace,
+} from "./lib/auth";
 import {
   MESSAGE_CATEGORIES,
   billingCurrency,
@@ -289,7 +294,10 @@ export const prices = query({
 export const markups = query({
   args: { workspaceId: v.optional(v.id("workspaces")) },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "billing");
+    const principal = await requireScope(ctx, "billing");
+    if (args.workspaceId && !covers(principal, args.workspaceId)) {
+      throw new ConvexError("You do not have access to this workspace.");
+    }
     const fallback = await defaultMarkups(ctx);
     const own = args.workspaceId
       ? await workspaceMarkups(ctx, args.workspaceId)
@@ -466,14 +474,17 @@ export const ledger = query({
 export const adminOverview = query({
   args: { days: v.number(), now: v.number() },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "billing");
+    const principal = await requireScope(ctx, "billing");
     const { days, windowStart } = windowFor(args.days, args.now);
 
-    const rows = await ctx.db
+    const scanned = await ctx.db
       .query("billingEvents")
       .withIndex("by_createdAt", (q) => q.gte("createdAt", windowStart))
       .take(SCAN_CAP);
-    const workspaces = await ctx.db.query("workspaces").order("desc").collect();
+    const rows = scanned.filter((row) => covers(principal, row.workspaceId));
+    const workspaces = (await ctx.db.query("workspaces").order("desc").collect()).filter(
+      (workspace) => covers(principal, workspace._id)
+    );
     // One card per workspace at most, plus the default.
     const cards = await ctx.db
       .query("billingMarkups")
@@ -538,7 +549,7 @@ export const adminOverview = query({
 
     return {
       windowDays: days,
-      truncated: rows.length === SCAN_CAP,
+      truncated: scanned.length === SCAN_CAP,
       defaultMarkups: fallback ? markupView(fallback, "default") : null,
       totals: {
         messages: totals.messages,
@@ -568,7 +579,7 @@ export const adminOverview = query({
         })
       ),
       deleted:
-        orphaned.messages > 0
+        orphaned.messages > 0 && !principal.workspaceIds
           ? {
               messages: orphaned.messages,
               byCategory: orphaned.byCategory,
@@ -739,10 +750,15 @@ export const setMarkups = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "billing");
+    const principal = await requireScope(ctx, "billing");
     if (args.workspaceId) {
       const workspace = await ctx.db.get("workspaces", args.workspaceId);
       if (!workspace) throw new ConvexError("Workspace not found");
+      if (!covers(principal, args.workspaceId)) {
+        throw new ConvexError("You do not have access to this workspace.");
+      }
+    } else if (principal.workspaceIds) {
+      throw new ConvexError("Only a role over every workspace can change the default markups.");
     }
     const markupOf = (category: MessageCategory) => {
       const { fixed, percent } = args[category];
@@ -811,7 +827,7 @@ export const setMarkups = mutation({
 export const clearMarkups = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "billing");
+    await requireScopedWorkspace(ctx, "billing", args.workspaceId);
     const existing = await workspaceMarkups(ctx, args.workspaceId);
     if (existing) await ctx.db.delete("billingMarkups", existing._id);
     return null;

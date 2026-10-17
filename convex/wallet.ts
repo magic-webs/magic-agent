@@ -12,7 +12,7 @@ import {
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
-import { requireOwner, requireScope, requireWorkspace } from "./lib/auth";
+import { requireOwner, requireScopedWorkspace, requireWorkspace } from "./lib/auth";
 import {
   accountFor,
   billingContact,
@@ -231,7 +231,7 @@ export const adminAdjust = mutation({
     note: v.string(),
   },
   handler: async (ctx, args) => {
-    const admin = await requireScope(ctx, "subscriptions");
+    const admin = await requireScopedWorkspace(ctx, "subscriptions", args.workspaceId);
     if (!(await billingSettings(ctx)))
       throw new ConvexError("Switch billing on first.");
     const amountMicros = toMicros(args.amount);

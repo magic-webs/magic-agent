@@ -15,8 +15,10 @@ import {
 import { internalMutation, mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import {
+  covers,
   isFullAdmin,
   requireScope,
+  requireScopedWorkspace,
   requireOwner,
   requireWorkspace,
 } from "./lib/auth";
@@ -326,12 +328,11 @@ export const updateBillingProfile = mutation({
 export const adminAccounts = query({
   args: { now: v.number() },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "subscriptions");
+    const principal = await requireScope(ctx, "subscriptions");
     const settings = await billingSettings(ctx);
-    const workspaces = await ctx.db
-      .query("workspaces")
-      .order("desc")
-      .take(1000);
+    const workspaces = (
+      await ctx.db.query("workspaces").order("desc").take(1000)
+    ).filter((workspace) => covers(principal, workspace._id));
 
     const rows = await Promise.all(
       workspaces.map(async (workspace) => {
@@ -424,7 +425,7 @@ export const adminUpdateAccount = mutation({
     currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "subscriptions");
+    await requireScopedWorkspace(ctx, "subscriptions", args.workspaceId);
     const settings = await billingSettings(ctx);
     if (!settings) throw new ConvexError("Switch billing on first.");
     const account = await ensureAccount(ctx, args.workspaceId);

@@ -3,7 +3,7 @@ import {
   query,
 } from "./_generated/server";
 import { internalMutation } from "./functions";
-import { requireScope, requireWorkspace } from "./lib/auth";
+import { covers, requireScope, requireWorkspace } from "./lib/auth";
 import { lookupPrice, mergedCatalogue } from "./lib/modelCatalogue";
 import { costNanoUsd } from "./lib/pricing";
 import { dayKey } from "./lib/dailyStats";
@@ -114,7 +114,7 @@ function add(into: Totals, row: Totals) {
 export const adminSummary = query({
   args: { days: v.number(), now: v.number() },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "usage", "overview");
+    const principal = await requireScope(ctx, "usage", "overview");
 
     const days = Math.max(1, Math.min(Math.floor(args.days), 90));
     const todayStart = Date.UTC(
@@ -126,10 +126,12 @@ export const adminSummary = query({
     const previousStart = windowStart - days * DAY_MS;
 
     // Both windows in one read, so the comparison cannot straddle two.
-    const rows = await ctx.db
-      .query("usageDaily")
-      .withIndex("by_day", (q) => q.gte("day", dayKey(previousStart)))
-      .collect();
+    const rows = (
+      await ctx.db
+        .query("usageDaily")
+        .withIndex("by_day", (q) => q.gte("day", dayKey(previousStart)))
+        .collect()
+    ).filter((row) => covers(principal, row.workspaceId));
     const windowDay = dayKey(windowStart);
 
     const workspaces = await ctx.db.query("workspaces").collect();

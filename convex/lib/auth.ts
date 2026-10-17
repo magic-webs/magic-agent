@@ -221,6 +221,14 @@ export function hasScope(principal: Principal | null, scope: AdminScope): boolea
   );
 }
 
+/** Whether a platform team member's role reaches this workspace. */
+export function covers(
+  principal: Extract<Principal, { role: "admin" }>,
+  workspaceId: Id<"workspaces">
+): boolean {
+  return !principal.workspaceIds || principal.workspaceIds.includes(workspaceId);
+}
+
 /** Someone on the platform team whose role opens any one of these areas. */
 export async function requireScope(
   ctx: Ctx,

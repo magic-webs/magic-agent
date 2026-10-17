@@ -11,7 +11,7 @@ import {
   query,
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
-import { requireAdmin, requireWorkspace } from "./lib/auth";
+import { requireScope, requireWorkspace } from "./lib/auth";
 import { allPlans, billingSettings, billingTermsFor } from "./lib/account";
 import { toMicros, workspaceCurrency } from "./lib/billing";
 import {
@@ -47,7 +47,7 @@ function wholeNumber(label: string, value: number, max: number): number {
 export const adminCatalogue = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "plans");
     const settings = await billingSettings(ctx);
     const plans = await allPlans(ctx);
 
@@ -118,7 +118,7 @@ export const catalogue = query({
 export const enable = mutation({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "plans");
     const now = Date.now();
 
     let plans = await allPlans(ctx);
@@ -173,7 +173,7 @@ export const updateSettings = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "plans");
     const settings = await billingSettings(ctx);
     if (!settings) throw new ConvexError("Switch billing on first.");
 
@@ -302,7 +302,7 @@ export const savePlan = mutation({
     ...planFields,
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "plans");
     const name = args.name.trim();
     if (!name) throw new ConvexError("A plan needs a name.");
 
@@ -391,7 +391,7 @@ export const movePlan = mutation({
     direction: v.union(v.literal(-1), v.literal(1)),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "plans");
     const moving = await ctx.db.get("billingPlans", args.planId);
     if (!moving) return null;
     const plans = (await allPlans(ctx)).filter(
@@ -418,7 +418,7 @@ export const movePlan = mutation({
 export const removePlan = mutation({
   args: { planId: v.id("billingPlans") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "plans");
     const inUse = await ctx.db
       .query("billingAccounts")
       .filter((q) => q.eq(q.field("planId"), args.planId))

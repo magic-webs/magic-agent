@@ -109,6 +109,21 @@ export const workspaceStage = v.union(
   v.literal("custom")
 );
 
+/** The areas of the admin console a platform role can open. */
+export const adminScope = v.union(
+  v.literal("overview"),
+  v.literal("workspaces"),
+  v.literal("activity"),
+  v.literal("access"),
+  v.literal("mcp"),
+  v.literal("models"),
+  v.literal("usage"),
+  v.literal("plans"),
+  v.literal("subscriptions"),
+  v.literal("billing"),
+  v.literal("users")
+);
+
 // The retired stages stay readable until migrations:workspaceStages clears them.
 export const storedWorkspaceStage = v.union(
   workspaceStage,

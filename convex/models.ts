@@ -12,7 +12,7 @@ import {
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
-import { requireAdmin, requireSignedIn } from "./lib/auth";
+import { requireScope, requireSignedIn } from "./lib/auth";
 import {
   chatModelOptions,
   lookupPrice,
@@ -87,7 +87,7 @@ async function patchRow(
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     return await mergedCatalogue(ctx);
   },
 });
@@ -117,7 +117,7 @@ export const update = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     const model = requireBuiltin(args.modelId);
     await patchRow(ctx, model.id, {
       label: args.label.trim() || model.label,
@@ -134,7 +134,7 @@ export const update = mutation({
 export const setEnabled = mutation({
   args: { modelId: v.string(), enabled: v.boolean() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     const model = requireBuiltin(args.modelId);
     if (model.role !== "chat") {
       throw new ConvexError("Only chat models are offered in the picker.");
@@ -151,7 +151,7 @@ export const setEnabled = mutation({
 export const setPromptCaching = mutation({
   args: { modelId: v.string(), promptCaching: v.boolean() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     const model = requireBuiltin(args.modelId);
     if (!supportsPromptCaching(model.id)) {
       throw new ConvexError("Only Anthropic models need prompt caching set.");
@@ -171,7 +171,7 @@ export const imageProcessing = query({
   args: {},
   returns: v.boolean(),
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     const settings = await ctx.db.query("platformSettings").first();
     return settings?.imageProcessing ?? false;
   },
@@ -181,7 +181,7 @@ export const setImageProcessing = mutation({
   args: { enabled: v.boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     const settings = await ctx.db.query("platformSettings").first();
     const patch = { imageProcessing: args.enabled, updatedAt: Date.now() };
     if (settings) await ctx.db.patch(settings._id, patch);
@@ -203,7 +203,7 @@ export const imageProcessingEnabled = internalQuery({
 export const reset = mutation({
   args: { modelId: v.string() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
     const existing = await modelRow(ctx, args.modelId);
     if (!existing) return { reset: false };
     await ctx.db.delete(existing._id);
@@ -237,7 +237,7 @@ export const removeCustomModels = internalMutation({
 export const moveAgentsToDefault = mutation({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
 
     const page = await ctx.db
       .query("agents")
@@ -276,7 +276,7 @@ export const moveAgentsToDefault = mutation({
 export const repriceUnpriced = mutation({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "models");
 
     // Newest first: the model that prompted this was almost certainly added
     // because it is running now, so the rows worth fixing are the recent ones.

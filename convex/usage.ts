@@ -3,7 +3,7 @@ import {
   query,
 } from "./_generated/server";
 import { internalMutation } from "./functions";
-import { requireAdmin, requireWorkspace } from "./lib/auth";
+import { requireScope, requireWorkspace } from "./lib/auth";
 import { lookupPrice, mergedCatalogue } from "./lib/modelCatalogue";
 import { costNanoUsd } from "./lib/pricing";
 import { dayKey } from "./lib/dailyStats";
@@ -114,7 +114,7 @@ function add(into: Totals, row: Totals) {
 export const adminSummary = query({
   args: { days: v.number(), now: v.number() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "usage", "overview");
 
     const days = Math.max(1, Math.min(Math.floor(args.days), 90));
     const todayStart = Date.UTC(

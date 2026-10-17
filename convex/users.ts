@@ -6,7 +6,7 @@ import {
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import { requireAdmin, requireSignedIn } from "./lib/auth";
+import { requireScope, requireSignedIn } from "./lib/auth";
 import { userWorkspaceSlugs } from "./authDb";
 import { logoSrcFor } from "./lib/branding";
 
@@ -40,7 +40,7 @@ async function endSessionsAndFactor(ctx: MutationCtx, userId: Id<"users">) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "users");
     const users = await ctx.db.query("users").order("desc").take(500);
     const factors = await ctx.db.query("twoFactor").collect();
     const protectedLogins = new Set(
@@ -87,7 +87,7 @@ export const update = mutation({
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "users");
     const user = await ctx.db.get("users", args.userId);
     if (!user) throw new ConvexError("User not found.");
     await ctx.db.patch(user._id, {
@@ -101,7 +101,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "users");
     const user = await ctx.db.get("users", args.userId);
     if (!user) return null;
     await endSessionsAndFactor(ctx, user._id);
@@ -127,7 +127,7 @@ export const insert = internalMutation({
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "users");
     const clash =
       (await ctx.db
         .query("users")
@@ -155,7 +155,7 @@ export const insert = internalMutation({
 export const setPassword = internalMutation({
   args: { userId: v.id("users"), passwordHash: v.string() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "users");
     const user = await ctx.db.get("users", args.userId);
     if (!user) throw new ConvexError("User not found.");
     await ctx.db.patch(user._id, { passwordHash: args.passwordHash });

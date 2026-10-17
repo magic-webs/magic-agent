@@ -50,9 +50,10 @@ const STATUS_BADGE: Record<string, { label: string; variant: "secondary" | "dest
 
 /** Workspace sign-ins and your own two-factor setup. The platform team is on /admin/team. */
 export default function AdminAccessPage() {
-  const { isAdmin } = useSession();
-  const workspaces = useQuery(api.workspaces.list, isAdmin ? {} : "skip");
-  const access = useQuery(api.authDb.accessSummary, isAdmin ? {} : "skip");
+  const { can } = useSession();
+  const managesAccess = can("access");
+  const workspaces = useQuery(api.workspaces.list, managesAccess ? {} : "skip");
+  const access = useQuery(api.authDb.accessSummary, managesAccess ? {} : "skip");
 
   const accessById = new Map(
     (access ?? []).map((row) => [row.workspaceId as string, row])
@@ -83,7 +84,7 @@ export default function AdminAccessPage() {
           whatever space was left and clipped its own table. Nothing
           overflowed, so no scrollbar appeared and the list just stopped
           mid-row. The same trap the agent map's canvas documents. */}
-      {isAdmin ? (
+      {managesAccess ? (
         <Card className="shrink-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

@@ -9,7 +9,7 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { messageCategory } from "./schema";
-import { requireAdmin, requireWorkspace } from "./lib/auth";
+import { requireScope, requireWorkspace } from "./lib/auth";
 import {
   MESSAGE_CATEGORIES,
   billingCurrency,
@@ -289,7 +289,7 @@ export const prices = query({
 export const markups = query({
   args: { workspaceId: v.optional(v.id("workspaces")) },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     const fallback = await defaultMarkups(ctx);
     const own = args.workspaceId
       ? await workspaceMarkups(ctx, args.workspaceId)
@@ -466,7 +466,7 @@ export const ledger = query({
 export const adminOverview = query({
   args: { days: v.number(), now: v.number() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     const { days, windowStart } = windowFor(args.days, args.now);
 
     const rows = await ctx.db
@@ -591,7 +591,7 @@ export const adminOverview = query({
 export const metaRates = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     const rows = await ctx.db.query("metaRates").take(5_000);
     const settings = await ctx.db.query("billingSettings").first();
     return {
@@ -638,7 +638,7 @@ export const importMetaRates = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     const currency = args.currency.trim().toUpperCase();
     if (!isValidCurrency(currency)) {
       throw new ConvexError("Pick a three-letter currency code, e.g. INR or USD.");
@@ -696,7 +696,7 @@ export const importMetaRates = mutation({
 export const deleteMetaRates = mutation({
   args: { currency: v.string(), effectiveFrom: v.number() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     const rows = await ctx.db.query("metaRates").take(5_000);
     for (const row of rows) {
       if (
@@ -739,7 +739,7 @@ export const setMarkups = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     if (args.workspaceId) {
       const workspace = await ctx.db.get("workspaces", args.workspaceId);
       if (!workspace) throw new ConvexError("Workspace not found");
@@ -811,7 +811,7 @@ export const setMarkups = mutation({
 export const clearMarkups = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "billing");
     const existing = await workspaceMarkups(ctx, args.workspaceId);
     if (existing) await ctx.db.delete("billingMarkups", existing._id);
     return null;

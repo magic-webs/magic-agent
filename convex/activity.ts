@@ -4,7 +4,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { AuthError, requireStaff } from "./lib/auth";
+import { AuthError, requireScope } from "./lib/auth";
 
 const RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const PRUNE_BATCH = 500;
@@ -48,7 +48,7 @@ export const list = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const principal = await requireStaff(ctx);
+    const principal = await requireScope(ctx, "activity");
     if (principal.workspaceIds) {
       if (!args.workspaceId) {
         return { page: [], isDone: true, continueCursor: "" };
@@ -100,7 +100,7 @@ export const list = query({
 export const actors = query({
   args: { workspaceId: v.optional(v.id("workspaces")) },
   handler: async (ctx, args) => {
-    const principal = await requireStaff(ctx);
+    const principal = await requireScope(ctx, "activity");
     const { workspaceId } = args;
     if (principal.workspaceIds && (!workspaceId || !principal.workspaceIds.includes(workspaceId))) {
       return [];

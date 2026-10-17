@@ -123,8 +123,8 @@ export function SidebarUser({
                 <span className="truncate text-xs text-muted-foreground">
                   {session.isAdmin
                     ? "Administrator"
-                    : session.isStaff
-                      ? "Team member"
+                    : session.me?.role === "admin"
+                      ? session.me.roleName
                       : isUser
                         ? "User"
                         : "Workspace"}

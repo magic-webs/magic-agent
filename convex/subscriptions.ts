@@ -16,7 +16,7 @@ import { internalMutation, mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import {
   isFullAdmin,
-  requireAdmin,
+  requireScope,
   requireOwner,
   requireWorkspace,
 } from "./lib/auth";
@@ -326,7 +326,7 @@ export const updateBillingProfile = mutation({
 export const adminAccounts = query({
   args: { now: v.number() },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "subscriptions");
     const settings = await billingSettings(ctx);
     const workspaces = await ctx.db
       .query("workspaces")
@@ -424,7 +424,7 @@ export const adminUpdateAccount = mutation({
     currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScope(ctx, "subscriptions");
     const settings = await billingSettings(ctx);
     if (!settings) throw new ConvexError("Switch billing on first.");
     const account = await ensureAccount(ctx, args.workspaceId);

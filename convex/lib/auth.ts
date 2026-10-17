@@ -8,16 +8,25 @@
 // access or deleting an admin takes effect on the very next request rather
 // than when their token happens to expire.
 
+import type { Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
+import type { adminScope } from "../schema/validators";
+
+export type AdminScope = Infer<typeof adminScope>;
+
+/** What a team member had before platform roles, and still has without one. */
+export const MEMBER_SCOPES: AdminScope[] = ["workspaces", "activity", "access"];
 
 export type Principal =
   | {
       role: "admin";
       adminId: Id<"admins">;
       label: string;
-      /** Null for a full administrator; the assigned workspaces for a team member. */
+      /** Null when every workspace is open; the assigned ones otherwise. */
       workspaceIds: Id<"workspaces">[] | null;
+      /** Null for a full administrator; the areas their role opens otherwise. */
+      scopes: AdminScope[] | null;
     }
   | { role: "workspace"; workspaceId: Id<"workspaces">; label: string }
   /**
@@ -99,11 +108,16 @@ export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
     if (!adminId) return null;
     const admin = await ctx.db.get("admins", adminId);
     if (!admin) return null;
+    if (admin.role !== "member") {
+      return { role: "admin", adminId, label: admin.email, workspaceIds: null, scopes: null };
+    }
+    const role = admin.roleId ? await ctx.db.get("adminRoles", admin.roleId) : null;
     return {
       role: "admin",
       adminId,
       label: admin.email,
-      workspaceIds: admin.role === "member" ? (admin.workspaceIds ?? []) : null,
+      workspaceIds: role?.allWorkspaces ? null : (admin.workspaceIds ?? []),
+      scopes: role ? role.scopes : MEMBER_SCOPES,
     };
   }
 
@@ -186,16 +200,48 @@ export async function requireMember(
 }
 
 export function isFullAdmin(principal: Principal | null): boolean {
-  return principal?.role === "admin" && principal.workspaceIds === null;
+  return principal?.role === "admin" && principal.scopes === null;
 }
 
-/** A full administrator. Team members with assigned workspaces are refused. */
+/** A full administrator. Team members are refused, whatever their role. */
 export async function requireAdmin(
   ctx: Ctx
 ): Promise<Extract<Principal, { role: "admin" }>> {
   const principal = await getPrincipal(ctx);
-  if (principal?.role !== "admin" || principal.workspaceIds !== null) {
+  if (principal?.role !== "admin" || principal.scopes !== null) {
     throw new AuthError("Administrator access required.");
+  }
+  return principal;
+}
+
+export function hasScope(principal: Principal | null, scope: AdminScope): boolean {
+  return (
+    principal?.role === "admin" &&
+    (principal.scopes === null || principal.scopes.includes(scope))
+  );
+}
+
+/** Someone on the platform team whose role opens any one of these areas. */
+export async function requireScope(
+  ctx: Ctx,
+  ...scopes: AdminScope[]
+): Promise<Extract<Principal, { role: "admin" }>> {
+  const principal = await getPrincipal(ctx);
+  if (principal?.role !== "admin" || !scopes.some((scope) => hasScope(principal, scope))) {
+    throw new AuthError("Your role does not open this area.");
+  }
+  return principal;
+}
+
+/** An area of the console, for one workspace the caller's role covers. */
+export async function requireScopedWorkspace(
+  ctx: Ctx,
+  scope: AdminScope,
+  workspaceId: Id<"workspaces">
+): Promise<Extract<Principal, { role: "admin" }>> {
+  const principal = await requireScope(ctx, scope);
+  if (principal.workspaceIds && !principal.workspaceIds.includes(workspaceId)) {
+    throw new AuthError("You do not have access to this workspace.");
   }
   return principal;
 }

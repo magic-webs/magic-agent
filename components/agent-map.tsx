@@ -76,7 +76,7 @@ function Inspector({
   const [saving, setSaving] = useState(false);
   const modelOptions = useChatModelOptions(draft.model);
   // Administrators only, the same as the full agent form's Model tab.
-  const { isAdmin } = useSession();
+  const choosesModel = useSession().can("models");
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -271,8 +271,8 @@ function Inspector({
         {/* Administrators only, so the separator goes inside the guard too —
             a company's panel would otherwise end on a rule with nothing under
             it. The full agent form hides its whole Model tab the same way, and
-            for the same reason: see the note beside `isAdmin` above. */}
-        {isAdmin ? (
+            for the same reason: see the note beside `choosesModel` above. */}
+        {choosesModel ? (
           <>
             <Separator />
 

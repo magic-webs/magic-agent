@@ -9,7 +9,9 @@ import type { Id } from "./_generated/dataModel";
 import { kvPair, workspaceStage } from "./schema";
 import { slugify, randomKey } from "./lib/shared";
 import {
-  requireAdmin,
+  AuthError,
+  requireScope,
+  requireScopedWorkspace,
   requireStaff,
   requireWorkspace,
 } from "./lib/auth";
@@ -207,10 +209,19 @@ export const summary = query({
   },
 });
 
+/** Making or deleting workspaces, which only a role over all of them may do. */
+async function requireEveryWorkspace(ctx: MutationCtx) {
+  const principal = await requireScope(ctx, "workspaces");
+  if (principal.workspaceIds) {
+    throw new AuthError("Your role covers only the workspaces assigned to you.");
+  }
+  return principal;
+}
+
 export const create = mutation({
   args: workspaceFields,
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireEveryWorkspace(ctx);
     const checked = regional(args);
     const now = Date.now();
     const slug = await uniqueSlug(ctx, args.name);
@@ -384,7 +395,7 @@ export const setStatus = mutation({
     status: v.union(v.literal("active"), v.literal("archived")),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScopedWorkspace(ctx, "workspaces", args.workspaceId);
     await ctx.db.patch(args.workspaceId, {
       status: args.status,
       updatedAt: Date.now(),
@@ -400,7 +411,7 @@ export const setStage = mutation({
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireScopedWorkspace(ctx, "workspaces", args.workspaceId);
     const label = args.label?.trim();
     if (args.stage === "custom" && !label) {
       throw new ConvexError("Name the custom stage");
@@ -421,7 +432,7 @@ export const setStage = mutation({
 export const remove = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireEveryWorkspace(ctx);
     const conversations = await ctx.db
       .query("conversations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -532,7 +543,7 @@ export const getInternal = internalQuery({
 export const seedDemo = mutation({
   args: {},
   handler: async (ctx): Promise<{ workspaceId: Id<"workspaces">; slug: string }> => {
-    await requireAdmin(ctx);
+    await requireEveryWorkspace(ctx);
     const now = Date.now();
     const slug = await uniqueSlug(ctx, "Northwind Print Co");
     const workspaceId = await ctx.db.insert("workspaces", {

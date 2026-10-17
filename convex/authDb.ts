@@ -17,10 +17,13 @@ import {
   principalKey,
   requireAdmin,
   requireOwner,
+  requireScope,
+  requireScopedWorkspace,
   requireSignedIn,
   requireWorkspace,
 } from "./lib/auth";
 import { maskSecret, slugify } from "./lib/shared";
+import { adminScope } from "./schema";
 
 const roleValidator = v.union(
   v.literal("admin"),
@@ -154,15 +157,19 @@ export const me = query({
             principal.workspaceIds.map((id) => ctx.db.get("workspaces", id))
           )
         : null;
+      const platformRole = admin?.roleId ? await ctx.db.get("adminRoles", admin.roleId) : null;
       return {
         role: "admin" as const,
         label: admin?.name?.trim() || admin?.email || "Administrator",
         email: admin?.email,
         workspaceSlug: null,
+        /** Limited to the workspaces in `workspaceSlugs`. */
         scoped: assigned !== null,
         workspaceSlugs: assigned
           ? assigned.flatMap((workspace) => (workspace ? [workspace.slug] : []))
           : null,
+        scopes: principal.scopes,
+        roleName: principal.scopes === null ? "Admin" : (platformRole?.name ?? "Member"),
       };
     }
 
@@ -293,9 +300,12 @@ export const workspaceAccess = query({
 export const accessSummary = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const principal = await requireScope(ctx, "access", "overview");
+    const allowed = principal.workspaceIds;
 
-    const credentials = await ctx.db.query("workspaceCredentials").collect();
+    const credentials = (await ctx.db.query("workspaceCredentials").collect()).filter(
+      (credential) => !allowed || allowed.includes(credential.workspaceId)
+    );
     const protectedLogins = await activeFactorKeys(ctx);
     return credentials.map((credential) => ({
       workspaceId: credential.workspaceId,
@@ -329,6 +339,7 @@ export const listAdmins = query({
       email: admin.email,
       name: admin.name,
       role: admin.role ?? "admin",
+      roleId: admin.role === "member" ? (admin.roleId ?? null) : null,
       workspaceIds: admin.role === "member" ? (admin.workspaceIds ?? []) : [],
       createdAt: admin.createdAt,
       lastLoginAt: admin.lastLoginAt ?? null,
@@ -355,11 +366,24 @@ async function checkedWorkspaceIds(
   return unique;
 }
 
+async function checkedRoleId(
+  ctx: QueryCtx | MutationCtx,
+  role: "admin" | "member",
+  roleId: Id<"adminRoles"> | undefined
+): Promise<Id<"adminRoles"> | undefined> {
+  if (role === "admin" || !roleId) return undefined;
+  if (!(await ctx.db.get("adminRoles", roleId))) {
+    throw new ConvexError("That role no longer exists.");
+  }
+  return roleId;
+}
+
 export const updateAdminAccess = mutation({
   args: {
     adminId: v.id("admins"),
     name: v.optional(v.string()),
     role: adminRole,
+    roleId: v.optional(v.id("adminRoles")),
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
@@ -372,6 +396,7 @@ export const updateAdminAccess = mutation({
     await ctx.db.patch(admin._id, {
       name: args.name?.trim() || undefined,
       role: args.role,
+      roleId: await checkedRoleId(ctx, args.role, args.roleId),
       workspaceIds: await checkedWorkspaceIds(ctx, args.role, args.workspaceIds),
     });
     return null;
@@ -435,6 +460,17 @@ export const assertAdmin = internalQuery({
   args: {},
   handler: async (ctx) => {
     const principal = await requireAdmin(ctx);
+    return { adminId: principal.adminId };
+  },
+});
+
+/** An area of the console, and one workspace in it when the action has one. */
+export const assertScope = internalQuery({
+  args: { scope: adminScope, workspaceId: v.optional(v.id("workspaces")) },
+  handler: async (ctx, args) => {
+    const principal = args.workspaceId
+      ? await requireScopedWorkspace(ctx, args.scope, args.workspaceId)
+      : await requireScope(ctx, args.scope);
     return { adminId: principal.adminId };
   },
 });
@@ -568,7 +604,7 @@ const UNNAMED_CONNECTOR = "Connector";
 export const adminMcpConnectors = query({
   args: {},
   handler: async (ctx) => {
-    const principal = await requireAdmin(ctx);
+    const principal = await requireScope(ctx, "mcp");
     const rows = await ctx.db
       .query("adminMcpTokens")
       .withIndex("by_admin", (q) => q.eq("adminId", principal.adminId))
@@ -742,6 +778,7 @@ export const insertAdmin = internalMutation({
     name: v.optional(v.string()),
     passwordHash: v.string(),
     role: v.optional(adminRole),
+    roleId: v.optional(v.id("adminRoles")),
     workspaceIds: v.optional(v.array(v.id("workspaces"))),
     // Guarded here as well as in the action so a race cannot create a second
     // administrator through the unauthenticated setup path.
@@ -776,6 +813,7 @@ export const insertAdmin = internalMutation({
       name: args.name,
       passwordHash: args.passwordHash,
       role,
+      roleId: await checkedRoleId(ctx, role, args.roleId),
       workspaceIds: await checkedWorkspaceIds(ctx, role, args.workspaceIds ?? []),
       createdAt: Date.now(),
     });

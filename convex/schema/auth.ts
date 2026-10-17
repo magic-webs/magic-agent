@@ -1,5 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { adminScope } from "./validators";
 
 export const authTables = {
   admins: defineTable({
@@ -7,10 +8,23 @@ export const authTables = {
     name: v.optional(v.string()),
     passwordHash: v.string(),
     role: v.optional(v.union(v.literal("admin"), v.literal("member"))),
+    /** A member's platform role; what it opens, and whether every workspace. */
+    roleId: v.optional(v.id("adminRoles")),
     workspaceIds: v.optional(v.array(v.id("workspaces"))),
     createdAt: v.number(),
     lastLoginAt: v.optional(v.number()),
-  }).index("by_email", ["email"]),
+  })
+    .index("by_email", ["email"])
+    .index("by_role", ["roleId"]),
+
+  adminRoles: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    scopes: v.array(adminScope),
+    allWorkspaces: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_name", ["name"]),
 
   users: defineTable({
     email: v.string(),

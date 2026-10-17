@@ -89,7 +89,7 @@ function useStamp() {
  */
 export function BillingPanel({ days }: { days: number }) {
   const workspace = useWorkspace();
-  const { isAdmin } = useSession();
+  const managesBilling = useSession().can("billing");
   const now = useHourBucket();
   const data = useQuery(api.billing.workspaceSummary, {
     workspaceId: workspace._id,
@@ -98,9 +98,9 @@ export function BillingPanel({ days }: { days: number }) {
   });
   const markups = useQuery(
     api.billing.markups,
-    isAdmin ? { workspaceId: workspace._id } : "skip"
+    managesBilling ? { workspaceId: workspace._id } : "skip"
   );
-  const meta = useQuery(api.billing.metaRates, isAdmin ? {} : "skip");
+  const meta = useQuery(api.billing.metaRates, managesBilling ? {} : "skip");
 
   if (data === undefined) {
     return (
@@ -129,7 +129,7 @@ export function BillingPanel({ days }: { days: number }) {
     data.prices ? data.prices[`${category}Micros`] : null;
 
   const editMarkup =
-    isAdmin && markups ? (
+    managesBilling && markups ? (
       <MarkupDialog
         workspaceId={workspace._id}
         workspaceName={workspace.name}

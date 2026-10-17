@@ -48,6 +48,7 @@ import { loginEmailOf, loginEmailTaken } from "./authDb";
 import { claimSerial } from "./records";
 import { ensureOwnerMember } from "./team";
 import { newFileKey, r2, type FileFolder } from "./lib/files";
+import { MEMBER_SCOPES } from "./lib/auth";
 
 const WORKSPACE_BATCH = 20;
 const ORDER_BATCH = 100;
@@ -1052,5 +1053,43 @@ export const workspaceStages = internalMutation({
       });
     }
     return { cleared, done: page.isDone };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Platform roles
+//
+//   bunx convex run migrations:adminRoles
+//
+// Creates the Member role with what team members could open before roles
+// existed, and puts every team member without a role on it.
+// ---------------------------------------------------------------------------
+
+export const adminRoles = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db
+      .query("adminRoles")
+      .withIndex("by_name", (q) => q.eq("name", "Member"))
+      .first();
+    const now = Date.now();
+    const roleId =
+      existing?._id ??
+      (await ctx.db.insert("adminRoles", {
+        name: "Member",
+        description: "Only the workspaces assigned to them.",
+        scopes: MEMBER_SCOPES,
+        allWorkspaces: false,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+    let moved = 0;
+    for (const admin of await ctx.db.query("admins").collect()) {
+      if (admin.role !== "member" || admin.roleId) continue;
+      await ctx.db.patch(admin._id, { roleId });
+      moved++;
+    }
+    return { roleId, moved };
   },
 });

@@ -440,6 +440,7 @@ export const createAdmin = action({
     name: v.optional(v.string()),
     password: v.string(),
     role: v.optional(v.union(v.literal("admin"), v.literal("member"))),
+    roleId: v.optional(v.id("adminRoles")),
     workspaceIds: v.optional(v.array(v.id("workspaces"))),
   },
   handler: async (ctx, args): Promise<{ adminId: Id<"admins"> }> => {
@@ -455,6 +456,7 @@ export const createAdmin = action({
         name: args.name?.trim() || undefined,
         passwordHash: await hashPassword(args.password),
         role: args.role,
+        roleId: args.roleId,
         workspaceIds: args.workspaceIds,
         requireFirst: false,
       }
@@ -486,7 +488,7 @@ export const createUser = action({
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args): Promise<{ userId: Id<"users"> }> => {
-    await ctx.runQuery(internal.authDb.assertAdmin, {});
+    await ctx.runQuery(internal.authDb.assertScope, { scope: "users" });
     const email = args.email.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       throw new ConvexError("Enter a valid email address.");
@@ -507,7 +509,7 @@ export const createUser = action({
 export const resetUserPassword = action({
   args: { userId: v.id("users"), password: v.string() },
   handler: async (ctx, args): Promise<{ success: true }> => {
-    await ctx.runQuery(internal.authDb.assertAdmin, {});
+    await ctx.runQuery(internal.authDb.assertScope, { scope: "users" });
     if (args.password.length < 12) {
       throw new ConvexError("Choose a password of at least 12 characters.");
     }
@@ -1146,7 +1148,7 @@ export const issueAdminMcpToken = action({
     ctx,
     args
   ): Promise<{ token: string; prefix: string; tokenId: Id<"adminMcpTokens"> }> => {
-    const { adminId } = await ctx.runQuery(internal.authDb.assertAdmin, {});
+    const { adminId } = await ctx.runQuery(internal.authDb.assertScope, { scope: "mcp" });
 
     const token = randomToken(MCP_TOKEN_BYTES);
     const prefix = token.slice(0, MCP_PREFIX_CHARS);
@@ -1170,7 +1172,7 @@ export const issueAdminMcpToken = action({
 export const rotateAdminMcpToken = action({
   args: { tokenId: v.id("adminMcpTokens") },
   handler: async (ctx, args): Promise<{ token: string; prefix: string }> => {
-    const { adminId } = await ctx.runQuery(internal.authDb.assertAdmin, {});
+    const { adminId } = await ctx.runQuery(internal.authDb.assertScope, { scope: "mcp" });
 
     const token = randomToken(MCP_TOKEN_BYTES);
     const prefix = token.slice(0, MCP_PREFIX_CHARS);
@@ -1188,7 +1190,7 @@ export const rotateAdminMcpToken = action({
 export const revokeAdminMcpToken = action({
   args: { tokenId: v.id("adminMcpTokens") },
   handler: async (ctx, args): Promise<{ removed: boolean }> => {
-    const { adminId } = await ctx.runQuery(internal.authDb.assertAdmin, {});
+    const { adminId } = await ctx.runQuery(internal.authDb.assertScope, { scope: "mcp" });
     return await ctx.runMutation(internal.authDb.removeAdminMcpToken, {
       adminId,
       tokenId: args.tokenId,
@@ -1300,7 +1302,10 @@ export const generateWorkspacePassword = action({
     ctx,
     args
   ): Promise<{ password: string; slug: string }> => {
-    await ctx.runQuery(internal.authDb.assertAdmin, {});
+    await ctx.runQuery(internal.authDb.assertScope, {
+      scope: "access",
+      workspaceId: args.workspaceId,
+    });
 
     const workspace: Doc<"workspaces"> | null = await ctx.runQuery(
       internal.workspaces.getInternal,
@@ -1329,7 +1334,10 @@ export const setWorkspaceAccess = action({
     status: v.union(v.literal("active"), v.literal("revoked")),
   },
   handler: async (ctx, args): Promise<{ success: true }> => {
-    await ctx.runQuery(internal.authDb.assertAdmin, {});
+    await ctx.runQuery(internal.authDb.assertScope, {
+      scope: "access",
+      workspaceId: args.workspaceId,
+    });
     await ctx.runMutation(internal.authDb.setCredentialStatus, {
       workspaceId: args.workspaceId,
       status: args.status,

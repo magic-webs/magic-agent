@@ -173,7 +173,8 @@ export function WorkspaceAccessCard({
   workspaceId: Id<"workspaces">;
   workspaceName: string;
 }) {
-  const { isAdmin, me } = useSession();
+  const { can, me } = useSession();
+  const managesAccess = can("access");
   const access = useQuery(api.authDb.workspaceAccess, { workspaceId });
   const generate = useAction(api.auth.generateWorkspacePassword);
   const setAccess = useAction(api.auth.setWorkspaceAccess);
@@ -296,7 +297,7 @@ export function WorkspaceAccessCard({
         </div>
       </div>
 
-      {isAdmin ? (
+      {managesAccess ? (
         <>
           <Separator />
           <div className="flex flex-wrap gap-2">

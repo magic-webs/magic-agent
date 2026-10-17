@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useSession } from "@/components/use-session";
 import { SelectField } from "@/components/select-field";
 import {
@@ -63,29 +63,30 @@ import {
   UsersThreeIcon,
 } from "@phosphor-icons/react";
 
-type Role = "admin" | "member";
-
 type TeamRow = {
   _id: Id<"admins">;
   email: string;
   name?: string;
-  role: Role;
+  role: "admin" | "member";
+  roleId: Id<"adminRoles"> | null;
   workspaceIds: Id<"workspaces">[];
   createdAt: number;
   lastLoginAt: number | null;
   twoFactor: boolean;
 };
 
-const ROLE_OPTIONS = [
-  { value: "admin", label: "Admin — every workspace and this console" },
-  { value: "member", label: "Member — only the workspaces you pick" },
-];
+type PlatformRole = Doc<"adminRoles">;
+
+/** "admin" for the built-in role, otherwise a platform role's id. */
+const ADMIN = "admin";
 
 function MemberDialog({
   workspaces,
+  roles,
   member,
 }: {
   workspaces: WorkspaceOption[];
+  roles: PlatformRole[];
   member?: TeamRow;
 }) {
   const createAdmin = useAction(api.auth.createAdmin);
@@ -97,26 +98,44 @@ function MemberDialog({
     email: member?.email ?? "",
     name: member?.name ?? "",
     password: "",
-    role: member?.role ?? ("member" as Role),
+    access:
+      member?.role === "admin"
+        ? ADMIN
+        : (member?.roleId ?? roles[0]?._id ?? ADMIN) as string,
     workspaceIds: member?.workspaceIds ?? [],
   });
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(initial);
 
+  const roleOptions = [
+    { value: ADMIN, label: "Admin — everything, every workspace" },
+    ...roles.map((role) => ({
+      value: role._id as string,
+      label: `${role.name} — ${role.allWorkspaces ? "every workspace" : "the workspaces you pick"}`,
+    })),
+  ];
+  const chosen = roles.find((role) => role._id === form.access) ?? null;
+  const role = chosen ? ("member" as const) : ("admin" as const);
+  const picksWorkspaces = chosen !== null && !chosen.allWorkspaces;
+
   const invalid =
     (!member && (!form.email.includes("@") || form.password.length < 12)) ||
-    (form.role === "member" && form.workspaceIds.length === 0);
+    (picksWorkspaces && form.workspaceIds.length === 0);
 
   const submit = async () => {
     setBusy(true);
+    const access = {
+      role,
+      roleId: chosen?._id,
+      workspaceIds: picksWorkspaces ? form.workspaceIds : [],
+    };
     try {
       if (member) {
         await updateAccess({
           adminId: member._id,
           name: form.name.trim() || undefined,
-          role: form.role,
-          workspaceIds: form.role === "member" ? form.workspaceIds : [],
+          ...access,
         });
         toast.add({ title: "Access updated", type: "success" });
       } else {
@@ -124,8 +143,7 @@ function MemberDialog({
           email: form.email.trim(),
           name: form.name.trim() || undefined,
           password: form.password,
-          role: form.role,
-          workspaceIds: form.role === "member" ? form.workspaceIds : [],
+          ...access,
         });
         toast.add({
           title: `${form.email.trim()} can now sign in`,
@@ -170,8 +188,8 @@ function MemberDialog({
         <DialogHeader>
           <DialogTitle>{member ? `Edit ${member.email}` : "Add a team member"}</DialogTitle>
           <DialogDescription>
-            Admins reach every workspace and this console. Members sign in to the
-            same console but only see the workspaces assigned to them.
+            Admins reach everything. Anyone else gets the areas and workspaces
+            their role opens — set those up under Roles.
           </DialogDescription>
         </DialogHeader>
 
@@ -208,11 +226,11 @@ function MemberDialog({
             <Label htmlFor="team-role">Role</Label>
             <SelectField
               id="team-role"
-              value={form.role}
+              value={form.access}
               disabled={isSelf}
-              options={ROLE_OPTIONS}
+              options={roleOptions}
               onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, role: value as Role }))
+                setForm((prev) => ({ ...prev, access: value }))
               }
             />
             {isSelf ? (
@@ -222,7 +240,7 @@ function MemberDialog({
             ) : null}
           </div>
 
-          {form.role === "member" ? (
+          {picksWorkspaces ? (
             <div className="flex flex-col gap-1.5">
               <Label>Workspace access</Label>
               <WorkspacePicker
@@ -379,7 +397,9 @@ function RemoveButton({ member }: { member: TeamRow }) {
 export default function AdminTeamPage() {
   const team = useQuery(api.authDb.listAdmins, {});
   const workspaces = useQuery(api.workspaces.list, {});
+  const roles = useQuery(api.adminRoles.list, {});
   const { me } = useSession();
+  const roleById = new Map((roles ?? []).map((role) => [role._id as string, role]));
 
   const options: WorkspaceOption[] = (workspaces ?? []).map((workspace) => ({
     _id: workspace._id,
@@ -396,11 +416,11 @@ export default function AdminTeamPage() {
             Team
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            The people who run the platform. Give someone the Member role to let
-            them into specific workspaces only.
+            The people who run the platform. A role decides which areas of this
+            console they open and which workspaces they reach.
           </p>
         </div>
-        <MemberDialog workspaces={options} />
+        <MemberDialog workspaces={options} roles={roles ?? []} />
       </header>
 
       <Card className="shrink-0">
@@ -413,7 +433,7 @@ export default function AdminTeamPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {team === undefined || workspaces === undefined ? (
+          {team === undefined || workspaces === undefined || roles === undefined ? (
             <TableSkeleton columns={5} rows={3} />
           ) : (
             <div className="overflow-x-auto">
@@ -430,6 +450,9 @@ export default function AdminTeamPage() {
                 <TableBody>
                   {team.map((member) => {
                     const isSelf = me?.email === member.email;
+                    const platformRole = member.roleId ? roleById.get(member.roleId) : undefined;
+                    const everyWorkspace =
+                      member.role === "admin" || Boolean(platformRole?.allWorkspaces);
                     return (
                       <TableRow key={member._id}>
                         <TableCell>
@@ -450,11 +473,11 @@ export default function AdminTeamPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-                            {member.role === "admin" ? "Admin" : "Member"}
+                            {member.role === "admin" ? "Admin" : (platformRole?.name ?? "Member")}
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-72">
-                          {member.role === "admin" ? (
+                          {everyWorkspace ? (
                             <span className="text-sm text-muted-foreground">
                               All workspaces
                             </span>
@@ -475,7 +498,7 @@ export default function AdminTeamPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
-                            <MemberDialog workspaces={options} member={member} />
+                            <MemberDialog workspaces={options} roles={roles} member={member} />
                             <ResetPasswordDialog member={member} />
                             {isSelf ? null : <RemoveButton member={member} />}
                           </div>

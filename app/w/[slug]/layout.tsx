@@ -312,6 +312,7 @@ export default function WorkspaceLayout({
   // firing one the server will refuse.
   const allowed =
     session.isAdmin ||
+    (session.isStaff && session.me?.role === "admin" && !session.me.scoped) ||
     session.me?.workspaceSlug === slug ||
     Boolean(session.me?.workspaceSlugs?.includes(slug));
   const workspace = useQuery(

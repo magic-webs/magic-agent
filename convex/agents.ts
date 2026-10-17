@@ -35,7 +35,7 @@ import {
 } from "./lib/agentTemplates";
 import {
   getPrincipal,
-  isFullAdmin,
+  hasScope,
   requireAgent,
   requireWorkspace,
 } from "./lib/auth";
@@ -100,7 +100,7 @@ const agentFields = {
  * boundary, and a hidden field is not a permission.
  */
 async function mayChooseModel(ctx: QueryCtx | MutationCtx): Promise<boolean> {
-  return isFullAdmin(await getPrincipal(ctx));
+  return hasScope(await getPrincipal(ctx), "models");
 }
 
 // ---------------------------------------------------------------------------

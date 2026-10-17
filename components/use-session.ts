@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
 import { markSigningOut } from "@/components/session-end";
 
 /**
@@ -22,11 +23,23 @@ export function useSession() {
     window.location.href = "/login";
   }, []);
 
+  const scopes = me?.role === "admin" ? me.scopes : undefined;
+  const isAdmin = me?.role === "admin" && scopes === null;
+  const can = useCallback(
+    (scope: AdminScope) => isAdmin || Boolean(scopes?.includes(scope)),
+    [isAdmin, scopes]
+  );
+
   return {
     me,
     isLoading: me === undefined,
-    isAdmin: me?.role === "admin" && !me.scoped,
+    /** A full administrator: every area and every workspace. */
+    isAdmin,
     isStaff: me?.role === "admin",
+    /** Whether the platform role opens this admin area. */
+    can,
     signOut,
   };
 }
+
+export type AdminScope = Doc<"adminRoles">["scopes"][number];

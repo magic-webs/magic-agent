@@ -523,7 +523,9 @@ export default function AdminWorkspacesPage() {
   // query is asked outright rather than skipped on a role check.
   const workspaces = useQuery(api.workspaces.list, {});
   const seedDemo = useMutation(api.workspaces.seedDemo);
-  const { isAdmin } = useSession();
+  const { can, me } = useSession();
+  const manages = can("workspaces");
+  const createsWorkspaces = manages && !(me?.role === "admin" && me.scoped);
   const router = useRouter();
   const [seeding, setSeeding] = useState(false);
   const [view, setView] = useState<View>("list");
@@ -563,7 +565,7 @@ export default function AdminWorkspacesPage() {
             ))}
           </ToggleGroup>
 
-          {isAdmin ? <CreateWorkspaceDialog /> : null}
+          {createsWorkspaces ? <CreateWorkspaceDialog /> : null}
         </div>
       </header>
 
@@ -576,7 +578,7 @@ export default function AdminWorkspacesPage() {
         ) : (
           <TableSkeleton rows={8} columns={7} />
         )
-      ) : workspaces.length === 0 && !isAdmin ? (
+      ) : workspaces.length === 0 && !createsWorkspaces ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -662,7 +664,7 @@ export default function AdminWorkspacesPage() {
                   </TableCell>
 
                   <TableCell>
-                    {isAdmin ? (
+                    {manages ? (
                       <WorkspaceStagePicker
                         workspaceId={workspace._id}
                         name={workspace.name}

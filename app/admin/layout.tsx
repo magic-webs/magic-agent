@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AdminSwitcher } from "@/components/admin-switcher";
 import { RequireAuth } from "@/components/require-auth";
 import { SidebarUser } from "@/components/sidebar-user";
-import { useSession } from "@/components/use-session";
+import { useSession, type AdminScope } from "@/components/use-session";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -44,6 +44,7 @@ import {
   Invoice01Icon,
   Key01Icon,
   PlugSocketIcon,
+  SecurityLockIcon,
   Tag01Icon,
   UserAccountIcon,
   UserGroupIcon,
@@ -64,29 +65,34 @@ import {
 // charges. Plans & pricing sets the monthly fee, Subscriptions is who pays it
 // and how, and Message billing is what each account pays per WhatsApp
 // message out of its wallet.
+//
+// `scope` is the platform role area that opens a row; a row without one is for
+// administrators alone, and Access is open to everyone for their own sign-in.
 const NAV: Array<{
   href: string;
   label: string;
   icon: IconSvgElement;
-  team?: boolean;
+  scope?: AdminScope;
+  everyone?: boolean;
 }> = [
-  { href: "", label: "Overview", icon: DashboardSpeed02Icon },
-  { href: "/workspaces", label: "Workspaces", icon: Building03Icon, team: true },
-  { href: "/activity", label: "Activity", icon: Activity01Icon, team: true },
-  { href: "/mcp", label: "MCP connector", icon: PlugSocketIcon },
-  { href: "/models", label: "AI models", icon: AiBrain01Icon },
-  { href: "/usage", label: "Tokens & cost", icon: Coins01Icon },
-  { href: "/plans", label: "Plans & pricing", icon: Tag01Icon },
-  { href: "/subscriptions", label: "Subscriptions", icon: CreditCardIcon },
-  { href: "/billing", label: "Message billing", icon: Invoice01Icon },
-  { href: "/users", label: "Users", icon: UserAccountIcon },
+  { href: "", label: "Overview", icon: DashboardSpeed02Icon, scope: "overview" },
+  { href: "/workspaces", label: "Workspaces", icon: Building03Icon, scope: "workspaces" },
+  { href: "/activity", label: "Activity", icon: Activity01Icon, scope: "activity" },
+  { href: "/mcp", label: "MCP connector", icon: PlugSocketIcon, scope: "mcp" },
+  { href: "/models", label: "AI models", icon: AiBrain01Icon, scope: "models" },
+  { href: "/usage", label: "Tokens & cost", icon: Coins01Icon, scope: "usage" },
+  { href: "/plans", label: "Plans & pricing", icon: Tag01Icon, scope: "plans" },
+  { href: "/subscriptions", label: "Subscriptions", icon: CreditCardIcon, scope: "subscriptions" },
+  { href: "/billing", label: "Message billing", icon: Invoice01Icon, scope: "billing" },
+  { href: "/users", label: "Users", icon: UserAccountIcon, scope: "users" },
   { href: "/team", label: "Team", icon: UserGroupIcon },
-  { href: "/access", label: "Access", icon: Key01Icon, team: true },
+  { href: "/roles", label: "Roles", icon: SecurityLockIcon },
+  { href: "/access", label: "Access", icon: Key01Icon, everyone: true },
 ];
 
-function teamMayOpen(pathname: string): boolean {
-  return NAV.some(
-    (item) => item.team && pathname.startsWith(`/admin${item.href}`)
+function itemFor(pathname: string) {
+  return NAV.find((item) =>
+    item.href === "" ? pathname === "/admin" : pathname.startsWith(`/admin${item.href}`)
   );
 }
 
@@ -101,11 +107,15 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const session = useSession();
-  const blocked = session.isStaff && !session.isAdmin && !teamMayOpen(pathname);
+  const opens = (item: (typeof NAV)[number]) =>
+    session.isAdmin || Boolean(item.everyone) || (item.scope ? session.can(item.scope) : false);
+  const current = itemFor(pathname);
+  const blocked = session.isStaff && !session.isAdmin && (!current || !opens(current));
+  const landing = `/admin${(NAV.find(opens) ?? NAV[NAV.length - 1]).href}`;
 
   useEffect(() => {
-    if (blocked) router.replace("/admin/workspaces");
-  }, [blocked, router]);
+    if (blocked) router.replace(landing);
+  }, [blocked, landing, router]);
 
   if (session.isLoading || blocked) return <AdminShellSkeleton />;
 
@@ -157,7 +167,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {NAV.filter((item) => session.isAdmin || item.team).map((item) => {
+                {NAV.filter(opens).map((item) => {
                   const href = `/admin${item.href}`;
                   // Overview is the area's own page, so it matches exactly —
                   // a prefix test would light it up on every route below it.
@@ -203,7 +213,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-const NAV_SKELETON_WIDTHS = ["w-20", "w-24", "w-28", "w-20", "w-24", "w-28", "w-24", "w-20", "w-16", "w-14", "w-16"];
+const NAV_SKELETON_WIDTHS = ["w-20", "w-24", "w-28", "w-20", "w-24", "w-28", "w-24", "w-20", "w-16", "w-14", "w-14", "w-16"];
 
 /** The shell with placeholders, so the first paint is the page's shape. */
 function AdminShellSkeleton() {

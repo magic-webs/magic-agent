@@ -101,10 +101,20 @@ export const deliveryStatus = v.union(
 );
 
 export const workspaceStage = v.union(
+  v.literal("account_setup"),
+  v.literal("development"),
+  v.literal("testing"),
+  v.literal("feedback"),
+  v.literal("live"),
+  v.literal("custom")
+);
+
+// The retired stages stay readable until migrations:workspaceStages clears them.
+export const storedWorkspaceStage = v.union(
+  workspaceStage,
   v.literal("onboarding"),
   v.literal("setup_complete"),
-  v.literal("handed_over"),
-  v.literal("custom")
+  v.literal("handed_over")
 );
 
 export const widgetIntake = v.union(v.literal("chat"), v.literal("form"));

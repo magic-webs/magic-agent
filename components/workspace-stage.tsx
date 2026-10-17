@@ -31,15 +31,25 @@ import { CaretDownIcon, PencilSimpleIcon } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
-type Stage = NonNullable<Doc<"workspaces">["stage"]>;
+type StoredStage = NonNullable<Doc<"workspaces">["stage"]>;
 
 const PRESETS = [
-  { value: "onboarding", label: "Onboarding", dot: "bg-amber-500" },
-  { value: "setup_complete", label: "Setup complete", dot: "bg-sky-500" },
-  { value: "handed_over", label: "Handed over", dot: "bg-emerald-500" },
-] as const satisfies ReadonlyArray<{ value: Stage; label: string; dot: string }>;
+  { value: "account_setup", label: "Account setup", dot: "bg-amber-500" },
+  { value: "development", label: "Development", dot: "bg-sky-500" },
+  { value: "testing", label: "Testing", dot: "bg-indigo-500" },
+  { value: "feedback", label: "Feedback", dot: "bg-orange-500" },
+  { value: "live", label: "Live", dot: "bg-emerald-500" },
+] as const satisfies ReadonlyArray<{ value: StoredStage; label: string; dot: string }>;
 
-function describe(stage: Stage | undefined, label: string | undefined) {
+type Stage = (typeof PRESETS)[number]["value"] | "custom";
+
+function selected(stage: StoredStage | undefined): Stage {
+  const known = PRESETS.find((preset) => preset.value === stage);
+  if (known) return known.value;
+  return stage === "custom" ? "custom" : PRESETS[0].value;
+}
+
+function describe(stage: StoredStage | undefined, label: string | undefined) {
   if (stage === "custom") {
     return { label: label || "Custom", dot: "bg-violet-500" };
   }
@@ -51,7 +61,7 @@ export function WorkspaceStageBadge({
   label,
   className,
 }: {
-  stage?: Stage;
+  stage?: StoredStage;
   label?: string;
   className?: string;
 }) {
@@ -72,7 +82,7 @@ export function WorkspaceStagePicker({
 }: {
   workspaceId: Id<"workspaces">;
   name: string;
-  stage?: Stage;
+  stage?: StoredStage;
   label?: string;
 }) {
   const setStage = useMutation(api.workspaces.setStage);
@@ -111,9 +121,9 @@ export function WorkspaceStagePicker({
           <WorkspaceStageBadge stage={stage} label={label} />
           <CaretDownIcon className="size-3 text-muted-foreground" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
+        <DropdownMenuContent align="start" className="w-auto min-w-48">
           <DropdownMenuRadioGroup
-            value={stage ?? "onboarding"}
+            value={selected(stage)}
             onValueChange={(next) => {
               if (next !== "custom") void save(next as Stage);
             }}

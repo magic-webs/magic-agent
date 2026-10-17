@@ -1020,3 +1020,37 @@ export const contactActivity = internalMutation({
     }
   },
 });
+
+// ---------------------------------------------------------------------------
+// Workspace stages
+//
+//   bunx convex run migrations:workspaceStages
+//
+// Clears the retired stages (onboarding, setup complete, handed over), so
+// those workspaces read as Account setup. Custom stages are kept.
+// ---------------------------------------------------------------------------
+
+const RETIRED_STAGES = new Set(["onboarding", "setup_complete", "handed_over"]);
+
+export const workspaceStages = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("workspaces")
+      .paginate({ numItems: WORKSPACE_BATCH, cursor: args.cursor ?? null });
+
+    let cleared = 0;
+    for (const workspace of page.page) {
+      if (!workspace.stage || !RETIRED_STAGES.has(workspace.stage)) continue;
+      await ctx.db.patch(workspace._id, { stage: undefined, stageLabel: undefined });
+      cleared++;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.workspaceStages, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { cleared, done: page.isDone };
+  },
+});

@@ -3,15 +3,17 @@ import {
   internalQuery,
   query,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireScope, requireSignedIn } from "./lib/auth";
+import { requireScope, requireSignedIn, type Principal } from "./lib/auth";
 import { userWorkspaceSlugs } from "./authDb";
 import { logoSrcFor } from "./lib/branding";
 
 async function checkedWorkspaces(
   ctx: MutationCtx,
+  principal: Staff,
   workspaceIds: Id<"workspaces">[]
 ): Promise<Id<"workspaces">[]> {
   const unique = [...new Set(workspaceIds)];
@@ -20,8 +22,27 @@ async function checkedWorkspaces(
     if (!(await ctx.db.get("workspaces", id))) {
       throw new ConvexError("One of the selected workspaces no longer exists.");
     }
+    if (principal.workspaceIds && !principal.workspaceIds.includes(id)) {
+      throw new ConvexError("You can only give users the workspaces your role covers.");
+    }
   }
   return unique;
+}
+
+type Staff = Extract<Principal, { role: "admin" }>;
+
+/**
+ * A full administrator manages every customer login; anyone else on the
+ * platform team only the ones they created.
+ */
+async function requireOwnUser(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
+  const principal = await requireScope(ctx, "users");
+  const user = await ctx.db.get("users", userId);
+  if (!user) return { principal, user: null };
+  if (principal.scopes !== null && user.createdBy !== principal.adminId) {
+    throw new ConvexError("You can only manage the users you created.");
+  }
+  return { principal, user };
 }
 
 async function endSessionsAndFactor(ctx: MutationCtx, userId: Id<"users">) {
@@ -40,8 +61,15 @@ async function endSessionsAndFactor(ctx: MutationCtx, userId: Id<"users">) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireScope(ctx, "users");
-    const users = await ctx.db.query("users").order("desc").take(500);
+    const principal = await requireScope(ctx, "users");
+    const users =
+      principal.scopes === null
+        ? await ctx.db.query("users").order("desc").take(500)
+        : await ctx.db
+            .query("users")
+            .withIndex("by_createdBy", (q) => q.eq("createdBy", principal.adminId))
+            .order("desc")
+            .take(500);
     const factors = await ctx.db.query("twoFactor").collect();
     const protectedLogins = new Set(
       factors.filter((f) => f.status === "active").map((f) => f.principal)
@@ -105,12 +133,11 @@ export const update = mutation({
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "users");
-    const user = await ctx.db.get("users", args.userId);
+    const { principal, user } = await requireOwnUser(ctx, args.userId);
     if (!user) throw new ConvexError("User not found.");
     await ctx.db.patch(user._id, {
       name: args.name?.trim() || undefined,
-      workspaceIds: await checkedWorkspaces(ctx, args.workspaceIds),
+      workspaceIds: await checkedWorkspaces(ctx, principal, args.workspaceIds),
     });
     return null;
   },
@@ -119,8 +146,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "users");
-    const user = await ctx.db.get("users", args.userId);
+    const { user } = await requireOwnUser(ctx, args.userId);
     if (!user) return null;
     await endSessionsAndFactor(ctx, user._id);
     await ctx.db.delete(user._id);
@@ -145,7 +171,7 @@ export const insert = internalMutation({
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "users");
+    const principal = await requireScope(ctx, "users");
     const clash =
       (await ctx.db
         .query("users")
@@ -164,7 +190,8 @@ export const insert = internalMutation({
       email: args.email,
       name: args.name,
       passwordHash: args.passwordHash,
-      workspaceIds: await checkedWorkspaces(ctx, args.workspaceIds),
+      workspaceIds: await checkedWorkspaces(ctx, principal, args.workspaceIds),
+      createdBy: principal.scopes === null ? undefined : principal.adminId,
       createdAt: Date.now(),
     });
   },
@@ -173,8 +200,7 @@ export const insert = internalMutation({
 export const setPassword = internalMutation({
   args: { userId: v.id("users"), passwordHash: v.string() },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "users");
-    const user = await ctx.db.get("users", args.userId);
+    const { user } = await requireOwnUser(ctx, args.userId);
     if (!user) throw new ConvexError("User not found.");
     await ctx.db.patch(user._id, { passwordHash: args.passwordHash });
     await endSessionsAndFactor(ctx, user._id);

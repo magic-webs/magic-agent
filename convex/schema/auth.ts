@@ -31,9 +31,13 @@ export const authTables = {
     name: v.optional(v.string()),
     passwordHash: v.string(),
     workspaceIds: v.array(v.id("workspaces")),
+    /** The platform team member who created the login; unset for an administrator. */
+    createdBy: v.optional(v.id("admins")),
     createdAt: v.number(),
     lastLoginAt: v.optional(v.number()),
-  }).index("by_email", ["email"]),
+  })
+    .index("by_email", ["email"])
+    .index("by_createdBy", ["createdBy"]),
 
   workspaceCredentials: defineTable({
     workspaceId: v.id("workspaces"),

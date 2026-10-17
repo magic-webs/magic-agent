@@ -167,6 +167,7 @@ export const conversationsTables = {
     .index("by_workspace_status_lastMessageAt", ["workspaceId", "status", "lastMessageAt"])
     .index("by_workspace_role_lastMessageAt", ["workspaceId", "lastMessageRole", "lastMessageAt"])
     .index("by_workspace_stage", ["workspaceId", "leadStageId"])
+    .index("by_workspace_stage_lastMessageAt", ["workspaceId", "leadStageId", "lastMessageAt"])
     .index("by_humanHandlingAt", ["humanHandlingAt"])
     .index("by_humanHandlingUntil", ["humanHandlingUntil"])
     .index("by_marketingOnly_and_lastMessageAt", ["marketingOnly", "lastMessageAt"])

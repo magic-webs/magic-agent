@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import {
   internalAction,
   internalQuery,
@@ -274,17 +275,35 @@ export const inbox = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .take(Math.min(Math.max(args.limit ?? 50, 1), 100));
-    return rows.map((row) => ({
-      _id: row._id,
-      event: row.event,
-      title: row.title,
-      body: row.body,
-      conversationId: row.conversationId ?? null,
-      orderId: row.orderId ?? null,
-      createdAt: row.createdAt,
-    }));
+    return rows.map(inboxRow);
   },
 });
+
+/** The bell's list a page at a time, newest first. */
+export const inboxPage = query({
+  args: { workspaceId: v.id("workspaces"), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const result = await ctx.db
+      .query("pushInbox")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .order("desc")
+      .paginate(args.paginationOpts);
+    return { ...result, page: result.page.map(inboxRow) };
+  },
+});
+
+function inboxRow(row: Doc<"pushInbox">) {
+  return {
+    _id: row._id,
+    event: row.event,
+    title: row.title,
+    body: row.body,
+    conversationId: row.conversationId ?? null,
+    orderId: row.orderId ?? null,
+    createdAt: row.createdAt,
+  };
+}
 
 // ------------------------------------------------------------------ internals
 

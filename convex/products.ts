@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import {
   query,
   internalQuery,
@@ -303,6 +304,34 @@ export const listByWorkspace = query({
         .order("desc")
         .take(200)
     );
+  },
+});
+
+/** The catalogue a page at a time, newest first. */
+export const listPage = query({
+  args: {
+    workspaceId: v.id("workspaces"),
+    search: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const term = args.search?.trim();
+    const result = term
+      ? await ctx.db
+          .query("products")
+          .withSearchIndex("search_products", (q) =>
+            q
+              .search("searchBlob", term.toLowerCase())
+              .eq("workspaceId", args.workspaceId)
+          )
+          .paginate(args.paginationOpts)
+      : await ctx.db
+          .query("products")
+          .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+          .order("desc")
+          .paginate(args.paginationOpts);
+    return { ...result, page: await withImages(ctx, result.page) };
   },
 });
 

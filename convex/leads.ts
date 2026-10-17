@@ -8,6 +8,7 @@
  */
 
 import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import {
   query,
   internalQuery,
@@ -15,7 +16,8 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { mutation, internalMutation } from "./functions";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import { channelType } from "./schema";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { recordAgentReply } from "./lib/agentStats";
 import { noteMessage } from "./lib/inbox";
@@ -382,39 +384,118 @@ export const pipeline = query({
       .order("desc")
       .take(args.limit ?? 300);
 
-    const agents = await ctx.db
-      .query("agents")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-    const botNames = new Map(agents.map((a) => [a._id as string, a.botName]));
-
-    const out = [];
-    for (const row of rows) {
-      const contact = await ctx.db.get("contacts", row.contactId);
-      out.push({
-        conversationId: row._id,
-        leadStageId: row.leadStageId ?? null,
-        leadStageNote: row.leadStageNote ?? null,
-        leadStagePinned: row.leadStagePinned ?? false,
-        leadTagIds: row.leadTagIds ?? [],
-        leadTagsPinned: row.leadTagsPinned ?? false,
-        reviewedAt: row.reviewedAt ?? null,
-        followUpCount: row.followUpCount ?? 0,
-        status: row.status,
-        channelType: row.channelType,
-        messageCount: row.messageCount,
-        lastMessageAt: row.lastMessageAt,
-        lastMessagePreview: row.lastMessagePreview ?? null,
-        handledBy: botNames.get(row.activeAgentId ?? row.agentId) ?? null,
-        contactLabel:
-          contact?.name ?? contact?.phone ?? contact?.externalId ?? "Unknown",
-        contactCompany: contact?.company ?? null,
-        remark: contact?.remark ?? null,
-      });
-    }
-    return out;
+    return await pipelineRows(ctx, args.workspaceId, rows);
   },
 });
+
+/** The pipeline a page at a time, latest activity first. */
+export const pipelinePage = query({
+  args: {
+    workspaceId: v.id("workspaces"),
+    paginationOpts: paginationOptsValidator,
+    stage: v.optional(v.union(v.id("leadStages"), v.literal("unfiled"))),
+    status: v.optional(
+      v.union(v.literal("open"), v.literal("escalated"), v.literal("closed"))
+    ),
+    channelType: v.optional(channelType),
+    since: v.optional(v.number()),
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const workspaceId = args.workspaceId;
+    const since = args.since ?? 0;
+    const term = args.search?.trim().slice(0, 100);
+    const stageId = args.stage === "unfiled" ? undefined : args.stage;
+    const status = args.status;
+
+    const conversations = ctx.db.query("conversations");
+    const range = term
+      ? conversations.withSearchIndex("search_inbox", (q) => {
+          const matched = q.search("searchText", term).eq("workspaceId", workspaceId);
+          const byStatus = status ? matched.eq("status", status) : matched;
+          return args.channelType
+            ? byStatus.eq("channelType", args.channelType)
+            : byStatus;
+        })
+      : args.stage
+        ? conversations
+            .withIndex("by_workspace_stage_lastMessageAt", (q) =>
+              q
+                .eq("workspaceId", workspaceId)
+                .eq("leadStageId", stageId)
+                .gte("lastMessageAt", since)
+            )
+            .order("desc")
+        : status
+          ? conversations
+              .withIndex("by_workspace_status_lastMessageAt", (q) =>
+                q
+                  .eq("workspaceId", workspaceId)
+                  .eq("status", status)
+                  .gte("lastMessageAt", since)
+              )
+              .order("desc")
+          : conversations
+              .withIndex("by_workspace_lastMessageAt", (q) =>
+                q.eq("workspaceId", workspaceId).gte("lastMessageAt", since)
+              )
+              .order("desc");
+
+    const result = await range
+      .filter((q) => {
+        const all = [];
+        if (term && since) all.push(q.gte(q.field("lastMessageAt"), since));
+        if (term && args.stage) all.push(q.eq(q.field("leadStageId"), stageId));
+        if (!term && args.stage && status) all.push(q.eq(q.field("status"), status));
+        if (!term && args.channelType) {
+          all.push(q.eq(q.field("channelType"), args.channelType));
+        }
+        return all.length > 0 ? q.and(...all) : true;
+      })
+      .paginate(args.paginationOpts);
+
+    return { ...result, page: await pipelineRows(ctx, workspaceId, result.page) };
+  },
+});
+
+async function pipelineRows(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  rows: Doc<"conversations">[]
+) {
+  const agents = await ctx.db
+    .query("agents")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  const botNames = new Map(agents.map((a) => [a._id as string, a.botName]));
+
+  const out = [];
+  for (const row of rows) {
+    const contact = await ctx.db.get("contacts", row.contactId);
+    out.push({
+      conversationId: row._id,
+      leadStageId: row.leadStageId ?? null,
+      leadStageNote: row.leadStageNote ?? null,
+      leadStagePinned: row.leadStagePinned ?? false,
+      leadTagIds: row.leadTagIds ?? [],
+      leadTagsPinned: row.leadTagsPinned ?? false,
+      reviewedAt: row.reviewedAt ?? null,
+      followUpCount: row.followUpCount ?? 0,
+      status: row.status,
+      channelType: row.channelType,
+      messageCount: row.messageCount,
+      lastMessageAt: row.lastMessageAt,
+      lastMessagePreview: row.lastMessagePreview ?? null,
+      handledBy: botNames.get(row.activeAgentId ?? row.agentId) ?? null,
+      contactLabel:
+        contact?.name ?? contact?.phone ?? contact?.externalId ?? "Unknown",
+      contactCompany: contact?.company ?? null,
+      remark: contact?.remark ?? null,
+    });
+  }
+  return out;
+}
 
 /** Filing a lead by hand. Pinned, so the next review will not overrule it. */
 export const setStage = mutation({

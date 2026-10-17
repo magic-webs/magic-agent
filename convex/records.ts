@@ -14,6 +14,7 @@ import {
   internalQuery,
   query,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
@@ -501,34 +502,77 @@ export const listRecords = query({
         ? rows.filter((row) => row.stage === args.stage)
         : rows;
 
-    const agents = await ctx.db
-      .query("agents")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", book.workspaceId))
-      .collect();
-    const byId = new Map(agents.map((agent) => [agent._id, agent.botName]));
-
-    const threads = new Map<Id<"contacts">, Id<"conversations"> | null>();
-    for (const row of filtered) {
-      if (row.conversationId || !row.contactId || threads.has(row.contactId)) continue;
-      const contactId = row.contactId;
-      const latest = (
-        await ctx.db
-          .query("conversations")
-          .withIndex("by_contact_agent", (q) => q.eq("contactId", contactId))
-          .collect()
-      ).sort((a, b) => b.lastMessageAt - a.lastMessageAt)[0];
-      threads.set(contactId, latest?._id ?? null);
-    }
-
-    return filtered.map((row) => ({
-      ...row,
-      filedBy: row.agentId ? (byId.get(row.agentId) ?? null) : null,
-      threadId:
-        row.conversationId ??
-        (row.contactId ? (threads.get(row.contactId) ?? null) : null),
-    }));
+    return await recordRows(ctx, book.workspaceId, filtered);
   },
 });
+
+/** A book's records a page at a time, newest first. */
+export const listRecordsPage = query({
+  args: {
+    bookId: v.id("recordBooks"),
+    stage: v.optional(v.string()),
+    search: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const book = await requireRecordBook(ctx, args.bookId);
+    const term = args.search?.trim();
+    const records = ctx.db.query("records");
+    const result = term
+      ? await records
+          .withSearchIndex("search_records", (q) =>
+            q.search("searchBlob", term.toLowerCase()).eq("bookId", args.bookId)
+          )
+          .filter((q) => (args.stage ? q.eq(q.field("stage"), args.stage) : true))
+          .paginate(args.paginationOpts)
+      : args.stage
+        ? await records
+            .withIndex("by_book_stage", (q) =>
+              q.eq("bookId", args.bookId).eq("stage", args.stage)
+            )
+            .order("desc")
+            .paginate(args.paginationOpts)
+        : await records
+            .withIndex("by_book", (q) => q.eq("bookId", args.bookId))
+            .order("desc")
+            .paginate(args.paginationOpts);
+
+    return { ...result, page: await recordRows(ctx, book.workspaceId, result.page) };
+  },
+});
+
+async function recordRows(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  rows: Doc<"records">[]
+) {
+  const agents = await ctx.db
+    .query("agents")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  const byId = new Map(agents.map((agent) => [agent._id, agent.botName]));
+
+  const threads = new Map<Id<"contacts">, Id<"conversations"> | null>();
+  for (const row of rows) {
+    if (row.conversationId || !row.contactId || threads.has(row.contactId)) continue;
+    const contactId = row.contactId;
+    const latest = (
+      await ctx.db
+        .query("conversations")
+        .withIndex("by_contact_agent", (q) => q.eq("contactId", contactId))
+        .collect()
+    ).sort((a, b) => b.lastMessageAt - a.lastMessageAt)[0];
+    threads.set(contactId, latest?._id ?? null);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    filedBy: row.agentId ? (byId.get(row.agentId) ?? null) : null,
+    threadId:
+      row.conversationId ??
+      (row.contactId ? (threads.get(row.contactId) ?? null) : null),
+  }));
+}
 
 export const exportPage = query({
   args: {

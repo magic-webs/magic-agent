@@ -865,11 +865,11 @@ function DetailPanel({
 
         {detail ? (
           <Tabs defaultValue="overview" className="gap-3">
-            <TabsList className="h-10! w-full justify-start gap-1 rounded-xl bg-transparent p-0">
-              <PanelTab value="overview">Overview</PanelTab>
-              <PanelTab value="permissions">Permissions</PanelTab>
-              <PanelTab value="agents">What agents can do</PanelTab>
-              <PanelTab value="faq">FAQ</PanelTab>
+            <TabsList className="w-full">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="permissions">Permissions</TabsTrigger>
+              <TabsTrigger value="agents">What agents can do</TabsTrigger>
+              <TabsTrigger value="faq">FAQ</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -971,17 +971,6 @@ function DetailPanel({
         ) : null}
       </div>
     </div>
-  );
-}
-
-function PanelTab({ value, children }: { value: string; children: ReactNode }) {
-  return (
-    <TabsTrigger
-      value={value}
-      className="h-9 flex-none rounded-lg px-2.5 data-active:bg-primary/10 data-active:text-primary data-active:shadow-none"
-    >
-      {children}
-    </TabsTrigger>
   );
 }
 

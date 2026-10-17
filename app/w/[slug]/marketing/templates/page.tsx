@@ -8,7 +8,12 @@ import { templateBlocker } from "@/convex/lib/marketing";
 import { useWorkspace } from "@/components/workspace-provider";
 import { fail } from "@/components/marketing/calendar";
 import { templateReady, templateStanding } from "@/components/marketing/format";
-import { TemplateDialog, draftFor, type TemplateDraft } from "@/components/marketing/template-dialog";
+import {
+  TemplateDialog,
+  copyDraftOf,
+  draftFor,
+  type TemplateDraft,
+} from "@/components/marketing/template-dialog";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,7 +22,13 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { ArrowsClockwiseIcon, MegaphoneIcon, PlusIcon, WhatsappLogoIcon } from "@phosphor-icons/react";
+import {
+  ArrowsClockwiseIcon,
+  CopyIcon,
+  MegaphoneIcon,
+  PlusIcon,
+  WhatsappLogoIcon,
+} from "@phosphor-icons/react";
 
 const OCCASION_LABELS: Record<string, string> = {
   festival: "Festival",
@@ -124,14 +135,35 @@ export default function MarketingTemplatesPage() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {templates.map((template) => (
-            <button
+            <div
               key={template._id}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => setDraft(draftFor(template))}
-              className="flex flex-col gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setDraft(draftFor(template));
+                }
+              }}
+              className="flex cursor-pointer flex-col gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <span className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">{template.name}</span>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Duplicate ${template.name}`}
+                  title="Duplicate"
+                  className="-my-1 text-muted-foreground"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setDraft(copyDraftOf(template));
+                  }}
+                >
+                  <CopyIcon />
+                </Button>
                 <Badge variant="outline">{OCCASION_LABELS[template.occasion] ?? template.occasion}</Badge>
                 {template.category && template.category !== "marketing" ? (
                   <Badge variant="outline">{CATEGORY_LABELS[template.category]}</Badge>
@@ -163,7 +195,7 @@ export default function MarketingTemplatesPage() {
                   {template.metaTemplateName} · {template.languageCode}
                 </span>
               ) : null}
-            </button>
+            </div>
           ))}
         </div>
       )}

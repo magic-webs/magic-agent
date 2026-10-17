@@ -51,6 +51,7 @@ import { toast } from "@/components/ui/toast";
 import {
   ArrowSquareOutIcon,
   ArrowUUpLeftIcon,
+  CopyIcon,
   HandPalmIcon,
   ImageIcon,
   PaperPlaneTiltIcon,
@@ -692,6 +693,15 @@ export function TemplateDialog({
               </span>
             ) : null}
             {saved ? (
+              <Button
+                variant="outline"
+                disabled={busy !== null}
+                onClick={() => setDraft(copyDraftOf(saved))}
+              >
+                <CopyIcon /> Duplicate
+              </Button>
+            ) : null}
+            {saved ? (
               <TestSendButton
                 templateId={saved._id}
                 disabledReason={
@@ -760,4 +770,13 @@ export function draftFor(template?: Template): TemplateDraft {
         footer: "",
         buttons: [],
       };
+}
+
+export function copyDraftOf(template: Template): TemplateDraft {
+  return {
+    ...draftFor(template),
+    templateId: undefined,
+    name: `${template.name} (copy)`,
+    metaTemplateName: "",
+  };
 }

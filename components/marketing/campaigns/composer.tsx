@@ -17,6 +17,7 @@ import {
 } from "@/components/marketing/format";
 import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
+import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import {
   AudiencePicker,
   EVERYONE,
@@ -37,7 +38,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/components/ui/toast";
 import { PaperPlaneTiltIcon, WarningCircleIcon } from "@phosphor-icons/react";
 
-type Template = Doc<"marketingTemplates"> & { metaBody: string };
+type Template = Doc<"marketingTemplates"> & {
+  metaBody: string;
+  headerMediaUrl?: string | null;
+};
 
 export type CampaignDraft = {
   eventId?: Id<"marketingEvents">;
@@ -173,8 +177,34 @@ export function CampaignComposer({
     (draft.when === "now" && Boolean(blocker));
 
   const money = (micros: number) =>
-
     estimate?.currency ? formatMoney(micros, estimate.currency) : null;
+
+  const preview = (size: "card" | "phone") => (
+    <WhatsAppPreview
+      size={size}
+      className={size === "card" ? "lg:hidden" : undefined}
+      body={
+        template
+          ? previewTemplate(template.body, {
+              business: workspace.name,
+              event: draft.title,
+              date: dayLabel(draft.when === "now" ? today : draft.date),
+              message: draft.message,
+            })
+          : ""
+      }
+      header={template?.header}
+      headerMedia={
+        template?.headerMedia
+          ? { type: template.headerMedia.type, url: template.headerMediaUrl ?? undefined }
+          : undefined
+      }
+      footer={template?.footer}
+      buttons={template?.buttons}
+      business={workspace.name}
+      occasion={template?.occasion}
+    />
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -185,7 +215,8 @@ export function CampaignComposer({
             always left out.
           </p>
         </div>
-        <div className="flex flex-col gap-6">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_296px]">
+        <div className="flex min-w-0 flex-col gap-6">
           <Section step={1} title="Name it">
             <Input
               value={draft.title}
@@ -232,15 +263,10 @@ export function CampaignComposer({
             ) : null}
             {template ? (
               <div className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3">
-                <p className="text-xs font-medium text-muted-foreground">What a customer reads</p>
-                <p className="max-w-md rounded-lg rounded-tl-none bg-background p-3 text-sm whitespace-pre-wrap shadow-sm">
-                  {previewTemplate(template.body, {
-                    business: workspace.name,
-                    event: draft.title,
-                    date: dayLabel(draft.when === "now" ? today : draft.date),
-                    message: draft.message,
-                  })}
+                <p className="text-xs font-medium text-muted-foreground lg:hidden">
+                  What a customer reads
                 </p>
+                {preview("card")}
                 <TestSendButton
                   templateId={template._id}
                   message={draft.message}
@@ -375,6 +401,15 @@ export function CampaignComposer({
               </Badge>
             ) : null}
           </div>
+        </div>
+        <aside className="hidden lg:block">
+          <div className="sticky top-4 flex flex-col gap-2">
+            <p className="text-center text-xs font-medium text-muted-foreground">
+              What a customer reads
+            </p>
+            {preview("phone")}
+          </div>
+        </aside>
         </div>
         <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/80 sm:-mx-6 sm:px-6">
           <Button variant="outline" onClick={onClose}>

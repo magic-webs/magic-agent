@@ -503,7 +503,7 @@ export const saveTemplate = mutation({
         updatedAt: now,
       });
       if (existing.headerMedia && existing.headerMedia.key !== kept.headerMedia?.key) {
-        await deleteFile(ctx, existing.headerMedia.key);
+        await deleteUnsharedMedia(ctx, args.workspaceId, existing.headerMedia.key);
       }
       return args.templateId;
     }
@@ -580,10 +580,24 @@ export const removeTemplate = mutation({
     }
 
     await ctx.db.delete("marketingTemplates", args.templateId);
-    await deleteFile(ctx, template.headerMedia?.key);
+    await deleteUnsharedMedia(ctx, template.workspaceId, template.headerMedia?.key);
     return { success: true };
   },
 });
+
+async function deleteUnsharedMedia(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  key: string | undefined
+) {
+  if (!key) return;
+  const templates = await ctx.db
+    .query("marketingTemplates")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(500);
+  if (templates.some((template) => template.headerMedia?.key === key)) return;
+  await deleteFile(ctx, key);
+}
 
 export const saveEvent = mutation({
   args: {

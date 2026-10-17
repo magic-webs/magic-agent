@@ -57,7 +57,7 @@ export function WhatsAppPreview({
   const visible = shown.length > 3 ? shown.slice(0, 2) : shown;
 
   const message = (
-    <div className="flex max-w-[88%] flex-col self-start">
+    <div className="flex max-w-[88%] shrink-0 flex-col self-start">
       <div className="relative rounded-lg rounded-tl-none bg-background px-2.5 pt-1.5 pb-1 text-[12.5px] leading-snug text-foreground shadow-sm">
         {headerMedia ? (
           <div className="relative -mx-1.5 mb-1.5 flex aspect-[1.91/1] items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground">
@@ -123,7 +123,7 @@ export function WhatsAppPreview({
       >
         <div
           data-slot="message-scroller-viewport"
-          className="flex max-h-56 flex-col overflow-hidden p-2.5"
+          className="flex max-h-56 flex-col overflow-y-auto overscroll-contain p-2.5"
         >
           {message}
         </div>
@@ -174,9 +174,9 @@ export function WhatsAppPreview({
             </div>
             <div
               data-slot="message-scroller-viewport"
-              className="flex min-h-0 flex-1 flex-col justify-end gap-1.5 overflow-y-auto px-2 py-2.5"
+              className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain px-2 py-2.5"
             >
-              <span className="mx-auto mb-1 rounded-md bg-background/80 px-2 py-0.5 text-[8.5px] font-medium tracking-wide text-muted-foreground uppercase shadow-sm">
+              <span className="mx-auto mt-auto mb-1 shrink-0 rounded-md bg-background/80 px-2 py-0.5 text-[8.5px] font-medium tracking-wide text-muted-foreground uppercase shadow-sm">
                 Today
               </span>
               {message}

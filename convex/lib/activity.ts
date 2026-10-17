@@ -19,6 +19,7 @@ type TableConfig = {
   /** Only these fields count as a change; everything else is bookkeeping. */
   only?: string[];
   skipInsert?: (doc: AnyDoc) => boolean;
+  skipDelete?: boolean;
 };
 
 const field = (...keys: string[]) => (doc: AnyDoc) =>
@@ -33,7 +34,12 @@ export const LOGGED_TABLES: Partial<Record<TableNames, TableConfig>> = {
   products: { entity: "Product", name: field("name") },
   orders: { entity: "Order", name: field("orderNumber") },
   recordBooks: { entity: "Record book", name: field("name") },
-  records: { entity: "Record", name: field("reference") },
+  records: {
+    entity: "Record",
+    name: field("reference"),
+    skipInsert: () => true,
+    skipDelete: true,
+  },
   recordWebhooks: { entity: "Record webhook", name: field("name") },
   leadStages: { entity: "Lead stage", name: field("name") },
   leadTags: { entity: "Lead tag", name: field("name") },
@@ -46,6 +52,7 @@ export const LOGGED_TABLES: Partial<Record<TableNames, TableConfig>> = {
     entity: "Conversation",
     only: ["status", "humanHandling", "markedBot", "leadStageId", "leadTagIds"],
     skipInsert: () => true,
+    skipDelete: true,
   },
   teamMembers: { entity: "Team member", name: field("name") },
   memberCredentials: { entity: "Team login", name: field("username", "email") },
@@ -168,7 +175,7 @@ export async function logChange(
   if (!workspaceId) return;
 
   if (change.operation === "insert" && config.skipInsert?.(doc)) return;
-  if (change.operation === "delete" && table === "conversations") return;
+  if (change.operation === "delete" && config.skipDelete) return;
 
   let fields: string[] | undefined;
   if (change.operation === "update") {

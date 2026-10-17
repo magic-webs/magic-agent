@@ -1093,3 +1093,34 @@ export const adminRoles = internalMutation({
     return { roleId, moved };
   },
 });
+
+// ---------------------------------------------------------------------------
+// Record adds and deletes out of the activity log
+//
+//   npx convex run migrations:purgeRecordActivity
+// ---------------------------------------------------------------------------
+
+const ACTIVITY_LOG_BATCH = 500;
+
+export const purgeRecordActivity = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("activityLogs")
+      .paginate({ numItems: ACTIVITY_LOG_BATCH, cursor: args.cursor ?? null });
+
+    let removed = 0;
+    for (const row of page.page) {
+      if (row.table !== "records" || row.operation === "update") continue;
+      await ctx.db.delete(row._id);
+      removed++;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.purgeRecordActivity, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { removed, done: page.isDone };
+  },
+});

@@ -10,7 +10,7 @@ import { kvPair, workspaceStage } from "./schema";
 import { slugify, randomKey } from "./lib/shared";
 import {
   AuthError,
-  requireScope,
+  requireModify,
   requireScopedWorkspace,
   requireStaff,
   requireWorkspace,
@@ -211,7 +211,7 @@ export const summary = query({
 
 /** Making or deleting workspaces, which only a role over all of them may do. */
 async function requireEveryWorkspace(ctx: MutationCtx) {
-  const principal = await requireScope(ctx, "workspaces");
+  const principal = await requireModify(ctx, "workspaces");
   if (principal.workspaceIds) {
     throw new AuthError("Your role covers only the workspaces assigned to you.");
   }
@@ -395,7 +395,7 @@ export const setStatus = mutation({
     status: v.union(v.literal("active"), v.literal("archived")),
   },
   handler: async (ctx, args) => {
-    await requireScopedWorkspace(ctx, "workspaces", args.workspaceId);
+    await requireScopedWorkspace(ctx, "workspaces", args.workspaceId, "modify");
     await ctx.db.patch(args.workspaceId, {
       status: args.status,
       updatedAt: Date.now(),
@@ -411,7 +411,7 @@ export const setStage = mutation({
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireScopedWorkspace(ctx, "workspaces", args.workspaceId);
+    await requireScopedWorkspace(ctx, "workspaces", args.workspaceId, "modify");
     const label = args.label?.trim();
     if (args.stage === "custom" && !label) {
       throw new ConvexError("Name the custom stage");

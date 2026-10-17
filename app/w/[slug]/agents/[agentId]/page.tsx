@@ -191,7 +191,7 @@ export default function AgentConfigPage({
   // same kind of knob. `mayChooseModel` in convex/agents.ts drops the model
   // on the way in for anyone else, so hiding the tab is presentation rather
   // than the permission itself.
-  const choosesModel = useSession().can("models");
+  const choosesModel = useSession().canModify("models");
 
   // Seed the editable draft from the server document, and re-seed if a
   // different agent is opened. Adjusting state during render rather than in an

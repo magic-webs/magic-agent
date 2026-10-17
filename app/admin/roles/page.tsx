@@ -28,7 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -59,21 +58,39 @@ import {
 
 type Role = Doc<"adminRoles"> & { memberCount: number };
 
-const AREAS: { value: AdminScope; label: string; hint: string }[] = [
-  { value: "overview", label: "Overview", hint: "The platform dashboard" },
-  { value: "workspaces", label: "Workspaces", hint: "List, archive and stage them" },
-  { value: "activity", label: "Activity", hint: "Who changed what" },
-  { value: "access", label: "Access", hint: "Workspace logins and passwords" },
-  { value: "mcp", label: "MCP connector", hint: "Their own admin connector" },
-  { value: "models", label: "AI models", hint: "The catalogue, and agents' models" },
-  { value: "usage", label: "Tokens & cost", hint: "What the platform spends" },
-  { value: "plans", label: "Plans & pricing", hint: "Monthly plans" },
-  { value: "subscriptions", label: "Subscriptions", hint: "Accounts and wallet top-ups" },
-  { value: "billing", label: "Message billing", hint: "Markups and Meta rates" },
-  { value: "users", label: "Users", hint: "Customer logins" },
+/** `modify` is what Modify adds; an area without it can only be looked at. */
+const AREAS: { value: AdminScope; label: string; modify?: string }[] = [
+  { value: "overview", label: "Overview" },
+  { value: "workspaces", label: "Workspaces", modify: "Create, archive, stage" },
+  { value: "activity", label: "Activity" },
+  { value: "access", label: "Access", modify: "Issue and revoke logins" },
+  { value: "mcp", label: "MCP connector", modify: "Issue their own tokens" },
+  { value: "models", label: "AI models", modify: "Edit the catalogue, pick agents' models" },
+  { value: "usage", label: "Tokens & cost" },
+  { value: "plans", label: "Plans & pricing", modify: "Edit plans and pricing" },
+  { value: "subscriptions", label: "Subscriptions", modify: "Change accounts and wallets" },
+  { value: "billing", label: "Message billing", modify: "Markups and Meta rates" },
+  { value: "users", label: "Users", modify: "Add and manage their users" },
 ];
 
 const labelOf = new Map(AREAS.map((area) => [area.value, area.label]));
+
+type Level = "off" | "view" | "modify";
+
+function levelsOf(role?: Role): Record<AdminScope, Level> {
+  const scopes = role?.scopes ?? (["workspaces"] as AdminScope[]);
+  const viewOnly = role?.viewOnly ?? [];
+  return Object.fromEntries(
+    AREAS.map((area) => [
+      area.value,
+      !scopes.includes(area.value)
+        ? "off"
+        : viewOnly.includes(area.value) || !area.modify
+          ? "view"
+          : "modify",
+    ])
+  ) as Record<AdminScope, Level>;
+}
 
 const REACH_OPTIONS = [
   { value: "picked", label: "Only the workspaces picked for each person" },
@@ -87,27 +104,30 @@ function RoleDialog({ role }: { role?: Role }) {
   const initial = () => ({
     name: role?.name ?? "",
     description: role?.description ?? "",
-    scopes: role?.scopes ?? (["workspaces"] as AdminScope[]),
+    levels: levelsOf(role),
     allWorkspaces: role?.allWorkspaces ?? false,
   });
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(initial);
 
-  const invalid = !form.name.trim() || form.scopes.length === 0;
+  const scopes = AREAS.filter((area) => form.levels[area.value] !== "off").map(
+    (area) => area.value
+  );
+  const invalid = !form.name.trim() || scopes.length === 0;
 
-  const toggle = (scope: AdminScope, on: boolean) =>
-    setForm((prev) => ({
-      ...prev,
-      scopes: on ? [...prev.scopes, scope] : prev.scopes.filter((item) => item !== scope),
-    }));
+  const setLevel = (scope: AdminScope, level: Level) =>
+    setForm((prev) => ({ ...prev, levels: { ...prev.levels, [scope]: level } }));
 
   const submit = async () => {
     setBusy(true);
     const fields = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      scopes: form.scopes,
+      scopes,
+      viewOnly: AREAS.filter((area) => form.levels[area.value] === "view").map(
+        (area) => area.value
+      ),
       allWorkspaces: form.allWorkspaces,
     };
     try {
@@ -195,26 +215,33 @@ function RoleDialog({ role }: { role?: Role }) {
 
           <div className="flex flex-col gap-1.5">
             <Label>Platform access</Label>
-            <div className="grid max-h-72 gap-1 overflow-y-auto rounded-md border p-2 sm:grid-cols-2">
+            <div className="flex max-h-80 flex-col divide-y overflow-y-auto rounded-md border">
               {AREAS.map((area) => (
-                <label
-                  key={area.value}
-                  className="flex cursor-pointer items-start gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
-                >
-                  <Checkbox
-                    className="mt-0.5"
-                    checked={form.scopes.includes(area.value)}
-                    onCheckedChange={(value) => toggle(area.value, value === true)}
+                <div key={area.value} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-sm font-medium">{area.label}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {area.modify ? `Modify: ${area.modify.toLowerCase()}` : "View only"}
+                    </span>
+                  </div>
+                  <SelectField
+                    size="sm"
+                    aria-label={`${area.label} access`}
+                    className="w-28"
+                    value={form.levels[area.value]}
+                    options={[
+                      { value: "off", label: "Off" },
+                      { value: "view", label: "View" },
+                      ...(area.modify ? [{ value: "modify", label: "Modify" }] : []),
+                    ]}
+                    onValueChange={(value) => setLevel(area.value, value as Level)}
                   />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="font-medium">{area.label}</span>
-                    <span className="text-xs text-muted-foreground">{area.hint}</span>
-                  </span>
-                </label>
+                </div>
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Team and Roles stay with administrators.
+              View opens the page to look at. Modify also allows every change on
+              it. Team and Roles stay with administrators.
             </p>
           </div>
         </div>
@@ -352,8 +379,12 @@ export default function AdminRolesPage() {
                       <TableCell className="max-w-80">
                         <div className="flex flex-wrap gap-1">
                           {role.scopes.map((scope) => (
-                            <Badge key={scope} variant="secondary">
+                            <Badge
+                              key={scope}
+                              variant={role.viewOnly?.includes(scope) ? "outline" : "secondary"}
+                            >
                               {labelOf.get(scope) ?? scope}
+                              {role.viewOnly?.includes(scope) ? " · view" : ""}
                             </Badge>
                           ))}
                         </div>

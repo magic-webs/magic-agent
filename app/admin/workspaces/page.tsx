@@ -523,8 +523,8 @@ export default function AdminWorkspacesPage() {
   // query is asked outright rather than skipped on a role check.
   const workspaces = useQuery(api.workspaces.list, {});
   const seedDemo = useMutation(api.workspaces.seedDemo);
-  const { can, me } = useSession();
-  const manages = can("workspaces");
+  const { canModify, me } = useSession();
+  const manages = canModify("workspaces");
   const createsWorkspaces = manages && !(me?.role === "admin" && me.scoped);
   const router = useRouter();
   const [seeding, setSeeding] = useState(false);

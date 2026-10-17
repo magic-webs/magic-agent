@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toMicros } from "@/convex/lib/billing";
 import { extrasNeeded, type SeatUsage } from "@/convex/lib/plans";
@@ -1186,6 +1187,7 @@ function ManageBody({
   now: number;
 }) {
   const line = standingLine(account, now);
+  const modifies = useSession().canModify("subscriptions");
   return (
     <>
       <DialogHeader>
@@ -1205,6 +1207,7 @@ function ManageBody({
       </DialogHeader>
 
       <DialogBody>
+        <fieldset disabled={!modifies} className="contents">
         <CurrencySection account={account} currencies={currencies} />
         <PlanSection account={account} plans={plans} />
         <PricingSection account={account} />
@@ -1215,6 +1218,7 @@ function ManageBody({
         ) : null}
         <WalletSection account={account} />
         <NoteSection account={account} />
+        </fieldset>
       </DialogBody>
 
       <DialogFooter className="sm:justify-between">

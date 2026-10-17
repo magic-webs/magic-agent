@@ -173,8 +173,8 @@ export function WorkspaceAccessCard({
   workspaceId: Id<"workspaces">;
   workspaceName: string;
 }) {
-  const { can, me } = useSession();
-  const managesAccess = can("access");
+  const { canModify, me } = useSession();
+  const managesAccess = canModify("access");
   const access = useQuery(api.authDb.workspaceAccess, { workspaceId });
   const generate = useAction(api.auth.generateWorkspacePassword);
   const setAccess = useAction(api.auth.setWorkspaceAccess);

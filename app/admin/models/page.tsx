@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import {
   DEFAULT_CHAT_MODEL,
   supportsPromptCaching,
@@ -255,6 +256,7 @@ function ModelRow({
   const setEnabled = useMutation(api.models.setEnabled);
   const setPromptCaching = useMutation(api.models.setPromptCaching);
   const reset = useMutation(api.models.reset);
+  const modifies = useSession().canModify("models");
 
   const run = async (title: string, action: () => Promise<unknown>) => {
     try {
@@ -302,7 +304,7 @@ function ModelRow({
           <label className="flex items-center gap-2 text-sm">
             <Switch
               checked={model.enabled}
-              disabled={model.isDefault}
+              disabled={model.isDefault || !modifies}
               onCheckedChange={(enabled) =>
                 void run("Could not change the model", () =>
                   setEnabled({ modelId: model.modelId, enabled })
@@ -316,6 +318,7 @@ function ModelRow({
           <label className="flex items-center gap-2 text-sm">
             <Switch
               checked={model.promptCaching}
+              disabled={!modifies}
               onCheckedChange={(promptCaching) =>
                 void run("Could not change prompt caching", () =>
                   setPromptCaching({ modelId: model.modelId, promptCaching })
@@ -326,6 +329,7 @@ function ModelRow({
           </label>
         ) : null}
 
+        {modifies ? (
         <div className="flex gap-1">
           <Button
             size="icon-lg"
@@ -378,6 +382,7 @@ function ModelRow({
             </AlertDialog>
           ) : null}
         </div>
+        ) : null}
       </div>
     </div>
   );
@@ -386,6 +391,7 @@ function ModelRow({
 function ImageProcessingCard() {
   const enabled = useQuery(api.models.imageProcessing, {});
   const setImageProcessing = useMutation(api.models.setImageProcessing);
+  const modifies = useSession().canModify("models");
 
   return (
     <Card className="shrink-0">
@@ -406,7 +412,7 @@ function ImageProcessingCard() {
           <Switch
             id="image-processing"
             checked={enabled ?? false}
-            disabled={enabled === undefined}
+            disabled={enabled === undefined || !modifies}
             onCheckedChange={async (next) => {
               try {
                 await setImageProcessing({ enabled: next });
@@ -429,6 +435,7 @@ export default function AdminModelsPage() {
   const models = useQuery(api.models.list, {});
   const reprice = useMutation(api.models.repriceUnpriced);
   const moveAgents = useMutation(api.models.moveAgentsToDefault);
+  const modifies = useSession().canModify("models");
 
   const [editing, setEditing] = useState<Entry | null>(null);
   const [repricing, setRepricing] = useState(false);
@@ -510,6 +517,7 @@ export default function AdminModelsPage() {
             The models the platform runs, and what it is charged for them.
           </p>
         </div>
+        {modifies ? (
         <div className="flex flex-wrap gap-2">
           <AlertDialog>
             <AlertDialogTrigger
@@ -559,6 +567,7 @@ export default function AdminModelsPage() {
             <span className="hidden sm:inline">Reprice past usage</span>
           </Button>
         </div>
+        ) : null}
       </header>
 
 

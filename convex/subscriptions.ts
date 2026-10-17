@@ -16,6 +16,7 @@ import { internalMutation, mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import {
   covers,
+  hasScope,
   isFullAdmin,
   requireScope,
   requireScopedWorkspace,
@@ -425,7 +426,7 @@ export const adminUpdateAccount = mutation({
     currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireScopedWorkspace(ctx, "subscriptions", args.workspaceId);
+    await requireScopedWorkspace(ctx, "subscriptions", args.workspaceId, "modify");
     const settings = await billingSettings(ctx);
     if (!settings) throw new ConvexError("Switch billing on first.");
     const account = await ensureAccount(ctx, args.workspaceId);
@@ -774,7 +775,10 @@ export const confirmContext = internalQuery({
 export const cancelContext = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.workspaceId);
+    const principal = await requireOwner(ctx, args.workspaceId);
+    if (principal.role === "admin" && !hasScope(principal, "subscriptions", "modify")) {
+      throw new ConvexError("Your role can only view subscriptions.");
+    }
     const account = await accountFor(ctx, args.workspaceId);
     const live = await liveSubscription(ctx, account);
     if (!live) return null;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { toMicros } from "@/convex/lib/billing";
 import { DEFAULT_PLANS, DEFAULT_SETTINGS, withGst } from "@/convex/lib/plans";
@@ -167,6 +168,7 @@ function Field({
 
 function EnableBilling() {
   const enable = useMutation(api.plans.enable);
+  const modifies = useSession().canModify("plans");
   const [busy, setBusy] = useState(false);
   const names = DEFAULT_PLANS.map((plan) => plan.name);
   const listed = `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
@@ -202,11 +204,13 @@ function EnableBilling() {
           trial runs out, and every figure can be edited once it is on.
         </EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
-        <Button disabled={busy} onClick={() => void run()}>
-          {busy ? <Spinner /> : <PowerIcon />} Switch billing on
-        </Button>
-      </EmptyContent>
+      {modifies ? (
+        <EmptyContent>
+          <Button disabled={busy} onClick={() => void run()}>
+            {busy ? <Spinner /> : <PowerIcon />} Switch billing on
+          </Button>
+        </EmptyContent>
+      ) : null}
     </Empty>
   );
 }
@@ -880,6 +884,7 @@ function PlanCard({
   onMove: (direction: -1 | 1) => void;
 }) {
   const removePlan = useMutation(api.plans.removePlan);
+  const modifies = useSession().canModify("plans");
 
   const remove = async () => {
     try {
@@ -940,6 +945,7 @@ function PlanCard({
           {count(plan.accounts, "account")}
           {isTrialPlan ? " · and every trial" : ""}
         </span>
+        {modifies ? (
         <div className="flex items-center gap-0.5">
           <Button
             size="icon-sm"
@@ -1007,6 +1013,7 @@ function PlanCard({
             </AlertDialogContent>
           </AlertDialog>
         </div>
+        ) : null}
       </CardFooter>
     </Card>
   );
@@ -1019,6 +1026,7 @@ function PlanCard({
 export default function AdminPlansPage() {
   const data = useQuery(api.plans.adminCatalogue, {});
   const movePlan = useMutation(api.plans.movePlan);
+  const modifies = useSession().canModify("plans");
 
   const [editing, setEditing] = useState<PlanRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -1095,7 +1103,9 @@ export default function AdminPlansPage() {
                 switched on {formatDay(settings.launchedAt)}.
               </CardDescription>
             </CardHeader>
-            <SharedTermsForm key={settings.updatedAt} settings={settings} />
+            <fieldset disabled={!modifies} className="contents">
+              <SharedTermsForm key={settings.updatedAt} settings={settings} />
+            </fieldset>
           </Card>
 
           {terms.length > 1 ? (
@@ -1121,12 +1131,14 @@ export default function AdminPlansPage() {
                   What an account billed in {currency} is sold on.
                 </CardDescription>
               </CardHeader>
-              <CurrencyTermsForm
-                key={`${currency}-${settings.updatedAt}`}
-                settings={settings}
-                row={termsHere}
-                plans={plans}
-              />
+              <fieldset disabled={!modifies} className="contents">
+                <CurrencyTermsForm
+                  key={`${currency}-${settings.updatedAt}`}
+                  settings={settings}
+                  row={termsHere}
+                  plans={plans}
+                />
+              </fieldset>
             </Card>
           ) : null}
 
@@ -1141,9 +1153,11 @@ export default function AdminPlansPage() {
                   {hidden > 0 ? ` · ${hidden} hidden from new accounts` : ""}.
                 </p>
               </div>
-              <Button onClick={() => openPlan(null)}>
-                <PlusIcon /> New plan
-              </Button>
+              {modifies ? (
+                <Button onClick={() => openPlan(null)}>
+                  <PlusIcon /> New plan
+                </Button>
+              ) : null}
             </div>
 
             {plans.length === 0 ? (

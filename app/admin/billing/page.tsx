@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import {
   CATEGORY_LABELS,
   MESSAGE_CATEGORIES,
@@ -91,6 +92,8 @@ function MarginList({ margin, locale }: { margin: Margin; locale?: string }) {
 export default function AdminBillingPage() {
   const [days, setDays] = useState("30");
   const [search, setSearch] = useState("");
+  const { canModify, me } = useSession();
+  const modifies = canModify("billing");
   const now = useHourBucket();
   const data = useQuery(api.billing.adminOverview, {
     days: Number(days),
@@ -229,14 +232,16 @@ export default function AdminBillingPage() {
                       }
                     />
                   ) : null}
-                  <ImportMetaRatesDialog
-                    defaultCurrency={currency}
-                    trigger={
-                      <Button size="sm" variant="outline">
-                        <UploadSimpleIcon /> Import
-                      </Button>
-                    }
-                  />
+                  {modifies ? (
+                    <ImportMetaRatesDialog
+                      defaultCurrency={currency}
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          <UploadSimpleIcon /> Import
+                        </Button>
+                      }
+                    />
+                  ) : null}
                 </div>
               </CardHeader>
               <CardContent>
@@ -276,6 +281,7 @@ export default function AdminBillingPage() {
                     percentages are shared by every currency.
                   </CardDescription>
                 </div>
+                {modifies && !me?.scoped ? (
                 <MarkupDialog
                   current={data.defaultMarkups}
                   currencies={currencies}
@@ -288,6 +294,7 @@ export default function AdminBillingPage() {
                     </Button>
                   }
                 />
+                ) : null}
               </CardHeader>
               <CardContent>
                 {data.defaultMarkups ? (
@@ -509,6 +516,7 @@ export default function AdminBillingPage() {
                             />
                           </TableCell>
                           <TableCell>
+                            {modifies ? (
                             <MarkupDialog
                               workspaceId={row.workspaceId}
                               workspaceName={row.name}
@@ -527,6 +535,7 @@ export default function AdminBillingPage() {
                                 </Button>
                               }
                             />
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       );

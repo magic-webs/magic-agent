@@ -76,7 +76,7 @@ function Inspector({
   const [saving, setSaving] = useState(false);
   const modelOptions = useChatModelOptions(draft.model);
   // Administrators only, the same as the full agent form's Model tab.
-  const choosesModel = useSession().can("models");
+  const choosesModel = useSession().canModify("models");
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }));

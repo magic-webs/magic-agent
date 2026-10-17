@@ -21,6 +21,8 @@ export const authTables = {
     name: v.string(),
     description: v.optional(v.string()),
     scopes: v.array(adminScope),
+    /** Areas among `scopes` opened to look at only. */
+    viewOnly: v.optional(v.array(adminScope)),
     allWorkspaces: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),

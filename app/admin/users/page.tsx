@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   PasswordField,
@@ -344,6 +345,7 @@ function RemoveButton({ user }: { user: UserRow }) {
 export default function AdminUsersPage() {
   const users = useQuery(api.users.list, {});
   const workspaces = useQuery(api.workspaces.list, {});
+  const modifies = useSession().canModify("users");
 
   const options: WorkspaceOption[] = (workspaces ?? []).map((workspace) => ({
     _id: workspace._id,
@@ -364,7 +366,7 @@ export default function AdminUsersPage() {
             password and owns the workspaces you assign.
           </p>
         </div>
-        <UserDialog workspaces={options} />
+        {modifies ? <UserDialog workspaces={options} /> : null}
       </header>
 
       <Card className="shrink-0">
@@ -424,9 +426,13 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <UserDialog workspaces={options} user={user} />
-                          <ResetPasswordDialog user={user} />
-                          <RemoveButton user={user} />
+                          {modifies ? (
+                            <>
+                              <UserDialog workspaces={options} user={user} />
+                              <ResetPasswordDialog user={user} />
+                              <RemoveButton user={user} />
+                            </>
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

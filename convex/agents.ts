@@ -100,7 +100,7 @@ const agentFields = {
  * boundary, and a hidden field is not a permission.
  */
 async function mayChooseModel(ctx: QueryCtx | MutationCtx): Promise<boolean> {
-  return hasScope(await getPrincipal(ctx), "models");
+  return hasScope(await getPrincipal(ctx), "models", "modify");
 }
 
 // ---------------------------------------------------------------------------

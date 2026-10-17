@@ -7,6 +7,7 @@ import { AdminSwitcher } from "@/components/admin-switcher";
 import { RequireAuth } from "@/components/require-auth";
 import { SidebarUser } from "@/components/sidebar-user";
 import { useSession, type AdminScope } from "@/components/use-session";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -89,6 +90,18 @@ const NAV: Array<{
   { href: "/roles", label: "Roles", icon: SecurityLockIcon },
   { href: "/access", label: "Access", icon: Key01Icon, everyone: true },
 ];
+
+/** The areas with something to change; the rest are only ever looked at. */
+const MODIFIABLE = new Set<AdminScope>([
+  "workspaces",
+  "access",
+  "mcp",
+  "models",
+  "plans",
+  "subscriptions",
+  "billing",
+  "users",
+]);
 
 function itemFor(pathname: string) {
   return NAV.find((item) =>
@@ -206,6 +219,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
         <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
           <SidebarTrigger />
+          {current?.scope && MODIFIABLE.has(current.scope) && !session.canModify(current.scope) ? (
+            <Badge variant="outline" className="ml-auto">
+              View only
+            </Badge>
+          ) : null}
         </header>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       </SidebarInset>

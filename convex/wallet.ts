@@ -231,7 +231,7 @@ export const adminAdjust = mutation({
     note: v.string(),
   },
   handler: async (ctx, args) => {
-    const admin = await requireScopedWorkspace(ctx, "subscriptions", args.workspaceId);
+    const admin = await requireScopedWorkspace(ctx, "subscriptions", args.workspaceId, "modify");
     if (!(await billingSettings(ctx)))
       throw new ConvexError("Switch billing on first.");
     const amountMicros = toMicros(args.amount);

@@ -17,6 +17,7 @@ import {
   principalKey,
   requireAdmin,
   requireOwner,
+  requireModify,
   requireScope,
   requireScopedWorkspace,
   requireSignedIn,
@@ -169,6 +170,7 @@ export const me = query({
           ? assigned.flatMap((workspace) => (workspace ? [workspace.slug] : []))
           : null,
         scopes: principal.scopes,
+        viewOnly: principal.viewOnly,
         roleName: principal.scopes === null ? "Admin" : (platformRole?.name ?? "Member"),
       };
     }
@@ -466,11 +468,18 @@ export const assertAdmin = internalQuery({
 
 /** An area of the console, and one workspace in it when the action has one. */
 export const assertScope = internalQuery({
-  args: { scope: adminScope, workspaceId: v.optional(v.id("workspaces")) },
+  args: {
+    scope: adminScope,
+    workspaceId: v.optional(v.id("workspaces")),
+    modify: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
+    const level = args.modify ? ("modify" as const) : ("view" as const);
     const principal = args.workspaceId
-      ? await requireScopedWorkspace(ctx, args.scope, args.workspaceId)
-      : await requireScope(ctx, args.scope);
+      ? await requireScopedWorkspace(ctx, args.scope, args.workspaceId, level)
+      : level === "modify"
+        ? await requireModify(ctx, args.scope)
+        : await requireScope(ctx, args.scope);
     return { adminId: principal.adminId };
   },
 });

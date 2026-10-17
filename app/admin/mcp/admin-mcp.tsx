@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { McpToolGroup } from "@/mcp/server.mjs";
 import { Badge } from "@/components/ui/badge";
@@ -152,11 +153,13 @@ function FreshUrl({ fresh, onDismiss }: { fresh: Fresh; onDismiss: () => void })
 function ConnectorRow({
   connector,
   busy,
+  modifies,
   onRotate,
   onRevoke,
 }: {
   connector: Connector;
   busy: boolean;
+  modifies: boolean;
   onRotate: () => void;
   onRevoke: () => void;
 }) {
@@ -187,6 +190,7 @@ function ConnectorRow({
         </div>
       </div>
 
+      {modifies ? (
       <div className="flex shrink-0 gap-1 pl-5 sm:pl-0">
         <Button size="sm" variant="outline" disabled={busy} onClick={onRotate}>
           {busy ? <Spinner /> : <ArrowsClockwiseIcon />} Rotate
@@ -222,6 +226,7 @@ function ConnectorRow({
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      ) : null}
     </div>
   );
 }
@@ -237,6 +242,7 @@ function ConnectorsCard({
   const issue = useAction(api.auth.issueAdminMcpToken);
   const rotate = useAction(api.auth.rotateAdminMcpToken);
   const revoke = useAction(api.auth.revokeAdminMcpToken);
+  const modifies = useSession().canModify("mcp");
 
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -304,6 +310,7 @@ function ConnectorsCard({
       <CardContent className="flex flex-col gap-5">
         {fresh ? <FreshUrl fresh={fresh} onDismiss={() => onFresh(null)} /> : null}
 
+        {modifies ? (
         <form
           className="flex flex-col gap-1.5"
           onSubmit={(event) => {
@@ -325,6 +332,7 @@ function ConnectorsCard({
             </Button>
           </div>
         </form>
+        ) : null}
 
         <Separator />
 
@@ -348,6 +356,7 @@ function ConnectorsCard({
                 key={connector.id}
                 connector={connector}
                 busy={rotating === connector.id}
+                modifies={modifies}
                 onRotate={() => void rotateOne(connector)}
                 onRevoke={() => void revokeOne(connector)}
               />

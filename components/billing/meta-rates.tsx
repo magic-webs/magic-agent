@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useSession } from "@/components/use-session";
 import { formatMoney, toMicros } from "@/convex/lib/billing";
 import { marketByName, marketLabel } from "@/convex/lib/markets";
 import { CurrencyPicker } from "@/components/regional-pickers";
@@ -388,6 +389,7 @@ export function MetaRatesDialog({
   trigger: React.ReactElement;
 }) {
   const deleteRates = useMutation(api.billing.deleteMetaRates);
+  const modifies = useSession().canModify("billing");
   const [busy, setBusy] = useState<number | null>(null);
   const currencies = [...new Set(rows.map((row) => row.currency))].sort(
     (a, b) => Number(b === billedIn) - Number(a === billedIn) || a.localeCompare(b)
@@ -496,15 +498,17 @@ export function MetaRatesDialog({
                   <span className="ml-2 text-xs text-muted-foreground">upcoming</span>
                 ) : null}
               </span>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label={`Remove the ${currency} rates from ${day(effectiveFrom)}`}
-                disabled={busy !== null}
-                onClick={() => void drop(effectiveFrom)}
-              >
-                {busy === effectiveFrom ? <Spinner /> : <TrashIcon />}
-              </Button>
+              {modifies ? (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Remove the ${currency} rates from ${day(effectiveFrom)}`}
+                  disabled={busy !== null}
+                  onClick={() => void drop(effectiveFrom)}
+                >
+                  {busy === effectiveFrom ? <Spinner /> : <TrashIcon />}
+                </Button>
+              ) : null}
             </div>
           ))}
         </div>

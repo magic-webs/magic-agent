@@ -24,10 +24,15 @@ export function useSession() {
   }, []);
 
   const scopes = me?.role === "admin" ? me.scopes : undefined;
+  const viewOnly = me?.role === "admin" ? me.viewOnly : undefined;
   const isAdmin = me?.role === "admin" && scopes === null;
   const can = useCallback(
     (scope: AdminScope) => isAdmin || Boolean(scopes?.includes(scope)),
     [isAdmin, scopes]
+  );
+  const canModify = useCallback(
+    (scope: AdminScope) => can(scope) && !viewOnly?.includes(scope),
+    [can, viewOnly]
   );
 
   return {
@@ -38,6 +43,8 @@ export function useSession() {
     isStaff: me?.role === "admin",
     /** Whether the platform role opens this admin area. */
     can,
+    /** Whether it may also change what is in it, rather than only look. */
+    canModify,
     signOut,
   };
 }

@@ -13,6 +13,7 @@ const roleFields = {
   name: v.string(),
   description: v.optional(v.string()),
   scopes: v.array(adminScope),
+  viewOnly: v.optional(v.array(adminScope)),
   allWorkspaces: v.boolean(),
 };
 
@@ -20,6 +21,7 @@ type RoleFields = {
   name: string;
   description?: string;
   scopes: Infer<typeof adminScope>[];
+  viewOnly?: Infer<typeof adminScope>[];
   allWorkspaces: boolean;
 };
 
@@ -44,7 +46,8 @@ async function checked(
   if (scopes.length === 0) throw new ConvexError("Give the role at least one area.");
 
   const description = fields.description?.trim().slice(0, 200) || undefined;
-  return { name, description, scopes, allWorkspaces: fields.allWorkspaces };
+  const viewOnly = [...new Set(fields.viewOnly ?? [])].filter((scope) => scopes.includes(scope));
+  return { name, description, scopes, viewOnly, allWorkspaces: fields.allWorkspaces };
 }
 
 export const list = query({

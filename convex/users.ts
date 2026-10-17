@@ -7,7 +7,12 @@ import {
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireScope, requireSignedIn, type Principal } from "./lib/auth";
+import {
+  requireModify,
+  requireScope,
+  requireSignedIn,
+  type Principal,
+} from "./lib/auth";
 import { userWorkspaceSlugs } from "./authDb";
 import { logoSrcFor } from "./lib/branding";
 
@@ -36,7 +41,7 @@ type Staff = Extract<Principal, { role: "admin" }>;
  * platform team only the ones they created.
  */
 async function requireOwnUser(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
-  const principal = await requireScope(ctx, "users");
+  const principal = await requireModify(ctx, "users");
   const user = await ctx.db.get("users", userId);
   if (!user) return { principal, user: null };
   if (principal.scopes !== null && user.createdBy !== principal.adminId) {
@@ -171,7 +176,7 @@ export const insert = internalMutation({
     workspaceIds: v.array(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
-    const principal = await requireScope(ctx, "users");
+    const principal = await requireModify(ctx, "users");
     const clash =
       (await ctx.db
         .query("users")

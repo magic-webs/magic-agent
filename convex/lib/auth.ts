@@ -27,6 +27,8 @@ export type Principal =
       workspaceIds: Id<"workspaces">[] | null;
       /** Null for a full administrator; the areas their role opens otherwise. */
       scopes: AdminScope[] | null;
+      /** Areas among `scopes` the role may look at but not change. */
+      viewOnly: AdminScope[];
     }
   | { role: "workspace"; workspaceId: Id<"workspaces">; label: string }
   /**
@@ -109,7 +111,14 @@ export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
     const admin = await ctx.db.get("admins", adminId);
     if (!admin) return null;
     if (admin.role !== "member") {
-      return { role: "admin", adminId, label: admin.email, workspaceIds: null, scopes: null };
+      return {
+        role: "admin",
+        adminId,
+        label: admin.email,
+        workspaceIds: null,
+        scopes: null,
+        viewOnly: [],
+      };
     }
     const role = admin.roleId ? await ctx.db.get("adminRoles", admin.roleId) : null;
     return {
@@ -118,6 +127,7 @@ export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
       label: admin.email,
       workspaceIds: role?.allWorkspaces ? null : (admin.workspaceIds ?? []),
       scopes: role ? role.scopes : MEMBER_SCOPES,
+      viewOnly: role?.viewOnly ?? [],
     };
   }
 
@@ -214,11 +224,30 @@ export async function requireAdmin(
   return principal;
 }
 
-export function hasScope(principal: Principal | null, scope: AdminScope): boolean {
-  return (
-    principal?.role === "admin" &&
-    (principal.scopes === null || principal.scopes.includes(scope))
-  );
+/** Opening an area, or changing what is in it. */
+export type ScopeLevel = "view" | "modify";
+
+export function hasScope(
+  principal: Principal | null,
+  scope: AdminScope,
+  level: ScopeLevel = "view"
+): boolean {
+  if (principal?.role !== "admin") return false;
+  if (principal.scopes === null) return true;
+  if (!principal.scopes.includes(scope)) return false;
+  return level === "view" || !principal.viewOnly.includes(scope);
+}
+
+/** Changing something in an area, which a view-only role may not. */
+export async function requireModify(
+  ctx: Ctx,
+  scope: AdminScope
+): Promise<Extract<Principal, { role: "admin" }>> {
+  const principal = await requireScope(ctx, scope);
+  if (!hasScope(principal, scope, "modify")) {
+    throw new AuthError("Your role can only view this area.");
+  }
+  return principal;
 }
 
 /** Whether a platform team member's role reaches this workspace. */
@@ -245,9 +274,11 @@ export async function requireScope(
 export async function requireScopedWorkspace(
   ctx: Ctx,
   scope: AdminScope,
-  workspaceId: Id<"workspaces">
+  workspaceId: Id<"workspaces">,
+  level: ScopeLevel = "view"
 ): Promise<Extract<Principal, { role: "admin" }>> {
-  const principal = await requireScope(ctx, scope);
+  const principal =
+    level === "modify" ? await requireModify(ctx, scope) : await requireScope(ctx, scope);
   if (principal.workspaceIds && !principal.workspaceIds.includes(workspaceId)) {
     throw new AuthError("You do not have access to this workspace.");
   }

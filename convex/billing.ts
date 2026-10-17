@@ -11,6 +11,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { messageCategory } from "./schema";
 import {
   covers,
+  requireModify,
   requireScope,
   requireScopedWorkspace,
   requireWorkspace,
@@ -649,7 +650,7 @@ export const importMetaRates = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "billing");
+    await requireModify(ctx, "billing");
     const currency = args.currency.trim().toUpperCase();
     if (!isValidCurrency(currency)) {
       throw new ConvexError("Pick a three-letter currency code, e.g. INR or USD.");
@@ -707,7 +708,7 @@ export const importMetaRates = mutation({
 export const deleteMetaRates = mutation({
   args: { currency: v.string(), effectiveFrom: v.number() },
   handler: async (ctx, args) => {
-    await requireScope(ctx, "billing");
+    await requireModify(ctx, "billing");
     const rows = await ctx.db.query("metaRates").take(5_000);
     for (const row of rows) {
       if (
@@ -750,7 +751,7 @@ export const setMarkups = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const principal = await requireScope(ctx, "billing");
+    const principal = await requireModify(ctx, "billing");
     if (args.workspaceId) {
       const workspace = await ctx.db.get("workspaces", args.workspaceId);
       if (!workspace) throw new ConvexError("Workspace not found");
@@ -827,7 +828,7 @@ export const setMarkups = mutation({
 export const clearMarkups = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireScopedWorkspace(ctx, "billing", args.workspaceId);
+    await requireScopedWorkspace(ctx, "billing", args.workspaceId, "modify");
     const existing = await workspaceMarkups(ctx, args.workspaceId);
     if (existing) await ctx.db.delete("billingMarkups", existing._id);
     return null;

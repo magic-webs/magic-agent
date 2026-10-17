@@ -89,7 +89,8 @@ function useStamp() {
  */
 export function BillingPanel({ days }: { days: number }) {
   const workspace = useWorkspace();
-  const managesBilling = useSession().can("billing");
+  const { can, canModify } = useSession();
+  const managesBilling = can("billing");
   const now = useHourBucket();
   const data = useQuery(api.billing.workspaceSummary, {
     workspaceId: workspace._id,
@@ -129,7 +130,7 @@ export function BillingPanel({ days }: { days: number }) {
     data.prices ? data.prices[`${category}Micros`] : null;
 
   const editMarkup =
-    managesBilling && markups ? (
+    canModify("billing") && markups ? (
       <MarkupDialog
         workspaceId={workspace._id}
         workspaceName={workspace.name}

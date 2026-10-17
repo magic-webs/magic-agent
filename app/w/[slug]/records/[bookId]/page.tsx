@@ -71,10 +71,12 @@ import {
 } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
 import { TableSkeleton } from "@/components/skeletons";
+import { PaymentLinkDialog } from "@/components/payments/payment-link-dialog";
 import {
   ArrowLeftIcon,
   BroadcastIcon,
   ChatsIcon,
+  CurrencyInrIcon,
   DownloadSimpleIcon,
   EyeIcon,
   FolderOpenIcon,
@@ -888,6 +890,10 @@ export default function RecordBookPage({
   });
 
   const book = data?.book;
+  const paymentsConnected = useQuery(
+    api.payments.isConnected,
+    book ? { workspaceId: book.workspaceId } : "skip"
+  );
 
   const [draft, setDraft] = useState<BookDraft | null>(null);
   const [draftFor, setDraftFor] = useState<string | null>(null);
@@ -1177,6 +1183,28 @@ export default function RecordBookPage({
                             >
                               <ChatsIcon />
                             </Button>
+                          ) : null}
+                          {paymentsConnected ? (
+                            <PaymentLinkDialog
+                              defaults={{
+                                amount: details.total ?? "",
+                                description: `${book.name} ${row.reference}`,
+                                recordReference: row.reference,
+                                name: row.person?.name,
+                                phone: row.person?.phone,
+                                email: row.person?.email,
+                              }}
+                              trigger={
+                                <Button
+                                  size="icon-lg"
+                                  variant="ghost"
+                                  aria-label={`Send a payment link for ${row.reference}`}
+                                  title="Send payment link"
+                                >
+                                  <CurrencyInrIcon />
+                                </Button>
+                              }
+                            />
                           ) : null}
                           <RecordDetail book={book} row={row} base={base} />
                         </div>

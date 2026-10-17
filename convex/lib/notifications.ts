@@ -760,6 +760,52 @@ export function zeptoAuthorization(token: string): string {
     : `Zoho-enczapikey ${trimmed}`;
 }
 
+export async function sendPlatformEmail(message: {
+  to: string[];
+  subject: string;
+  html: string;
+  workspaceName?: string;
+  replyTo?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const platform = platformEmail();
+  if (!platform) {
+    console.error("ZEPTOMAIL_TOKEN is not set on the deployment; email not sent.");
+    return { ok: false, error: "Email sending is not available right now." };
+  }
+  try {
+    const response = await fetch(platform.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: zeptoAuthorization(platform.token),
+      },
+      body: JSON.stringify({
+        from: {
+          address: platform.fromEmail,
+          name: senderName(message.workspaceName, undefined, platform.fromName),
+        },
+        to: message.to.map((address) => ({ email_address: { address } })),
+        ...(message.replyTo ? { reply_to: [{ address: message.replyTo }] } : {}),
+        subject: message.subject,
+        htmlbody: message.html,
+      }),
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: `Email provider returned ${response.status}: ${(await response.text()).slice(0, 200)}`,
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Email could not be sent.",
+    };
+  }
+}
+
 /** Plain text read as HTML, for a text template sent to a mail client. */
 export function textToHtml(text: string): string {
   return escapeHtml(text).replace(/\r?\n/g, "<br>");

@@ -150,10 +150,12 @@ export const INTEGRATIONS: IntegrationSpec[] = [
   {
     id: "google_calendar",
     name: "Google Calendar",
-    blurb: "Agents offer real free slots and book the meeting into your diary.",
+    blurb:
+      "Agents offer real free slots and book the meeting, with a Google Meet link, into your diary.",
     gives: [
       "Agents read your actual availability before offering a time",
-      "The meeting is created with the customer invited",
+      "The meeting is created with a Google Meet link and the customer invited",
+      "The customer gets a confirmation email with the time and the link",
       "A slot taken between the offer and the booking is caught, not double-booked",
     ],
     scopes: ["https://www.googleapis.com/auth/calendar.events"],
@@ -180,7 +182,7 @@ export const INTEGRATIONS: IntegrationSpec[] = [
         name: "book_meeting",
         displayName: "Book a meeting",
         description:
-          "Create the meeting in the company's calendar and invite the customer. Only call this with a time you got back from check_availability and the customer has agreed to. If it comes back saying the slot has gone, offer another.",
+          "Create the meeting in the company's calendar, with a Google Meet link unless it is in person, and invite the customer by email. Only call this with a time you got back from check_availability and the customer has agreed to. If it comes back saying the slot has gone, offer another. When it returns a meetLink, give it to the customer.",
         whenToUse:
           "The customer has agreed to a specific time and given you an email address.",
         action: "calendar/book",
@@ -210,6 +212,20 @@ export const INTEGRATIONS: IntegrationSpec[] = [
             type: "string",
             description: "The customer's email, so they get the invitation",
             required: true,
+          },
+          {
+            name: "otherAttendees",
+            type: "string",
+            description:
+              "Anyone else the customer asked to invite, as comma-separated email addresses",
+            required: false,
+          },
+          {
+            name: "withMeet",
+            type: "boolean",
+            description:
+              "Add a Google Meet video link. True unless the meeting is in person.",
+            required: false,
           },
           {
             name: "notes",

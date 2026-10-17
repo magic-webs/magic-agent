@@ -24,6 +24,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -61,6 +65,11 @@ import {
   type IntegrationSpec,
 } from "@/convex/lib/integrations";
 import { APPS, type AppSpec } from "@/convex/lib/apps";
+import {
+  PAYMENT_TOOL_NAMES,
+  PAYMENT_TOOLS,
+  RAZORPAY_LINK_EVENTS,
+} from "@/convex/lib/payments";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
 import {
@@ -70,7 +79,11 @@ import {
   CheckCircleIcon,
   CheckIcon,
   CircleIcon,
+  CopyIcon,
+  CurrencyInrIcon,
   DotsThreeIcon,
+  EyeIcon,
+  EyeSlashIcon,
   MagnifyingGlassIcon,
   NotionLogoIcon,
   PlugsConnectedIcon,
@@ -105,7 +118,7 @@ import {
  * state this design creates, so the panel says so and links there.
  */
 
-type Group = "magic" | "google" | "other";
+type Group = "magic" | "google" | "payments" | "other";
 type EntryState = "connected" | "attention" | "off";
 
 type IconComponent = (props: { className?: string }) => ReactNode;
@@ -126,7 +139,26 @@ type Entry = {
 const GROUPS: Array<{ id: Group; label: string; heading: string }> = [
   { id: "magic", label: "Magic Apps", heading: "Magic Apps" },
   { id: "google", label: "Google", heading: "Google" },
+  { id: "payments", label: "Payments", heading: "Payments" },
   { id: "other", label: "Other", heading: "Other Tools" },
+];
+
+const RAZORPAY_ENTRY = {
+  id: "razorpay",
+  name: "Razorpay",
+  blurb: "Agents send payment links for orders and see when they are paid.",
+  icon: (props: { className?: string }) => (
+    <CurrencyInrIcon weight="bold" {...props} />
+  ),
+  tile: "bg-blue-50 text-[#0c2651] dark:bg-blue-500/10 dark:text-blue-300",
+};
+
+const EXPIRY_CHOICES = [
+  { hours: 24, label: "1 day" },
+  { hours: 72, label: "3 days" },
+  { hours: 168, label: "7 days" },
+  { hours: 336, label: "14 days" },
+  { hours: 720, label: "30 days" },
 ];
 
 const GOOGLE_ICONS: Record<string, IconComponent> = {
@@ -215,6 +247,7 @@ const OTHER_TOOLS: OtherTool[] = [
 
 type GoogleConnection = FunctionReturnType<typeof api.integrations.list>[number];
 type AppConnection = FunctionReturnType<typeof api.apps.list>[number];
+type PaymentInfo = FunctionReturnType<typeof api.payments.connection>;
 
 function catalogueCount(connection: AppConnection, app: AppSpec): string {
   const items = plural(connection.items.length, app.noun);
@@ -260,6 +293,9 @@ export default function IntegrationsPage() {
   const mcpConnector = useQuery(api.authDb.mcpConnector, {
     workspaceId: workspace._id,
   });
+  const payments = useQuery(api.payments.connection, {
+    workspaceId: workspace._id,
+  });
 
   const [group, setGroup] = useState<Group | "all">("all");
   const [search, setSearch] = useState("");
@@ -298,7 +334,8 @@ export default function IntegrationsPage() {
     agents === undefined ||
     configured === undefined ||
     appConnections === undefined ||
-    mcpConnector === undefined;
+    mcpConnector === undefined ||
+    payments === undefined;
 
   const googleById = new Map(
     (connections ?? []).map((connection) => [connection.integration, connection])
@@ -349,6 +386,20 @@ export default function IntegrationsPage() {
         stateDetail: connection?.accountEmail,
       };
     }),
+    {
+      ...RAZORPAY_ENTRY,
+      group: "payments",
+      state: !payments?.connection
+        ? "off"
+        : payments.connection.status === "error"
+          ? "attention"
+          : "connected",
+      stateDetail: payments?.connection
+        ? payments.connection.mode === "live"
+          ? "Live mode"
+          : "Test mode"
+        : undefined,
+    },
     ...OTHER_TOOLS.map((other): Entry => {
       const matched = toolsFor(other);
       const hook = workspace.webhookUrl?.trim() ?? "";
@@ -481,7 +532,7 @@ export default function IntegrationsPage() {
                       // the panel takes 28rem of it while it is open.
                       item.id === "magic"
                         ? "@lg:grid-cols-2"
-                        : item.id === "google"
+                        : item.id === "google" || item.id === "payments"
                           ? "@lg:grid-cols-2 @3xl:grid-cols-3"
                           : "@md:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4"
                     )}
@@ -550,6 +601,7 @@ export default function IntegrationsPage() {
                 googleConnection={googleById.get(selected.id)}
                 googleConfigured={Boolean(configured?.google)}
                 appConnection={appsById.get(selected.id as AppSpec["id"])}
+                payments={payments}
               />
             ) : null}
           </SheetContent>
@@ -747,6 +799,7 @@ function DetailPanel({
   googleConnection,
   googleConfigured,
   appConnection,
+  payments,
 }: {
   entry: Entry;
   base: string;
@@ -756,6 +809,7 @@ function DetailPanel({
   googleConnection: GoogleConnection | undefined;
   googleConfigured: boolean;
   appConnection: AppConnection | undefined;
+  payments: PaymentInfo | undefined;
 }) {
   const detail = INTEGRATION_DETAILS[entry.id];
   const app = entry.group === "magic" ? APPS.find((a) => a.id === entry.id) : undefined;
@@ -795,6 +849,8 @@ function DetailPanel({
             connection={googleConnection}
             configured={googleConfigured}
           />
+        ) : entry.group === "payments" && payments ? (
+          <RazorpayAction info={payments} />
         ) : other ? (
           <Button
             size="lg"
@@ -868,6 +924,11 @@ function DetailPanel({
                   (tool) => google && tool.integration === google.id
                 )}
                 customTools={customTools}
+                paymentsConnected={
+                  entry.group === "payments"
+                    ? Boolean(payments?.connection)
+                    : undefined
+                }
               />
             </TabsContent>
 
@@ -965,6 +1026,7 @@ function AgentsTab({
   google,
   googleTools,
   customTools,
+  paymentsConnected,
 }: {
   base: string;
   agents: Doc<"agents">[];
@@ -973,6 +1035,8 @@ function AgentsTab({
   google: IntegrationSpec | undefined;
   googleTools: Doc<"tools">[];
   customTools: Doc<"tools">[];
+  /** Set only for the Razorpay card. */
+  paymentsConnected?: boolean;
 }) {
   const toolRow = (name: string, label: string, body: string) => (
     <div key={name} className="flex flex-col gap-1 p-4">
@@ -1029,6 +1093,19 @@ function AgentsTab({
         </div>
         {appConnection ? (
           <UsedBy agents={agents} names={[app.toolName]} base={base} />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (paymentsConnected !== undefined) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="divide-y rounded-xl border">
+          {PAYMENT_TOOLS.map((tool) => toolRow(tool.name, tool.label, tool.summary))}
+        </div>
+        {paymentsConnected ? (
+          <UsedBy agents={agents} names={PAYMENT_TOOL_NAMES} base={base} />
         ) : null}
       </div>
     );
@@ -1102,10 +1179,16 @@ function GoogleAction({
   const base = `/w/${workspace.slug}`;
   const startConnect = useAction(api.integrations.startGoogleConnect);
   const disconnect = useMutation(api.integrations.disconnect);
+  const linkSheet = useAction(api.integrations.linkSheet);
+  const setConfirmations = useMutation(api.integrations.setSendConfirmations);
   const [busy, setBusy] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [pickingSheet, setPickingSheet] = useState(false);
+  const [linking, setLinking] = useState<"existing" | "new" | null>(null);
 
   const connected = Boolean(connection);
   const stale = connection?.status === "needs_reauth";
+  const isSheets = integration.id === "google_sheets";
 
   const connect = async () => {
     setBusy(true);
@@ -1117,6 +1200,7 @@ function GoogleAction({
         // than on the server: only the browser knows which host it is on, and
         // that differs between local development, preview and production.
         returnTo: `${window.location.origin}${base}/integrations`,
+        sheetUrl: isSheets && pickingSheet ? sheetUrl.trim() || undefined : undefined,
       });
       window.location.assign(url);
     } catch (error) {
@@ -1124,6 +1208,57 @@ function GoogleAction({
       setBusy(false);
     }
   };
+
+  const relink = async (mode: "existing" | "new") => {
+    setLinking(mode);
+    try {
+      const result = await linkSheet({
+        workspaceId: workspace._id,
+        sheetUrl: mode === "existing" ? sheetUrl.trim() : undefined,
+      });
+      setSheetUrl("");
+      setPickingSheet(false);
+      toast.add({
+        title: "Sheet linked",
+        description: `Enquiries now go to ${result.name} → ${result.tab}.`,
+        type: "success",
+      });
+    } catch (error) {
+      fail("Could not use that sheet", error);
+    } finally {
+      setLinking(null);
+    }
+  };
+
+  const toggleConfirmations = async (value: boolean) => {
+    try {
+      await setConfirmations({
+        workspaceId: workspace._id,
+        integration: integration.id,
+        value,
+      });
+    } catch (error) {
+      fail("Could not save", error);
+    }
+  };
+
+  const sheetField = (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="existing-sheet">Google Sheets link</Label>
+      <Input
+        id="existing-sheet"
+        className="h-10"
+        placeholder="https://docs.google.com/spreadsheets/d/…"
+        value={sheetUrl}
+        onChange={(event) => setSheetUrl(event.target.value)}
+      />
+      <p className="text-xs text-muted-foreground">
+        Rows go to the tab open in the link, or to an “Enquiries” tab that is
+        added if the sheet has none. The Google account you connect needs edit
+        access.
+      </p>
+    </div>
+  );
 
   const drop = async () => {
     try {
@@ -1166,7 +1301,12 @@ function GoogleAction({
           ) : null}
           {connection.resource ? (
             <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-muted-foreground">
-              <span className="truncate">{connection.resource.name}</span>
+              <span className="truncate">
+                {connection.resource.name}
+                {isSheets && connection.resource.tab
+                  ? ` → ${connection.resource.tab}`
+                  : ""}
+              </span>
               {connection.resource.url ? (
                 <a
                   href={connection.resource.url}
@@ -1182,12 +1322,91 @@ function GoogleAction({
         </ConnectedBox>
       ) : null}
 
+      {isSheets && !connected ? (
+        <div className="flex flex-col gap-3 rounded-xl border px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Use an existing sheet</p>
+              <p className="text-xs text-muted-foreground">
+                Off, a new “{workspace.name} — Enquiries” sheet is created.
+              </p>
+            </div>
+            <Switch checked={pickingSheet} onCheckedChange={setPickingSheet} />
+          </div>
+          {pickingSheet ? sheetField : null}
+        </div>
+      ) : null}
+
+      {isSheets && connected && !stale ? (
+        pickingSheet ? (
+          <form
+            className="flex flex-col gap-3 rounded-xl border px-4 py-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void relink("existing");
+            }}
+          >
+            {sheetField}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={!sheetUrl.trim() || linking !== null}
+              >
+                {linking === "existing" ? <Spinner /> : null}
+                Use this sheet
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                disabled={linking !== null}
+                onClick={() => void relink("new")}
+              >
+                {linking === "new" ? <Spinner /> : null}
+                Start a new sheet
+              </Button>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setPickingSheet(false)}
+            >
+              Cancel
+            </Button>
+          </form>
+        ) : (
+          <Button variant="outline" onClick={() => setPickingSheet(true)}>
+            Change sheet
+          </Button>
+        )
+      ) : null}
+
+      {integration.id === "google_calendar" && connection ? (
+        <div className="flex items-start justify-between gap-3 rounded-xl border px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Email a confirmation</p>
+            <p className="text-xs text-muted-foreground">
+              Attendees also get an email from {workspace.name} with the time
+              and the Google Meet link, on top of Google&apos;s own invitation.
+            </p>
+          </div>
+          <Switch
+            checked={connection.sendConfirmations}
+            onCheckedChange={(value) => void toggleConfirmations(value)}
+          />
+        </div>
+      ) : null}
+
       <Button
         size="lg"
         variant={connected && !stale ? "outline" : "default"}
         className="h-11 w-full rounded-lg"
         onClick={() => void connect()}
-        disabled={busy || !configured}
+        disabled={
+          busy || !configured || (isSheets && !connected && pickingSheet && !sheetUrl.trim())
+        }
       >
         {busy ? (
           <Spinner />
@@ -1397,6 +1616,343 @@ function AppAction({
           />
         </>
       ) : null}
+    </div>
+  );
+}
+
+const copyText = async (label: string, value: string) => {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.add({ title: `${label} copied`, type: "success" });
+  } catch (error) {
+    fail("Could not copy", error);
+  }
+};
+
+function CopyField({
+  label,
+  value,
+  secret,
+}: {
+  label: string;
+  value: string;
+  secret?: boolean;
+}) {
+  const [shown, setShown] = useState(!secret);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>{label}</Label>
+      <InputGroup className="h-10">
+        <InputGroupInput
+          readOnly
+          value={shown ? value : "•".repeat(Math.min(value.length, 24))}
+          className="font-mono text-xs"
+          aria-label={label}
+        />
+        <InputGroupAddon align="inline-end">
+          {secret ? (
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              aria-label={shown ? `Hide ${label}` : `Show ${label}`}
+              onClick={() => setShown((value) => !value)}
+            >
+              {shown ? <EyeSlashIcon /> : <EyeIcon />}
+            </Button>
+          ) : null}
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Copy ${label}`}
+            onClick={() => void copyText(label, value)}
+          >
+            <CopyIcon />
+          </Button>
+        </InputGroupAddon>
+      </InputGroup>
+    </div>
+  );
+}
+
+function RazorpayAction({ info }: { info: PaymentInfo }) {
+  const workspace = useWorkspace();
+  const base = `/w/${workspace.slug}`;
+  const connect = useAction(api.payments.connect);
+  const update = useMutation(api.payments.updateSettings);
+  const disconnect = useMutation(api.payments.disconnect);
+
+  const connection = info.connection;
+  const [keyId, setKeyId] = useState("");
+  const [keySecret, setKeySecret] = useState("");
+  const [askingKeys, setAskingKeys] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [paidStage, setPaidStage] = useState(connection?.paidStage ?? "Confirmed");
+  const showKeys = !connection || askingKeys;
+
+  const submit = async () => {
+    if (!keyId.trim() || !keySecret.trim()) return;
+    setBusy(true);
+    try {
+      const result = await connect({
+        workspaceId: workspace._id,
+        keyId,
+        keySecret,
+      });
+      setKeyId("");
+      setKeySecret("");
+      setAskingKeys(false);
+      toast.add({
+        title: "Razorpay connected",
+        description: `${result.mode === "live" ? "Live" : "Test"} mode. Finish the webhook below, then switch the tools on for an agent.`,
+        type: "success",
+      });
+    } catch (error) {
+      fail("Could not connect Razorpay", error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = async (patch: {
+    notifySms?: boolean;
+    notifyEmail?: boolean;
+    expiryHours?: number;
+    paidStage?: string;
+  }) => {
+    try {
+      await update({ workspaceId: workspace._id, ...patch });
+    } catch (error) {
+      fail("Could not save", error);
+    }
+  };
+
+  const drop = async () => {
+    try {
+      await disconnect({ workspaceId: workspace._id });
+      toast.add({
+        title: "Razorpay disconnected",
+        description:
+          "Agents can no longer create payment links. Links already sent still work in Razorpay.",
+        type: "success",
+      });
+    } catch (error) {
+      fail("Could not disconnect", error);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      {!info.available ? (
+        <Alert variant="destructive">
+          <WarningIcon />
+          <AlertTitle>Payments aren&apos;t available yet</AlertTitle>
+          <AlertDescription>Contact support.</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {connection?.status === "error" && connection.lastError ? (
+        <Alert variant="destructive">
+          <WarningIcon />
+          <AlertTitle>Razorpay refused the last call</AlertTitle>
+          <AlertDescription>{connection.lastError}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {connection ? (
+        <ConnectedBox>
+          <p className="flex flex-wrap items-center gap-2 font-medium">
+            <span className="font-mono text-xs">{connection.keyId}</span>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-medium",
+                connection.mode === "live"
+                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+              )}
+            >
+              {connection.mode === "live" ? "Live mode" : "Test mode"}
+            </span>
+          </p>
+          <p className="text-muted-foreground">
+            {connection.lastWebhookAt
+              ? `Last update from Razorpay ${new Date(connection.lastWebhookAt).toLocaleString()}`
+              : "No update from Razorpay yet. Add the webhook below so paid links are picked up."}
+          </p>
+        </ConnectedBox>
+      ) : null}
+
+      {showKeys ? (
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <Label htmlFor="razorpay-key-id">Key ID</Label>
+          <Input
+            id="razorpay-key-id"
+            autoComplete="off"
+            className="h-10 font-mono"
+            placeholder="rzp_live_…"
+            value={keyId}
+            onChange={(event) => setKeyId(event.target.value)}
+          />
+          <Label htmlFor="razorpay-key-secret">Key Secret</Label>
+          <Input
+            id="razorpay-key-secret"
+            type="password"
+            autoComplete="off"
+            className="h-10 font-mono"
+            value={keySecret}
+            onChange={(event) => setKeySecret(event.target.value)}
+          />
+          <Button
+            type="submit"
+            size="lg"
+            className="h-11 w-full rounded-lg"
+            disabled={!keyId.trim() || !keySecret.trim() || busy || !info.available}
+          >
+            {busy ? <Spinner /> : <PlugsConnectedIcon />}
+            {busy ? "Checking keys…" : connection ? "Use these keys" : "Connect Razorpay"}
+          </Button>
+        </form>
+      ) : null}
+
+      {connection ? (
+        <>
+          <div className="flex flex-col gap-3 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Webhook</p>
+              <p className="text-xs text-muted-foreground">
+                In Razorpay, open Account &amp; Settings → Webhooks → Add new
+                webhook. Paste this URL and secret, and tick{" "}
+                {RAZORPAY_LINK_EVENTS.join(", ")}.
+              </p>
+            </div>
+            <CopyField label="Webhook URL" value={connection.webhookUrl} />
+            <CopyField label="Webhook secret" value={connection.webhookSecret} secret />
+          </div>
+
+          <div className="flex flex-col divide-y rounded-xl border">
+            <SettingRow
+              title="Razorpay texts the link"
+              body="Razorpay also sends the link by SMS when the customer's number is known."
+              checked={connection.notifySms}
+              onChange={(value) => void save({ notifySms: value })}
+            />
+            <SettingRow
+              title="Razorpay emails the link"
+              body="And by email when their address is known."
+              checked={connection.notifyEmail}
+              onChange={(value) => void save({ notifyEmail: value })}
+            />
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Links expire after</p>
+                <p className="text-xs text-muted-foreground">
+                  Unless the agent is told otherwise.
+                </p>
+              </div>
+              <NativeSelect
+                value={String(connection.expiryHours)}
+                onChange={(event) =>
+                  void save({ expiryHours: Number(event.target.value) })
+                }
+                aria-label="Link expiry"
+              >
+                {(EXPIRY_CHOICES.some((choice) => choice.hours === connection.expiryHours)
+                  ? EXPIRY_CHOICES
+                  : [
+                      ...EXPIRY_CHOICES,
+                      { hours: connection.expiryHours, label: `${connection.expiryHours} hours` },
+                    ]
+                ).map((choice) => (
+                  <NativeSelectOption key={choice.hours} value={choice.hours}>
+                    {choice.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <form
+              className="flex flex-col gap-2 px-4 py-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void save({ paidStage });
+              }}
+            >
+              <Label htmlFor="razorpay-paid-stage">When an order is paid, move it to</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="razorpay-paid-stage"
+                  className="h-9"
+                  value={paidStage}
+                  onChange={(event) => setPaidStage(event.target.value)}
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={paidStage.trim() === connection.paidStage}
+                >
+                  Save
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A stage of the record&apos;s book. Records already past it stay
+                where they are.
+              </p>
+            </form>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              nativeButton={false}
+              render={<Link href={`${base}/payments`} />}
+            >
+              View payments
+            </Button>
+            {!askingKeys ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setAskingKeys(true)}
+              >
+                Replace keys
+              </Button>
+            ) : null}
+          </div>
+
+          <DisconnectButton
+            name="Razorpay"
+            onConfirm={drop}
+            description="create_payment_link and check_payment_status are switched off on every agent and the saved keys are deleted. Links already sent keep working in Razorpay, but payments on them will no longer update here."
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function SettingRow({
+  title,
+  body,
+  checked,
+  onChange,
+}: {
+  title: string;
+  body: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground">{body}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={(value) => onChange(value)} />
     </div>
   );
 }

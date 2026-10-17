@@ -19,10 +19,11 @@ import {
   query,
   type ActionCtx,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { randomKey, readableError } from "./lib/shared";
 import {
   BOOKABLE_FROM_HOUR,
@@ -45,16 +46,34 @@ import {
   freeSlots,
   GoogleError,
   isFree,
+  openSpreadsheet,
   parseLocalDateTime,
   refreshAccessToken,
   searchFolder,
+  spreadsheetRef,
   zonedToInstant,
 } from "./lib/google";
 import { requireWorkspace } from "./lib/auth";
 import { publicSiteUrl } from "./lib/publicUrl";
+import {
+  escapeHtml,
+  normaliseEmail,
+  sendPlatformEmail,
+  textToHtml,
+} from "./lib/notifications";
 
 /** An OAuth handshake nobody finished is rubbish after this long. */
 const STATE_TTL_MS = 15 * 60 * 1000;
+
+const resourceValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  url: v.optional(v.string()),
+  tab: v.optional(v.string()),
+});
+
+const NOT_A_SHEET =
+  "That doesn't look like a Google Sheets link. Copy it from the browser's address bar while the sheet is open.";
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -82,10 +101,63 @@ export const list = query({
       accountEmail: row.accountEmail,
       status: row.status,
       resource: row.resource,
+      sendConfirmations: row.sendConfirmations ?? true,
       lastError: row.lastError,
       lastUsedAt: row.lastUsedAt,
       connectedAt: row.createdAt,
     }));
+  },
+});
+
+export const setSendConfirmations = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    integration: v.string(),
+    value: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const connection = await ctx.db
+      .query("integrationConnections")
+      .withIndex("by_workspace_integration", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("integration", args.integration)
+      )
+      .unique();
+    if (!connection) throw new ConvexError("Not connected.");
+    await ctx.db.patch(connection._id, {
+      sendConfirmations: args.value,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const refreshCatalogueTools = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let updated = 0;
+    const connections = await ctx.db.query("integrationConnections").collect();
+    for (const connection of connections) {
+      const spec = findIntegration(connection.integration);
+      if (!spec) continue;
+      for (const tool of spec.tools) {
+        const row = await ctx.db
+          .query("tools")
+          .withIndex("by_workspace_name", (q) =>
+            q.eq("workspaceId", connection.workspaceId).eq("name", tool.name)
+          )
+          .unique();
+        if (row?.integration === spec.id) {
+          await ctx.db.patch(row._id, {
+            description: tool.description,
+            whenToUse: tool.whenToUse,
+            parameters: tool.parameters,
+            updatedAt: Date.now(),
+          });
+          updated++;
+        }
+      }
+    }
+    return { updated };
   },
 });
 
@@ -116,6 +188,7 @@ export const startGoogleConnect = action({
     integration: v.string(),
     /** The console's own origin, so the callback can send the browser home. */
     returnTo: v.string(),
+    sheetUrl: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
     await ctx.runQuery(internal.authDb.assertWorkspace, {
@@ -124,6 +197,10 @@ export const startGoogleConnect = action({
 
     const spec = findIntegration(args.integration);
     if (!spec) throw new ConvexError("Unknown integration");
+
+    const sheetUrl =
+      args.integration === "google_sheets" ? args.sheetUrl?.trim() || undefined : undefined;
+    if (sheetUrl && !spreadsheetRef(sheetUrl)) throw new ConvexError(NOT_A_SHEET);
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -141,6 +218,7 @@ export const startGoogleConnect = action({
       workspaceId: args.workspaceId,
       integration: args.integration,
       returnTo: args.returnTo,
+      sheetUrl,
     });
 
     const params = new URLSearchParams({
@@ -167,6 +245,7 @@ export const putState = internalMutation({
     workspaceId: v.id("workspaces"),
     integration: v.string(),
     returnTo: v.string(),
+    sheetUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("integrationOAuthStates", {
@@ -193,6 +272,7 @@ export const takeState = internalMutation({
       workspaceId: row.workspaceId,
       integration: row.integration,
       returnTo: row.returnTo,
+      sheetUrl: row.sheetUrl,
     };
   },
 });
@@ -257,13 +337,7 @@ export const completeConnect = internalMutation({
     refreshToken: v.string(),
     accessToken: v.string(),
     accessTokenExpiresAt: v.number(),
-    resource: v.optional(
-      v.object({
-        id: v.string(),
-        name: v.string(),
-        url: v.optional(v.string()),
-      })
-    ),
+    resource: v.optional(resourceValidator),
     siteUrl: v.string(),
   },
   handler: async (ctx, args) => {
@@ -451,24 +525,110 @@ export const byCallToken = internalQuery({
       .withIndex("by_call_token", (q) => q.eq("callToken", args.callToken))
       .unique();
     if (!connection) return null;
-
-    const workspace = await ctx.db.get("workspaces", connection.workspaceId);
-    return {
-      id: connection._id,
-      workspaceId: connection.workspaceId,
-      integration: connection.integration,
-      refreshToken: connection.refreshToken,
-      accessToken: connection.accessToken,
-      accessTokenExpiresAt: connection.accessTokenExpiresAt,
-      resource: connection.resource,
-      status: connection.status,
-      // Every local time an agent says or hears is in the company's zone, not
-      // the server's and not the calendar's.
-      timezone: workspace?.timezone ?? "UTC",
-      workspaceName: workspace?.name ?? "",
-    };
+    return await withWorkspace(ctx, connection);
   },
 });
+
+export const byWorkspace = internalQuery({
+  args: { workspaceId: v.id("workspaces"), integration: v.string() },
+  handler: async (ctx, args) => {
+    const connection = await ctx.db
+      .query("integrationConnections")
+      .withIndex("by_workspace_integration", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("integration", args.integration)
+      )
+      .unique();
+    if (!connection) return null;
+    return await withWorkspace(ctx, connection);
+  },
+});
+
+async function withWorkspace(
+  ctx: QueryCtx,
+  connection: Doc<"integrationConnections">
+) {
+  const workspace = await ctx.db.get("workspaces", connection.workspaceId);
+  return {
+    id: connection._id,
+    workspaceId: connection.workspaceId,
+    integration: connection.integration,
+    accountEmail: connection.accountEmail,
+    refreshToken: connection.refreshToken,
+    accessToken: connection.accessToken,
+    accessTokenExpiresAt: connection.accessTokenExpiresAt,
+    resource: connection.resource,
+    status: connection.status,
+    sendConfirmations: connection.sendConfirmations ?? true,
+    // Every local time an agent says or hears is in the company's zone, not
+    // the server's and not the calendar's.
+    timezone: workspace?.timezone ?? "UTC",
+    workspaceName: workspace?.name ?? "",
+    locale: workspace?.locale,
+  };
+}
+
+export const setResource = internalMutation({
+  args: {
+    connectionId: v.id("integrationConnections"),
+    resource: resourceValidator,
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectionId, {
+      resource: args.resource,
+      lastError: undefined,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const linkSheet = action({
+  args: {
+    workspaceId: v.id("workspaces"),
+    sheetUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ name: string; tab: string }> => {
+    await ctx.runQuery(internal.authDb.assertWorkspace, {
+      workspaceId: args.workspaceId,
+    });
+
+    const sheetUrl = args.sheetUrl?.trim();
+    const ref = sheetUrl ? spreadsheetRef(sheetUrl) : null;
+    if (sheetUrl && !ref) throw new ConvexError(NOT_A_SHEET);
+
+    const connection = await ctx.runQuery(internal.integrations.byWorkspace, {
+      workspaceId: args.workspaceId,
+      integration: "google_sheets",
+    });
+    if (!connection) throw new ConvexError("Connect Google Sheets first.");
+
+    try {
+      const accessToken = await freshAccessToken(ctx, connection);
+      const resource = ref
+        ? await openSpreadsheet(accessToken, ref, ENQUIRY_SHEET_HEADERS)
+        : await createSpreadsheet(
+            accessToken,
+            `${connection.workspaceName} — Enquiries`,
+            ENQUIRY_SHEET_HEADERS
+          );
+      await ctx.runMutation(internal.integrations.setResource, {
+        connectionId: connection.id,
+        resource,
+      });
+      return { name: resource.name, tab: resource.tab };
+    } catch (error) {
+      throw new ConvexError(sheetError(error, connection.accountEmail));
+    }
+  },
+});
+
+function sheetError(error: unknown, accountEmail: string | undefined): string {
+  if (error instanceof GoogleError && (error.status === 403 || error.status === 404)) {
+    return `${accountEmail ?? "The connected Google account"} can't open that sheet. Share it with that account as an editor, or paste a different link.`;
+  }
+  return readableError(
+    error instanceof Error ? error.message : "Could not open that sheet."
+  );
+}
 
 export const cacheAccessToken = internalMutation({
   args: {
@@ -540,12 +700,15 @@ type Connection = {
   id: Id<"integrationConnections">;
   workspaceId: Id<"workspaces">;
   integration: string;
+  accountEmail?: string;
   refreshToken: string;
   accessToken?: string;
   accessTokenExpiresAt?: number;
-  resource?: { id: string; name: string; url?: string };
+  resource?: { id: string; name: string; url?: string; tab?: string };
+  sendConfirmations: boolean;
   timezone: string;
   workspaceName: string;
+  locale?: string;
 };
 
 /**
@@ -598,6 +761,58 @@ function stampFor(timeZone: string): string {
   }
 }
 
+function emailList(raw: string): string[] {
+  const seen = new Set<string>();
+  for (const part of raw.split(/[,;\s]+/)) {
+    const email = normaliseEmail(part);
+    if (email) seen.add(email);
+  }
+  return [...seen].slice(0, 10);
+}
+
+function meetingWhen(at: Date, timeZone: string, locale?: string): string {
+  return new Intl.DateTimeFormat(locale || "en-GB", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(at);
+}
+
+function confirmationHtml(meeting: {
+  workspaceName: string;
+  title: string;
+  when: string;
+  minutes: number;
+  meetLink?: string;
+  notes?: string;
+}): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:6px 16px 6px 0;color:#666;vertical-align:top">${label}</td><td style="padding:6px 0">${value}</td></tr>`;
+  return (
+    `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:32rem;line-height:1.5;color:#111">` +
+    `<h2 style="font-size:1.15rem;margin:0 0 12px">${escapeHtml(meeting.title)}</h2>` +
+    `<p style="margin:0 0 16px">Your meeting with ${escapeHtml(meeting.workspaceName)} is booked.</p>` +
+    `<table style="border-collapse:collapse;font-size:0.95rem">` +
+    row("When", escapeHtml(meeting.when)) +
+    row("Length", `${meeting.minutes} minutes`) +
+    (meeting.meetLink
+      ? row(
+          "Join",
+          `<a href="${escapeHtml(meeting.meetLink)}" style="color:#1a73e8">${escapeHtml(meeting.meetLink)}</a>`
+        )
+      : "") +
+    (meeting.notes ? row("About", textToHtml(meeting.notes)) : "") +
+    `</table>` +
+    `<p style="margin:16px 0 0;color:#666;font-size:0.85rem">A calendar invitation has been sent separately. Reply to this email to reach us.</p>` +
+    `</div>`
+  );
+}
+
 async function dispatch(
   connection: Connection,
   accessToken: string,
@@ -621,14 +836,19 @@ async function dispatch(
     }
 
     const value = input.value;
-    const result = await appendRow(accessToken, spreadsheetId, [
-      stampFor(timeZone),
-      name,
-      str(input.phone),
-      str(input.email),
-      summary,
-      value === undefined || value === null || value === "" ? "" : Number(value),
-    ]);
+    const result = await appendRow(
+      accessToken,
+      spreadsheetId,
+      [
+        stampFor(timeZone),
+        name,
+        str(input.phone),
+        str(input.email),
+        summary,
+        value === undefined || value === null || value === "" ? "" : Number(value),
+      ],
+      connection.resource?.tab
+    );
     return { ok: true, row: result.row, sheet: connection.resource?.name };
   }
 
@@ -690,9 +910,15 @@ async function dispatch(
       };
     }
 
-    const event = await createEvent(accessToken, {
-      title: str(input.title) || "Meeting",
-      notes: str(input.notes) || undefined,
+    const attendees = emailList(
+      `${str(input.attendeeEmail)},${str(input.otherAttendees)}`
+    );
+    const wantsMeet = !/^(false|no|0)$/i.test(str(input.withMeet));
+    const title = str(input.title) || "Meeting";
+    const notes = str(input.notes) || undefined;
+    const details = {
+      title,
+      notes,
       startLocal: parsed.local,
       endLocal: addMinutesLocal(
         parsed.date,
@@ -702,8 +928,43 @@ async function dispatch(
         minutes
       ),
       timeZone,
-      attendeeEmail: str(input.attendeeEmail) || undefined,
-    });
+      attendees,
+    };
+
+    let event: Awaited<ReturnType<typeof createEvent>>;
+    let meetNote: string | undefined;
+    try {
+      event = await createEvent(accessToken, {
+        ...details,
+        meetRequestId: wantsMeet ? `${randomKey(12)}${randomKey(12)}` : undefined,
+      });
+    } catch (error) {
+      if (!wantsMeet || !(error instanceof GoogleError) || error.status !== 400) {
+        throw error;
+      }
+      event = await createEvent(accessToken, details);
+      meetNote = "Google Meet could not be added on this calendar, so the meeting has no video link.";
+    }
+
+    let emailed = false;
+    if (connection.sendConfirmations && attendees.length > 0) {
+      const sent = await sendPlatformEmail({
+        to: attendees,
+        subject: `Confirmed: ${title} — ${meetingWhen(startsAt, timeZone, connection.locale)}`,
+        html: confirmationHtml({
+          workspaceName: connection.workspaceName,
+          title,
+          when: meetingWhen(startsAt, timeZone, connection.locale),
+          minutes,
+          meetLink: event.meetLink,
+          notes,
+        }),
+        workspaceName: connection.workspaceName,
+        replyTo: connection.accountEmail,
+      });
+      emailed = sent.ok;
+      if (!sent.ok) console.error("integrations.book: confirmation email failed", sent.error);
+    }
 
     return {
       ok: true,
@@ -711,7 +972,10 @@ async function dispatch(
       startsAt: parsed.local,
       minutes,
       timezone: timeZone,
-      invited: str(input.attendeeEmail) || null,
+      invited: attendees,
+      meetLink: event.meetLink ?? null,
+      confirmationEmailed: emailed,
+      ...(meetNote ? { note: meetNote } : {}),
     };
   }
 
@@ -898,6 +1162,18 @@ export const finishGoogleConnect = internalAction({
       // Reconnecting keeps whatever was provisioned the first time, so their
       // Drive does not fill up with near-identical sheets and folders.
       let resource = context.resource;
+      const ref = pending.sheetUrl ? spreadsheetRef(pending.sheetUrl) : null;
+      if (ref) {
+        try {
+          resource = await openSpreadsheet(
+            grant.accessToken,
+            ref,
+            ENQUIRY_SHEET_HEADERS
+          );
+        } catch (error) {
+          throw new GoogleError(sheetError(error, grant.email));
+        }
+      }
       if (!resource && pending.integration === "google_sheets") {
         resource = await createSpreadsheet(
           grant.accessToken,

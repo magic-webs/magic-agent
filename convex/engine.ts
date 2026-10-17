@@ -44,6 +44,8 @@ import {
   type AppPrefillField,
 } from "./lib/apps";
 import { callApp } from "./lib/appClient";
+import { createPaymentLink, refreshPaymentLink } from "./payments";
+import { formatMoney, isFinalStatus, parseAmount } from "./lib/payments";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { channelType } from "./schema";
 import {
@@ -1679,6 +1681,135 @@ function buildAppTools(
   return registry;
 }
 
+function buildPaymentTools(
+  ctx: ActionCtx,
+  turn: TurnContext,
+  enabled: string[]
+): ToolSet {
+  const { trace } = turn;
+  const registry: ToolSet = {};
+  const text = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+  if (enabled.includes("create_payment_link")) {
+    registry.create_payment_link = dynamicTool({
+      description: [
+        `Create a Razorpay payment link for ${turn.workspace.name} and get back the URL to send the customer. They can pay by UPI, card, netbanking or wallet.`,
+        "Only charge an amount that comes from the catalogue, a filed order's total, or that the team has agreed in this conversation. Never invent, round or discount a price.",
+        "When there is an order, file it first and pass its reference, so the payment is matched to it and the order moves on once it is paid.",
+        "Put the url in your reply, with the amount and when the link expires. Do not say the payment has gone through until check_payment_status says so.",
+      ].join(" "),
+      inputSchema: jsonSchema({
+        type: "object" as const,
+        properties: {
+          amount: {
+            type: "number",
+            description:
+              "The amount in rupees, e.g. 1499.50. Leave it out to charge the filed order's total.",
+          },
+          purpose: {
+            type: "string",
+            description:
+              "What it pays for, as the customer will see it, e.g. 'Order ORD-0012 — 2 × Oak chair'",
+          },
+          orderReference: {
+            type: "string",
+            description: "The reference of the order or record this pays for, e.g. ORD-0012",
+          },
+          customerName: { type: "string", description: "Only if different from the contact" },
+          customerPhone: { type: "string", description: "Only if different from the contact" },
+          customerEmail: { type: "string", description: "Only if different from the contact" },
+          expiresInHours: {
+            type: "number",
+            description: "How long the link stays open. Leave it out for the company's default.",
+          },
+        },
+        required: ["purpose"],
+        additionalProperties: false as const,
+      }),
+      execute: traced(trace, "create_payment_link", async (rawInput: unknown) => {
+        const input = (rawInput ?? {}) as Record<string, unknown>;
+        const created = await createPaymentLink(ctx, {
+          workspaceId: turn.workspace._id,
+          amount: parseAmount(input.amount),
+          description: text(input.purpose) ?? "",
+          customer: {
+            name: text(input.customerName) ?? turn.contact.name,
+            phone:
+              text(input.customerPhone) ??
+              turn.contact.phone ??
+              (turn.channelType === "whatsapp" ? turn.externalId : undefined),
+            email: text(input.customerEmail) ?? turn.contact.email,
+          },
+          recordReference: text(input.orderReference),
+          expiresInHours: parseAmount(input.expiresInHours) ?? undefined,
+          conversationId: turn.conversationId,
+          contactId: turn.contactId,
+          agentId: turn.agent._id,
+          source: "agent",
+        });
+        return {
+          ok: true,
+          url: created.url,
+          linkId: created.razorpayLinkId,
+          amount: created.amount,
+          reference: created.reference ?? null,
+          expiresAt: created.expiresAt
+            ? new Date(created.expiresAt).toISOString()
+            : null,
+          note: "Send the customer this url. You will see a note here when it is paid.",
+        };
+      }),
+    });
+  }
+
+  if (enabled.includes("check_payment_status")) {
+    registry.check_payment_status = dynamicTool({
+      description:
+        "Check whether the customer has paid. With no reference it checks the payment links sent in this conversation; pass an order reference or a link id (plink_…) to check a particular one.",
+      inputSchema: jsonSchema({
+        type: "object" as const,
+        properties: {
+          reference: {
+            type: "string",
+            description: "An order reference like ORD-0012, or a payment link id",
+          },
+        },
+        additionalProperties: false as const,
+      }),
+      execute: traced(trace, "check_payment_status", async (rawInput: unknown) => {
+        const input = (rawInput ?? {}) as Record<string, unknown>;
+        const links = await ctx.runQuery(internal.payments.linksForLookup, {
+          workspaceId: turn.workspace._id,
+          conversationId: turn.conversationId,
+          reference: text(input.reference),
+        });
+        if (links.length === 0) {
+          return { ok: true, links: [], note: "No payment link found for that." };
+        }
+        const results = [];
+        for (const link of links) {
+          const status = isFinalStatus(link.status)
+            ? link.status
+            : await refreshPaymentLink(ctx, link);
+          results.push({
+            linkId: link.razorpayLinkId,
+            url: link.shortUrl,
+            amount: formatMoney(link.amountPaise, link.currency),
+            purpose: link.description,
+            reference: link.recordReference ?? null,
+            status,
+            createdAt: new Date(link.createdAt).toISOString(),
+          });
+        }
+        return { ok: true, links: results };
+      }),
+    });
+  }
+
+  return registry;
+}
+
 // ---------------------------------------------------------------------------
 // The turn
 // ---------------------------------------------------------------------------
@@ -1987,6 +2118,10 @@ ${message}`
         }
       }
 
+      const paymentTools = await ctx.runQuery(internal.payments.forAgent, {
+        agentId: agent._id,
+      });
+
       const toolset: ToolSet = {
         ...buildBuiltinTools(ctx, turn, apiKey, {
           team,
@@ -2000,6 +2135,7 @@ ${message}`
           : {}),
         ...buildRecordTools(ctx, turn, books),
         ...buildAppTools(ctx, turn, apps),
+        ...buildPaymentTools(ctx, turn, paymentTools),
         ...buildCustomTools(ctx, turn, customTools),
       };
 

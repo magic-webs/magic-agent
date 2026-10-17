@@ -13,6 +13,7 @@ const proxiedPrefixes = [
   "/l",
   "/integrations/google",
   "/instagram",
+  "/payments/razorpay",
 ];
 
 const nextConfig: NextConfig = {

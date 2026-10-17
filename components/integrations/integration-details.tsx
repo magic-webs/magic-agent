@@ -10,6 +10,7 @@ import {
   LightningIcon,
   LinkIcon,
   MagnifyingGlassIcon,
+  ReceiptIcon,
   RobotIcon,
   ShieldCheckIcon,
   TableIcon,
@@ -161,31 +162,40 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
       },
       {
         icon: ShieldCheckIcon,
-        title: "Your own Drive",
-        body: "We create one spreadsheet and only ever write to that one.",
+        title: "New or existing sheet",
+        body: "We create a spreadsheet for you, or write to one you already use.",
       },
     ],
     permissions: {
       can: [
-        "Create the enquiry spreadsheet in your Drive",
-        "Append rows to that spreadsheet",
+        "Create the enquiry spreadsheet in your Drive, or open the one you link",
+        "Add an “Enquiries” tab and a header row if the linked sheet has none",
+        "Append rows to that one spreadsheet",
       ],
-      never: ["Open, read or change any other spreadsheet"],
+      never: ["Open, read or change any spreadsheet you have not linked"],
     },
     steps: [
-      "Click “Connect with Google” above",
-      "Choose your Google account and allow access",
+      "Optionally switch on “Use an existing sheet” and paste its link",
+      "Click “Connect with Google” and allow access",
       "Switch log_enquiry_to_sheet on for an agent under Knowledge & tools",
     ],
-    note: "The spreadsheet is created for you, headers already in row 1.",
+    note: "Rows land in the tab open in the link you paste. Without one, the spreadsheet is created for you with headers in row 1.",
     faq: [
       {
         q: "Where is the spreadsheet?",
-        a: "In the Drive of the account you connect, named after your workspace. The Open link appears here once connected.",
+        a: "Either the one you linked, or a new one in the Drive of the account you connect, named after your workspace. The Open link appears here once connected.",
+      },
+      {
+        q: "Can I switch to a different sheet later?",
+        a: "Yes — press “Change sheet”, paste the link, and new enquiries go there. Nothing already written is moved.",
+      },
+      {
+        q: "Which tab is written to?",
+        a: "The tab that was open when you copied the link. If the link does not point at a tab, an “Enquiries” tab is used, and added if it is missing.",
       },
       {
         q: "Can I rename or move it?",
-        a: "Yes. It is found by its id, not its name or folder.",
+        a: "Yes. It is found by its id, not its name or folder. Renaming the tab, though, needs “Change sheet” again.",
       },
     ],
   },
@@ -199,8 +209,13 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
       },
       {
         icon: CalendarCheckIcon,
-        title: "Booked and invited",
-        body: "The meeting goes into your diary with the customer invited.",
+        title: "Booked with a Meet link",
+        body: "The meeting goes into your diary with a Google Meet link and the customer invited.",
+      },
+      {
+        icon: LinkIcon,
+        title: "Confirmed by email",
+        body: "The customer gets an email with the time and the link, and the agent shares the link in the chat.",
       },
       {
         icon: ShieldCheckIcon,
@@ -211,7 +226,8 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
     permissions: {
       can: [
         "Read events on your main calendar to find free time",
-        "Create events and invite the customer",
+        "Create events with a Google Meet link and invite the customer",
+        "Email the attendees a confirmation from your workspace",
       ],
       never: ["Change your calendar's settings or anyone else's calendar"],
     },
@@ -229,6 +245,14 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
       {
         q: "How long is a meeting?",
         a: "Thirty minutes unless the agent agrees another length with the customer.",
+      },
+      {
+        q: "Does every meeting get a Google Meet link?",
+        a: "Yes, unless the customer is meeting in person. If your Google account cannot create Meet links, the meeting is still booked without one.",
+      },
+      {
+        q: "Who gets emailed?",
+        a: "Everyone invited gets Google's invitation. With “Email a confirmation” on, they also get one from your workspace; replies go to the calendar's account.",
       },
     ],
   },
@@ -275,6 +299,64 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
       {
         q: "Who can open the links?",
         a: "Whoever the file is shared with in Drive. Share the folder by link if customers should open everything in it.",
+      },
+    ],
+  },
+
+  // ----------------------------------------------------------------- Payments
+  razorpay: {
+    features: [
+      {
+        icon: LinkIcon,
+        title: "Payment links in the chat",
+        body: "Agents create a Razorpay link for an order's total or an agreed amount, and send it to the customer.",
+      },
+      {
+        icon: ReceiptIcon,
+        title: "Matched to the order",
+        body: "When the link is paid the order moves to Confirmed, a note lands in the conversation, and your alerts fire.",
+      },
+      {
+        icon: ShieldCheckIcon,
+        title: "Your own account",
+        body: "Money goes straight to your Razorpay account. The key secret is stored encrypted.",
+      },
+    ],
+    permissions: {
+      can: [
+        "Create payment links in your Razorpay account",
+        "Read and cancel the payment links it created",
+        "Receive Razorpay's updates when those links are paid or expire",
+      ],
+      never: [
+        "Refund, capture or move money",
+        "Charge an amount that is not from your catalogue, an order, or agreed by your team",
+        "Read payments made any other way",
+      ],
+    },
+    steps: [
+      "In Razorpay, open Account & Settings → API Keys and generate a key",
+      "Paste the Key ID and Key Secret above and press Connect",
+      "Add the webhook URL and secret shown above in Razorpay's Webhooks settings",
+      "Switch create_payment_link and check_payment_status on for an agent",
+    ],
+    note: "Use test keys first: links made with them can be paid with Razorpay's test cards and nothing is charged.",
+    faq: [
+      {
+        q: "What does the customer see?",
+        a: "A short Razorpay link that opens a checkout with UPI, cards, netbanking and wallets, in your business's name.",
+      },
+      {
+        q: "How does the agent know the amount?",
+        a: "From the order it filed, or from the catalogue. It is told never to invent or discount a price.",
+      },
+      {
+        q: "Can the team send a link too?",
+        a: "Yes, from the Payments page, which also lists every link with its status.",
+      },
+      {
+        q: "What if the webhook isn't set up?",
+        a: "Links still work, but nothing updates here until someone presses Refresh or the agent checks the status.",
       },
     ],
   },

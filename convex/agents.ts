@@ -23,6 +23,7 @@ import {
   isCatalogueIntegration,
 } from "./lib/integrations";
 import { APP_TOOL_NAMES, findApp } from "./lib/apps";
+import { PAYMENT_TOOL_NAMES } from "./lib/payments";
 import { assertSeat } from "./lib/account";
 import { ensureOrdersBook } from "./lib/ordersBook";
 import { compileSystemPrompt, type TeammateShape } from "./lib/prompt";
@@ -666,7 +667,9 @@ export const update = mutation({
     if (Array.isArray(patch.integrationTools)) {
       patch.integrationTools = (patch.integrationTools as string[]).filter(
         (name) =>
-          INTEGRATION_TOOL_NAMES.includes(name) || APP_TOOL_NAMES.includes(name)
+          INTEGRATION_TOOL_NAMES.includes(name) ||
+          APP_TOOL_NAMES.includes(name) ||
+          PAYMENT_TOOL_NAMES.includes(name)
       );
     }
 
@@ -833,6 +836,18 @@ export const previewPrompt = query({
       ) {
         toolNames.push(toolName);
       }
+    }
+
+    const payments = await ctx.db
+      .query("paymentConnections")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", agent.workspaceId))
+      .first();
+    if (payments) {
+      toolNames.push(
+        ...PAYMENT_TOOL_NAMES.filter((name) =>
+          (agent.integrationTools ?? []).includes(name)
+        )
+      );
     }
 
     if (agent.kind === "router" && !toolNames.includes("transfer_to_agent")) {

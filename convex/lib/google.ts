@@ -17,11 +17,13 @@ import {
 export class GoogleError extends Error {
   /** True when the grant itself is gone, which needs a human to reconnect. */
   readonly needsReauth: boolean;
+  readonly status?: number;
 
-  constructor(message: string, needsReauth = false) {
+  constructor(message: string, needsReauth = false, status?: number) {
     super(message);
     this.name = "GoogleError";
     this.needsReauth = needsReauth;
+    this.status = status;
   }
 }
 
@@ -176,7 +178,8 @@ async function call<T>(
       // grant never had. Both need the operator back on the consent screen.
       throw new GoogleError(
         message,
-        response.status === 401 || response.status === 403
+        response.status === 401 || response.status === 403,
+        response.status
       );
     }
 
@@ -198,7 +201,7 @@ export async function createSpreadsheet(
   accessToken: string,
   title: string,
   headers: string[]
-): Promise<{ id: string; name: string; url: string }> {
+): Promise<{ id: string; name: string; url: string; tab: string }> {
   const created = await call<{
     spreadsheetId: string;
     spreadsheetUrl: string;
@@ -221,17 +224,92 @@ export async function createSpreadsheet(
     id: created.spreadsheetId,
     name: created.properties?.title ?? title,
     url: created.spreadsheetUrl,
+    tab: "Enquiries",
+  };
+}
+
+export type SpreadsheetRef = { id: string; gid?: number };
+
+export function spreadsheetRef(link: string): SpreadsheetRef | null {
+  const value = link.trim();
+  const id =
+    value.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/)?.[1] ??
+    (/^[a-zA-Z0-9_-]{30,}$/.test(value) ? value : null);
+  if (!id) return null;
+  const gid = value.match(/[#&?]gid=(\d+)/)?.[1];
+  return { id, gid: gid === undefined ? undefined : Number(gid) };
+}
+
+const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
+
+const cellRange = (tab: string, cells: string) =>
+  encodeURIComponent(`'${tab.replace(/'/g, "''")}'!${cells}`);
+
+export async function openSpreadsheet(
+  accessToken: string,
+  ref: SpreadsheetRef,
+  headers: string[],
+  fallbackTab = "Enquiries"
+): Promise<{ id: string; name: string; url: string; tab: string }> {
+  const sheet = await call<{
+    spreadsheetId: string;
+    spreadsheetUrl?: string;
+    properties?: { title?: string };
+    sheets?: Array<{ properties?: { sheetId?: number; title?: string } }>;
+  }>(
+    accessToken,
+    `${SHEETS_API}/${ref.id}?fields=spreadsheetId,spreadsheetUrl,properties.title,sheets.properties(sheetId,title)`
+  );
+
+  const tabs = (sheet.sheets ?? []).flatMap((entry) =>
+    entry.properties?.title
+      ? [{ id: entry.properties.sheetId, title: entry.properties.title }]
+      : []
+  );
+  let tab =
+    (ref.gid !== undefined
+      ? tabs.find((entry) => entry.id === ref.gid)?.title
+      : undefined) ?? tabs.find((entry) => entry.title === fallbackTab)?.title;
+
+  if (!tab) {
+    await call(accessToken, `${SHEETS_API}/${ref.id}:batchUpdate`, {
+      method: "POST",
+      body: { requests: [{ addSheet: { properties: { title: fallbackTab } } }] },
+    });
+    tab = fallbackTab;
+  }
+
+  const top = await call<{ values?: unknown[][] }>(
+    accessToken,
+    `${SHEETS_API}/${ref.id}/values/${cellRange(tab, "A1:Z1")}`
+  );
+  if (!top.values?.some((row) => row.some((cell) => String(cell ?? "").trim()))) {
+    await call(
+      accessToken,
+      `${SHEETS_API}/${ref.id}/values/${cellRange(tab, "A1")}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      { method: "POST", body: { values: [headers] } }
+    );
+  }
+
+  return {
+    id: sheet.spreadsheetId,
+    name: sheet.properties?.title ?? "Spreadsheet",
+    url:
+      sheet.spreadsheetUrl ??
+      `https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/edit`,
+    tab,
   };
 }
 
 export async function appendRow(
   accessToken: string,
   spreadsheetId: string,
-  row: Array<string | number>
+  row: Array<string | number>,
+  tab = "Enquiries"
 ): Promise<{ row: number }> {
   const result = await call<{ updates?: { updatedRange?: string } }>(
     accessToken,
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Enquiries!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `${SHEETS_API}/${spreadsheetId}/values/${cellRange(tab, "A1")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     { method: "POST", body: { values: [row] } }
   );
 
@@ -468,12 +546,22 @@ export async function createEvent(
     startLocal: string;
     endLocal: string;
     timeZone: string;
-    attendeeEmail?: string;
+    attendees: string[];
+    /** A Google Meet request id; omitted for an in-person meeting. */
+    meetRequestId?: string;
   }
-): Promise<{ id: string; url?: string }> {
-  const created = await call<{ id: string; htmlLink?: string }>(
+): Promise<{ id: string; url?: string; meetLink?: string }> {
+  const created = await call<{
+    id: string;
+    htmlLink?: string;
+    hangoutLink?: string;
+    conferenceData?: {
+      entryPoints?: Array<{ entryPointType?: string; uri?: string }>;
+    };
+  }>(
     accessToken,
-    "https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all",
+    "https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all" +
+      (event.meetRequestId ? "&conferenceDataVersion=1" : ""),
     {
       method: "POST",
       body: {
@@ -484,14 +572,29 @@ export async function createEvent(
         // the DST arithmetic itself.
         start: { dateTime: event.startLocal, timeZone: event.timeZone },
         end: { dateTime: event.endLocal, timeZone: event.timeZone },
-        attendees: event.attendeeEmail
-          ? [{ email: event.attendeeEmail }]
+        attendees:
+          event.attendees.length > 0
+            ? event.attendees.map((email) => ({ email }))
+            : undefined,
+        conferenceData: event.meetRequestId
+          ? {
+              createRequest: {
+                requestId: event.meetRequestId,
+                conferenceSolutionKey: { type: "hangoutsMeet" },
+              },
+            }
           : undefined,
       },
     }
   );
 
-  return { id: created.id, url: created.htmlLink };
+  const meetLink =
+    created.hangoutLink ??
+    created.conferenceData?.entryPoints?.find(
+      (entry) => entry.entryPointType === "video"
+    )?.uri;
+
+  return { id: created.id, url: created.htmlLink, meetLink };
 }
 
 // ---------------------------------------------------------------------------

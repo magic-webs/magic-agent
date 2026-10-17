@@ -78,6 +78,7 @@ every model call, every token signature and every webhook happens inside Convex.
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google integrations |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | The Instagram channel. `META_APP_SECRET` is the fallback for checking webhook signatures |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Billing |
+| `INTEGRATIONS_SECRET_KEY` | Workspaces connecting their own Razorpay for payment links. Encrypts their key secret; changing it means they reconnect |
 | `ZEPTOMAIL_TOKEN` (+ optional `_URL`, `_FROM_EMAIL`, `_FROM_NAME`) | Email alerts |
 | `EXPO_ACCESS_TOKEN` | Optional. Push to the mobile app |
 | `FISH_VOICE_MALE`, `FISH_VOICE_FEMALE` | Spoken agent greetings |

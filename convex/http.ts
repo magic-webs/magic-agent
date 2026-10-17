@@ -7,6 +7,7 @@ import { isLinkBot } from "./lib/links";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { parseSignedRequest, validSignature } from "./lib/instagram";
 import { fetchMedia, signMedia } from "./lib/whatsappMedia";
+import { RAZORPAY_LINK_EVENTS } from "./lib/payments";
 import type { Id } from "./_generated/dataModel";
 import {
   paymentFields,
@@ -935,6 +936,57 @@ http.route({
                   : undefined,
             }
           : undefined,
+    });
+    return new Response("ok", { status: 200 });
+  }),
+});
+
+http.route({
+  pathPrefix: "/payments/razorpay/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const inboundKey = new URL(request.url).pathname
+      .replace(/^\/payments\/razorpay\//, "")
+      .replace(/\/+$/, "");
+    const connection = inboundKey
+      ? await ctx.runQuery(internal.payments.byInboundKey, { inboundKey })
+      : null;
+    if (!connection) return new Response("Unknown webhook", { status: 404 });
+
+    const raw = await request.text();
+    const signature = request.headers.get("x-razorpay-signature") ?? "";
+    if (!signature || !(await webhookSignatureValid(connection.webhookSecret, raw, signature))) {
+      return new Response("Invalid signature", { status: 400 });
+    }
+
+    let body: Record<string, unknown> | null = null;
+    try {
+      body = asObject(JSON.parse(raw));
+    } catch {
+      body = null;
+    }
+    const event = typeof body?.event === "string" ? body.event : "";
+    if (!RAZORPAY_LINK_EVENTS.includes(event)) return new Response("ignored", { status: 200 });
+
+    const payload = asObject(body?.payload) ?? {};
+    const link = asObject((payload.payment_link as Entity<unknown>)?.entity);
+    const payment = asObject((payload.payment as Entity<unknown>)?.entity);
+    if (typeof link?.id !== "string") return new Response("Bad payload", { status: 400 });
+
+    const status = event.replace(/^payment_link\./, "") as
+      | "paid"
+      | "partially_paid"
+      | "expired"
+      | "cancelled";
+
+    await ctx.runMutation(internal.payments.applyLinkStatus, {
+      connectionId: connection.id,
+      razorpayLinkId: link.id,
+      status,
+      amountPaidPaise: typeof link.amount_paid === "number" ? link.amount_paid : undefined,
+      paymentId: typeof payment?.id === "string" ? payment.id : undefined,
+      method: typeof payment?.method === "string" ? payment.method : undefined,
+      fromWebhook: true,
     });
     return new Response("ok", { status: 200 });
   }),

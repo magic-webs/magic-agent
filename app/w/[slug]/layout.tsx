@@ -60,6 +60,7 @@ import {
   Megaphone01Icon,
   Analytics01Icon,
   ContactBookIcon,
+  CreditCardIcon,
   SentIcon,
   CalendarCheckIn01Icon,
   Calendar03Icon,
@@ -341,6 +342,10 @@ export default function WorkspaceLayout({
     workspace ? { workspaceId: workspace._id } : "skip"
   );
   const hasInstagram = Boolean(channels?.some((channel) => channel.type === "instagram"));
+  const hasPayments = useQuery(
+    api.payments.isConnected,
+    workspace ? { workspaceId: workspace._id } : "skip"
+  );
 
   const nav = useMemo(() => {
     // Plural, because the row leads to the table of them, not to one.
@@ -350,6 +355,9 @@ export default function WorkspaceLayout({
       // The Orders book keeps the receipt it had as its own page.
       icon: book.handle === ORDERS_HANDLE ? ReceiptIcon : Folder01Icon,
     }));
+    if (hasPayments) {
+      rows.push({ href: "/payments", label: "Payments", icon: CreditCardIcon });
+    }
     return NAV.flatMap((section) => {
       const withBooks =
         section.label === "Leads" && rows.length
@@ -359,7 +367,7 @@ export default function WorkspaceLayout({
         ? [withBooks, INSTAGRAM_SECTION]
         : [withBooks];
     });
-  }, [books, hasInstagram]);
+  }, [books, hasInstagram, hasPayments]);
 
   if (session.me && !allowed) {
     return (

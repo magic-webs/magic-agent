@@ -73,7 +73,9 @@ import {
   WarningIcon,
   PlugsConnectedIcon,
   FolderOpenIcon,
+  CurrencyInrIcon,
 } from "@phosphor-icons/react";
+import { PAYMENT_TOOLS } from "@/convex/lib/payments";
 import { friendlyError } from "@/lib/errors";
 
 const INTEGRATION_ICONS: Record<
@@ -171,6 +173,9 @@ export default function AgentConfigPage({
     workspaceId: workspace._id,
   });
   const appConnections = useQuery(api.apps.list, {
+    workspaceId: workspace._id,
+  });
+  const paymentsConnected = useQuery(api.payments.isConnected, {
     workspaceId: workspace._id,
   });
   // The whole roster, so the heading can double as a switcher. Configuring a
@@ -1120,10 +1125,13 @@ export default function AgentConfigPage({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {customTools === undefined || appConnections === undefined ? (
+                {customTools === undefined ||
+                appConnections === undefined ||
+                paymentsConnected === undefined ? (
                   <Spinner />
                 ) : integrationTools.length === 0 &&
-                  connectedApps.length === 0 ? (
+                  connectedApps.length === 0 &&
+                  !paymentsConnected ? (
                   <div className="flex flex-col items-start gap-2">
                     <p className="text-sm text-muted-foreground">
                       Nothing connected yet.
@@ -1140,6 +1148,35 @@ export default function AgentConfigPage({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-5">
+                    {paymentsConnected ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <CurrencyInrIcon weight="bold" className="size-5" />
+                          <p className="text-sm font-medium">Razorpay</p>
+                        </div>
+                        <ItemGroup className="gap-2">
+                          {PAYMENT_TOOLS.map((tool) => (
+                            <Item key={tool.name} variant="outline">
+                              <ItemContent>
+                                <ItemTitle className="flex flex-wrap items-center gap-2">
+                                  <span className="font-mono">{tool.name}</span>
+                                  <span className="text-muted-foreground">
+                                    {tool.label}
+                                  </span>
+                                </ItemTitle>
+                                <ItemDescription>{tool.summary}</ItemDescription>
+                              </ItemContent>
+                              <Switch
+                                checked={draft.integrationTools.includes(tool.name)}
+                                onCheckedChange={() =>
+                                  toggleIntegrationTool(tool.name)
+                                }
+                              />
+                            </Item>
+                          ))}
+                        </ItemGroup>
+                      </div>
+                    ) : null}
                     {connectedApps.map((app) => {
                       const Icon = INTEGRATION_ICONS[app.id];
 

@@ -16,9 +16,11 @@ export const integrationsTables = {
         id: v.string(),
         name: v.string(),
         url: v.optional(v.string()),
+        tab: v.optional(v.string()),
       })
     ),
     callToken: v.string(),
+    sendConfirmations: v.optional(v.boolean()),
     status: v.union(v.literal("connected"), v.literal("needs_reauth")),
     lastError: v.optional(v.string()),
     lastUsedAt: v.optional(v.number()),
@@ -34,6 +36,7 @@ export const integrationsTables = {
     workspaceId: v.id("workspaces"),
     integration: v.string(),
     returnTo: v.string(),
+    sheetUrl: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_state", ["state"]),
 

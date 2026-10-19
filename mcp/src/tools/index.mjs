@@ -19,6 +19,7 @@ import { register as knowledge } from "./knowledge.mjs";
 import { register as channels } from "./channels.mjs";
 import { register as customTools } from "./custom-tools.mjs";
 import { register as operations } from "./operations.mjs";
+import { register as handover } from "./handover.mjs";
 import { register as leads } from "./leads.mjs";
 import { register as notifications } from "./notifications.mjs";
 import { register as marketing } from "./marketing.mjs";
@@ -35,6 +36,7 @@ const GROUPS = [
   { title: "Channels", register: channels },
   { title: "Custom tools", register: customTools },
   { title: "Operations", register: operations },
+  { title: "Handover", register: handover },
   { title: "Leads", register: leads },
   { title: "Notifications", register: notifications },
   { title: "Marketing", register: marketing },

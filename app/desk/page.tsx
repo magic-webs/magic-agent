@@ -46,14 +46,16 @@ import {
 const BUCKETS = [
   { value: "all", label: "All" },
   { value: "unread", label: "Unread" },
+  { value: "mine", label: "Assigned to me" },
 ] as const;
 
 export default function DeskPage() {
   const me = useQuery(api.desk.me);
   const escalations = useQuery(api.desk.escalations, {});
+  const assigned = useQuery(api.desk.assigned, {});
   const { signOut } = useSession();
 
-  const [bucket, setBucket] = useState<"all" | "unread">("all");
+  const [bucket, setBucket] = useState<"all" | "unread" | "mine">("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Id<"conversations"> | null>(null);
 
@@ -73,19 +75,22 @@ export default function DeskPage() {
   }
 
   const term = search.trim().toLowerCase();
-  const matching = (escalations ?? []).filter(
-    (row) =>
-      !term ||
-      [row.contactLabel, row.contactExternalId ?? "", row.lastMessagePreview ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-  );
+  const matches = (row: NonNullable<typeof escalations>[number]) =>
+    !term ||
+    [row.contactLabel, row.contactExternalId ?? "", row.lastMessagePreview ?? ""]
+      .join(" ")
+      .toLowerCase()
+      .includes(term);
+  const matching = (escalations ?? []).filter(matches);
+  const mine = (assigned ?? []).filter(matches);
   const counts = {
     all: matching.length,
     unread: matching.filter(isUnread).length,
+    mine: mine.length,
   };
-  const rows = bucket === "unread" ? matching.filter(isUnread) : matching;
+  const rows =
+    bucket === "mine" ? mine : bucket === "unread" ? matching.filter(isUnread) : matching;
+  const source = bucket === "mine" ? assigned : escalations;
 
   // Same split as the inbox: side by side there is always a thread up, but on
   // a phone "nothing picked yet" is what gives the list the whole screen.
@@ -169,7 +174,9 @@ export default function DeskPage() {
                       isActive ? "bg-primary/15" : "bg-muted text-muted-foreground"
                     )}
                   >
-                    {escalations === undefined ? "—" : counts[option.value]}
+                    {(option.value === "mine" ? assigned : escalations) === undefined
+                      ? "—"
+                      : counts[option.value]}
                   </span>
                 </button>
               );
@@ -188,7 +195,7 @@ export default function DeskPage() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {escalations === undefined ? (
+            {source === undefined ? (
               <div className="px-3 pb-3">
                 <ListSkeleton rows={6} />
               </div>
@@ -200,12 +207,18 @@ export default function DeskPage() {
                       <SirenIcon />
                     </EmptyMedia>
                     <EmptyTitle>
-                      {escalations.length === 0 ? "Nothing escalated" : "Nothing matches"}
+                      {source.length > 0
+                        ? "Nothing matches"
+                        : bucket === "mine"
+                          ? "Nothing assigned to you"
+                          : "Nothing escalated"}
                     </EmptyTitle>
                     <EmptyDescription>
-                      {escalations.length === 0
-                        ? "When an agent hands a conversation to a person, it lands here for you to answer."
-                        : "Try a different search term or filter."}
+                      {source.length > 0
+                        ? "Try a different search term or filter."
+                        : bucket === "mine"
+                          ? "Conversations a colleague or a handover rule gives you land here."
+                          : "When an agent hands a conversation to a person, it lands here for you to answer."}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -217,7 +230,7 @@ export default function DeskPage() {
                     key={row._id}
                     row={row}
                     active={row._id === active?._id}
-                    showStatus={false}
+                    showStatus={bucket === "mine"}
                     onSelect={() => setSelected(row._id)}
                   />
                 ))}

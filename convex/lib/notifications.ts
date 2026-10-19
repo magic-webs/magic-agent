@@ -138,6 +138,7 @@ export const NOTIFICATION_EVENTS: EventInfo[] = [
       { path: "department", label: "Department" },
       { path: "summary", label: "Summary" },
       { path: "agent", label: "Agent" },
+      { path: "assignedTo", label: "Assigned to" },
       ...CONTACT,
       ...COMMON,
     ],

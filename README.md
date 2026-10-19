@@ -257,7 +257,7 @@ consequential goes through a tool call:
 | `search_products` | Confirm a product exists before discussing it |
 | `get_product_requirements` | The full spec checklist for one product |
 | `save_contact_detail` | Remember a name / email / company / preference |
-| `escalate_to_human` | Mark the conversation escalated, fire `escalation` |
+| `escalate_to_human` | Mark the conversation escalated, assign it by the handover rules, fire `escalation` |
 | `transfer_to_agent` | Hand the conversation to a colleague agent, silently |
 | `rich_messages` | One switch for eight tools: `send_buttons`, `send_list`, `send_media`, `send_link_button`, `request_location`, `request_address`, `send_location`, `send_contact_card`. They work the same on WhatsApp and the web widget, and fall back to text on Instagram |
 
@@ -532,7 +532,10 @@ visitor who arrives from a campaign link does not have to type them again.
 
 Before chatting, a visitor gives a name and phone number (`widget.register`).
 The channel's **intake** setting decides how: `form` asks on a sign-in page
-first, `chat` asks inside the conversation. Turns go through
+first, `chat` asks inside the conversation. In `chat` mode the questions and
+answers are saved as the thread's first messages, so the visitor keeps seeing
+them and the inbox shows them; the thread stays out of lead review until the
+visitor writes, and their first message still gets the welcome menu. Turns go through
 `engine.respondFromWidget`, which is capped at 2,000 characters a message, and
 replies arrive over the `widget.session` subscription. There is no polling.
 
@@ -549,13 +552,22 @@ an agent handed to a person. A team member can do these things in a thread:
 - **React.** Send a reaction, and see the customer's.
 - **Mark as bot.** A contact who repeats the same message ten times
   (`BOT_REPEAT_LIMIT`) is marked automatically.
+- **Assign.** `conversations.assign` gives the thread to a team member, or
+  takes it off them, with a note in the thread and a push. Any member can hand
+  a thread to another. The inbox filters by assignee.
+
+**Handover rules** (`convex/handover.ts`, on the Team page) decide who an
+escalation goes to. When an agent calls `escalate_to_human`, the first enabled
+rule that matches the agent and department assigns the thread. Several members
+on one rule take turns, and away members are skipped. A rule can also pause the
+agent so the person takes over.
 
 Contacts can opt out: STOP and START (Hindi included) set `optedOutAt`
 (`convex/lib/optOut.ts`).
 
 A **member**, a human agent with their own login, also gets **`/desk`**. It is
-the escalations view on its own: only the threads an agent handed to a person,
-with **Resolve** handing the thread back to the AI. Members are issued from the
+the escalations view on its own: the threads an agent handed to a person, and
+the ones assigned to them, with **Resolve** handing the thread back to the AI. Members are issued from the
 workspace's Team page (`convex/team.ts`), and each one takes a human-agent seat
 on the plan.
 

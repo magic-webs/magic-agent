@@ -14,6 +14,7 @@ import { useHourBucket } from "@/components/use-now";
 import { AgentPortrait } from "@/components/agent-avatar";
 import { TeamAvatar } from "@/components/team-avatar";
 import { SelectField } from "@/components/select-field";
+import { HandoverRules } from "@/components/handover-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1250,6 +1251,8 @@ export default function TeamPage() {
           />
         </Rail>
       )}
+
+      {loading || empty ? null : <HandoverRules workspaceId={workspace._id} />}
     </div>
   );
 }

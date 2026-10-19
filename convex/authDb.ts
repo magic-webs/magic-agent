@@ -193,6 +193,7 @@ export const me = query({
     if (principal.role === "member") {
       return {
         role: "member" as const,
+        memberId: principal.memberId,
         label: principal.label,
         email: undefined,
         workspaceSlug: workspace?.slug ?? null,

@@ -28,7 +28,8 @@ import { resolveGreeting } from "./lib/prompt";
 import { welcomeOutbound } from "./lib/welcomeMenu";
 import { liveWelcomeMenu } from "./welcomeMenu";
 import { logoSrcFor } from "./lib/branding";
-import { refreshContactSearch } from "./lib/inbox";
+import { insertConversation, refreshContactSearch } from "./lib/inbox";
+import { INTAKE_ASK_NAME, intakeAskPhone } from "./lib/widgetIntake";
 
 const MAX_SESSION_ID_CHARS = 64;
 const MAX_FIELD_CHARS = 120;
@@ -117,6 +118,8 @@ export const session = query({
       return {
         registered: false,
         messages: [],
+        intake: false,
+        awaitingFirstMessage: true,
         agentBotName: null,
         agentRole: null,
       };
@@ -132,6 +135,8 @@ export const session = query({
       return {
         registered: false,
         messages: [],
+        intake: false,
+        awaitingFirstMessage: true,
         agentBotName: null,
         agentRole: null,
       };
@@ -149,6 +154,8 @@ export const session = query({
         registered: true,
         contactName: contact.name ?? null,
         messages: [],
+        intake: false,
+        awaitingFirstMessage: true,
         agentBotName: null,
         agentRole: null,
       };
@@ -198,6 +205,9 @@ const visible = rows.filter(
       contactName: contact.name ?? null,
       agentBotName: botNames.get(holderId) ?? null,
       agentRole: roles.get(holderId) ?? null,
+      intake: conversation.intakeAt !== undefined,
+      awaitingFirstMessage:
+        conversation.intakeAt !== undefined && conversation.marketingOnly === true,
       messages: visible.map((row) => ({
         id: row._id as string,
         role: row.role as "user" | "assistant",
@@ -227,6 +237,8 @@ export const register = mutation({
     sessionId: v.string(),
     name: v.optional(v.string()),
     phone: v.optional(v.string()),
+    openedAt: v.optional(v.number()),
+    nameAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const channel = await channelByKey(ctx, args.channelKey);
@@ -271,9 +283,84 @@ export const register = mutation({
       lastSeenAt: now,
       createdAt: now,
     });
+    if (channel.intake === "chat" && name && phone) {
+      await recordIntake(ctx, channel, contactId, {
+        name,
+        phone,
+        openedAt: args.openedAt,
+        nameAt: args.nameAt,
+        now,
+      });
+    }
     return { contactId };
   },
 });
+
+const MAX_INTAKE_AGE_MS = 6 * 60 * 60 * 1000;
+
+// The in-chat questions and answers become the thread's first messages, so the
+// visitor keeps seeing them and the inbox shows how the details were given.
+async function recordIntake(
+  ctx: MutationCtx,
+  channel: Doc<"channels">,
+  contactId: Id<"contacts">,
+  intake: {
+    name: string;
+    phone: string;
+    openedAt?: number;
+    nameAt?: number;
+    now: number;
+  }
+) {
+  const agent = await ctx.db.get("agents", channel.agentId);
+  const workspace = await ctx.db.get("workspaces", channel.workspaceId);
+  if (!agent || !workspace) return;
+
+  const { now } = intake;
+  const clamp = (at: number | undefined, floor: number) =>
+    at === undefined ? floor : Math.min(now, Math.max(floor, at));
+  const openedAt = clamp(intake.openedAt, now - MAX_INTAKE_AGE_MS);
+  const nameAt = clamp(intake.nameAt, openedAt);
+
+  const transcript: Array<{ role: "user" | "assistant"; text: string; at: number }> = [
+    { role: "assistant", text: resolveGreeting(agent, workspace.name), at: openedAt },
+    { role: "assistant", text: INTAKE_ASK_NAME, at: openedAt },
+    { role: "user", text: intake.name, at: nameAt },
+    { role: "assistant", text: intakeAskPhone(intake.name), at: nameAt },
+    { role: "user", text: intake.phone, at: now },
+  ];
+
+  const conversationId = await insertConversation(ctx, {
+    workspaceId: channel.workspaceId,
+    agentId: channel.agentId,
+    activeAgentId: channel.agentId,
+    handoffCount: 0,
+    contactId,
+    channelId: channel._id,
+    channelType: "web",
+    status: "open",
+    messageCount: transcript.length,
+    lastMessageAt: now,
+    lastMessagePreview: intake.phone,
+    lastMessageRole: "user",
+    lastMessageFrom: "customer",
+    unreadCount: 1,
+    marketingOnly: true,
+    intakeAt: now,
+    createdAt: now,
+  });
+  for (const line of transcript) {
+    await ctx.db.insert("messages", {
+      workspaceId: channel.workspaceId,
+      conversationId,
+      role: line.role,
+      kind: "text",
+      text: line.text,
+      ...(line.role === "assistant" ? { agentId: channel.agentId } : {}),
+      createdAt: line.at,
+    });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Internal — used by engine.respondFromWidget, which is a Node action and so

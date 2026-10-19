@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { kvPair, storedWorkspaceStage } from "./validators";
+import { escalationDepartment, kvPair, storedWorkspaceStage } from "./validators";
 
 export const welcomeMenuShape = v.object({
   enabled: v.boolean(),
@@ -67,6 +67,23 @@ export const workspacesTables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),
+
+  // Who an escalated thread goes to. The first enabled rule that matches the
+  // escalating agent and department wins; several members take turns.
+  handoverRules: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    agentId: v.optional(v.id("agents")),
+    department: v.optional(escalationDepartment),
+    memberIds: v.array(v.id("teamMembers")),
+    nextIndex: v.optional(v.number()),
+    pauseAgent: v.boolean(),
+    pauseMinutes: v.optional(v.number()),
+    enabled: v.boolean(),
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_workspace_and_order", ["workspaceId", "order"]),
 
   activityLogs: defineTable({
     workspaceId: v.id("workspaces"),

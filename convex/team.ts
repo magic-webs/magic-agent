@@ -260,6 +260,33 @@ export const remove = mutation({
     // session it had open.
     await removeMemberLogin(ctx, args.memberId);
 
+    const assigned = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace_assignedMemberId_lastMessageAt", (q) =>
+        q.eq("workspaceId", member.workspaceId).eq("assignedMemberId", args.memberId)
+      )
+      .take(500);
+    for (const conversation of assigned) {
+      await ctx.db.patch(conversation._id, {
+        assignedMemberId: undefined,
+        assignedAt: undefined,
+        assignedByMemberId: undefined,
+      });
+    }
+    const rules = await ctx.db
+      .query("handoverRules")
+      .withIndex("by_workspace_and_order", (q) => q.eq("workspaceId", member.workspaceId))
+      .take(50);
+    for (const rule of rules) {
+      if (!rule.memberIds.includes(args.memberId)) continue;
+      const memberIds = rule.memberIds.filter((id) => id !== args.memberId);
+      await ctx.db.patch(rule._id, {
+        memberIds,
+        nextIndex: 0,
+        ...(memberIds.length === 0 ? { enabled: false } : {}),
+      });
+    }
+
     // The messages they sent are left alone, pointing at an id that no longer
     // resolves. Deleting a colleague must not rewrite the transcript of what
     // the customer was actually told; the reader falls back to "your team".

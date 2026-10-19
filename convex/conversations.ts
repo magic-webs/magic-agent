@@ -11,7 +11,7 @@ import {
 import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { channelType, kvPair } from "./schema";
+import { channelType, escalationDepartment, kvPair } from "./schema";
 import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
@@ -49,6 +49,9 @@ import {
   threadAccess,
 } from "./lib/auth";
 import { friendlySendError } from "./lib/sendErrors";
+import { assignConversation } from "./lib/assignment";
+import { pickHandover } from "./handover";
+import { memberInWorkspace } from "./team";
 
 // ---------------------------------------------------------------------------
 // Dashboard reads
@@ -124,6 +127,7 @@ export const inboxArgs = {
   agentId: v.optional(v.id("agents")),
   stageId: v.optional(v.id("leadStages")),
   handling: v.optional(v.union(v.literal("team"), v.literal("agent"))),
+  assignee: v.optional(v.union(v.literal("unassigned"), v.id("teamMembers"))),
   bots: v.optional(v.union(v.literal("hide"), v.literal("only"))),
   since: v.optional(v.number()),
   search: v.optional(v.string()),
@@ -205,6 +209,11 @@ export async function inboxPage(
       if (args.stageId) all.push(q.eq(q.field("leadStageId"), args.stageId));
       if (args.handling === "team") all.push(q.eq(q.field("humanHandling"), true));
       if (args.handling === "agent") all.push(q.neq(q.field("humanHandling"), true));
+      if (args.assignee === "unassigned") {
+        all.push(q.eq(q.field("assignedMemberId"), undefined));
+      } else if (args.assignee) {
+        all.push(q.eq(q.field("assignedMemberId"), args.assignee));
+      }
       if (args.bots === "hide") all.push(q.neq(q.field("markedBot"), true));
       if (args.bots === "only") all.push(q.eq(q.field("markedBot"), true));
       return all.length > 0 ? q.and(...all) : true;
@@ -277,6 +286,16 @@ export async function inboxRows(
     return channelNames.get(channelId)!;
   };
 
+  const memberNames = new Map<Id<"teamMembers">, string | null>();
+  const memberOf = async (memberId: Id<"teamMembers"> | undefined) => {
+    if (!memberId) return null;
+    if (!memberNames.has(memberId)) {
+      const member = await ctx.db.get("teamMembers", memberId);
+      memberNames.set(memberId, member?.workspaceId === workspaceId ? member.name : null);
+    }
+    return memberNames.get(memberId)!;
+  };
+
   const out = [];
   for (const stored of rows) {
     const row = { ...stored, searchText: undefined };
@@ -292,6 +311,7 @@ export async function inboxRows(
       activeAgentName,
       handedOff: holderId !== row.agentId,
       channelName: await channelOf(row.channelId),
+      assigneeName: await memberOf(row.assignedMemberId),
       contactLabel:
         contact?.name ?? contact?.phone ?? contact?.externalId ?? "Unknown",
       contactExternalId: contact?.externalId,
@@ -478,11 +498,19 @@ export const getWithContact = query({
           }
         : null;
 
+    const assignee = conversation.assignedMemberId
+      ? await memberInWorkspace(ctx, conversation.workspaceId, conversation.assignedMemberId)
+      : null;
+    const assignedBy = conversation.assignedByMemberId
+      ? await memberInWorkspace(ctx, conversation.workspaceId, conversation.assignedByMemberId)
+      : null;
+
     return {
       conversation,
       contact,
       agent,
       channel,
+      assignee: assignee ? { name: assignee.name, by: assignedBy?.name ?? null } : null,
       lastInboundAt,
       freeFormWindowClosed,
     };
@@ -1182,7 +1210,12 @@ export const startTurn = internalMutation({
         q.eq("contactId", contact!._id).eq("agentId", args.agentId)
       )
       .unique();
-    let lastActivityAt = conversation?.lastMessageAt ?? 0;
+    // The widget's sign-up questions are not a conversation yet, so the first
+    // real message still counts as a fresh start.
+    let lastActivityAt =
+      conversation && !(conversation.intakeAt && conversation.marketingOnly)
+        ? conversation.lastMessageAt
+        : 0;
 
     if (!conversation) {
       // Somebody writing in for the first time may be answering a greeting or
@@ -1735,10 +1768,68 @@ export const recordCustomerEvent = internalMutation({
 });
 
 export const markEscalated = internalMutation({
-  args: { conversationId: v.id("conversations") },
+  args: {
+    conversationId: v.id("conversations"),
+    agentId: v.optional(v.id("agents")),
+    department: v.optional(escalationDepartment),
+  },
+  handler: async (ctx, args): Promise<{ assignedTo: string | null }> => {
+    let conversation = await ctx.db.get("conversations", args.conversationId);
+    if (!conversation) return { assignedTo: null };
+    conversation = await patchConversation(ctx, conversation, {
+      status: "escalated",
+      escalationDepartment: args.department,
+    });
+
+    const current = conversation.assignedMemberId
+      ? await ctx.db.get("teamMembers", conversation.assignedMemberId)
+      : null;
+    if (current && current.status !== "inactive") return { assignedTo: current.name };
+
+    const picked = await pickHandover(ctx, conversation, args.agentId, args.department);
+    if (!picked) return { assignedTo: null };
+    conversation = await assignConversation(ctx, conversation, picked.member, {
+      label: `the handover rule "${picked.rule.name}"`,
+    });
+    if (picked.rule.pauseAgent) {
+      const now = Date.now();
+      await patchConversation(ctx, conversation, {
+        humanHandling: true,
+        humanHandlingAt: now,
+        humanHandlingUntil: now + clampPause(picked.rule.pauseMinutes) * 60_000,
+      });
+    }
+    return { assignedTo: picked.member.name };
+  },
+});
+
+/** Hands the thread to a team member, or takes it off whoever has it. */
+export const assign = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    memberId: v.union(v.id("teamMembers"), v.null()),
+  },
   handler: async (ctx, args) => {
-    const conversation = await ctx.db.get("conversations", args.conversationId);
-    if (conversation) await patchConversation(ctx, conversation, { status: "escalated" });
+    const access = await threadAccess(ctx, args.conversationId);
+    if (!access) throw new AuthError(OFF_THE_DESK);
+    const { conversation, principal } = access;
+
+    const member = args.memberId
+      ? await memberInWorkspace(ctx, conversation.workspaceId, args.memberId)
+      : null;
+    if (args.memberId && (!member || member.status === "inactive")) {
+      throw new ConvexError("That team member cannot take conversations.");
+    }
+
+    const byMember =
+      principal.role === "member"
+        ? await ctx.db.get("teamMembers", principal.memberId)
+        : null;
+    await assignConversation(ctx, conversation, member, {
+      label: byMember?.name ?? principal.label,
+      memberId: byMember?._id,
+    });
+    return { success: true };
   },
 });
 

@@ -71,6 +71,7 @@ import {
   splitDialCode,
 } from "@/lib/dial-codes";
 import { friendlyError } from "@/lib/errors";
+import { INTAKE_ASK_NAME, intakeAskPhone } from "@/convex/lib/widgetIntake";
 
 // One browser == one contact, so a returning visitor keeps their conversation.
 // localStorage is an external store rather than React state, so it is read
@@ -575,6 +576,8 @@ export default function WidgetPage({
         greeting={widget.agent.greeting}
         welcome={widget.welcome}
         messages={session.messages}
+        intake={session.intake}
+        awaitingFirstMessage={session.awaitingFirstMessage}
         onTyping={setTyping}
       />
     </WidgetShell>
@@ -777,7 +780,6 @@ function ChatIntake({
 
   const iso = state.iso ?? defaultIso ?? guessed;
   const askingPhone = state.nameAt !== null;
-  const firstName = state.name.split(/\s+/)[0];
 
   const submitName = () => {
     const name = state.draft.trim().slice(0, 120);
@@ -792,7 +794,14 @@ function ChatIntake({
     setState((prev) => ({ ...prev, sent: { phone, at: Date.now() } }));
     setSubmitting(true);
     try {
-      await register({ channelKey, sessionId, name: state.name, phone });
+      await register({
+        channelKey,
+        sessionId,
+        name: state.name,
+        phone,
+        openedAt,
+        nameAt: state.nameAt ?? undefined,
+      });
     } catch (error) {
       setState((prev) => ({ ...prev, sent: null }));
       toast.add({
@@ -846,7 +855,7 @@ function ChatIntake({
                 <DayChip label={dayLabel(openedAt, openedAt)} />
               </MessageScrollerItem>
               {bot("greeting", greeting, openedAt)}
-              {bot("ask-name", "Before we start, what's your name?", openedAt)}
+              {bot("ask-name", INTAKE_ASK_NAME, openedAt)}
               {state.nameAt !== null
                 ? mine(
                     "name",
@@ -870,11 +879,7 @@ function ChatIntake({
                   )
                 : null}
               {state.nameAt !== null
-                ? bot(
-                    "ask-phone",
-                    `Thanks, ${firstName}! What number can we reach you on?`,
-                    state.nameAt
-                  )
+                ? bot("ask-phone", intakeAskPhone(state.name), state.nameAt)
                 : null}
               {state.sent ? mine("phone", state.sent.phone, state.sent.at) : null}
               {submitting ? (
@@ -970,6 +975,7 @@ type Quote = { author: string; body: string };
 
 type Row =
   | { type: "greeting"; key: string; at: number }
+  | { type: "welcome"; key: string; at: number }
   | {
       type: "message";
       key: string;
@@ -1174,6 +1180,8 @@ function WidgetChat({
   greeting,
   welcome,
   messages,
+  intake,
+  awaitingFirstMessage,
   onTyping,
 }: {
   channelKey: string;
@@ -1182,6 +1190,9 @@ function WidgetChat({
   greeting: string;
   welcome: Outbound | null;
   messages: WidgetMessage[];
+  /** The thread opens with the stored sign-up questions, greeting included. */
+  intake: boolean;
+  awaitingFirstMessage: boolean;
   onTyping: (typing: boolean) => void;
 }) {
   const respond = useAction(api.engine.respondFromWidget);
@@ -1239,9 +1250,9 @@ function WidgetChat({
   const pending = unconfirmed(messages, outbox);
   const typing = outbox.some((item) => item.status === "sending");
 
-  const rows: Row[] = [
-    { type: "greeting", key: "greeting", at: messages[0]?.createdAt ?? openedAt },
-  ];
+  const rows: Row[] = intake
+    ? []
+    : [{ type: "greeting", key: "greeting", at: messages[0]?.createdAt ?? openedAt }];
   const lastAssistant = messages.findLastIndex((m) => m.role === "assistant");
   let prompt: { rich: Outbound | null; author: string } = { rich: null, author: title };
   const quoteFor = (text: string): Quote | null => {
@@ -1262,6 +1273,9 @@ function WidgetChat({
     });
     if (assistant) prompt = { rich, author: message.botName ?? title };
   });
+  if (intake && awaitingFirstMessage && welcome) {
+    rows.push({ type: "welcome", key: "welcome", at: messages.at(-1)?.createdAt ?? openedAt });
+  }
   for (const item of pending) {
     rows.push({ type: "outgoing", key: item.key, at: item.at, item, quote: quoteFor(item.text) });
   }
@@ -1291,6 +1305,17 @@ function WidgetChat({
                       mine={false}
                       text={greeting}
                       rich={messages.length === 0 ? welcome : null}
+                      quote={null}
+                      meta={{ time: clockTime(row.at) }}
+                      onPick={send}
+                    />
+                  );
+                } else if (row.type === "welcome") {
+                  body = (
+                    <ChatBubble
+                      mine={false}
+                      text=""
+                      rich={welcome}
                       quote={null}
                       meta={{ time: clockTime(row.at) }}
                       onPick={send}

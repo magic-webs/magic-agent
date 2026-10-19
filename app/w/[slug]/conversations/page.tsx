@@ -105,6 +105,7 @@ function activitySince(activity: string, now: number): number | undefined {
 export default function ConversationsPage() {
   const workspace = useWorkspace();
   const { me } = useSession();
+  const myMemberId = me?.role === "member" ? me.memberId : undefined;
   const agents = useQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
@@ -123,6 +124,7 @@ export default function ConversationsPage() {
   const pathname = usePathname();
 
   const stages = useQuery(api.leads.stageNames, { workspaceId: workspace._id });
+  const team = useQuery(api.team.activeForReply, { workspaceId: workspace._id });
   const channels = useQuery(api.channels.inboxChannels, {
     workspaceId: workspace._id,
   });
@@ -136,6 +138,7 @@ export default function ConversationsPage() {
   const [pickedStatus, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [handlingFilter, setHandlingFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
   const [activityFilter, setActivityFilter] = useState("any");
   const [botsFilter, setBotsFilter] = useState("all");
@@ -192,6 +195,12 @@ export default function ConversationsPage() {
           : handlingFilter === "agent"
             ? "agent"
             : undefined,
+      assignee:
+        assigneeFilter === "all"
+          ? undefined
+          : assigneeFilter === "me"
+            ? myMemberId
+            : (assigneeFilter as "unassigned" | Id<"teamMembers">),
       bots: botsFilter === "all" ? undefined : (botsFilter as "hide" | "only"),
       since: activitySince(activityFilter, now),
       search: term || undefined,
@@ -203,6 +212,7 @@ export default function ConversationsPage() {
   const narrowed =
     channelFilter !== "all" ||
     handlingFilter !== "all" ||
+    assigneeFilter !== "all" ||
     stageFilter !== "all" ||
     activityFilter !== "any" ||
     botsFilter !== "all";
@@ -471,6 +481,25 @@ export default function ConversationsPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="conv-assignee" className="text-xs">
+                    Assigned to
+                  </Label>
+                  <SelectField
+                    id="conv-assignee"
+                    size="sm"
+                    value={assigneeFilter}
+                    onValueChange={setAssigneeFilter}
+                    options={[
+                      { value: "all", label: "Anyone" },
+                      ...(myMemberId ? [{ value: "me", label: "Me" }] : []),
+                      { value: "unassigned", label: "Nobody" },
+                      ...(team ?? [])
+                        .filter((member) => member._id !== myMemberId)
+                        .map((member) => ({ value: member._id as string, label: member.name })),
+                    ]}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
                   <Label htmlFor="conv-stage" className="text-xs">
                     Lead stage
                   </Label>
@@ -524,6 +553,7 @@ export default function ConversationsPage() {
                     onClick={() => {
                       setChannelFilter("all");
                       setHandlingFilter("all");
+                      setAssigneeFilter("all");
                       setStageFilter("all");
                       setActivityFilter("any");
                       setBotsFilter("all");

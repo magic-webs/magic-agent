@@ -142,3 +142,11 @@ export async function findCustomTool(workspaceId, wanted) {
   }
   return pickByName(tools, wanted, "custom tool", ["name", "displayName"]);
 }
+
+export async function findMember(workspaceId, wanted) {
+  const members = await call.query(api.team.activeForReply, { workspaceId });
+  if (members.some((member) => member._id === wanted)) {
+    return members.find((member) => member._id === wanted);
+  }
+  return pickByName(members, wanted, "team member", ["name", "role"]);
+}

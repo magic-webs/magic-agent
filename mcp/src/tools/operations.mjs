@@ -45,6 +45,7 @@ export function register(server) {
             arrivedAt: row.agentName,
             heldBy: row.activeAgentName,
             handedOff: row.handedOff,
+            assignedTo: row.assigneeName ?? null,
             status: statusName(row.status),
             messages: row.messageCount,
             lastMessageAt: new Date(row.lastMessageAt).toISOString(),
@@ -87,6 +88,7 @@ export function register(server) {
           remark: detail.contact?.remark ?? null,
         },
         arrivedAt: detail.agent?.botName ?? null,
+        assignedTo: detail.assignee?.name ?? null,
         status: statusName(detail.conversation.status),
         transcript: messages
           .filter((message) => withTools || message.kind === "text")

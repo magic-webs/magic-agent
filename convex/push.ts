@@ -96,6 +96,19 @@ function present(event: string, data: unknown): Presentation {
     };
   }
 
+  if (event === "conversation_assigned") {
+    const contact = (row.contact as { name?: string } | undefined)?.name;
+    return {
+      title: `Assigned to ${text("member") ?? "a teammate"}`,
+      body: [contact, text("by") ? `by ${text("by")}` : undefined]
+        .filter(Boolean)
+        .join(" · ") || "A conversation was assigned.",
+      channelId: CHANNELS.escalations,
+      sound: "escalation.wav",
+      priority: "high",
+    };
+  }
+
   if (event.startsWith("record_")) {
     const book = (row.book as { name?: string } | undefined)?.name;
     const record = (row.record ?? {}) as Record<string, unknown>;

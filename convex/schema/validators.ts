@@ -134,6 +134,13 @@ export const storedWorkspaceStage = v.union(
 
 export const widgetIntake = v.union(v.literal("chat"), v.literal("form"));
 
+export const escalationDepartment = v.union(
+  v.literal("sales"),
+  v.literal("support"),
+  v.literal("accounts"),
+  v.literal("other")
+);
+
 export const channelType = v.union(
   v.literal("whatsapp"),
   v.literal("web"),

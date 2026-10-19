@@ -1,6 +1,12 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { channelType, deliveryStatus, kvPair, widgetIntake } from "./validators";
+import {
+  channelType,
+  deliveryStatus,
+  escalationDepartment,
+  kvPair,
+  widgetIntake,
+} from "./validators";
 
 export const conversationsTables = {
   channels: defineTable({
@@ -156,6 +162,11 @@ export const conversationsTables = {
     followUpCount: v.optional(v.number()),
     lastFollowUpAt: v.optional(v.number()),
     marketingOnly: v.optional(v.boolean()),
+    intakeAt: v.optional(v.number()),
+    assignedMemberId: v.optional(v.id("teamMembers")),
+    assignedAt: v.optional(v.number()),
+    assignedByMemberId: v.optional(v.id("teamMembers")),
+    escalationDepartment: v.optional(escalationDepartment),
     importedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
@@ -171,6 +182,11 @@ export const conversationsTables = {
     .index("by_humanHandlingAt", ["humanHandlingAt"])
     .index("by_humanHandlingUntil", ["humanHandlingUntil"])
     .index("by_marketingOnly_and_lastMessageAt", ["marketingOnly", "lastMessageAt"])
+    .index("by_workspace_assignedMemberId_lastMessageAt", [
+      "workspaceId",
+      "assignedMemberId",
+      "lastMessageAt",
+    ])
     .searchIndex("search_inbox", {
       searchField: "searchText",
       filterFields: ["workspaceId", "status", "channelType", "channelId"],

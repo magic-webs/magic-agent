@@ -420,9 +420,14 @@ function buildBuiltinTools(
           .describe("A short handover summary of the conversation so far"),
       }),
       execute: traced(trace, "escalate_to_human", async (input) => {
-        await ctx.runMutation(internal.conversations.markEscalated, {
-          conversationId: turn.conversationId,
-        });
+        const { assignedTo } = await ctx.runMutation(
+          internal.conversations.markEscalated,
+          {
+            conversationId: turn.conversationId,
+            agentId: agent._id,
+            department: input.department,
+          }
+        );
         await ctx.runAction(internal.webhooks.deliver, {
           workspaceId: workspace._id,
           event: "escalation",
@@ -431,14 +436,16 @@ function buildBuiltinTools(
             department: input.department,
             summary: input.summary,
             agent: agent.botName,
+            assignedTo,
             conversationId: turn.conversationId,
             contact: turn.contact,
           },
         });
         return {
           ok: true,
-          message:
-            "The team has been notified. Tell the customer a colleague will be in touch, and do not promise a specific time.",
+          message: assignedTo
+            ? `${assignedTo} from the team has been assigned. Tell the customer ${assignedTo} will be in touch, and do not promise a specific time.`
+            : "The team has been notified. Tell the customer a colleague will be in touch, and do not promise a specific time.",
         };
       }),
     });

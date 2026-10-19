@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
 import { TranscriptView, type TranscriptAgent } from "@/components/transcript";
 import { ManualReply } from "@/components/manual-reply";
+import { AssignMenu } from "@/components/assign-menu";
 import { ContactAvatar } from "@/components/contact-avatar";
 import { DeliveryTicks } from "@/components/delivery-ticks";
 import { WindowClock } from "@/components/window-clock";
@@ -279,6 +280,7 @@ export function ConversationRow({
           {row.handedOff
             ? `${row.agentName} → ${row.activeAgentName}`
             : row.agentName}
+          {row.assigneeName ? ` · ${row.assigneeName}` : null}
         </span>
       </span>
     </button>
@@ -484,6 +486,7 @@ export function ConversationDetail({
       label={label}
       arrivedAt={agent?.botName ?? "— deleted —"}
       holderName={holderName}
+      assignee={detail.assignee}
       lastInboundAt={detail.lastInboundAt}
       editable={!onDesk}
       onResume={() => void resume()}
@@ -595,6 +598,11 @@ export function ConversationDetail({
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            <AssignMenu
+              conversationId={conversationId}
+              workspaceId={workspaceId}
+              assignedMemberId={conversation.assignedMemberId}
+            />
             {onDesk && conversation.status === "escalated" ? (
               // Icon-only on a phone, where the label would squeeze the
               // contact's name out of the header.
@@ -941,6 +949,7 @@ function ThreadDetails({
   label,
   arrivedAt,
   holderName,
+  assignee,
   lastInboundAt,
   editable,
   onResume,
@@ -952,6 +961,7 @@ function ThreadDetails({
   label: string;
   arrivedAt: string;
   holderName: string;
+  assignee: Detail["assignee"];
   lastInboundAt: number | null;
   /** Off on the desk, which may read the notes but not change them. */
   editable: boolean;
@@ -1125,6 +1135,23 @@ function ThreadDetails({
           <Fact term="Messages">{conversation.messageCount}</Fact>
           <Fact term="Arrived at">{arrivedAt}</Fact>
           <Fact term="Held by">{holderName}</Fact>
+          <Fact term="Assigned to">
+            {assignee ? (
+              <span>
+                {assignee.name}
+                {assignee.by ? (
+                  <span className="text-muted-foreground"> · by {assignee.by}</span>
+                ) : null}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Nobody</span>
+            )}
+          </Fact>
+          {conversation.escalationDepartment ? (
+            <Fact term="Department">
+              <span className="capitalize">{conversation.escalationDepartment}</span>
+            </Fact>
+          ) : null}
           {conversation.handoffCount ? (
             <Fact term="Handovers">
               <span className="flex items-center gap-1">

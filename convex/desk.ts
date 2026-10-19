@@ -70,3 +70,19 @@ export const escalations = query({
     return await inboxRows(ctx, principal.workspaceId, rows);
   },
 });
+
+/** The threads assigned to whoever is signed in, open or not, newest first. */
+export const assigned = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const principal = await requireMember(ctx);
+    const rows = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace_assignedMemberId_lastMessageAt", (q) =>
+        q.eq("workspaceId", principal.workspaceId).eq("assignedMemberId", principal.memberId)
+      )
+      .order("desc")
+      .take(Math.min(args.limit ?? 200, 200));
+    return await inboxRows(ctx, principal.workspaceId, rows);
+  },
+});

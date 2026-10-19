@@ -302,10 +302,14 @@ function ChannelDialog({
   channelId,
   initial,
   trigger,
+  open: openProp,
+  onOpenChange,
 }: {
   channelId?: Id<"channels">;
   initial?: ChannelForm;
-  trigger: React.ReactElement;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
   const agents = useQuery(api.agents.listByWorkspace, {
@@ -314,7 +318,9 @@ function ChannelDialog({
   const createChannel = useMutation(api.channels.create);
   const updateChannel = useMutation(api.channels.update);
 
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChange ?? setOpenState;
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<ChannelForm>(initial ?? emptyForm);
 
@@ -391,7 +397,7 @@ function ChannelDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+      {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
@@ -566,10 +572,14 @@ function WebChannelDialog({
   channelId,
   initial,
   trigger,
+  open: openProp,
+  onOpenChange,
 }: {
   channelId?: Id<"channels">;
   initial?: WebChannelForm;
-  trigger: React.ReactElement;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
   const agents = useQuery(api.agents.listByWorkspace, {
@@ -578,7 +588,9 @@ function WebChannelDialog({
   const createChannel = useMutation(api.channels.create);
   const updateChannel = useMutation(api.channels.update);
 
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChange ?? setOpenState;
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<WebChannelForm>(initial ?? emptyWebForm);
 
@@ -640,7 +652,7 @@ function WebChannelDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+      {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -761,10 +773,14 @@ function InstagramDialog({
   channelId,
   initial,
   trigger,
+  open: openProp,
+  onOpenChange,
 }: {
   channelId?: Id<"channels">;
   initial?: InstagramChannelForm;
-  trigger: React.ReactElement;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
   const agents = useQuery(api.agents.listByWorkspace, {
@@ -773,7 +789,9 @@ function InstagramDialog({
   const updateChannel = useMutation(api.channels.update);
   const { connect, busy: connecting } = useInstagramConnect();
 
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChange ?? setOpenState;
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<InstagramChannelForm>(
     initial ?? { name: "Instagram", agentId: "" }
@@ -815,7 +833,7 @@ function InstagramDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+      {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -908,23 +926,21 @@ function ConnectInstagramButton() {
  * vertical space per channel. Behind one trigger they are still two clicks and
  * the card gets its header back.
  *
- * Both confirmations are rendered as siblings of the menu, not inside it, and
- * the edit dialog's trigger is a `closeOnClick={false}` item — the same shape
- * the team page uses. A dialog mounted inside `DropdownMenuContent` is
- * unmounted by the menu closing on the very click that was meant to open it,
- * so it never appears.
+ * The edit dialog and both confirmations are rendered as siblings of the menu,
+ * not inside it. A dialog mounted inside `DropdownMenuContent` is unmounted
+ * as soon as the menu closes, which the first click inside the dialog does.
  */
 function ChannelMenu({
   isWeb,
   isInstagram,
-  edit,
+  onEdit,
   onRotate,
   onReconnect,
   onDelete,
 }: {
   isWeb: boolean;
   isInstagram: boolean;
-  edit: React.ReactNode;
+  onEdit: () => void;
   onRotate: () => Promise<void>;
   onReconnect: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -943,7 +959,7 @@ function ChannelMenu({
           }
         />
         <DropdownMenuContent align="end" className="w-56">
-          {edit}
+          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
           {isInstagram ? (
             <DropdownMenuItem onClick={() => void onReconnect()}>
               Reconnect Instagram
@@ -1126,6 +1142,7 @@ function ChannelControls({
   const removeChannel = useMutation(api.channels.remove);
   const { connect } = useInstagramConnect();
   const { isWeb, isInstagram, live } = links;
+  const [editing, setEditing] = useState(false);
 
   return (
     <>
@@ -1174,59 +1191,52 @@ function ChannelControls({
           await removeChannel({ channelId: channel._id });
           toast.add({ title: "Channel deleted", type: "success" });
         }}
-        edit={
-          isInstagram ? (
-            <InstagramDialog
-              channelId={channel._id}
-              initial={{ name: channel.name, agentId: channel.agentId }}
-              trigger={
-                <DropdownMenuItem closeOnClick={false}>
-                  Edit
-                </DropdownMenuItem>
-              }
-            />
-          ) : isWeb ? (
-            <WebChannelDialog
-              channelId={channel._id}
-              initial={{
-                name: channel.name,
-                agentId: channel.agentId,
-                intake: channel.intake ?? "form",
-              }}
-              trigger={
-                <DropdownMenuItem closeOnClick={false}>
-                  Edit
-                </DropdownMenuItem>
-              }
-            />
-          ) : (
-            <ChannelDialog
-              channelId={channel._id}
-              initial={{
-                name: channel.name,
-                agentId: channel.agentId,
-                apiBaseUrl:
-                  channel.whatsapp?.apiBaseUrl ??
-                  "https://graph.facebook.com",
-                apiVersion:
-                  channel.whatsapp?.apiVersion ?? "v23.0",
-                phoneNumberId:
-                  channel.whatsapp?.phoneNumberId ?? "",
-                wabaId: channel.whatsapp?.wabaId ?? "",
-                businessId: channel.whatsapp?.businessId ?? "",
-                displayPhoneNumber:
-                  channel.whatsapp?.displayPhoneNumber ?? "",
-                accessToken: "",
-              }}
-              trigger={
-                <DropdownMenuItem closeOnClick={false}>
-                  Edit
-                </DropdownMenuItem>
-              }
-            />
-          )
-        }
+        onEdit={() => setEditing(true)}
       />
+
+      {editing ? (
+        isInstagram ? (
+          <InstagramDialog
+            channelId={channel._id}
+            initial={{ name: channel.name, agentId: channel.agentId }}
+            open
+            onOpenChange={setEditing}
+          />
+        ) : isWeb ? (
+          <WebChannelDialog
+            channelId={channel._id}
+            initial={{
+              name: channel.name,
+              agentId: channel.agentId,
+              intake: channel.intake ?? "form",
+            }}
+            open
+            onOpenChange={setEditing}
+          />
+        ) : (
+          <ChannelDialog
+            channelId={channel._id}
+            initial={{
+              name: channel.name,
+              agentId: channel.agentId,
+              apiBaseUrl:
+                channel.whatsapp?.apiBaseUrl ??
+                "https://graph.facebook.com",
+              apiVersion:
+                channel.whatsapp?.apiVersion ?? "v23.0",
+              phoneNumberId:
+                channel.whatsapp?.phoneNumberId ?? "",
+              wabaId: channel.whatsapp?.wabaId ?? "",
+              businessId: channel.whatsapp?.businessId ?? "",
+              displayPhoneNumber:
+                channel.whatsapp?.displayPhoneNumber ?? "",
+              accessToken: "",
+            }}
+            open
+            onOpenChange={setEditing}
+          />
+        )
+      ) : null}
     </>
   );
 }

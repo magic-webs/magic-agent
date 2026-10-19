@@ -6,7 +6,8 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { format } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { broadcastEmailHtml } from "@/convex/lib/platformEmail";
+import { htmlToText } from "@/convex/lib/notifications";
+import { broadcastEmailHtml, textToEmailHtml } from "@/convex/lib/platformEmail";
 import { smsSegments } from "@/convex/lib/sms";
 import { WorkspacePicker, errorText } from "@/components/admin-account-fields";
 import { useSession } from "@/components/use-session";
@@ -46,6 +47,7 @@ import {
   FloppyDiskIcon,
   ImageIcon,
   PaperPlaneTiltIcon,
+  SparkleIcon,
   SquaresFourIcon,
   TestTubeIcon,
   TrashIcon,
@@ -62,6 +64,7 @@ import {
   type Category,
   type Channel,
 } from "./shared";
+import { AiDraftDialog, type AiDraft } from "./ai-draft-dialog";
 import { TemplateGallery } from "./template-gallery";
 import { placeholdersIn, type NotificationTemplate } from "./templates";
 
@@ -72,6 +75,7 @@ type Form = {
   channels: Record<Channel, boolean>;
   emailSubject: string;
   emailBody: string;
+  emailFormat: "text" | "html";
   smsText: string;
   smsTemplateId: string;
   imageKey?: string;
@@ -92,6 +96,7 @@ function formOf(broadcast?: Broadcast): Form {
     channels: broadcast?.channels ?? { push: true, email: true, sms: false },
     emailSubject: broadcast?.emailSubject ?? "",
     emailBody: broadcast?.emailBody ?? "",
+    emailFormat: broadcast?.emailFormat ?? "text",
     smsText: broadcast?.smsText ?? "",
     smsTemplateId: broadcast?.smsTemplateId ?? "",
     imageKey: broadcast?.imageKey,
@@ -133,6 +138,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(() => !broadcast && modifies);
+  const [aiOpen, setAiOpen] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null);
 
   const reach = useQuery(api.platformNotifications.audience, { audience: form.audience });
@@ -153,7 +159,8 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
       broadcastEmailHtml({
         category: form.category,
         heading: form.title || "Notification title",
-        body: form.emailBody || form.body || "Your message appears here.",
+        body: (form.emailFormat === "text" && form.emailBody) || form.body || "Your message appears here.",
+        bodyHtml: form.emailFormat === "html" && form.emailBody ? form.emailBody : undefined,
         imageUrl: form.imageUrl,
         link: form.link,
         linkLabel: form.linkLabel,
@@ -172,6 +179,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
       channels: form.channels,
       emailSubject: form.emailSubject || undefined,
       emailBody: form.emailBody || undefined,
+      emailFormat: form.emailFormat,
       smsText: form.smsText || undefined,
       smsTemplateId: form.smsTemplateId || undefined,
       imageKey: form.imageKey,
@@ -209,9 +217,13 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
     );
   };
 
-  const applyTemplate = (template: NotificationTemplate) => {
+  const keepsWriting = (what: string) => {
     const written = form.title.trim() || form.body.trim() || form.emailBody.trim() || form.smsText.trim();
-    if (written && !window.confirm("Replace what you have written with this template?")) return;
+    return Boolean(written) && !window.confirm(`Replace what you have written with ${what}?`);
+  };
+
+  const applyTemplate = (template: NotificationTemplate) => {
+    if (keepsWriting("this template")) return;
     const available = configured ?? { push: true, email: true, sms: true };
     set({
       title: template.title,
@@ -224,10 +236,32 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
       },
       emailSubject: template.emailSubject ?? "",
       emailBody: template.emailBody,
+      emailFormat: "text",
       smsText: template.smsText,
       linkLabel: template.linkLabel ?? "",
     });
     setGalleryOpen(false);
+  };
+
+  const applyDraft = (draft: AiDraft) => {
+    if (keepsWriting("the AI draft")) return;
+    set(draft);
+    setAiOpen(false);
+    toast.add({ title: "Draft written", description: "Read it through and fill any [placeholders].", type: "success" });
+  };
+
+  const switchEmailFormat = (next: "text" | "html") => {
+    if (next === form.emailFormat) return;
+    const current = form.emailBody.trim();
+    set({
+      emailFormat: next,
+      emailBody:
+        next === "html"
+          ? textToEmailHtml(current || form.body)
+          : current
+            ? htmlToText(current)
+            : "",
+    });
   };
 
   const unfilled = placeholdersIn(
@@ -283,6 +317,9 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
             ) : null}
             <Button variant="outline" disabled={busy !== null} onClick={() => setGalleryOpen(true)}>
               <SquaresFourIcon /> Templates
+            </Button>
+            <Button variant="outline" disabled={busy !== null} onClick={() => setAiOpen(true)}>
+              <SparkleIcon /> Draft with AI
             </Button>
             <Button
               variant="outline"
@@ -503,14 +540,48 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                           />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label htmlFor="pn-email-body">Email text</Label>
+                          <div className="flex items-center justify-between gap-2">
+                            <Label htmlFor="pn-email-body">
+                              {form.emailFormat === "html" ? "Email HTML" : "Email text"}
+                            </Label>
+                            <div className="flex rounded-md border p-0.5" role="radiogroup" aria-label="Email format">
+                              {(["text", "html"] as const).map((format) => (
+                                <button
+                                  key={format}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={form.emailFormat === format}
+                                  onClick={() => switchEmailFormat(format)}
+                                  className={`rounded px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                                    form.emailFormat === format
+                                      ? "bg-primary text-primary-foreground"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  }`}
+                                >
+                                  {format === "html" ? "HTML" : "Text"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                           <Textarea
                             id="pn-email-body"
-                            rows={6}
+                            rows={form.emailFormat === "html" ? 14 : 6}
                             value={form.emailBody}
-                            placeholder="Uses the message. Write a longer version here; a blank line starts a new paragraph."
+                            spellCheck={form.emailFormat === "text"}
+                            className={form.emailFormat === "html" ? "font-mono text-xs" : undefined}
+                            placeholder={
+                              form.emailFormat === "html"
+                                ? "<p>Hello,</p>\n<p>We have launched <strong>…</strong></p>"
+                                : "Uses the message. Write a longer version here; a blank line starts a new paragraph."
+                            }
                             onChange={(event) => set({ emailBody: event.target.value })}
                           />
+                          {form.emailFormat === "html" ? (
+                            <p className="text-xs text-muted-foreground">
+                              Goes inside the branded layout, between the heading and the button.
+                              Use inline styles; scripts, forms and frames are removed.
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}
@@ -692,7 +763,22 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
         </div>
       </div>
 
-      <TemplateGallery open={galleryOpen} onOpenChange={setGalleryOpen} onPick={applyTemplate} />
+      <TemplateGallery
+        open={galleryOpen}
+        onOpenChange={setGalleryOpen}
+        onPick={applyTemplate}
+        onAi={() => {
+          setGalleryOpen(false);
+          setAiOpen(true);
+        }}
+      />
+      <AiDraftDialog
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        channels={form.channels}
+        emailFormat={form.emailFormat}
+        onDraft={applyDraft}
+      />
 
       <Dialog open={testOpen} onOpenChange={setTestOpen}>
         <DialogContent className="sm:max-w-md">

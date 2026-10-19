@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SparkleIcon } from "@phosphor-icons/react";
 import { CATEGORIES, CHANNELS, type Category } from "./shared";
 import { TEMPLATES, type NotificationTemplate } from "./templates";
 
@@ -19,10 +20,12 @@ export function TemplateGallery({
   open,
   onOpenChange,
   onPick,
+  onAi,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (template: NotificationTemplate) => void;
+  onAi: () => void;
 }) {
   const [filter, setFilter] = useState<Category | "all">("all");
   const shown = filter === "all" ? TEMPLATES : TEMPLATES.filter((item) => item.category === filter);
@@ -49,6 +52,18 @@ export function TemplateGallery({
         </Tabs>
 
         <div className="-mx-1 grid min-h-0 flex-1 gap-3 overflow-y-auto px-1 py-1 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onAi}
+            className="flex flex-col justify-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <SparkleIcon className="size-4 text-primary" /> Write with AI
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Describe the news in a line or two and get the push, email and SMS written for you.
+            </span>
+          </button>
           {shown.map((template) => (
             <button
               key={template.id}

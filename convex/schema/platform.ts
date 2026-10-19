@@ -7,6 +7,7 @@ import {
   broadcastChannelStats,
   broadcastChannels,
   broadcastStatus,
+  emailFormat,
 } from "./validators";
 
 export const platformTables = {
@@ -17,6 +18,7 @@ export const platformTables = {
     channels: broadcastChannels,
     emailSubject: v.optional(v.string()),
     emailBody: v.optional(v.string()),
+    emailFormat: v.optional(emailFormat),
     smsText: v.optional(v.string()),
     smsTemplateId: v.optional(v.string()),
     imageKey: v.optional(v.string()),

@@ -195,3 +195,5 @@ export const broadcastChannelStats = v.object({
   failed: v.number(),
   skipped: v.number(),
 });
+
+export const emailFormat = v.union(v.literal("text"), v.literal("html"));

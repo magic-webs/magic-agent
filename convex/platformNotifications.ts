@@ -12,13 +12,14 @@ import {
   platformNotificationUploadUrl,
 } from "./lib/files";
 import { normaliseEmail, normalisePhone, platformEmail } from "./lib/notifications";
-import { safeLink } from "./lib/platformEmail";
+import { safeLink, sanitizeEmailHtml } from "./lib/platformEmail";
 import { smsAvailable, smsConfig } from "./lib/sms";
 import {
   broadcastAudience,
   broadcastCategory,
   broadcastChannel,
   broadcastChannels,
+  emailFormat,
   workspaceStage,
 } from "./schema/validators";
 
@@ -127,6 +128,7 @@ const contentValidator = v.object({
   channels: broadcastChannels,
   emailSubject: v.optional(v.string()),
   emailBody: v.optional(v.string()),
+  emailFormat: v.optional(emailFormat),
   smsText: v.optional(v.string()),
   smsTemplateId: v.optional(v.string()),
   imageKey: v.optional(v.string()),
@@ -149,6 +151,9 @@ function cleanContent(args: Infer<typeof contentValidator>) {
   if (args.imageKey && !args.imageKey.startsWith(PLATFORM_NOTIFICATION_FOLDER)) {
     throw new ConvexError("That image was not uploaded here.");
   }
+  const html = args.emailFormat === "html";
+  const emailBody = trimmed(html ? sanitizeEmailHtml(args.emailBody ?? "") : args.emailBody);
+  if (emailBody && emailBody.length > 100_000) throw new ConvexError("The email is too long.");
   const link = trimmed(args.link);
   if (link && !safeLink(link)) throw new ConvexError("The link must start with https://.");
 
@@ -169,7 +174,8 @@ function cleanContent(args: Infer<typeof contentValidator>) {
     category: args.category,
     channels: args.channels,
     emailSubject: trimmed(args.emailSubject),
-    emailBody: trimmed(args.emailBody),
+    emailBody,
+    emailFormat: html && emailBody ? ("html" as const) : ("text" as const),
     smsText: trimmed(args.smsText),
     smsTemplateId: trimmed(args.smsTemplateId),
     imageKey: args.imageKey,
@@ -350,6 +356,7 @@ export const duplicate = mutation({
       channels: row.channels,
       emailSubject: row.emailSubject,
       emailBody: row.emailBody,
+      emailFormat: row.emailFormat,
       smsText: row.smsText,
       smsTemplateId: row.smsTemplateId,
       link: row.link,
@@ -441,6 +448,14 @@ export const cancel = mutation({
 });
 
 // ------------------------------------------------------------------ sending
+
+export const requireAuthor = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    await requireModify(ctx, "notifications");
+    return null;
+  },
+});
 
 export const testContext = internalQuery({
   args: { id: v.id("platformBroadcasts") },

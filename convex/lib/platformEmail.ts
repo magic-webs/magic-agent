@@ -24,6 +24,37 @@ function paragraphs(text: string): string {
     .join("");
 }
 
+const BLOCKED_WITH_CONTENT = /<(script|style|iframe|object|embed|noscript|template|svg|math)\b[\s\S]*?<\/\1\s*>/gi;
+const BLOCKED_TAGS = /<\/?(script|style|iframe|object|embed|noscript|template|svg|math|form|input|button|textarea|select|link|meta|base|frame|frameset|html|head|body|title)\b[^>]*>/gi;
+
+/**
+ * Markup an admin wrote, made safe to drop into the layout: a pasted full
+ * document keeps only its body, and scripts, frames, forms, event handlers and
+ * script URLs go.
+ */
+export function sanitizeEmailHtml(html: string): string {
+  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html)?.[1] ?? html;
+  return body
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(BLOCKED_WITH_CONTENT, "")
+    .replace(BLOCKED_TAGS, "")
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(
+      /\s(href|src|action|formaction|background)\s*=\s*(["']?)\s*(javascript|vbscript|data(?!:image\/(?:png|jpe?g|gif|webp);))[^"'\s>]*\2/gi,
+      ' $1="#"'
+    )
+    .trim();
+}
+
+export function textToEmailHtml(text: string): string {
+  return text
+    .trim()
+    .split(/\r?\n\s*\r?\n/)
+    .filter(Boolean)
+    .map((block) => `<p>${escapeHtml(block).replace(/\r?\n/g, "<br>")}</p>`)
+    .join("\n");
+}
+
 export function safeLink(url: string | undefined): string | undefined {
   const trimmed = url?.trim();
   if (!trimmed) return undefined;
@@ -39,6 +70,8 @@ export function broadcastEmailHtml(message: {
   category: BroadcastCategory;
   heading: string;
   body: string;
+  /** Replaces the text body with the admin's own markup. */
+  bodyHtml?: string;
   imageUrl?: string;
   link?: string;
   linkLabel?: string;
@@ -64,7 +97,7 @@ export function broadcastEmailHtml(message: {
 <tr><td style="padding:28px 20px 8px">
 <p style="margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#0c7d3e">${escapeHtml(categoryLabel(message.category))}</p>
 <h1 style="margin:0 0 20px;font-size:22px;line-height:1.3;color:#18181b">${escapeHtml(message.heading)}</h1>
-${image}${paragraphs(message.body)}${button ? `<p style="margin:8px 0 12px">${button}</p>` : ""}
+${image}${message.bodyHtml ? `<div style="font-size:15px;line-height:1.6;color:#27272a">${sanitizeEmailHtml(message.bodyHtml)}</div>` : paragraphs(message.body)}${button ? `<p style="margin:8px 0 12px">${button}</p>` : ""}
 </td></tr>
 <tr><td style="padding:16px 20px 24px;border-top:1px solid #f4f4f5">
 <p style="margin:0;font-size:12px;line-height:1.5;color:#71717a">You are receiving this because your business uses ${escapeHtml(message.brand)}${unsubscribe}</p>

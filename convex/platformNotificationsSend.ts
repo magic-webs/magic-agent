@@ -21,7 +21,8 @@ function emailFor(broadcast: Broadcast, imageUrl: string | null, optOutToken?: s
     html: broadcastEmailHtml({
       category: broadcast.category,
       heading: broadcast.title,
-      body: broadcast.emailBody ?? broadcast.body,
+      body: broadcast.emailFormat === "html" ? broadcast.body : (broadcast.emailBody ?? broadcast.body),
+      bodyHtml: broadcast.emailFormat === "html" ? broadcast.emailBody : undefined,
       imageUrl: imageUrl ?? undefined,
       link: broadcast.link,
       linkLabel: broadcast.linkLabel,

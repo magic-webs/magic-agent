@@ -265,6 +265,10 @@ export function register(server) {
         workspaces: z.array(z.string()).optional().describe("Workspace slugs, with audience workspaces"),
         emailSubject: z.string().optional(),
         emailBody: z.string().optional().describe("A longer email version; blank lines start paragraphs"),
+        emailHtml: z
+          .string()
+          .optional()
+          .describe("The email body as HTML instead of emailBody; placed inside the branded layout, scripts and forms removed"),
         smsText: z.string().optional().describe("Must fit the registered DLT template"),
         link: z.string().optional().describe("https link for the button and push tap"),
         linkLabel: z.string().optional(),
@@ -291,7 +295,8 @@ export function register(server) {
         category: args.category,
         channels,
         emailSubject: args.emailSubject,
-        emailBody: args.emailBody,
+        emailBody: args.emailHtml ?? args.emailBody,
+        emailFormat: args.emailHtml ? "html" : "text",
         smsText: args.smsText,
         link: args.link,
         linkLabel: args.linkLabel,

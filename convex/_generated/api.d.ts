@@ -123,6 +123,7 @@ import type * as orders from "../orders.js";
 import type * as payments from "../payments.js";
 import type * as plans from "../plans.js";
 import type * as platformNotifications from "../platformNotifications.js";
+import type * as platformNotificationsAi from "../platformNotificationsAi.js";
 import type * as platformNotificationsSend from "../platformNotificationsSend.js";
 import type * as products from "../products.js";
 import type * as push from "../push.js";
@@ -282,6 +283,7 @@ declare const fullApi: ApiFromModules<{
   payments: typeof payments;
   plans: typeof plans;
   platformNotifications: typeof platformNotifications;
+  platformNotificationsAi: typeof platformNotificationsAi;
   platformNotificationsSend: typeof platformNotificationsSend;
   products: typeof products;
   push: typeof push;

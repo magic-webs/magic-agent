@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -39,6 +39,7 @@ import {
   PencilSimpleIcon,
   PlusIcon,
   TrashIcon,
+  TreeStructureIcon,
 } from "@phosphor-icons/react";
 
 type Rule = FunctionReturnType<typeof api.handover.list>[number];
@@ -83,7 +84,20 @@ function draftOf(rule: Rule): Draft {
   };
 }
 
-export function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
+export function HandoverRulesButton({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
+  return (
+    <Dialog>
+      <DialogTrigger render={<Button size="sm" variant="outline" />}>
+        <TreeStructureIcon /> Handover rules
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <HandoverRules workspaceId={workspaceId} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
   const rules = useQuery(api.handover.list, { workspaceId });
   const agents = useQuery(api.agents.listByWorkspace, { workspaceId });
   const members = useQuery(api.team.activeForReply, { workspaceId });
@@ -104,20 +118,15 @@ export function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }
     DEPARTMENTS.find((one) => one.value === value)?.label;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>Handover rules</CardTitle>
-          <CardDescription className="mt-1 max-w-2xl">
-            Who gets a conversation when an AI agent escalates it to a person. The first
-            rule that matches wins; a rule with several people takes turns between them.
-          </CardDescription>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setEditing("new")}>
-          <PlusIcon /> Add rule
-        </Button>
-      </CardHeader>
-      <CardContent>
+    <>
+      <DialogHeader>
+        <DialogTitle>Handover rules</DialogTitle>
+        <DialogDescription>
+          Who gets a conversation when an AI agent escalates it to a person. The first
+          rule that matches wins; a rule with several people takes turns between them.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
         {rules === undefined ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner /> Loading rules…
@@ -205,7 +214,12 @@ export function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }
             ))}
           </ol>
         )}
-      </CardContent>
+      </div>
+      <DialogFooter>
+        <Button onClick={() => setEditing("new")}>
+          <PlusIcon /> Add rule
+        </Button>
+      </DialogFooter>
 
       {editing ? (
         <RuleDialog
@@ -219,7 +233,7 @@ export function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }
           onClose={() => setEditing(null)}
         />
       ) : null}
-    </Card>
+    </>
   );
 }
 

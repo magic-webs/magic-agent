@@ -14,7 +14,7 @@ import { useHourBucket } from "@/components/use-now";
 import { AgentPortrait } from "@/components/agent-avatar";
 import { TeamAvatar } from "@/components/team-avatar";
 import { SelectField } from "@/components/select-field";
-import { HandoverRules } from "@/components/handover-rules";
+import { HandoverRulesButton } from "@/components/handover-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1110,7 +1110,7 @@ export default function TeamPage() {
             that is the other way round, and that is worth knowing before the
             cards are read. */}
         {loading ? null : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
               <RobotIcon /> {bots.length} AI
             </Badge>
@@ -1120,6 +1120,7 @@ export default function TeamPage() {
                 ? `${seats.used} of ${seats.capacity} human`
                 : `${people.length} human`}
             </Badge>
+            <HandoverRulesButton workspaceId={workspace._id} />
             <AddHumanAgent
               seats={seats}
               trigger={
@@ -1251,8 +1252,6 @@ export default function TeamPage() {
           />
         </Rail>
       )}
-
-      {loading || empty ? null : <HandoverRules workspaceId={workspace._id} />}
     </div>
   );
 }

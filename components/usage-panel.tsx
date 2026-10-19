@@ -70,6 +70,9 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const CHANNEL_LABELS: Record<string, string> = {
   whatsapp: "WhatsApp",
+  instagram: "Instagram",
+  rcs: "RCS",
+  telegram: "Telegram",
   web: "Web playground",
   internal: "Dashboard (no channel)",
 };

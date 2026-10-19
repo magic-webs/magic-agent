@@ -27,9 +27,11 @@ import type { Id } from "./_generated/dataModel";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { aiGateway, gatewayModelId, gatewayOptions } from "./lib/gateway";
+import { sendOnChannel } from "./lib/channelSend";
 import {
   DEFAULT_CHAT_MODEL,
   WHATSAPP_FREE_FORM_WINDOW_HOURS,
+  hasReplyWindow,
 } from "./lib/shared";
 
 const reviewSchema = z.object({
@@ -130,7 +132,7 @@ export const review = internalAction({
     // bother writing one it cannot send.
     const budgetLeft = context.followUpCount < context.maxFollowUps;
     const windowOpen =
-      context.channelType === "web" ||
+      !hasReplyWindow(context.channelType) ||
       (context.lastInboundAt !== null &&
         now - context.lastInboundAt <
           WHATSAPP_FREE_FORM_WINDOW_HOURS * 60 * 60_000);
@@ -299,24 +301,18 @@ export const review = internalAction({
       deliverable && decision.sendFollowUp && !terminal && followUpText.length > 0;
 
     let followedUp = false;
-    let whatsapp: { wamid?: string } | undefined;
+    let sent: { wamid?: string } | undefined;
     if (shouldSend) {
       if (context.channelType !== "web" && context.channelId && context.externalId) {
-        const sent: { ok: boolean; error?: string; wamid?: string } =
-          await ctx.runAction(
-            context.channelType === "instagram"
-              ? internal.instagram.sendOutbound
-              : internal.whatsapp.sendOutbound,
-            {
-              channelId: context.channelId,
-              to: context.externalId,
-              message: { kind: "text", body: followUpText },
-              source: "follow_up",
-              conversationId: args.conversationId,
-            }
-          );
-        followedUp = sent.ok;
-        if (context.channelType === "whatsapp") whatsapp = { wamid: sent.wamid };
+        const result = await sendOnChannel(ctx, context.channelType, {
+          channelId: context.channelId,
+          to: context.externalId,
+          message: { kind: "text", body: followUpText },
+          source: "follow_up",
+          conversationId: args.conversationId,
+        });
+        followedUp = result.ok;
+        if (result.ok) sent = { wamid: result.wamid };
       } else if (context.channelType === "web") {
         // On the web widget there is nothing to post to: recording the message
         // is the delivery, and the visitor's open subscription renders it.
@@ -329,7 +325,7 @@ export const review = internalAction({
           conversationId: args.conversationId,
           agentId: deskAgent?._id,
           text: followUpText,
-          whatsapp,
+          sent,
         });
       }
     }

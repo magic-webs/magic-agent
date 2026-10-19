@@ -10,6 +10,7 @@ import { SelectField } from "@/components/select-field";
 import { Countdown, replyWindow, useNow } from "@/components/handback-timer";
 import {
   HANDBACK_AFTER_MINUTES,
+  hasReplyWindow,
   PAUSE_CHOICES_MINUTES,
   pauseLabel,
 } from "@/convex/lib/shared";
@@ -258,7 +259,7 @@ export function ManualReply({
   const [pauseMinutes, setPauseMinutes] = useState(storedPause);
 
   const now = useNow();
-  const window24 = channelType !== "web" ? replyWindow(lastInboundAt, now) : null;
+  const window24 = hasReplyWindow(channelType) ? replyWindow(lastInboundAt, now) : null;
   // The server's answer is as of the query's last run; the clock here is
   // current. Either one saying closed is closed.
   const closed = windowClosed || (window24 !== null && !window24.open);

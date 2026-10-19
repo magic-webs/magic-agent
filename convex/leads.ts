@@ -773,7 +773,7 @@ export const recordFollowUp = internalMutation({
     conversationId: v.id("conversations"),
     agentId: v.optional(v.id("agents")),
     text: v.string(),
-    whatsapp: v.optional(v.object({ wamid: v.optional(v.string()) })),
+    sent: v.optional(v.object({ wamid: v.optional(v.string()) })),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -786,7 +786,7 @@ export const recordFollowUp = internalMutation({
       agentId: args.agentId,
       createdAt: now,
     });
-    const delivery = await noteSent(ctx, messageId, args.whatsapp);
+    const delivery = await noteSent(ctx, messageId, args.sent);
     await recordAgentReply(ctx, args.workspaceId, args.agentId, {
       at: now,
       text: args.text,

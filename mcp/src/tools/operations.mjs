@@ -123,7 +123,7 @@ export function register(server) {
     {
       title: "Send a message in a conversation",
       description:
-        "Replies to the customer in an existing thread, exactly as a reply typed in the inbox: it goes out on the thread's own channel (WhatsApp, Instagram, or the web chat) and keeps the agent quiet for a while so it does not talk over you. WhatsApp only delivers a free-text message within 24 hours of the customer's last message — outside it the send is refused. Read the thread with read_conversation first.",
+        "Replies to the customer in an existing thread, exactly as a reply typed in the inbox: it goes out on the thread's own channel (WhatsApp, Instagram, RCS, Telegram, or the web chat) and keeps the agent quiet for a while so it does not talk over you. WhatsApp, Instagram and RCS only deliver a free-text message within 24 hours of the customer's last message — outside it the send is refused. Read the thread with read_conversation first.",
       inputSchema: {
         conversationId: z.string().describe("From list_conversations"),
         text: z.string().min(1).describe("What the customer receives"),

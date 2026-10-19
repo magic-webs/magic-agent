@@ -35,6 +35,7 @@ import {
   BOT_REPEAT_LIMIT,
   HANDBACK_AFTER_MINUTES,
   WHATSAPP_FREE_FORM_WINDOW_HOURS,
+  hasReplyWindow,
   MESSAGE_LIMIT_SESSION_HOURS,
   WHATSAPP_TEXT_LIMIT,
   clampPause,
@@ -49,6 +50,7 @@ import {
   threadAccess,
 } from "./lib/auth";
 import { friendlySendError } from "./lib/sendErrors";
+import { sendOnChannel } from "./lib/channelSend";
 import { assignConversation } from "./lib/assignment";
 import { pickHandover } from "./handover";
 import { memberInWorkspace } from "./team";
@@ -482,7 +484,7 @@ export const getWithContact = query({
     // clock during render without breaking the purity rule the lint config
     // enforces.
     const freeFormWindowClosed =
-      conversation.channelType !== "web" &&
+      hasReplyWindow(conversation.channelType) &&
       (lastInboundAt === null ||
         Date.now() - lastInboundAt >
           WHATSAPP_FREE_FORM_WINDOW_HOURS * 60 * 60_000);
@@ -494,7 +496,10 @@ export const getWithContact = query({
       channelDoc && channelDoc.workspaceId === conversation.workspaceId
         ? {
             name: channelDoc.name,
-            phone: channelDoc.whatsapp?.displayPhoneNumber ?? null,
+            phone:
+              channelDoc.whatsapp?.displayPhoneNumber ??
+              channelDoc.rcs?.displayPhoneNumber ??
+              null,
           }
         : null;
 
@@ -667,8 +672,8 @@ export const recordManualReply = internalMutation({
     teamMemberId: v.optional(v.id("teamMembers")),
     /** How long this reply keeps the agent quiet. An hour when absent. */
     pauseMinutes: v.optional(v.number()),
-    /** Present when it went out over WhatsApp, with the provider's id. */
-    whatsapp: v.optional(v.object({ wamid: v.optional(v.string()) })),
+    /** Present when it went out over a provider, with the provider's id. */
+    sent: v.optional(v.object({ wamid: v.optional(v.string()) })),
     replyTo: v.optional(
       v.object({
         messageId: v.id("messages"),
@@ -700,7 +705,7 @@ export const recordManualReply = internalMutation({
       ...(args.replyTo ? { replyTo: args.replyTo } : {}),
       createdAt: now,
     });
-    const delivery = await noteSent(ctx, messageId, args.whatsapp);
+    const delivery = await noteSent(ctx, messageId, args.sent);
 
     if (sender) {
       const text = args.text.trim();
@@ -941,7 +946,7 @@ export const sendManualReply = action({
       return { ok: false, error: "This conversation is no longer available." };
     }
 
-    let whatsapp: { wamid?: string } | undefined;
+    let sent: { wamid?: string } | undefined;
     if (context.channelType !== "web") {
       if (!context.channelId || !context.externalId) {
         return {
@@ -950,29 +955,23 @@ export const sendManualReply = action({
             "This thread has no channel attached, so there is nowhere to send it.",
         };
       }
-      const sent: { ok: boolean; error?: string; wamid?: string } =
-        await ctx.runAction(
-          context.channelType === "instagram"
-            ? internal.instagram.sendOutbound
-            : internal.whatsapp.sendOutbound,
-          {
-            channelId: context.channelId,
-            to: context.externalId,
-            message: { kind: "text", body },
-            source: "human",
-            conversationId: args.conversationId,
-            ...(context.channelType === "whatsapp" && context.target?.wamid
-              ? { replyTo: context.target.wamid }
-              : {}),
-          }
-        );
-      if (!sent.ok) {
+      const result = await sendOnChannel(ctx, context.channelType, {
+        channelId: context.channelId,
+        to: context.externalId,
+        message: { kind: "text", body },
+        source: "human",
+        conversationId: args.conversationId,
+        ...(context.channelType === "whatsapp" && context.target?.wamid
+          ? { replyTo: context.target.wamid }
+          : {}),
+      });
+      if (!result.ok) {
         return {
           ok: false,
-          error: friendlySendError(context.channelType, sent.error),
+          error: friendlySendError(context.channelType, result.error),
         };
       }
-      if (context.channelType === "whatsapp") whatsapp = { wamid: sent.wamid };
+      sent = { wamid: result.wamid };
     }
     // On the web widget there is nothing to post to: recording the message is
     // the delivery, and the visitor's open subscription renders it. Same
@@ -985,7 +984,7 @@ export const sendManualReply = action({
       text: body,
       teamMemberId: context.memberId ?? args.teamMemberId,
       pauseMinutes: args.pauseMinutes,
-      whatsapp,
+      sent,
       ...(context.target
         ? {
             replyTo: {
@@ -1676,7 +1675,7 @@ export const recordRichMessage = internalMutation({
     /** One line, for the transcript preview and for history replay. */
     summary: v.string(),
     payload: v.string(),
-    whatsapp: v.optional(v.object({ wamid: v.optional(v.string()) })),
+    sent: v.optional(v.object({ wamid: v.optional(v.string()) })),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -1690,7 +1689,7 @@ export const recordRichMessage = internalMutation({
       agentId: args.agentId,
       createdAt: now,
     });
-    const delivery = await noteSent(ctx, messageId, args.whatsapp);
+    const delivery = await noteSent(ctx, messageId, args.sent);
     await recordAgentReply(ctx, args.workspaceId, args.agentId, { at: now });
 
     const conversation = await ctx.db.get("conversations", args.conversationId);

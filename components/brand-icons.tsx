@@ -35,3 +35,32 @@ export function InstagramLogo({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** Telegram's paper plane, drawn to sit on its blue tile. */
+export function TelegramLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={cn("size-4 shrink-0", className)}
+    >
+      <path d="M21.6 3.1 2.9 10.3c-1.3.5-1.3 1.2-.2 1.5l4.8 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.2 1.8-.9l3.3-15.4c.3-1.3-.5-1.9-1.4-1.5ZM8.4 13l9.5-6c.5-.3.9-.1.5.2l-7.8 7-.3 3.4L8.4 13Z" />
+    </svg>
+  );
+}
+
+/** An RCS chat bubble — RCS has no mark of its own beyond the messages app. */
+export function RcsLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      fillRule="evenodd"
+      aria-hidden
+      className={cn("size-4 shrink-0", className)}
+    >
+      <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.56 1.25 4.86 3.24 6.47L4.5 22l4.47-2.4c.97.25 1.99.38 3.03.38 5.52 0 10-3.94 10-8.8S17.52 2 12 2ZM7.6 9.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Z" />
+    </svg>
+  );
+}

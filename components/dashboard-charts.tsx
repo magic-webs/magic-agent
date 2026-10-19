@@ -51,6 +51,8 @@ import { ChartLineIcon, TableIcon } from "@phosphor-icons/react";
 const SERIES = "var(--viz-series)"; // light --chart-3 / dark --chart-1
 const SERIES_ALT = "var(--viz-series-alt)"; // light --chart-4 / dark --chart-2
 const SERIES_THIRD = "var(--viz-series-3)";
+const SERIES_FOURTH = "var(--viz-series-4)";
+const SERIES_FIFTH = "var(--viz-series-5)";
 
 function formatDay(iso: string): string {
   const date = new Date(`${iso}T00:00:00Z`);
@@ -458,13 +460,17 @@ export function RankedBars({
 export function ChannelSplit({
   whatsapp,
   instagram,
+  rcs = 0,
+  telegram = 0,
   web,
 }: {
   whatsapp: number;
   instagram: number;
+  rcs?: number;
+  telegram?: number;
   web: number;
 }) {
-  const total = whatsapp + instagram + web;
+  const total = whatsapp + instagram + rcs + telegram + web;
   if (total === 0) {
     return (
       <NoData label="Conversations are grouped by where they arrived from." />
@@ -474,8 +480,10 @@ export function ChannelSplit({
   const rows = [
     { key: "whatsapp", label: "WhatsApp", value: whatsapp, tone: SERIES },
     { key: "instagram", label: "Instagram", value: instagram, tone: SERIES_ALT },
+    { key: "rcs", label: "RCS", value: rcs, tone: SERIES_FOURTH },
+    { key: "telegram", label: "Telegram", value: telegram, tone: SERIES_FIFTH },
     { key: "web", label: "Web chat", value: web, tone: SERIES_THIRD },
-  ];
+  ].filter((row) => row.value > 0 || ["whatsapp", "instagram", "web"].includes(row.key));
 
   return (
     <div className="flex flex-col gap-3">
@@ -483,7 +491,7 @@ export function ChannelSplit({
       <div
         className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full"
         role="img"
-        aria-label={`WhatsApp ${whatsapp}, Instagram ${instagram}, web ${web}, of ${total} conversations`}
+        aria-label={`${rows.map((row) => `${row.label} ${row.value}`).join(", ")}, of ${total} conversations`}
       >
         {rows
           .filter((row) => row.value > 0)

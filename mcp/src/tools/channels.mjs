@@ -17,7 +17,7 @@ export function register(server) {
     {
       title: "List channels",
       description:
-        "Where the workspace is reachable. Web channels come with the embed snippet to paste into a site; WhatsApp channels come with the callback URL to configure in Meta; Instagram channels are connected from the Channels page. Access tokens are never returned.",
+        "Where the workspace is reachable. Web channels come with the embed snippet to paste into a site; WhatsApp channels come with the callback URL to configure in Meta; RCS channels with the callback URL to give the RCS provider; Telegram channels with the bot's t.me link (its webhook is set automatically); Instagram channels are connected from the Channels page. Access tokens are never returned.",
       inputSchema: { ...workspaceArg },
       annotations: { readOnlyHint: true },
     },
@@ -50,6 +50,21 @@ export function register(server) {
                     ? new Date(channel.instagram.tokenExpiresAt).toISOString()
                     : null,
                 }
+              : channel.type === "rcs"
+                ? {
+                    callbackUrl: `${SITE_URL}/rcs/${channel.channelKey}`,
+                    displayPhoneNumber: channel.rcs?.displayPhoneNumber ?? null,
+                    apiBaseUrl: channel.rcs?.apiBaseUrl ?? null,
+                    hasAccessToken: channel.hasAccessToken,
+                  }
+              : channel.type === "telegram"
+                ? {
+                    botUsername: channel.telegram?.botUsername ?? null,
+                    botLink: channel.telegram?.botUsername
+                      ? `https://t.me/${channel.telegram.botUsername}`
+                      : null,
+                    hasAccessToken: channel.hasAccessToken,
+                  }
               : {
                   callbackUrl: `${SITE_URL}/whatsapp/${channel.channelKey}`,
                   displayPhoneNumber: channel.whatsapp?.displayPhoneNumber ?? null,
@@ -68,10 +83,10 @@ export function register(server) {
     {
       title: "Create channel",
       description:
-        "Add a website widget or connect a WhatsApp number. Point it at the front desk unless you specifically want one agent to answer everything on it without routing. A web channel needs intake — ask the user which they want — and is live immediately; a WhatsApp one starts paused until its callback URL is configured in Meta.",
+        "Add a website widget, or connect a WhatsApp number, an RCS sender or a Telegram bot. Point it at the front desk unless you specifically want one agent to answer everything on it without routing. A web channel needs intake — ask the user which they want — and is live immediately; a WhatsApp one starts paused until its callback URL is configured in Meta; an RCS one is live once its callback URL is set with the provider; a Telegram one goes live by itself once Telegram accepts the bot token (check list_channels for lastError).",
       inputSchema: {
         ...workspaceArg,
-        type: z.enum(["web", "whatsapp"]),
+        type: z.enum(["web", "whatsapp", "rcs", "telegram"]),
         name: z.string().describe("e.g. 'Homepage chat' or 'Sales line'"),
         agent: z
           .string()
@@ -84,14 +99,18 @@ export function register(server) {
             "Web only, required: how the widget gets the visitor's name and number. chat asks for them inside the conversation; form shows a sign-in page before the chat opens."
           ),
         phoneNumberId: z.string().optional().describe("WhatsApp only, required"),
-        accessToken: z.string().optional().describe("WhatsApp only, required"),
+        accessToken: z.string().optional().describe("WhatsApp and RCS, required"),
+        botToken: z.string().optional().describe("Telegram only, required: the token from @BotFather"),
         wabaId: z.string().optional(),
         businessId: z.string().optional(),
-        displayPhoneNumber: z.string().optional(),
+        displayPhoneNumber: z
+          .string()
+          .optional()
+          .describe("WhatsApp or RCS: the number customers see"),
         apiBaseUrl: z
           .string()
           .optional()
-          .describe("Change only when sending through a BSP proxy"),
+          .describe("WhatsApp: change only when sending through a BSP proxy. RCS: defaults to https://crmapi.com.bot/api/v1"),
         apiVersion: z.string().optional(),
       },
     },
@@ -131,6 +150,15 @@ export function register(server) {
                 apiVersion: wa.apiVersion,
               }
             : undefined,
+        rcs:
+          type === "rcs"
+            ? {
+                accessToken: wa.accessToken,
+                apiBaseUrl: wa.apiBaseUrl,
+                displayPhoneNumber: wa.displayPhoneNumber,
+              }
+            : undefined,
+        telegram: type === "telegram" ? { botToken: wa.botToken } : undefined,
       });
 
       return ok({
@@ -138,7 +166,11 @@ export function register(server) {
         next:
           type === "web"
             ? "Call list_channels for the embed snippet."
-            : "Call list_channels for the callback URL to paste into Meta, then set status active with update_channel.",
+            : type === "rcs"
+              ? "Call list_channels for the callback URL to set as the inbound webhook with the RCS provider."
+              : type === "telegram"
+                ? "Call list_channels in a few seconds: status active and a botLink mean the bot is connected; otherwise lastError says why."
+                : "Call list_channels for the callback URL to paste into Meta, then set status active with update_channel.",
       });
     })
   );
@@ -148,7 +180,7 @@ export function register(server) {
     {
       title: "Update channel",
       description:
-        "Rename a channel, repoint it at a different agent, or take it live / pause it. A paused channel silently ignores inbound messages. On a WhatsApp channel, also change its connection — the WABA ID notification templates sync from, the display number, a new access token. Omitted WhatsApp fields keep their stored value.",
+        "Rename a channel, repoint it at a different agent, or take it live / pause it. A paused channel silently ignores inbound messages. On a WhatsApp channel, also change its connection — the WABA ID notification templates sync from, the display number, a new access token. On an RCS channel, the access token, sender number or API base URL; on a Telegram channel, a new bot token (the webhook is re-registered). Omitted connection fields keep their stored value.",
       inputSchema: {
         ...workspaceArg,
         channel: z.string().describe("Channel name or id"),
@@ -165,10 +197,14 @@ export function register(server) {
           .string()
           .optional()
           .describe("WhatsApp only: the business account id. Needed to sync templates."),
-        displayPhoneNumber: z.string().optional().describe("WhatsApp only"),
+        displayPhoneNumber: z.string().optional().describe("WhatsApp or RCS"),
         phoneNumberId: z.string().optional().describe("WhatsApp only"),
-        accessToken: z.string().optional().describe("WhatsApp only: omit to keep the stored one"),
-        apiBaseUrl: z.string().optional().describe("WhatsApp only"),
+        accessToken: z
+          .string()
+          .optional()
+          .describe("WhatsApp or RCS: omit to keep the stored one"),
+        botToken: z.string().optional().describe("Telegram only: omit to keep the stored one"),
+        apiBaseUrl: z.string().optional().describe("WhatsApp or RCS"),
         apiVersion: z.string().optional().describe("WhatsApp only"),
       },
     },
@@ -182,7 +218,21 @@ export function register(server) {
       // a masked or absent token is what tells the mutation to keep its own.
       const touched = Object.values(connection).some((value) => value !== undefined);
       let whatsapp;
-      if (touched) {
+      let provider = {};
+      if (touched && target.type === "rcs") {
+        provider = {
+          rcs: {
+            accessToken: connection.accessToken,
+            apiBaseUrl: connection.apiBaseUrl ?? target.rcs?.apiBaseUrl,
+            displayPhoneNumber: connection.displayPhoneNumber ?? target.rcs?.displayPhoneNumber,
+          },
+        };
+      } else if (touched && target.type === "telegram") {
+        if (!connection.botToken) {
+          throw new Error(`${target.name} is a Telegram channel: only botToken can be changed.`);
+        }
+        provider = { telegram: { botToken: connection.botToken } };
+      } else if (touched) {
         if (target.type !== "whatsapp" || !target.whatsapp) {
           throw new Error(`${target.name} is not a WhatsApp channel.`);
         }
@@ -205,6 +255,7 @@ export function register(server) {
         status,
         intake,
         ...(whatsapp ? { whatsapp } : {}),
+        ...provider,
       });
       return ok(`Updated ${target.name}.`);
     })
@@ -215,7 +266,7 @@ export function register(server) {
     {
       title: "Delete channel",
       description:
-        "Permanently delete a channel. A website widget stops loading and a WhatsApp number stops being answered.",
+        "Permanently delete a channel. A website widget stops loading, and a WhatsApp number, RCS sender or Telegram bot stops being answered.",
       inputSchema: {
         ...workspaceArg,
         channel: z.string().describe("Channel name or id"),

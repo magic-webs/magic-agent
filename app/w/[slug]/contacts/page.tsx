@@ -44,8 +44,6 @@ import { SelectField } from "@/components/select-field";
 import { useHourBucket } from "@/components/use-now";
 import {
   UsersIcon,
-  WhatsappLogoIcon,
-  GlobeIcon,
   PencilSimpleIcon,
   ChatsIcon,
   MagnifyingGlassIcon,
@@ -56,8 +54,11 @@ import {
 } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
 import { friendlyError } from "@/lib/errors";
-import { InstagramLogo } from "@/components/brand-icons";
-import { CHANNEL_LABEL, type ChannelKind } from "@/components/channel-mark";
+import {
+  CHANNEL_LABEL,
+  ChannelGlyph,
+  type ChannelKind,
+} from "@/components/channel-mark";
 
 /** A contacts row: the document plus the conversation it belongs to. */
 type ContactRow = {
@@ -92,8 +93,8 @@ function displayName(contact: ContactRow): string {
   if (contact.channelType === "web") {
     return `Web visitor ${contact.externalId.slice(-4)}`;
   }
-  if (contact.channelType === "instagram") {
-    return `Instagram user ${contact.externalId.slice(-4)}`;
+  if (contact.channelType === "instagram" || contact.channelType === "telegram") {
+    return `${CHANNEL_LABEL[contact.channelType]} user ${contact.externalId.slice(-4)}`;
   }
   return contact.externalId;
 }
@@ -289,8 +290,13 @@ function ContactDialog({
 const CHANNELS = [
   { value: "all", label: "All channels" },
   { value: "whatsapp", label: "WhatsApp" },
+  { value: "instagram", label: "Instagram" },
+  { value: "rcs", label: "RCS" },
+  { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
 ];
+
+const KINDS: readonly string[] = ["whatsapp", "instagram", "rcs", "telegram", "web"];
 
 // The conversation's status, not the contact's — a contact has no state of its
 // own. "none" picks out the people who have never sent a message, which is a
@@ -349,7 +355,7 @@ export default function ContactsPage() {
     {
       workspaceId: workspace._id,
       search: search || undefined,
-      channel: channel === "whatsapp" || channel === "web" ? channel : undefined,
+      channel: KINDS.includes(channel) ? (channel as ChannelKind) : undefined,
       status:
         status === "open" || status === "escalated" || status === "closed" || status === "none"
           ? status
@@ -544,13 +550,7 @@ export default function ContactsPage() {
                             : CHANNEL_LABEL[contact.channelType]
                         }
                       >
-                        {contact.channelType === "whatsapp" ? (
-                          <WhatsappLogoIcon className="size-4" />
-                        ) : contact.channelType === "instagram" ? (
-                          <InstagramLogo />
-                        ) : (
-                          <GlobeIcon className="size-4" />
-                        )}
+                        <ChannelGlyph type={contact.channelType} />
                       </span>
                       <div className="flex min-w-0 flex-col">
                         <span className="truncate font-medium">

@@ -14,6 +14,8 @@ const proxiedPrefixes = [
   "/integrations/google",
   "/instagram",
   "/payments/razorpay",
+  "/rcs",
+  "/telegram",
 ];
 
 const nextConfig: NextConfig = {

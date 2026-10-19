@@ -58,7 +58,6 @@ import {
   DotsThreeIcon,
   FileTextIcon,
   FunnelIcon,
-  GlobeIcon,
   HandshakeIcon,
   KanbanIcon,
   MagnifyingGlassIcon,
@@ -71,14 +70,16 @@ import {
   TrophyIcon,
   UserIcon,
   WarningIcon,
-  WhatsappLogoIcon,
   XCircleIcon,
   XIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
-import { InstagramLogo } from "@/components/brand-icons";
-import { CHANNEL_LABEL, type ChannelKind } from "@/components/channel-mark";
+import {
+  CHANNEL_LABEL,
+  ChannelGlyph,
+  type ChannelKind,
+} from "@/components/channel-mark";
 
 // ---------------------------------------------------------------------------
 
@@ -242,6 +243,9 @@ const TONES: Record<
 const CHANNELS = [
   { value: "all", label: "All channels" },
   { value: "whatsapp", label: "WhatsApp" },
+  { value: "instagram", label: "Instagram" },
+  { value: "rcs", label: "RCS" },
+  { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
 ];
 
@@ -385,16 +389,12 @@ function LeadCard({
               ? "text-emerald-600 dark:text-emerald-400"
               : lead.channelType === "instagram"
                 ? "text-pink-600 dark:text-pink-400"
-                : "text-muted-foreground"
+                : lead.channelType === "rcs" || lead.channelType === "telegram"
+                  ? "text-sky-600 dark:text-sky-400"
+                  : "text-muted-foreground"
           )}
         >
-          {lead.channelType === "whatsapp" ? (
-            <WhatsappLogoIcon className="size-4" />
-          ) : lead.channelType === "instagram" ? (
-            <InstagramLogo />
-          ) : (
-            <GlobeIcon className="size-4" />
-          )}
+          <ChannelGlyph type={lead.channelType} />
         </span>
 
         <p className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-sm font-semibold">
@@ -707,7 +707,9 @@ function LeadTable({
                           ? "text-emerald-600 dark:text-emerald-400"
                           : lead.channelType === "instagram"
                             ? "text-pink-600 dark:text-pink-400"
-                            : "text-muted-foreground"
+                            : lead.channelType === "rcs" || lead.channelType === "telegram"
+                              ? "text-sky-600 dark:text-sky-400"
+                              : "text-muted-foreground"
                       )}
                       title={
                         lead.channelType === "web"
@@ -715,13 +717,7 @@ function LeadTable({
                           : CHANNEL_LABEL[lead.channelType]
                       }
                     >
-                      {lead.channelType === "whatsapp" ? (
-                        <WhatsappLogoIcon className="size-4" />
-                      ) : lead.channelType === "instagram" ? (
-                        <InstagramLogo />
-                      ) : (
-                        <GlobeIcon className="size-4" />
-                      )}
+                      <ChannelGlyph type={lead.channelType} />
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">

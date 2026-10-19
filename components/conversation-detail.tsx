@@ -15,6 +15,7 @@ import { ContactAvatar } from "@/components/contact-avatar";
 import { DeliveryTicks } from "@/components/delivery-ticks";
 import { WindowClock } from "@/components/window-clock";
 import { SelectField } from "@/components/select-field";
+import { hasReplyWindow } from "@/convex/lib/shared";
 import { CHANNEL_LABEL, ChannelMark, type ChannelKind } from "@/components/channel-mark";
 import {
   Countdown,
@@ -591,7 +592,7 @@ export function ConversationDetail({
                 <ClockIcon className="size-3.5 shrink-0" />
                 Last activity {relative(conversation.lastMessageAt)}
               </span>
-              {conversation.channelType !== "web" ? (
+              {hasReplyWindow(conversation.channelType) ? (
                 <HeaderWindow lastInboundAt={detail.lastInboundAt} />
               ) : null}
             </div>
@@ -972,7 +973,7 @@ function ThreadDetails({
     ? holdEnd(conversation.humanHandlingAt, conversation.humanHandlingUntil)
     : null;
   const window24 =
-    conversation.channelType !== "web"
+    hasReplyWindow(conversation.channelType)
       ? replyWindow(lastInboundAt, now)
       : null;
 
@@ -1098,7 +1099,7 @@ function ThreadDetails({
         )}
       </DetailSection>
 
-      {conversation.channelType !== "web" ? (
+      {hasReplyWindow(conversation.channelType) ? (
         <DetailSection title="Reply window">
           {window24 ? (
             <div className="flex items-center gap-3">

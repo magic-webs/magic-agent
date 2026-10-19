@@ -1244,6 +1244,8 @@ export const fileFromTool = internalMutation({
       v.literal("whatsapp"),
       v.literal("web"),
       v.literal("instagram"),
+      v.literal("rcs"),
+      v.literal("telegram"),
       v.literal("api")
     ),
     person: v.optional(personShape),

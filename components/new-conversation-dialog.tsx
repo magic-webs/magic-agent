@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { ContactAvatar } from "@/components/contact-avatar";
-import { InstagramLogo } from "@/components/brand-icons";
+import { ChannelGlyph } from "@/components/channel-mark";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,10 +26,8 @@ import {
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
 import {
-  GlobeIcon,
   MagnifyingGlassIcon,
   PlusIcon,
-  WhatsappLogoIcon,
 } from "@phosphor-icons/react";
 
 /**
@@ -190,13 +188,10 @@ export function NewConversationDialog({
                           {contact.phone ?? contact.email ?? contact.externalId}
                         </span>
                       </span>
-                      {contact.channelType === "whatsapp" ? (
-                        <WhatsappLogoIcon className="size-4 shrink-0 text-muted-foreground" />
-                      ) : contact.channelType === "instagram" ? (
-                        <InstagramLogo className="text-muted-foreground" />
-                      ) : (
-                        <GlobeIcon className="size-4 shrink-0 text-muted-foreground" />
-                      )}
+                      <ChannelGlyph
+                        type={contact.channelType}
+                        className="text-muted-foreground"
+                      />
                     </button>
                   );
                 })}

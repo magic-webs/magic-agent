@@ -43,7 +43,10 @@ import {
   SirenIcon,
 } from "@phosphor-icons/react";
 
-const CHANNEL_TYPES = new Set(["all", "whatsapp", "web", "instagram"]);
+const KINDS = ["whatsapp", "web", "instagram", "rcs", "telegram"] as const;
+const CHANNEL_TYPES = new Set<string>(["all", ...KINDS]);
+const isKind = (value: string): value is (typeof KINDS)[number] =>
+  (KINDS as readonly string[]).includes(value);
 
 function channelLabel(channel: { name: string; phone: string | null }) {
   return channel.phone ? `${channel.name} · ${channel.phone}` : channel.name;
@@ -179,12 +182,7 @@ export default function ConversationsPage() {
       escalations: view === "escalations",
       bucket: statusFilter === "escalated" ? "all" : statusFilter,
       agentId: agentFilter === "all" ? undefined : (agentFilter as Id<"agents">),
-      channelType:
-        channelFilter === "whatsapp" ||
-        channelFilter === "web" ||
-        channelFilter === "instagram"
-          ? channelFilter
-          : undefined,
+      channelType: isKind(channelFilter) ? channelFilter : undefined,
       channelId: CHANNEL_TYPES.has(channelFilter)
         ? undefined
         : (channelFilter as Id<"channels">),
@@ -457,6 +455,8 @@ export default function ConversationsPage() {
                       { value: "whatsapp", label: "Any WhatsApp number" },
                       { value: "web", label: "Web chat" },
                       { value: "instagram", label: "Any Instagram account" },
+                      { value: "rcs", label: "Any RCS sender" },
+                      { value: "telegram", label: "Any Telegram bot" },
                       ...(manyChannels ? (channels ?? []) : []).map((channel) => ({
                         value: channel._id as string,
                         label: channelLabel(channel),

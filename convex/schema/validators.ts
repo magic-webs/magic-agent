@@ -144,5 +144,7 @@ export const escalationDepartment = v.union(
 export const channelType = v.union(
   v.literal("whatsapp"),
   v.literal("web"),
-  v.literal("instagram")
+  v.literal("instagram"),
+  v.literal("rcs"),
+  v.literal("telegram")
 );

@@ -419,6 +419,11 @@ export const MAX_FOLLOW_UPS = 2;
  */
 export const WHATSAPP_FREE_FORM_WINDOW_HOURS = 24;
 
+/** Telegram and the web widget can be written to at any time. */
+export function hasReplyWindow(channelType: string): boolean {
+  return channelType !== "web" && channelType !== "telegram";
+}
+
 /**
  * A workspace's message limit counts messages within one session of this many
  * hours, starting at the first message after the last session ran out.

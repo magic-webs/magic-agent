@@ -25,13 +25,17 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AgentAvatar } from "@/components/agent-avatar";
-import { InstagramLogo, WhatsAppLogo } from "@/components/brand-icons";
-import { CHANNEL_LABEL, type ChannelKind } from "@/components/channel-mark";
+import { WhatsAppLogo } from "@/components/brand-icons";
+import {
+  CHANNEL_LABEL,
+  CHANNEL_TILE,
+  ChannelGlyph,
+  type ChannelKind,
+} from "@/components/channel-mark";
 import { cn } from "@/lib/utils";
 import {
   BooksIcon,
   FunnelIcon,
-  GlobeIcon,
   PlusIcon,
   RobotIcon,
   SignpostIcon,
@@ -127,7 +131,6 @@ function routingClause(note: string): string {
 
 function ChannelNode({ data }: NodeProps<Node<ChannelData>>) {
   const whatsapp = data.channel === "whatsapp";
-  const instagram = data.channel === "instagram";
   return (
     <div
       className={cn(
@@ -141,17 +144,13 @@ function ChannelNode({ data }: NodeProps<Node<ChannelData>>) {
           // WhatsApp's own app-icon gradient, so the tile reads as the app.
           whatsapp
             ? "bg-linear-to-b from-[#5FFC7B] to-[#28D146]"
-            : instagram
-              ? "bg-[radial-gradient(circle_at_30%_107%,#fdf497_0%,#fdf497_5%,#fd5949_45%,#d6249f_60%,#285AEB_90%)]"
-              : "bg-sky-500"
+            : CHANNEL_TILE[data.channel]
         )}
       >
         {whatsapp ? (
           <WhatsAppLogo className="size-6" />
-        ) : instagram ? (
-          <InstagramLogo className="size-5" />
         ) : (
-          <GlobeIcon weight="fill" className="size-5" />
+          <ChannelGlyph type={data.channel} className="size-5" />
         )}
       </span>
       <div className="min-w-0 flex-1">

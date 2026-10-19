@@ -39,6 +39,21 @@ export const conversationsTables = {
         permissions: v.optional(v.array(v.string())),
       })
     ),
+    rcs: v.optional(
+      v.object({
+        apiBaseUrl: v.string(),
+        accessToken: v.string(),
+        displayPhoneNumber: v.optional(v.string()),
+      })
+    ),
+    telegram: v.optional(
+      v.object({
+        botToken: v.string(),
+        secretToken: v.string(),
+        botId: v.optional(v.string()),
+        botUsername: v.optional(v.string()),
+      })
+    ),
     status: v.union(
       v.literal("active"),
       v.literal("paused"),
@@ -87,6 +102,8 @@ export const conversationsTables = {
         v.literal("whatsapp"),
         v.literal("web"),
         v.literal("instagram"),
+        v.literal("rcs"),
+        v.literal("telegram"),
         v.literal("manual"),
         v.literal("import")
       )

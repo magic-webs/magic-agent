@@ -62,7 +62,12 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { ChannelQr } from "@/components/channel-qr";
-import { InstagramLogo } from "@/components/brand-icons";
+import { InstagramLogo, RcsLogo, TelegramLogo } from "@/components/brand-icons";
+import {
+  CHANNEL_LABEL,
+  ChannelGlyph,
+  type ChannelKind,
+} from "@/components/channel-mark";
 import { CardGridSkeleton } from "@/components/skeletons";
 import {
   WhatsappLogoIcon,
@@ -539,6 +544,227 @@ function ChannelDialog({
   );
 }
 
+type ProviderKind = "rcs" | "telegram";
+
+type ProviderChannelForm = {
+  name: string;
+  agentId: string;
+  token: string;
+  apiBaseUrl: string;
+  displayPhoneNumber: string;
+};
+
+const RCS_BASE_URL = "https://crmapi.com.bot/api/v1";
+
+const emptyProviderForm = (kind: ProviderKind): ProviderChannelForm => ({
+  name: CHANNEL_LABEL[kind],
+  agentId: "",
+  token: "",
+  apiBaseUrl: RCS_BASE_URL,
+  displayPhoneNumber: "",
+});
+
+function ProviderChannelDialog({
+  kind,
+  channelId,
+  initial,
+  trigger,
+  open: openProp,
+  onOpenChange,
+}: {
+  kind: ProviderKind;
+  channelId?: Id<"channels">;
+  initial?: ProviderChannelForm;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const workspace = useWorkspace();
+  const agents = useQuery(api.agents.listByWorkspace, {
+    workspaceId: workspace._id,
+  });
+  const createChannel = useMutation(api.channels.create);
+  const updateChannel = useMutation(api.channels.update);
+
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChange ?? setOpenState;
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<ProviderChannelForm>(
+    initial ?? emptyProviderForm(kind)
+  );
+  const selectedAgentId = form.agentId || defaultChannelAgentId(agents) || "";
+  const set = <K extends keyof ProviderChannelForm>(
+    key: K,
+    value: ProviderChannelForm[K]
+  ) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const isTelegram = kind === "telegram";
+  const tokenLabel = isTelegram ? "Bot token" : "Access token";
+
+  const submit = async () => {
+    if (!selectedAgentId) {
+      toast.add({ title: "Pick the agent that answers here", type: "error" });
+      return;
+    }
+    if (!channelId && !form.token.trim()) {
+      toast.add({ title: `A ${tokenLabel.toLowerCase()} is required`, type: "error" });
+      return;
+    }
+    const token = form.token.trim() || undefined;
+    const provider = isTelegram
+      ? { telegram: { botToken: token } }
+      : {
+          rcs: {
+            accessToken: token,
+            apiBaseUrl: form.apiBaseUrl.trim() || undefined,
+            displayPhoneNumber: form.displayPhoneNumber.trim() || undefined,
+          },
+        };
+
+    setBusy(true);
+    try {
+      if (channelId) {
+        await updateChannel({
+          channelId,
+          name: form.name,
+          agentId: selectedAgentId as Id<"agents">,
+          ...provider,
+        });
+        toast.add({ title: "Channel updated", type: "success" });
+      } else {
+        await createChannel({
+          workspaceId: workspace._id,
+          agentId: selectedAgentId as Id<"agents">,
+          type: kind,
+          name: form.name,
+          ...provider,
+        });
+        toast.add({
+          title: "Channel created",
+          description: isTelegram
+            ? "The bot is being connected. It goes live as soon as Telegram accepts the webhook."
+            : "Copy the callback URL into your RCS provider's webhook settings.",
+          type: "success",
+        });
+        setForm(emptyProviderForm(kind));
+      }
+      setOpen(false);
+    } catch (error) {
+      toast.add({
+        title: "Save failed",
+        description: friendlyError(error),
+        type: "error",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {trigger ? <DialogTrigger render={trigger} /> : null}
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>
+            {channelId
+              ? `Edit ${CHANNEL_LABEL[kind]} channel`
+              : isTelegram
+                ? "Connect a Telegram bot"
+                : "Connect an RCS sender"}
+          </DialogTitle>
+          <DialogDescription>
+            {isTelegram
+              ? "Create a bot with @BotFather in Telegram and paste the token it gives you. The webhook is set on the bot for you."
+              : "Paste the token from your RCS channel. Every channel stores its own, so one workspace can run several senders."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${kind}-name`}>Channel name</Label>
+              <Input
+                id={`${kind}-name`}
+                value={form.name}
+                placeholder="Channel name"
+                onChange={(event) => set("name", event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${kind}-agent`}>Agent that answers</Label>
+              <SelectField
+                id={`${kind}-agent`}
+                className="w-full"
+                value={selectedAgentId}
+                placeholder="No agents yet"
+                onValueChange={(next) => set("agentId", next)}
+                options={agentOptions(agents)}
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${kind}-token`}>
+              {tokenLabel}
+              {channelId ? (
+                <span className="ml-1 font-normal text-muted-foreground">
+                  — leave blank to keep the stored one
+                </span>
+              ) : null}
+            </Label>
+            <Input
+              id={`${kind}-token`}
+              type="password"
+              className="font-mono"
+              value={form.token}
+              placeholder={
+                channelId ? "••••••••" : isTelegram ? "123456789:AA…" : tokenLabel
+              }
+              onChange={(event) => set("token", event.target.value)}
+            />
+          </div>
+
+          {isTelegram ? null : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="rcs-display">Sender number</Label>
+                <Input
+                  id="rcs-display"
+                  value={form.displayPhoneNumber}
+                  placeholder="Phone number"
+                  onChange={(event) => set("displayPhoneNumber", event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="rcs-base">API base URL</Label>
+                <Input
+                  id="rcs-base"
+                  className="font-mono"
+                  value={form.apiBaseUrl}
+                  onChange={(event) => set("apiBaseUrl", event.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={busy}>
+            {busy ? <Spinner /> : <PlusIcon />}{" "}
+            {channelId ? "Save changes" : "Create channel"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 type WebChannelForm = {
   name: string;
   agentId: string;
@@ -930,16 +1156,30 @@ function ConnectInstagramButton() {
  * not inside it. A dialog mounted inside `DropdownMenuContent` is unmounted
  * as soon as the menu closes, which the first click inside the dialog does.
  */
+const GONE_WHEN_DELETED: Record<ChannelKind, string> = {
+  web: "the widget on your website stops loading.",
+  instagram: "direct messages to this Instagram account stop being answered.",
+  whatsapp: "inbound WhatsApp messages to this number stop being answered.",
+  rcs: "inbound RCS messages to this sender stop being answered.",
+  telegram: "messages to this Telegram bot stop being answered.",
+};
+
+const AFTER_ROTATE: Record<ChannelKind, string> = {
+  web: "The script tag already on your website stops loading the moment this changes. You will need to paste the new one in its place.",
+  instagram: "",
+  whatsapp: "Inbound messages stop until you set the new URL in Meta and verify it again. Conversations already received are untouched.",
+  rcs: "Inbound messages stop until you set the new URL with your RCS provider. Conversations already received are untouched.",
+  telegram: "The bot is pointed at the new URL for you. Conversations already received are untouched.",
+};
+
 function ChannelMenu({
-  isWeb,
-  isInstagram,
+  kind,
   onEdit,
   onRotate,
   onReconnect,
   onDelete,
 }: {
-  isWeb: boolean;
-  isInstagram: boolean;
+  kind: ChannelKind;
   onEdit: () => void;
   onRotate: () => Promise<void>;
   onReconnect: () => Promise<void>;
@@ -947,6 +1187,8 @@ function ChannelMenu({
 }) {
   const [rotating, setRotating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isWeb = kind === "web";
+  const isInstagram = kind === "instagram";
 
   return (
     <>
@@ -987,11 +1229,7 @@ function ChannelMenu({
                 ? "Generate a new embed code?"
                 : "Generate a new callback URL?"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isWeb
-                ? "The script tag already on your website stops loading the moment this changes. You will need to paste the new one in its place."
-                : "Inbound messages stop until you set the new URL in Meta and verify it again. Conversations already received are untouched."}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{AFTER_ROTATE[kind]}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -1008,11 +1246,7 @@ function ChannelMenu({
             <AlertDialogTitle>Delete this channel?</AlertDialogTitle>
             <AlertDialogDescription>
               Customers can no longer reach you here, and{" "}
-              {isWeb
-                ? "the widget on your website stops loading."
-                : isInstagram
-                  ? "direct messages to this Instagram account stop being answered."
-                  : "inbound WhatsApp messages to this number stop being answered."}{" "}
+              {GONE_WHEN_DELETED[kind]}{" "}
               Conversations already received are kept. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1032,6 +1266,8 @@ const FILTERS = [
   { value: "all", label: "All" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "instagram", label: "Instagram" },
+  { value: "rcs", label: "RCS" },
+  { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
   { value: "inactive", label: "Inactive" },
 ] as const;
@@ -1088,6 +1324,7 @@ type ChannelRow = FunctionReturnType<typeof api.channels.listByWorkspace>[number
 
 /** The addresses a channel is reached at, worked out once per render. */
 type ChannelLinks = {
+  kind: ChannelKind;
   isWeb: boolean;
   isInstagram: boolean;
   igLink: string | null;
@@ -1095,34 +1332,43 @@ type ChannelLinks = {
   webhookUrl: string;
   widgetUrl: string;
   embedCode: string;
-  waLink: string | null;
+  chatLink: string | null;
 };
+
+function chatLinkFor(channel: ChannelRow): string | null {
+  if (channel.type === "telegram") {
+    return channel.telegram?.botUsername
+      ? `https://t.me/${channel.telegram.botUsername}`
+      : null;
+  }
+  const digits = (
+    channel.type === "rcs"
+      ? (channel.rcs?.displayPhoneNumber ?? "")
+      : (channel.whatsapp?.displayPhoneNumber ?? "")
+  ).replace(/[^0-9]/g, "");
+  if (!digits) return null;
+  return channel.type === "rcs" ? `sms:+${digits}` : `https://wa.me/${digits}`;
+}
 
 function channelLinks(
   channel: ChannelRow,
   appOrigin: string,
   webhookBase: string
 ): ChannelLinks {
-  // Only the digits are dialable. This stripped /D/g before, which matches a
-  // literal capital D — so "+91 75999 09021" came through unchanged, wa.me got
-  // the spaces and the plus, and the QR pointed at a broken link.
-  const waDigits = (channel.whatsapp?.displayPhoneNumber ?? "").replace(
-    /[^0-9]/g,
-    ""
-  );
   return {
+    kind: channel.type,
     isWeb: channel.type === "web",
     isInstagram: channel.type === "instagram",
     igLink: channel.instagram
       ? `https://ig.me/m/${channel.instagram.username}`
       : null,
     live: channel.status === "active",
-    webhookUrl: `${webhookBase}/whatsapp/${channel.channelKey}`,
+    webhookUrl: `${webhookBase}/${channel.type === "rcs" ? "rcs" : "whatsapp"}/${channel.channelKey}`,
     widgetUrl: `${appOrigin}/widget/${channel.channelKey}`,
     // A script, not a bare iframe: the launcher button has to live in the host
     // page, because an iframe cannot resize itself there.
     embedCode: `<script src="${appOrigin}/widget/${channel.channelKey}/embed.js" async></script>`,
-    waLink: waDigits ? `https://wa.me/${waDigits}` : null,
+    chatLink: chatLinkFor(channel),
   };
 }
 
@@ -1141,7 +1387,7 @@ function ChannelControls({
   const rotateKeys = useMutation(api.channels.rotateKeys);
   const removeChannel = useMutation(api.channels.remove);
   const { connect } = useInstagramConnect();
-  const { isWeb, isInstagram, live } = links;
+  const { kind, isWeb, isInstagram, live } = links;
   const [editing, setEditing] = useState(false);
 
   return (
@@ -1172,8 +1418,7 @@ function ChannelControls({
       </div>
 
       <ChannelMenu
-        isWeb={isWeb}
-        isInstagram={isInstagram}
+        kind={kind}
         onReconnect={() => connect(channel.agentId, channel.name)}
         onRotate={async () => {
           await rotateKeys({ channelId: channel._id });
@@ -1183,8 +1428,12 @@ function ChannelControls({
               : "New callback URL generated",
             description: isWeb
               ? "Replace the script tag on your website or the widget will stop loading."
-              : "Update the configuration in Meta or inbound messages will stop.",
-            type: "warning",
+              : kind === "telegram"
+                ? "The bot is being pointed at the new URL."
+                : kind === "rcs"
+                  ? "Update the webhook with your RCS provider or inbound messages will stop."
+                  : "Update the configuration in Meta or inbound messages will stop.",
+            type: kind === "telegram" ? "success" : "warning",
           });
         }}
         onDelete={async () => {
@@ -1199,6 +1448,20 @@ function ChannelControls({
           <InstagramDialog
             channelId={channel._id}
             initial={{ name: channel.name, agentId: channel.agentId }}
+            open
+            onOpenChange={setEditing}
+          />
+        ) : kind === "rcs" || kind === "telegram" ? (
+          <ProviderChannelDialog
+            kind={kind}
+            channelId={channel._id}
+            initial={{
+              name: channel.name,
+              agentId: channel.agentId,
+              token: "",
+              apiBaseUrl: channel.rcs?.apiBaseUrl ?? RCS_BASE_URL,
+              displayPhoneNumber: channel.rcs?.displayPhoneNumber ?? "",
+            }}
             open
             onOpenChange={setEditing}
           />
@@ -1253,9 +1516,10 @@ function ChannelSetup({
   channel: ChannelRow;
   links: ChannelLinks;
 }) {
-  const { isWeb, isInstagram, webhookUrl, widgetUrl, embedCode, waLink } = links;
+  const { kind, isWeb, isInstagram, webhookUrl, widgetUrl, embedCode, chatLink } = links;
 
   if (isInstagram) return <InstagramSetup channel={channel} links={links} />;
+  if (kind === "telegram") return <TelegramSetup channel={channel} links={links} />;
 
   return (
     <>
@@ -1313,14 +1577,26 @@ function ChannelSetup({
               <CopyField
                 value={webhookUrl}
                 label="Callback URL"
-                hint={"Set this in your Meta App → WhatsApp → Configuration → Webhooks."}
+                hint={
+                  kind === "rcs"
+                    ? "Set this as the inbound webhook on your RCS channel with the provider."
+                    : "Set this in your Meta App → WhatsApp → Configuration → Webhooks."
+                }
               />
             </TabsContent>
             <TabsContent value="qr">
               <ChannelQr
-                url={waLink}
-                caption="Point a phone camera at this to open a WhatsApp chat with this number, already addressed. Send anything and the front desk answers."
-                unavailable="This channel has no display phone number saved, and that is the only field a wa.me link can be built from — Meta's phone number ID is an internal handle, not a dialable number. Add it under Edit."
+                url={chatLink}
+                caption={
+                  kind === "rcs"
+                    ? "Point a phone camera at this to open a message to this sender in the phone's messages app. Send anything and the front desk answers."
+                    : "Point a phone camera at this to open a WhatsApp chat with this number, already addressed. Send anything and the front desk answers."
+                }
+                unavailable={
+                  kind === "rcs"
+                    ? "This channel has no sender number saved. Add it under Edit."
+                    : "This channel has no display phone number saved, and that is the only field a wa.me link can be built from — Meta's phone number ID is an internal handle, not a dialable number. Add it under Edit."
+                }
               />
             </TabsContent>
           </Tabs>
@@ -1380,7 +1656,20 @@ function ChannelSetup({
         ) : null}
       </div>
 
-      {!isWeb ? (
+      {kind === "rcs" ? (
+        <>
+          <Separator />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <MetaField label="Sender number" value={channel.rcs?.displayPhoneNumber} />
+            <MetaField label="API base URL" value={channel.rcs?.apiBaseUrl} />
+            <MetaField
+              label="Access token"
+              value={channel.hasAccessToken ? channel.rcs?.accessToken : "not set"}
+              copyable={false}
+            />
+          </div>
+        </>
+      ) : !isWeb ? (
         <>
           <Separator />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1414,6 +1703,85 @@ function ChannelSetup({
           </div>
         </>
       ) : null}
+    </>
+  );
+}
+
+function TelegramSetup({
+  channel,
+  links,
+}: {
+  channel: ChannelRow;
+  links: ChannelLinks;
+}) {
+  return (
+    <>
+      {channel.lastError ? (
+        <Alert variant="destructive">
+          <WarningIcon />
+          <AlertTitle>Last delivery problem</AlertTitle>
+          <AlertDescription className="font-mono text-xs">
+            {channel.lastError}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <Tabs defaultValue="link" className="min-w-0">
+          <TabsList>
+            <TabsTrigger value="link">Bot link</TabsTrigger>
+            <TabsTrigger value="qr">QR code</TabsTrigger>
+          </TabsList>
+          <TabsContent value="link">
+            {links.chatLink ? (
+              <CopyField
+                value={links.chatLink}
+                label="Bot link"
+                hint="Share it anywhere — it opens a chat with the bot in Telegram."
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                The bot&apos;s username appears here once Telegram accepts the token.
+              </p>
+            )}
+          </TabsContent>
+          <TabsContent value="qr">
+            <ChannelQr
+              url={links.chatLink}
+              caption="Point a phone camera at this to open a chat with the bot in Telegram. Send anything and the front desk answers."
+              unavailable="The bot's username appears here once Telegram accepts the token."
+            />
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <InfoIcon className="size-4 text-muted-foreground" />
+            Nothing to set up
+          </p>
+          <p className="text-xs text-muted-foreground">
+            The webhook is set on the bot when the channel is saved, and again
+            whenever the token changes. Only private chats with the bot are
+            answered; groups are ignored.
+          </p>
+        </div>
+      </div>
+
+      <Separator />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <MetaField
+          label="Bot username"
+          value={
+            channel.telegram?.botUsername ? `@${channel.telegram.botUsername}` : undefined
+          }
+        />
+        <MetaField label="Bot ID" value={channel.telegram?.botId} />
+        <MetaField
+          label="Bot token"
+          value={channel.hasAccessToken ? channel.telegram?.botToken : "not set"}
+          copyable={false}
+        />
+      </div>
     </>
   );
 }
@@ -1529,7 +1897,7 @@ function ChannelCard({
   channel: ChannelRow;
   links: ChannelLinks;
 }) {
-  const { isWeb, isInstagram, live } = links;
+  const { isWeb, live } = links;
   return (
     <Card>
       {/* One row, always: who this is, where it points, how much has come
@@ -1542,13 +1910,7 @@ function ChannelCard({
               live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             }`}
           >
-            {isWeb ? (
-              <GlobeIcon className="size-5" />
-            ) : isInstagram ? (
-              <InstagramLogo className="size-5" />
-            ) : (
-              <WhatsappLogoIcon className="size-5" />
-            )}
+            <ChannelGlyph type={links.kind} className="size-5" />
           </span>
 
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -1575,6 +1937,14 @@ function ChannelCard({
               ) : null}
               {channel.instagram ? (
                 <Badge variant="secondary">@{channel.instagram.username}</Badge>
+              ) : null}
+              {channel.rcs?.displayPhoneNumber ? (
+                <Badge variant="secondary" className="font-mono">
+                  {channel.rcs.displayPhoneNumber}
+                </Badge>
+              ) : null}
+              {channel.telegram?.botUsername ? (
+                <Badge variant="secondary">@{channel.telegram.botUsername}</Badge>
               ) : null}
             </CardTitle>
             <CardDescription>
@@ -1628,13 +1998,7 @@ function ChannelTile({
             live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
           }`}
         >
-          {isWeb ? (
-            <GlobeIcon className="size-5" />
-          ) : isInstagram ? (
-            <InstagramLogo className="size-5" />
-          ) : (
-            <WhatsappLogoIcon className="size-5" />
-          )}
+          <ChannelGlyph type={links.kind} className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
           <CardTitle className="truncate" title={channel.name}>
@@ -1645,12 +2009,16 @@ function ChannelTile({
               <span className="font-mono">
                 {channel.whatsapp.displayPhoneNumber}
               </span>
+            ) : channel.rcs?.displayPhoneNumber ? (
+              <span className="font-mono">{channel.rcs.displayPhoneNumber}</span>
             ) : channel.instagram ? (
               `@${channel.instagram.username}`
+            ) : channel.telegram?.botUsername ? (
+              `@${channel.telegram.botUsername}`
             ) : isWeb ? (
               "Website widget"
             ) : (
-              "WhatsApp"
+              CHANNEL_LABEL[links.kind]
             )}
           </CardDescription>
         </div>
@@ -1716,7 +2084,11 @@ function ChannelTile({
                     ? "Put the widget on your website, or open it on its own."
                     : isInstagram
                       ? "The connected Instagram account, and a QR code that opens a chat with it."
-                      : "Connect this number in Meta, or share it as a QR code."}
+                      : links.kind === "telegram"
+                        ? "The bot's link, and a QR code that opens a chat with it."
+                        : links.kind === "rcs"
+                          ? "Connect this sender with your RCS provider, or share it as a QR code."
+                          : "Connect this number in Meta, or share it as a QR code."}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4">
@@ -1730,6 +2102,44 @@ function ChannelTile({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ConnectButtons() {
+  return (
+    <>
+      <ChannelDialog
+        trigger={
+          <Button variant="outline">
+            <WhatsappLogoIcon /> Connect WhatsApp
+          </Button>
+        }
+      />
+      <ConnectInstagramButton />
+      <ProviderChannelDialog
+        kind="rcs"
+        trigger={
+          <Button variant="outline">
+            <RcsLogo /> Connect RCS
+          </Button>
+        }
+      />
+      <ProviderChannelDialog
+        kind="telegram"
+        trigger={
+          <Button variant="outline">
+            <TelegramLogo /> Connect Telegram
+          </Button>
+        }
+      />
+      <WebChannelDialog
+        trigger={
+          <Button>
+            <GlobeIcon /> Create Web Widget
+          </Button>
+        }
+      />
+    </>
   );
 }
 
@@ -1790,6 +2200,8 @@ export default function ChannelsPage() {
     all: all.length,
     whatsapp: all.filter((c) => c.type === "whatsapp").length,
     instagram: all.filter((c) => c.type === "instagram").length,
+    rcs: all.filter((c) => c.type === "rcs").length,
+    telegram: all.filter((c) => c.type === "telegram").length,
     web: all.filter((c) => c.type === "web").length,
     // Anything not currently taking messages, whichever way it got there —
     // paused by hand or knocked into error by a failed delivery. They are the
@@ -1821,28 +2233,14 @@ export default function ChannelsPage() {
             Channels
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            WhatsApp numbers, Instagram accounts and website widgets. Each one
-            points at an agent —
+            WhatsApp numbers, Instagram accounts, RCS senders, Telegram bots and
+            website widgets. Each one points at an agent —
             normally the front desk, which routes each conversation on to
             whichever agent should handle it.
           </p>
         </div>
           <div className="flex flex-wrap gap-2">
-            <ChannelDialog
-              trigger={
-                <Button variant="outline">
-                  <WhatsappLogoIcon /> Connect WhatsApp
-                </Button>
-              }
-            />
-            <ConnectInstagramButton />
-            <WebChannelDialog
-              trigger={
-                <Button>
-                  <GlobeIcon /> Create Web Widget
-                </Button>
-              }
-            />
+            <ConnectButtons />
           </div>
       </header>
 
@@ -1943,26 +2341,13 @@ export default function ChannelsPage() {
               </EmptyMedia>
               <EmptyTitle>No channels connected</EmptyTitle>
               <EmptyDescription>
-                Connect a WhatsApp number, sign in with an Instagram business
-                account, or put a chat widget on your website.
+                Connect a WhatsApp number, an RCS sender or a Telegram bot, sign
+                in with an Instagram business account, or put a chat widget on
+                your website.
               </EmptyDescription>
             </EmptyHeader>
               <div className="flex flex-wrap justify-center gap-2">
-                <ChannelDialog
-                  trigger={
-                    <Button variant="outline">
-                      <WhatsappLogoIcon /> Connect WhatsApp
-                    </Button>
-                  }
-                />
-                <ConnectInstagramButton />
-                <WebChannelDialog
-                  trigger={
-                    <Button>
-                      <GlobeIcon /> Create Web Widget
-                    </Button>
-                  }
-                />
+                <ConnectButtons />
               </div>
           </Empty>
         ) : null

@@ -55,7 +55,12 @@ import {
 } from "@/components/ui/popover";
 import { copyText } from "@/components/notifications/shared";
 import { CompanyLogo } from "@/components/company-logo";
-import { InstagramLogo, WhatsAppLogo } from "@/components/brand-icons";
+import {
+  InstagramLogo,
+  RcsLogo,
+  TelegramLogo,
+  WhatsAppLogo,
+} from "@/components/brand-icons";
 import {
   WorkspaceStageBadge,
   WorkspaceStagePicker,
@@ -130,6 +135,16 @@ const CHANNEL_KINDS = [
     icon: <InstagramLogo className="size-4 text-[#E4405F]" />,
   },
   {
+    type: "rcs",
+    label: "RCS",
+    icon: <RcsLogo className="size-4 text-[#1A73E8]" />,
+  },
+  {
+    type: "telegram",
+    label: "Telegram",
+    icon: <TelegramLogo className="size-4 text-[#229ED9]" />,
+  },
+  {
     type: "web",
     label: "Web chat",
     icon: <GlobeIcon className="size-4 text-sky-600" />,
@@ -146,6 +161,12 @@ function channelLink(channel: WorkspaceChannel): string | null {
     return channel.instagramUsername
       ? `https://ig.me/m/${channel.instagramUsername}`
       : null;
+  }
+  if (channel.type === "telegram") {
+    return channel.telegramUsername ? `https://t.me/${channel.telegramUsername}` : null;
+  }
+  if (channel.type === "rcs") {
+    return channel.phone ? `sms:+${channel.phone}` : null;
   }
   return channel.phone ? `https://wa.me/${channel.phone}` : null;
 }

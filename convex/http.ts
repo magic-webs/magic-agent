@@ -279,6 +279,93 @@ http.route({
   }),
 });
 
+function keyAfter(prefix: string, url: string): string | null {
+  const key = new URL(url).pathname.slice(prefix.length).replace(/\/+$/, "");
+  return key && !key.includes("/") ? key : null;
+}
+
+const accepted = () =>
+  new Response(JSON.stringify({ status: "accepted" }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+
+http.route({
+  pathPrefix: "/rcs/",
+  method: "GET",
+  handler: httpAction(async (_ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    const challenge =
+      params.get("hub.challenge") ?? params.get("challenge") ?? params.get("challange");
+    return new Response(challenge ?? "OK", {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }),
+});
+
+http.route({
+  pathPrefix: "/rcs/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const channelKey = keyAfter("/rcs/", request.url);
+    if (!channelKey) return new Response("Not found", { status: 404 });
+
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    const shape =
+      payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    console.log(
+      `[rcs] POST channel=${channelKey} keys=${Object.keys(shape).join(",") || "(none)"}`
+    );
+
+    const challenge = shape["challange"] ?? shape["challenge"] ?? shape["hub.challenge"];
+    if (typeof challenge === "string") {
+      return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
+
+    const statuses = deliveryStatuses(shape);
+    if (statuses.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.deliveries.applyStatuses, {
+        channelKey,
+        statuses,
+      });
+    }
+    if (statuses.length === 0 || hasMessages(shape)) {
+      await ctx.scheduler.runAfter(0, internal.rcs.handleInbound, { channelKey, payload });
+    }
+    return accepted();
+  }),
+});
+
+http.route({
+  pathPrefix: "/telegram/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const channelKey = keyAfter("/telegram/", request.url);
+    if (!channelKey) return new Response("Not found", { status: 404 });
+
+    const resolved = await ctx.runQuery(internal.channels.resolveByKey, { channelKey });
+    const secret = resolved?.channel.telegram?.secretToken;
+    if (!secret || request.headers.get("x-telegram-bot-api-secret-token") !== secret) {
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    let update: unknown;
+    try {
+      update = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    await ctx.scheduler.runAfter(0, internal.telegram.handleInbound, { channelKey, update });
+    return accepted();
+  }),
+});
+
 http.route({
   pathPrefix: "/whatsapp-media/",
   method: "GET",

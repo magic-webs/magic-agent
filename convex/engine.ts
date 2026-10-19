@@ -55,6 +55,7 @@ import {
   worthClassifying,
 } from "./lib/welcomeMenu";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
+import { sendOnChannel } from "./lib/channelSend";
 import { channelType } from "./schema";
 import {
   parametersToJsonSchema,
@@ -579,19 +580,13 @@ function makeDeliver(ctx: ActionCtx, turn: TurnContext) {
       if (!channelId || !externalId) {
         throw new ConvexError("This conversation has no channel to send on.");
       }
-      const result: { ok: boolean; error?: string; wamid?: string } =
-        await ctx.runAction(
-          channelType === "instagram"
-            ? internal.instagram.sendOutbound
-            : internal.whatsapp.sendOutbound,
-          {
-            channelId,
-            to: externalId,
-            message,
-            source: "agent",
-            conversationId,
-          }
-        );
+      const result = await sendOnChannel(ctx, channelType, {
+        channelId,
+        to: externalId,
+        message,
+        source: "agent",
+        conversationId,
+      });
       if (!result.ok) {
         throw new ConvexError(
           result.error ?? "The channel would not accept that message."
@@ -606,7 +601,7 @@ function makeDeliver(ctx: ActionCtx, turn: TurnContext) {
       agentId: agent._id,
       summary: summarise(message),
       payload: JSON.stringify(message),
-      whatsapp: channelType === "whatsapp" ? { wamid } : undefined,
+      sent: channelType !== "web" ? { wamid } : undefined,
     });
 
     return {
@@ -1366,7 +1361,7 @@ function buildAppTools(
     name: turn.contact.name,
     phone: formatPhone(
       turn.contact.phone ??
-        (turn.channelType === "whatsapp" ? turn.externalId : undefined)
+        (turn.channelType === "whatsapp" || turn.channelType === "rcs" ? turn.externalId : undefined)
     ),
     email: turn.contact.email,
     company: turn.contact.company,
@@ -1526,7 +1521,7 @@ function buildAppTools(
           // for a phone. Only on WhatsApp, where the external id is the
           // number; a web visitor has none to give.
           const whatsapp =
-            turn.channelType === "whatsapp"
+            turn.channelType === "whatsapp" || turn.channelType === "rcs"
               ? turn.externalId.replace(/\D/g, "") || undefined
               : undefined;
 
@@ -1753,7 +1748,7 @@ function buildPaymentTools(
             phone:
               text(input.customerPhone) ??
               turn.contact.phone ??
-              (turn.channelType === "whatsapp" ? turn.externalId : undefined),
+              (turn.channelType === "whatsapp" || turn.channelType === "rcs" ? turn.externalId : undefined),
             email: text(input.customerEmail) ?? turn.contact.email,
           },
           recordReference: text(input.orderReference),

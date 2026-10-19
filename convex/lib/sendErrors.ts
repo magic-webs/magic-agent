@@ -1,6 +1,11 @@
 type Channel = "whatsapp" | "instagram" | "web" | string;
 
-const NAME: Record<string, string> = { whatsapp: "WhatsApp", instagram: "Instagram" };
+const NAME: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  instagram: "Instagram",
+  rcs: "RCS",
+  telegram: "Telegram",
+};
 
 /** A provider's send error, reworded for the person who pressed send. */
 export function friendlySendError(channel: Channel, raw: string | undefined): string {
@@ -18,13 +23,16 @@ export function friendlySendError(channel: Channel, raw: string | undefined): st
   if (/131026|not a valid whatsapp|unable to deliver|incapable/.test(text)) {
     return "This number can't receive WhatsApp messages.";
   }
+  if (/bot was blocked|user is deactivated|chat not found/.test(text)) {
+    return `This person has blocked or left the ${name} bot, so it can't message them.`;
+  }
   if (/user not found|no matching user|isn't available|not available right now/.test(text)) {
     return `This person can't receive messages on ${name} right now.`;
   }
   if (/131056|130429|rate limit|too many|throttl|request limit/.test(text)) {
     return `${name} is limiting how fast messages can be sent. Wait a minute and try again.`;
   }
-  if (/http 401|access token|oauth|session has expired|\b190\b|131031|account is locked/.test(text)) {
+  if (/http 401|unauthorized|access token|oauth|session has expired|\b190\b|131031|account is locked/.test(text)) {
     return `The ${name} connection needs attention. Reconnect it from Channels, then try again.`;
   }
   if (/131051|not supported|unsupported/.test(text)) {

@@ -24,6 +24,28 @@ const whatsappInput = v.object({
   accessToken: v.optional(v.string()),
 });
 
+const rcsInput = v.object({
+  apiBaseUrl: v.optional(v.string()),
+  displayPhoneNumber: v.optional(v.string()),
+  accessToken: v.optional(v.string()),
+});
+
+const telegramInput = v.object({ botToken: v.optional(v.string()) });
+
+const DEFAULT_RCS_BASE = "https://crmapi.com.bot/api/v1";
+
+const DEFAULT_NAME = {
+  whatsapp: "WhatsApp",
+  web: "Web chat",
+  rcs: "RCS",
+  telegram: "Telegram",
+} as const;
+
+function keepSecret(incoming: string | undefined, stored: string | undefined) {
+  const token = incoming?.trim();
+  return !token || token.startsWith("••") ? stored : token;
+}
+
 // Never return a live access token to the browser.
 function redact(channel: Doc<"channels">) {
   return {
@@ -37,8 +59,22 @@ function redact(channel: Doc<"channels">) {
     instagram: channel.instagram
       ? { ...channel.instagram, accessToken: maskSecret(channel.instagram.accessToken) ?? "" }
       : undefined,
+    rcs: channel.rcs
+      ? { ...channel.rcs, accessToken: maskSecret(channel.rcs.accessToken) ?? "" }
+      : undefined,
+    telegram: channel.telegram
+      ? {
+          botId: channel.telegram.botId,
+          botUsername: channel.telegram.botUsername,
+          botToken: maskSecret(channel.telegram.botToken) ?? "",
+          secretToken: "",
+        }
+      : undefined,
     hasAccessToken: Boolean(
-      channel.whatsapp?.accessToken ?? channel.instagram?.accessToken
+      channel.whatsapp?.accessToken ??
+        channel.instagram?.accessToken ??
+        channel.rcs?.accessToken ??
+        channel.telegram?.botToken
     ),
   };
 }
@@ -108,7 +144,9 @@ export const inboxChannels = query({
         status: channel.status,
         phone:
           channel.whatsapp?.displayPhoneNumber ??
-          (channel.instagram ? `@${channel.instagram.username}` : null),
+          channel.rcs?.displayPhoneNumber ??
+          (channel.instagram ? `@${channel.instagram.username}` : null) ??
+          (channel.telegram?.botUsername ? `@${channel.telegram.botUsername}` : null),
       }));
   },
 });
@@ -126,10 +164,17 @@ export const create = mutation({
   args: {
     workspaceId: v.id("workspaces"),
     agentId: v.id("agents"),
-    type: v.union(v.literal("whatsapp"), v.literal("web")),
+    type: v.union(
+      v.literal("whatsapp"),
+      v.literal("web"),
+      v.literal("rcs"),
+      v.literal("telegram")
+    ),
     name: v.string(),
     intake: v.optional(widgetIntake),
     whatsapp: v.optional(whatsappInput),
+    rcs: v.optional(rcsInput),
+    telegram: v.optional(telegramInput),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
@@ -146,13 +191,21 @@ export const create = mutation({
         throw new ConvexError("A WhatsApp access token is required");
       }
     }
+    const rcsToken = args.rcs?.accessToken?.trim();
+    if (args.type === "rcs" && !rcsToken) {
+      throw new ConvexError("An RCS access token is required");
+    }
+    const botToken = args.telegram?.botToken?.trim();
+    if (args.type === "telegram" && !botToken) {
+      throw new ConvexError("A Telegram bot token is required");
+    }
 
     const now = Date.now();
     const channelId = await ctx.db.insert("channels", {
       workspaceId: args.workspaceId,
       agentId: args.agentId,
       type: args.type,
-      name: args.name.trim() || "WhatsApp",
+      name: args.name.trim() || DEFAULT_NAME[args.type],
       channelKey: randomKey(28),
       externalId: args.whatsapp?.phoneNumberId,
       intake: args.type === "web" ? args.intake : undefined,
@@ -171,10 +224,27 @@ export const create = mutation({
               accessToken: args.whatsapp.accessToken!.trim(),
             }
           : undefined,
-      status: args.type === "whatsapp" ? "paused" : "active",
+      rcs:
+        args.type === "rcs" && rcsToken
+          ? {
+              apiBaseUrl:
+                args.rcs?.apiBaseUrl?.trim().replace(/\/$/, "") || DEFAULT_RCS_BASE,
+              accessToken: rcsToken,
+              displayPhoneNumber: args.rcs?.displayPhoneNumber?.trim() || undefined,
+            }
+          : undefined,
+      telegram:
+        args.type === "telegram" && botToken
+          ? { botToken, secretToken: randomKey(32) }
+          : undefined,
+      status:
+        args.type === "whatsapp" || args.type === "telegram" ? "paused" : "active",
       createdAt: now,
       updatedAt: now,
     });
+    if (args.type === "telegram") {
+      await ctx.scheduler.runAfter(0, internal.telegram.register, { channelId });
+    }
     return channelId;
   },
 });
@@ -186,6 +256,8 @@ export const update = mutation({
     agentId: v.optional(v.id("agents")),
     intake: v.optional(widgetIntake),
     whatsapp: v.optional(whatsappInput),
+    rcs: v.optional(rcsInput),
+    telegram: v.optional(telegramInput),
     status: v.optional(
       v.union(v.literal("active"), v.literal("paused"), v.literal("error"))
     ),
@@ -241,7 +313,39 @@ export const update = mutation({
       patch.externalId = args.whatsapp.phoneNumberId.trim();
     }
 
+    if (args.rcs) {
+      if (existing.type !== "rcs") throw new ConvexError("This is not an RCS channel");
+      const accessToken = keepSecret(args.rcs.accessToken, existing.rcs?.accessToken);
+      if (!accessToken) throw new ConvexError("An RCS access token is required");
+      patch.rcs = {
+        apiBaseUrl:
+          args.rcs.apiBaseUrl?.trim().replace(/\/$/, "") ||
+          existing.rcs?.apiBaseUrl ||
+          DEFAULT_RCS_BASE,
+        accessToken,
+        displayPhoneNumber: args.rcs.displayPhoneNumber?.trim() || undefined,
+      };
+    }
+
+    let registerTelegram = false;
+    if (args.telegram) {
+      if (existing.type !== "telegram") {
+        throw new ConvexError("This is not a Telegram channel");
+      }
+      const botToken = keepSecret(args.telegram.botToken, existing.telegram?.botToken);
+      if (!botToken) throw new ConvexError("A Telegram bot token is required");
+      if (botToken !== existing.telegram?.botToken) {
+        patch.telegram = { botToken, secretToken: randomKey(32) };
+        registerTelegram = true;
+      }
+    }
+
     await ctx.db.patch(args.channelId, patch);
+    if (registerTelegram) {
+      await ctx.scheduler.runAfter(0, internal.telegram.register, {
+        channelId: args.channelId,
+      });
+    }
     return { success: true };
   },
 });
@@ -255,6 +359,12 @@ export const rotateKeys = mutation({
       channelKey,
       updatedAt: Date.now(),
     });
+    const channel = await ctx.db.get("channels", args.channelId);
+    if (channel?.type === "telegram") {
+      await ctx.scheduler.runAfter(0, internal.telegram.register, {
+        channelId: args.channelId,
+      });
+    }
     return { channelKey };
   },
 });
@@ -267,6 +377,11 @@ export const remove = mutation({
     if (channel?.instagram?.accessToken) {
       await ctx.scheduler.runAfter(0, internal.instagram.unsubscribe, {
         accessToken: channel.instagram.accessToken,
+      });
+    }
+    if (channel?.telegram?.botToken) {
+      await ctx.scheduler.runAfter(0, internal.telegram.unregister, {
+        botToken: channel.telegram.botToken,
       });
     }
     await ctx.db.delete(args.channelId);
@@ -304,6 +419,30 @@ export const resolveById = internalQuery({
     const channel = await ctx.db.get("channels", args.channelId);
     if (!channel) return null;
     return { channel };
+  },
+});
+
+export const setTelegramBot = internalMutation({
+  args: {
+    channelId: v.id("channels"),
+    botId: v.optional(v.string()),
+    botUsername: v.optional(v.string()),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const channel = await ctx.db.get("channels", args.channelId);
+    if (!channel?.telegram) return;
+    await ctx.db.patch(args.channelId, {
+      telegram: {
+        ...channel.telegram,
+        botId: args.botId ?? channel.telegram.botId,
+        botUsername: args.botUsername ?? channel.telegram.botUsername,
+      },
+      externalId: args.botId ?? channel.externalId,
+      status: args.error ? "error" : "active",
+      lastError: args.error?.slice(0, 500),
+      updatedAt: Date.now(),
+    });
   },
 });
 

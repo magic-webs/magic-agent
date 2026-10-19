@@ -137,8 +137,13 @@ export const list = query({
             name: channel.name,
             status: channel.status,
             channelKey: channel.channelKey,
-            phone: (channel.whatsapp?.displayPhoneNumber ?? "").replace(/[^0-9]/g, ""),
+            phone: (
+              channel.whatsapp?.displayPhoneNumber ??
+              channel.rcs?.displayPhoneNumber ??
+              ""
+            ).replace(/[^0-9]/g, ""),
             instagramUsername: channel.instagram?.username ?? null,
+            telegramUsername: channel.telegram?.botUsername ?? null,
           })),
         };
       })

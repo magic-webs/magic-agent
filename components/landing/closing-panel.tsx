@@ -85,7 +85,7 @@ export function ClosingPanel({
   return (
     <section
       ref={ref}
-      className="relative flex min-h-[min(900px,100svh)] flex-col items-center justify-center overflow-hidden bg-[#1a1918] px-4 py-28 text-center text-white"
+      className="relative flex min-h-[min(900px,100svh)] flex-col items-center justify-center overflow-hidden bg-[#1a1918] px-4 py-28 text-center text-white max-[600px]:min-h-0 max-[600px]:py-24"
     >
       <div aria-hidden className="absolute inset-0">
         {GLOWS.map((glow) => (
@@ -115,26 +115,29 @@ export function ClosingPanel({
         {children}
 
         <div className="mt-6 flex items-end justify-center -space-x-3">
-          {FACES.map(([face, tint], index) => (
-            <span
-              key={face}
-              data-face
-              className="relative aspect-[4/5] overflow-hidden rounded-[14px] border-2 border-[#1a1918] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.6)]"
-              style={{
-                width: index === 3 ? 76 : index % 2 ? 60 : 66,
-                background: `linear-gradient(180deg, ${tint}, color-mix(in oklab, ${tint}, black 18%))`,
-                zIndex: 10 - Math.abs(3 - index),
-              }}
-            >
-              <Image
-                src={`/images/3d-avatars/${face}.png`}
-                alt=""
-                fill
-                sizes="76px"
-                className="object-cover object-bottom"
-              />
-            </span>
-          ))}
+          {FACES.map(([face, tint], index) => {
+            const width = index === 3 ? 76 : index % 2 ? 60 : 66;
+            return (
+              <span
+                key={face}
+                data-face
+                className="relative aspect-[4/5] overflow-hidden rounded-[14px] border-2 border-[#1a1918] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.6)]"
+                style={{
+                  width: `min(${width}px, ${width / 5}vw)`,
+                  background: `linear-gradient(180deg, ${tint}, color-mix(in oklab, ${tint}, black 18%))`,
+                  zIndex: 10 - Math.abs(3 - index),
+                }}
+              >
+                <Image
+                  src={`/images/3d-avatars/${face}.png`}
+                  alt=""
+                  fill
+                  sizes="76px"
+                  className="object-cover object-bottom"
+                />
+              </span>
+            );
+          })}
         </div>
       </div>
     </section>

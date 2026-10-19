@@ -127,7 +127,7 @@ export default function LandingPage() {
 
           <section className={cn(CONTAINER, "flex flex-col items-center gap-7 pt-[clamp(4rem,9vw,7rem)] text-center")}>
             <MaskLines lines={["Describe the job.", "We'll draft the agent."]} />
-            <Reveal>
+            <Reveal className="flex w-full justify-center">
               <p className="w-[640px] max-w-full text-[20px] leading-[30px] text-(--ink-muted) max-[600px]:text-base max-[600px]:leading-6">
                 Say what your business does and what customers ask. Magic Agent drafts the
                 agent, its questions and its rules for you to check before it goes live.
@@ -184,7 +184,7 @@ export default function LandingPage() {
             </div>
           </section>
 
-          <section id="templates" className={cn(SECTION, "pt-0")}>
+          <section id="templates">
             <TemplateRail
               heading={
                 <div className="flex min-w-0 flex-1 flex-col gap-7">

@@ -44,6 +44,7 @@ import {
   type AppPrefillField,
 } from "./lib/apps";
 import { callApp } from "./lib/appClient";
+import { publicSiteUrl } from "./lib/publicUrl";
 import { createPaymentLink, refreshPaymentLink } from "./payments";
 import { formatMoney, isFinalStatus, parseAmount } from "./lib/payments";
 import { choiceOf, evaluate, JEV_MODEL } from "./lib/jev";
@@ -1346,6 +1347,29 @@ function buttonLabel(given: unknown, fallback: string): string {
     : `${label.slice(0, BUTTON_TEXT_MAX - 1)}…`;
 }
 
+function chatReturnUrl(channel: Doc<"channels">): string | undefined {
+  switch (channel.type) {
+    case "whatsapp": {
+      const number = channel.whatsapp?.displayPhoneNumber?.replace(/\D/g, "");
+      return number ? `https://wa.me/${number}` : undefined;
+    }
+    case "instagram":
+      return channel.instagram?.username
+        ? `https://ig.me/m/${encodeURIComponent(channel.instagram.username)}`
+        : undefined;
+    case "telegram":
+      return channel.telegram?.botUsername
+        ? `https://t.me/${encodeURIComponent(channel.telegram.botUsername)}`
+        : undefined;
+    case "web": {
+      const site = process.env.PUBLIC_SITE_URL ? publicSiteUrl() : "";
+      return site ? `${site}/widget/${encodeURIComponent(channel.channelKey)}` : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 function buildAppTools(
   ctx: ActionCtx,
   turn: TurnContext,
@@ -1524,11 +1548,19 @@ function buildAppTools(
             turn.channelType === "whatsapp" || turn.channelType === "rcs"
               ? turn.externalId.replace(/\D/g, "") || undefined
               : undefined;
+          const channel = turn.channelId
+            ? await ctx.runQuery(internal.channels.resolveById, {
+                channelId: turn.channelId,
+              })
+            : null;
+          const returnUrl = channel ? chatReturnUrl(channel.channel) : undefined;
 
           let link = await callApp(connection, "POST", path, {
             data: prefill,
             ref,
             whatsapp,
+            singleUse: true,
+            returnUrl,
           });
           // The app refuses the whole link over one answer it does not like.
           // A blank form still beats no form, so ask once more without them.
@@ -1541,6 +1573,8 @@ function buildAppTools(
               data: {},
               ref,
               whatsapp,
+              singleUse: true,
+              returnUrl,
             });
           }
           if (!link.ok) {

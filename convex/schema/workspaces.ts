@@ -2,6 +2,17 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import { kvPair, storedWorkspaceStage } from "./validators";
 
+export const welcomeMenuShape = v.object({
+  enabled: v.boolean(),
+  body: v.string(),
+  header: v.optional(v.string()),
+  footer: v.optional(v.string()),
+  buttonText: v.optional(v.string()),
+  options: v.array(
+    v.object({ title: v.string(), description: v.optional(v.string()) })
+  ),
+});
+
 export const workspacesTables = {
   workspaces: defineTable({
     name: v.string(),
@@ -25,6 +36,7 @@ export const workspacesTables = {
     webhookSecret: v.optional(v.string()),
     maxMessagesPerConversation: v.optional(v.number()),
     facts: v.array(kvPair),
+    welcomeMenu: v.optional(welcomeMenuShape),
     status: v.union(v.literal("active"), v.literal("archived")),
     stage: v.optional(storedWorkspaceStage),
     stageLabel: v.optional(v.string()),

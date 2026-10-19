@@ -145,4 +145,48 @@ export function register(server) {
       return ok(`Updated ${found.name}.`);
     })
   );
+
+  server.registerTool(
+    "get_welcome_menu",
+    {
+      title: "Welcome menu",
+      description:
+        "The message and buttons the front desk sends, instead of an AI reply, when a customer opens a chat (first message, or after 12 hours of quiet) with only a greeting or no clear request. 'effective' is what goes out now; empty saved options mean the buttons come from the live agents.",
+      inputSchema: { ...workspaceArg },
+      annotations: { readOnlyHint: true },
+    },
+    handler(async ({ workspace }) => {
+      const found = await resolveWorkspace(workspace);
+      const menu = await call.query(api.welcomeMenu.get, { workspaceId: found._id });
+      return ok(menu);
+    })
+  );
+
+  server.registerTool(
+    "update_welcome_menu",
+    {
+      title: "Update the welcome menu",
+      description:
+        "Replace the welcome menu. Up to 3 options go out as WhatsApp reply buttons, 4–10 as a list behind buttonText. Titles are cut to 20 characters, descriptions (list only) to 72. Pass options: [] to keep the buttons following the live agents, and an empty body for the default greeting.",
+      inputSchema: {
+        ...workspaceArg,
+        enabled: z.boolean(),
+        body: z.string().describe("The message above the buttons; empty for the default"),
+        header: z.string().optional(),
+        footer: z.string().optional(),
+        buttonText: z.string().optional().describe("List button label, for 4 or more options"),
+        options: z
+          .array(z.object({ title: z.string(), description: z.string().optional() }))
+          .max(10),
+      },
+    },
+    handler(async ({ workspace, ...menu }) => {
+      const found = await resolveWorkspace(workspace);
+      const saved = await call.mutation(api.welcomeMenu.save, {
+        workspaceId: found._id,
+        menu,
+      });
+      return ok(saved);
+    })
+  );
 }

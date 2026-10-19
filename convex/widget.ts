@@ -25,6 +25,8 @@ import {
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { resolveGreeting } from "./lib/prompt";
+import { welcomeOutbound } from "./lib/welcomeMenu";
+import { liveWelcomeMenu } from "./welcomeMenu";
 import { logoSrcFor } from "./lib/branding";
 import { refreshContactSearch } from "./lib/inbox";
 
@@ -71,6 +73,8 @@ export const bootstrap = query({
     const agent = await ctx.db.get("agents", channel.agentId);
     const workspace = await ctx.db.get("workspaces", channel.workspaceId);
     if (!agent || !workspace) return null;
+    const welcome =
+      agent.kind === "router" ? await liveWelcomeMenu(ctx, workspace) : null;
 
     return {
       channelName: channel.name,
@@ -91,6 +95,7 @@ export const bootstrap = query({
         // document to work it out.
         greeting: resolveGreeting(agent, workspace.name),
       },
+      welcome: welcome ? welcomeOutbound(welcome, workspace.name) : null,
     };
   },
 });

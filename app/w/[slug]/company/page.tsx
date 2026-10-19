@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { KeyValueEditor, type KeyValue } from "@/components/editors";
 import { CompanyLogoCard } from "@/components/company-logo-card";
+import { WelcomeMenuCard } from "@/components/welcome-menu-card";
 import {
   CurrencyPicker,
   LocalePicker,
@@ -250,6 +251,8 @@ export default function CompanyProfilePage() {
             />
           </CardContent>
         </Card>
+
+        <WelcomeMenuCard />
       </div>
     </div>
   );

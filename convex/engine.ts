@@ -46,6 +46,14 @@ import {
 import { callApp } from "./lib/appClient";
 import { createPaymentLink, refreshPaymentLink } from "./payments";
 import { formatMoney, isFinalStatus, parseAmount } from "./lib/payments";
+import { choiceOf, evaluate, JEV_MODEL } from "./lib/jev";
+import {
+  FRESH_AFTER_MS,
+  isGreeting,
+  UNCLEAR_CONFIDENCE,
+  welcomeOutbound,
+  worthClassifying,
+} from "./lib/welcomeMenu";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { channelType } from "./schema";
 import {
@@ -1883,6 +1891,110 @@ export type TurnResult = {
   error?: string;
 };
 
+async function hasNoClearIntent(
+  ctx: ActionCtx,
+  turn: TurnContext,
+  message: string
+): Promise<boolean> {
+  try {
+    const result = await evaluate(
+      `A customer opened a chat with ${turn.workspace.name} by writing:\n${message.slice(0, 200)}`,
+      {
+        intent: {
+          type: "choice",
+          instructions: "Does the message say what the customer wants",
+          criteria: {
+            unclear:
+              "Only a greeting, a pleasantry, a single vague word, or a general request for help or information, with no particular product, service, question or task named",
+            specific:
+              "It names something they want, ask about or need done — a product, a price, a booking, an order, a problem, a question",
+          },
+        },
+      }
+    );
+    await ctx.runMutation(internal.usage.record, {
+      workspaceId: turn.workspace._id,
+      agentId: turn.agent._id,
+      conversationId: turn.conversationId,
+      source: "chat",
+      channelType: turn.channelType,
+      model: JEV_MODEL,
+      kind: "chat",
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+    });
+    const choice = choiceOf(result.answers.intent);
+    return choice?.choice === "unclear" && choice.confidence >= UNCLEAR_CONFIDENCE;
+  } catch (error) {
+    console.warn("[engine] intent check failed", error);
+    return false;
+  }
+}
+
+async function welcomeMenuTurn(
+  ctx: ActionCtx,
+  turn: TurnContext,
+  frontDesk: Doc<"agents">,
+  message: string,
+  startedAt: number
+): Promise<TurnResult | null> {
+  const menu = await ctx.runQuery(internal.welcomeMenu.forTurn, {
+    workspaceId: turn.workspace._id,
+  });
+  if (!menu) return null;
+
+  const menuTurn: TurnContext = { ...turn, agent: frontDesk, trace: [] };
+  const reason = isGreeting(message)
+    ? "greeting"
+    : worthClassifying(message) && (await hasNoClearIntent(ctx, menuTurn, message))
+      ? "no clear request"
+      : null;
+  if (!reason) return null;
+
+  const outbound = welcomeOutbound(menu, turn.workspace.name);
+  if (!outbound) return null;
+  try {
+    await makeDeliver(ctx, menuTurn)(outbound);
+  } catch (error) {
+    console.warn("[engine] welcome menu could not be sent", error);
+    return null;
+  }
+
+  await ctx.runMutation(internal.welcomeMenu.returnToFrontDesk, {
+    conversationId: turn.conversationId,
+    agentId: frontDesk._id,
+  });
+  await ctx.runMutation(internal.conversations.finishTurn, {
+    workspaceId: turn.workspace._id,
+    conversationId: turn.conversationId,
+    agentId: frontDesk._id,
+    replyText: "",
+    latencyMs: Date.now() - startedAt,
+    toolCalls: [
+      {
+        toolName: "welcome_menu",
+        toolInput: JSON.stringify({ message, reason }),
+        toolOutput: JSON.stringify({
+          sent: outbound.kind,
+          options: menu.options.map((option) => option.title),
+        }),
+        toolOk: true,
+      },
+    ],
+  });
+
+  return {
+    ok: true,
+    text: "",
+    answeredWithControl: true,
+    conversationId: turn.conversationId,
+    toolCalls: ["welcome_menu"],
+    agentId: frontDesk._id,
+    agentBotName: frontDesk.botName,
+    handoffPath: [frontDesk.botName],
+  };
+}
+
 // The turn itself. Shared so the authorized dashboard path and the WhatsApp
 // webhook path cannot drift apart.
 //
@@ -2023,6 +2135,17 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       askedThisTurn: false,
       askedBy: null,
     };
+
+    if (
+      entryAgent.kind === "router" &&
+      !args.image &&
+      !args.inbound?.payload &&
+      !session.quoted &&
+      startedAt - session.lastActivityAt >= FRESH_AFTER_MS
+    ) {
+      const welcomed = await welcomeMenuTurn(ctx, turn, entryAgent, message, startedAt);
+      if (welcomed) return welcomed;
+    }
 
     const said = session.quoted
       ? `(Replying to ${session.quoted.fromCustomer ? "their own" : "your"} message: "${session.quoted.text}")

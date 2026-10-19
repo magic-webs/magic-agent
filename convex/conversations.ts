@@ -1182,6 +1182,7 @@ export const startTurn = internalMutation({
         q.eq("contactId", contact!._id).eq("agentId", args.agentId)
       )
       .unique();
+    let lastActivityAt = conversation?.lastMessageAt ?? 0;
 
     if (!conversation) {
       // Somebody writing in for the first time may be answering a greeting or
@@ -1222,6 +1223,7 @@ export const startTurn = internalMutation({
         });
       }
       conversation = (await ctx.db.get("conversations", conversationId))!;
+      lastActivityAt = Math.max(0, ...seeds.map((seed) => seed.createdAt));
     }
 
     if (conversation.markedBot) {
@@ -1456,6 +1458,7 @@ export const startTurn = internalMutation({
       history,
       quoted: replyTo ? { text: replyTo.text, fromCustomer: replyTo.fromCustomer } : null,
       isFirstTurn: conversation.messageCount === 0,
+      lastActivityAt,
     };
   },
 });

@@ -573,6 +573,7 @@ export default function WidgetPage({
         sessionId={sessionId}
         title={title}
         greeting={widget.agent.greeting}
+        welcome={widget.welcome}
         messages={session.messages}
         onTyping={setTyping}
       />
@@ -1171,6 +1172,7 @@ function WidgetChat({
   sessionId,
   title,
   greeting,
+  welcome,
   messages,
   onTyping,
 }: {
@@ -1178,6 +1180,7 @@ function WidgetChat({
   sessionId: string;
   title: string;
   greeting: string;
+  welcome: Outbound | null;
   messages: WidgetMessage[];
   onTyping: (typing: boolean) => void;
 }) {
@@ -1287,7 +1290,7 @@ function WidgetChat({
                     <ChatBubble
                       mine={false}
                       text={greeting}
-                      rich={null}
+                      rich={messages.length === 0 ? welcome : null}
                       quote={null}
                       meta={{ time: clockTime(row.at) }}
                       onPick={send}

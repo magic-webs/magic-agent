@@ -10,6 +10,7 @@ import { htmlToText } from "@/convex/lib/notifications";
 import { broadcastEmailHtml, textToEmailHtml } from "@/convex/lib/platformEmail";
 import { smsSegments } from "@/convex/lib/sms";
 import { WorkspacePicker, errorText } from "@/components/admin-account-fields";
+import { SelectField } from "@/components/select-field";
 import { useSession } from "@/components/use-session";
 import {
   AlertDialog,
@@ -35,7 +36,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -399,17 +399,14 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
             <CardContent className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="pn-category">Type</Label>
-                <NativeSelect
+                <SelectField
                   id="pn-category"
+                  className="w-full sm:w-64"
+                  disabled={readOnly}
                   value={form.category}
-                  onChange={(event) => set({ category: event.target.value as Category })}
-                >
-                  {CATEGORIES.map((category) => (
-                    <NativeSelectOption key={category.value} value={category.value}>
-                      {category.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                  onValueChange={(value) => set({ category: value as Category })}
+                  options={CATEGORIES.map((category) => ({ value: category.value, label: category.label }))}
+                />
                 <p className="text-xs text-muted-foreground">
                   {CATEGORIES.find((category) => category.value === form.category)?.hint}
                 </p>

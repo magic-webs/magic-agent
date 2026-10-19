@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { SelectField } from "@/components/select-field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
@@ -54,7 +54,7 @@ export function AiDraftDialog({
 }) {
   const draft = useAction(api.platformNotificationsAi.draft);
   const [brief, setBrief] = useState("");
-  const [category, setCategory] = useState<Category | "">("");
+  const [category, setCategory] = useState<Category | "auto">("auto");
   const [language, setLanguage] = useState<Language>("english");
   const [busy, setBusy] = useState(false);
 
@@ -63,7 +63,7 @@ export function AiDraftDialog({
     try {
       const result = await draft({
         brief,
-        category: category || undefined,
+        category: category === "auto" ? undefined : category,
         channels,
         emailFormat,
         language,
@@ -117,30 +117,30 @@ export function AiDraftDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ai-category">Type</Label>
-              <NativeSelect
+              <SelectField
                 id="ai-category"
+                className="w-full"
                 value={category}
-                onChange={(event) => setCategory(event.target.value as Category | "")}
-              >
-                <NativeSelectOption value="">Let AI choose</NativeSelectOption>
-                {CATEGORIES.map((item) => (
-                  <NativeSelectOption key={item.value} value={item.value}>
-                    {item.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                onValueChange={(value) => setCategory(value as Category | "auto")}
+                options={[
+                  { value: "auto", label: "Let AI choose" },
+                  ...CATEGORIES.map((item) => ({ value: item.value, label: item.label })),
+                ]}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ai-language">Language</Label>
-              <NativeSelect
+              <SelectField
                 id="ai-language"
+                className="w-full"
                 value={language}
-                onChange={(event) => setLanguage(event.target.value as Language)}
-              >
-                <NativeSelectOption value="english">English</NativeSelectOption>
-                <NativeSelectOption value="hindi">Hindi</NativeSelectOption>
-                <NativeSelectOption value="hinglish">Hinglish</NativeSelectOption>
-              </NativeSelect>
+                onValueChange={(value) => setLanguage(value as Language)}
+                options={[
+                  { value: "english", label: "English" },
+                  { value: "hindi", label: "Hindi" },
+                  { value: "hinglish", label: "Hinglish" },
+                ]}
+              />
             </div>
           </div>
         </div>

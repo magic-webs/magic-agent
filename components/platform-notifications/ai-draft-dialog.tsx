@@ -78,7 +78,7 @@ export function AiDraftDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <SparkleIcon className="size-4" /> Draft with AI
@@ -90,8 +90,8 @@ export function AiDraftDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="ai-brief">What is it about?</Label>
             <Textarea
               id="ai-brief"
@@ -100,7 +100,7 @@ export function AiDraftDialog({
               placeholder="New: agents can send the full catalogue as a WhatsApp list. Turn it on from Catalogue → Settings."
               onChange={(event) => setBrief(event.target.value)}
             />
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-wrap gap-1.5">
               {EXAMPLES.map((example) => (
                 <button
                   key={example}

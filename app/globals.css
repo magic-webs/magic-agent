@@ -723,3 +723,99 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.58 0.031 107.3);
 }
+@theme {
+  --animate-aurora: aurora 18s ease-in-out infinite alternate;
+  --animate-petal: petal 1.2s ease-in-out infinite;
+
+  @keyframes aurora {
+    0% {
+      translate: -8% -6%;
+      scale: 1;
+    }
+    50% {
+      translate: 6% 4%;
+      scale: 1.15;
+    }
+    100% {
+      translate: -4% 8%;
+      scale: 0.95;
+    }
+  }
+
+  @keyframes petal {
+    0%,
+    100% {
+      transform: scale(0.55);
+      opacity: 0.35;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.landing {
+  --paper: #f6f5f1;
+  --surface: #ffffff;
+  --ink: #1c1b19;
+  --ink-muted: #67635b;
+  --line: #e4e1da;
+  --stage: #eeece7;
+  --mesh-1: rgb(58 143 102 / 0.2);
+  --mesh-2: rgb(75 134 204 / 0.2);
+  --dot: rgb(28 27 25 / 0.13);
+  --ok: #3a8f66;
+  --ok-soft: #e3f1e9;
+}
+
+.dark .landing {
+  --paper: #121211;
+  --surface: #1b1a19;
+  --ink: #f1efeb;
+  --ink-muted: #a29e96;
+  --line: #2c2b28;
+  --stage: #181816;
+  --mesh-1: rgb(92 192 143 / 0.18);
+  --mesh-2: rgb(75 134 204 / 0.2);
+  --dot: rgb(255 255 255 / 0.09);
+  --ok: #5cc08f;
+  --ok-soft: #173126;
+}
+
+.stage-mesh {
+  background:
+    radial-gradient(ellipse 65% 60% at 12% 8%, var(--mesh-1), transparent 70%),
+    radial-gradient(ellipse 60% 65% at 92% 96%, var(--mesh-2), transparent 70%),
+    var(--stage);
+}
+
+.bg-dots {
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, black, transparent);
+}
+
+/* Hidden until the hero and section headings animate them in; the page's
+   <noscript> block and the reduced-motion query below both undo it. */
+.landing [data-line] {
+  transform: translateY(110%);
+}
+
+.landing [data-fade] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing [data-line] {
+    transform: none;
+  }
+
+  .landing [data-fade] {
+    opacity: 1;
+  }
+}

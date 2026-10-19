@@ -40,7 +40,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       // feel of; overriding it makes a phone feel broken.
       smoothWheel: true,
       touchMultiplier: 1.6,
-      // The header's #routing and #guardrails links. Without this they jump
+      // The header's anchor links. Without this they jump
       // instantly while everything else eases, which reads as a bug.
       anchors: true,
     });

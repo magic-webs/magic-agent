@@ -29,7 +29,8 @@ company's from their workspace settings. Only the hash is stored; rotating
 replaces it, revoking removes it.
 
 A company's connector token gets a narrower tool list than its sign-in: the
-read-only tools (less `workspace_access_report` and `platform_usage`) and
+read-only tools (less `workspace_access_report`, `platform_usage` and
+`list_platform_notifications`) and
 `send_message`, nothing that creates, changes or deletes. See
 `allowed()` in `src/tools/index.mjs`.
 
@@ -355,7 +356,8 @@ it to storage, so agents can send it with `send_media`.
 
 **Platform administration** (admin sign-in only) — `create_workspace`,
 `issue_workspace_password`, `set_workspace_access`, `set_workspace_status`,
-`delete_workspace`, `workspace_access_report`, `platform_usage`
+`delete_workspace`, `workspace_access_report`, `platform_usage`,
+`broadcast_platform_notification`, `list_platform_notifications`
 
 Signed in as a workspace, the administration tools are still listed but fail
 with "Administrator access required" from the Convex guard — the same answer the

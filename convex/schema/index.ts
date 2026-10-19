@@ -10,6 +10,7 @@ import { marketingTables } from "./marketing";
 import { notificationsTables } from "./notifications";
 import { instagramTables } from "./instagram";
 import { paymentsTables } from "./payments";
+import { platformTables } from "./platform";
 
 export * from "./validators";
 export * from "./instagram";
@@ -26,4 +27,5 @@ export default defineSchema({
   ...notificationsTables,
   ...instagramTables,
   ...paymentsTables,
+  ...platformTables,
 });

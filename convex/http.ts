@@ -5,6 +5,7 @@ import { interpretEvent } from "./lib/apps";
 import { verifyDelivery } from "./lib/appWebhooks";
 import { isLinkBot } from "./lib/links";
 import { publicSiteUrl } from "./lib/publicUrl";
+import { escapeHtml } from "./lib/notifications";
 import { parseSignedRequest, validSignature } from "./lib/instagram";
 import { fetchMedia, signMedia } from "./lib/whatsappMedia";
 import { RAZORPAY_LINK_EVENTS } from "./lib/payments";
@@ -1076,6 +1077,51 @@ http.route({
       fromWebhook: true,
     });
     return new Response("ok", { status: 200 });
+  }),
+});
+
+function unsubscribePage(title: string, body: string, form?: string): Response {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+<body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;color:#18181b">
+<main style="max-width:420px;margin:64px auto;padding:28px 24px;background:#fff;border:1px solid #e4e4e7;border-radius:12px">
+<h1 style="margin:0 0 12px;font-size:20px">${title}</h1><p style="margin:0 0 20px;line-height:1.6;color:#52525b">${body}</p>${form ?? ""}
+</main></body></html>`;
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+const unsubscribeToken = (request: Request) =>
+  new URL(request.url).pathname.replace(/^\/unsubscribe\//, "").replace(/[^a-zA-Z0-9]/g, "");
+
+// GET only asks: mail scanners open every link, and must not unsubscribe anyone.
+http.route({
+  pathPrefix: "/unsubscribe/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const token = unsubscribeToken(request);
+    const info = token
+      ? await ctx.runQuery(internal.platformNotifications.optOutInfo, { token })
+      : null;
+    if (!info) return unsubscribePage("Link not valid", "This unsubscribe link has expired or is not valid.");
+    if (info.optedOut) {
+      return unsubscribePage("You are unsubscribed", `${escapeHtml(info.address)} no longer receives offers from us.`);
+    }
+    return unsubscribePage(
+      "Unsubscribe from offers",
+      `Stop sending offers to ${escapeHtml(info.address)}? You will still get service notices about your account.`,
+      `<form method="post"><button style="background:#18181b;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer">Unsubscribe</button></form>`
+    );
+  }),
+});
+
+http.route({
+  pathPrefix: "/unsubscribe/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = unsubscribeToken(request);
+    const done = token ? await ctx.runMutation(internal.platformNotifications.optOut, { token }) : false;
+    return done
+      ? unsubscribePage("You are unsubscribed", "You will no longer receive offers from us.")
+      : unsubscribePage("Link not valid", "This unsubscribe link has expired or is not valid.");
   }),
 });
 

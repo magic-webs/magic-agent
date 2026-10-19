@@ -9,6 +9,7 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
+import { sendExpo, type ExpoMessage } from "./lib/expoPush";
 
 /**
  * Push notifications, through Expo's push service.
@@ -21,11 +22,6 @@ import { requireWorkspace } from "./lib/auth";
  * Expo fans out to FCM and APNs, which keeps one credential here instead of a
  * service account plus an APNs key.
  */
-
-const EXPO_PUSH_ENDPOINT = "https://exp.host/--/api/v2/push/send";
-
-/** Expo rejects more than 100 messages in one request. */
-const BATCH = 100;
 
 const platformValidator = v.union(
   v.literal("ios"),
@@ -314,6 +310,7 @@ function inboxRow(row: Doc<"pushInbox">) {
     body: row.body,
     conversationId: row.conversationId ?? null,
     orderId: row.orderId ?? null,
+    link: row.link ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -427,72 +424,23 @@ export const notify = internalAction({
       return { sent: 0, failed: 0, reason: "no_devices" };
     }
 
-    let sent = 0;
-    let failed = 0;
-    const dead: string[] = [];
-
-    for (let at = 0; at < devices.length; at += BATCH) {
-      const slice = devices.slice(at, at + BATCH);
-      const messages = slice.map((device) => ({
-        to: device.token,
-        title: shape.title,
-        body: shape.body,
-        sound: shape.sound,
-        channelId: shape.channelId,
-        priority: shape.priority,
-        // What the app routes on when the notification is tapped.
-        data: {
-          event: args.event,
-          conversationId: row.conversationId ?? null,
-          orderId: row.orderId ?? null,
-        },
-      }));
-
-      try {
-        const response = await fetch(EXPO_PUSH_ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            // Optional, and only needed once push security is enabled on the
-            // Expo account. Absent is the normal case.
-            ...(process.env.EXPO_ACCESS_TOKEN
-              ? { Authorization: `Bearer ${process.env.EXPO_ACCESS_TOKEN}` }
-              : {}),
-          },
-          body: JSON.stringify(messages),
-        });
-
-        if (!response.ok) {
-          failed += slice.length;
-          continue;
-        }
-
-        const payload = (await response.json()) as {
-          data?: {
-            status: string;
-            message?: string;
-            details?: { error?: string };
-          }[];
-        };
-
-        payload.data?.forEach((ticket, index) => {
-          if (ticket.status === "ok") {
-            sent += 1;
-            return;
-          }
-          failed += 1;
-          // The install is gone — uninstalled, or the token rotated. Expo will
-          // keep rejecting it, so stop sending to it.
-          if (ticket.details?.error === "DeviceNotRegistered") {
-            const device = slice[index];
-            if (device) dead.push(device.token);
-          }
-        });
-      } catch {
-        failed += slice.length;
-      }
-    }
+    const messages: ExpoMessage[] = devices.map((device) => ({
+      to: device.token,
+      title: shape.title,
+      body: shape.body,
+      sound: shape.sound,
+      channelId: shape.channelId,
+      priority: shape.priority,
+      // What the app routes on when the notification is tapped.
+      data: {
+        event: args.event,
+        conversationId: row.conversationId ?? null,
+        orderId: row.orderId ?? null,
+      },
+    }));
+    const { accepted, dead } = await sendExpo(messages);
+    const sent = accepted.filter(Boolean).length;
+    const failed = accepted.length - sent;
 
     if (dead.length > 0) {
       await ctx.runMutation(internal.push.markDead, {

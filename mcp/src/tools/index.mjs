@@ -45,7 +45,11 @@ const GROUPS = [
 ];
 
 const WORKSPACE_SENDS = new Set(["send_message"]);
-const PLATFORM_READS = new Set(["workspace_access_report", "platform_usage"]);
+const PLATFORM_READS = new Set([
+  "workspace_access_report",
+  "platform_usage",
+  "list_platform_notifications",
+]);
 
 /**
  * A company's connector reads, and replies in its conversations — nothing it

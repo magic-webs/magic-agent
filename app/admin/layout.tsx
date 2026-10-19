@@ -44,6 +44,7 @@ import {
   DashboardSpeed02Icon,
   Invoice01Icon,
   Key01Icon,
+  Notification03Icon,
   PlugSocketIcon,
   SecurityLockIcon,
   Tag01Icon,
@@ -86,6 +87,7 @@ const NAV: Array<{
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCardIcon, scope: "subscriptions" },
   { href: "/billing", label: "Message billing", icon: Invoice01Icon, scope: "billing" },
   { href: "/users", label: "Users", icon: UserAccountIcon, scope: "users" },
+  { href: "/notifications", label: "Notifications", icon: Notification03Icon, scope: "notifications" },
   { href: "/team", label: "Team", icon: UserGroupIcon },
   { href: "/roles", label: "Roles", icon: SecurityLockIcon },
   { href: "/access", label: "Access", icon: Key01Icon, everyone: true },
@@ -101,6 +103,7 @@ const MODIFIABLE = new Set<AdminScope>([
   "subscriptions",
   "billing",
   "users",
+  "notifications",
 ]);
 
 function itemFor(pathname: string) {
@@ -231,7 +234,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-const NAV_SKELETON_WIDTHS = ["w-20", "w-24", "w-28", "w-20", "w-24", "w-28", "w-24", "w-20", "w-16", "w-14", "w-14", "w-16"];
+const NAV_SKELETON_WIDTHS = ["w-20", "w-24", "w-28", "w-20", "w-24", "w-28", "w-24", "w-20", "w-16", "w-24", "w-14", "w-14", "w-16"];
 
 /** The shell with placeholders, so the first paint is the page's shape. */
 function AdminShellSkeleton() {

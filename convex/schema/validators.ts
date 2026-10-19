@@ -121,7 +121,8 @@ export const adminScope = v.union(
   v.literal("plans"),
   v.literal("subscriptions"),
   v.literal("billing"),
-  v.literal("users")
+  v.literal("users"),
+  v.literal("notifications")
 );
 
 // The retired stages stay readable until migrations:workspaceStages clears them.
@@ -148,3 +149,49 @@ export const channelType = v.union(
   v.literal("rcs"),
   v.literal("telegram")
 );
+
+export const broadcastCategory = v.union(
+  v.literal("update"),
+  v.literal("feature"),
+  v.literal("offer"),
+  v.literal("notice")
+);
+
+export const broadcastStatus = v.union(
+  v.literal("draft"),
+  v.literal("scheduled"),
+  v.literal("sending"),
+  v.literal("sent"),
+  v.literal("cancelled"),
+  v.literal("failed")
+);
+
+export const broadcastChannel = v.union(
+  v.literal("push"),
+  v.literal("email"),
+  v.literal("sms")
+);
+
+export const broadcastChannels = v.object({
+  push: v.boolean(),
+  email: v.boolean(),
+  sms: v.boolean(),
+});
+
+export const broadcastAudience = v.object({
+  kind: v.union(
+    v.literal("all"),
+    v.literal("stages"),
+    v.literal("plans"),
+    v.literal("workspaces")
+  ),
+  stages: v.optional(v.array(workspaceStage)),
+  planIds: v.optional(v.array(v.id("billingPlans"))),
+  workspaceIds: v.optional(v.array(v.id("workspaces"))),
+});
+
+export const broadcastChannelStats = v.object({
+  sent: v.number(),
+  failed: v.number(),
+  skipped: v.number(),
+});

@@ -53,3 +53,9 @@ export async function uploadUrlFor(
 ) {
   return await r2.generateUploadUrl(newFileKey(folder, workspaceId));
 }
+
+export const PLATFORM_NOTIFICATION_FOLDER = "platform/notifications/";
+
+export async function platformNotificationUploadUrl() {
+  return await r2.generateUploadUrl(`${PLATFORM_NOTIFICATION_FOLDER}${crypto.randomUUID()}`);
+}

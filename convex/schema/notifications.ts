@@ -124,6 +124,7 @@ export const notificationsTables = {
     body: v.string(),
     conversationId: v.optional(v.string()),
     orderId: v.optional(v.string()),
+    link: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])

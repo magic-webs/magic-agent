@@ -40,6 +40,13 @@ crons.interval(
   {}
 );
 
+crons.interval(
+  "send due platform notifications",
+  { minutes: 1 },
+  internal.platformNotifications.claimDue,
+  {}
+);
+
 /* Hourly, against each workspace's own clock: a workspace in Kolkata and one
    in London both wish at nine their time. `lastBirthdayRun` makes it once a
    day however many times this fires after the hour. */

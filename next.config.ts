@@ -16,6 +16,7 @@ const proxiedPrefixes = [
   "/payments/razorpay",
   "/rcs",
   "/telegram",
+  "/unsubscribe",
 ];
 
 const nextConfig: NextConfig = {

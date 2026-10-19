@@ -239,4 +239,108 @@ export function register(server) {
       return ok(summary);
     })
   );
+
+  server.registerTool(
+    "broadcast_platform_notification",
+    {
+      title: "Send a platform notification to customers",
+      description:
+        "Tell workspace owners about something platform-wide — a product update, a new feature, an offer or a service notice — by app push (also lands in the mobile app's bell), email and SMS. Each person gets one copy per channel however many workspaces they own; archived workspaces are never included. Offers carry an unsubscribe link and skip anyone who used it. Without sendAt it goes out immediately; with sendAt it is scheduled. Set draft to true to only save it for review in the admin console under Notifications. Confirm the audience and wording with the operator before sending — a sent notification cannot be recalled.",
+      inputSchema: {
+        title: z.string().describe("Push title and email heading, ideally under 65 characters"),
+        message: z.string().describe("The message. Shown on the lock screen and used for email and SMS unless overridden"),
+        category: z.enum(["update", "feature", "offer", "notice"]),
+        channels: z
+          .array(z.enum(["push", "email", "sms"]))
+          .min(1)
+          .describe("Which channels to send on"),
+        audience: z
+          .enum(["all", "stages", "workspaces"])
+          .optional()
+          .describe("Default all active workspaces"),
+        stages: z
+          .array(z.enum(["account_setup", "development", "testing", "feedback", "live", "custom"]))
+          .optional()
+          .describe("With audience stages"),
+        workspaces: z.array(z.string()).optional().describe("Workspace slugs, with audience workspaces"),
+        emailSubject: z.string().optional(),
+        emailBody: z.string().optional().describe("A longer email version; blank lines start paragraphs"),
+        smsText: z.string().optional().describe("Must fit the registered DLT template"),
+        link: z.string().optional().describe("https link for the button and push tap"),
+        linkLabel: z.string().optional(),
+        sendAt: z.string().optional().describe("ISO date-time to schedule instead of sending now"),
+        draft: z.boolean().optional(),
+      },
+    },
+    handler(async (args) => {
+      const kind = args.audience ?? "all";
+      const workspaceIds =
+        kind === "workspaces"
+          ? await Promise.all(
+              (args.workspaces ?? []).map(async (slug) => (await requireNamedWorkspace(slug))._id)
+            )
+          : undefined;
+      const channels = {
+        push: args.channels.includes("push"),
+        email: args.channels.includes("email"),
+        sms: args.channels.includes("sms"),
+      };
+      const id = await call.mutation(api.platformNotifications.save, {
+        title: args.title,
+        body: args.message,
+        category: args.category,
+        channels,
+        emailSubject: args.emailSubject,
+        emailBody: args.emailBody,
+        smsText: args.smsText,
+        link: args.link,
+        linkLabel: args.linkLabel,
+        audience: {
+          kind,
+          stages: kind === "stages" ? args.stages : undefined,
+          workspaceIds,
+        },
+      });
+      if (args.draft) return ok({ id, status: "draft" });
+
+      const at = args.sendAt ? Date.parse(args.sendAt) : undefined;
+      if (args.sendAt && Number.isNaN(at)) throw new Error("sendAt is not a date-time.");
+      const result = await call.mutation(api.platformNotifications.send, { id, at });
+      return ok({ id, status: result.status });
+    })
+  );
+
+  server.registerTool(
+    "list_platform_notifications",
+    {
+      title: "List platform notifications",
+      description:
+        "The notifications sent, scheduled or drafted for customers, newest first, with how many were sent and failed on each channel.",
+      inputSchema: {
+        limit: z.number().int().min(1).max(50).optional().describe("Default 20"),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    handler(async ({ limit }) => {
+      const page = await call.query(api.platformNotifications.list, {
+        paginationOpts: { numItems: limit ?? 20, cursor: null },
+      });
+      return ok(
+        page.page.map((row) => ({
+          id: row._id,
+          title: row.title,
+          category: row.category,
+          status: row.status,
+          channels: Object.keys(row.channels).filter((key) => row.channels[key]),
+          scheduledAt: row.scheduledAt ? new Date(row.scheduledAt).toISOString() : null,
+          finishedAt: row.finishedAt ? new Date(row.finishedAt).toISOString() : null,
+          workspaces: row.workspaces,
+          push: row.push,
+          email: row.email,
+          sms: row.sms,
+          error: row.error ?? null,
+        }))
+      );
+    })
+  );
 }

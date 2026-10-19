@@ -71,6 +71,7 @@ const AREAS: { value: AdminScope; label: string; modify?: string }[] = [
   { value: "subscriptions", label: "Subscriptions", modify: "Change accounts and wallets" },
   { value: "billing", label: "Message billing", modify: "Markups and Meta rates" },
   { value: "users", label: "Users", modify: "Add and manage their users" },
+  { value: "notifications", label: "Notifications", modify: "Write and send notifications" },
 ];
 
 const labelOf = new Map(AREAS.map((area) => [area.value, area.label]));

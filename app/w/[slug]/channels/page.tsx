@@ -76,11 +76,11 @@ import {
   DotsThreeIcon,
   ArrowsDownUpIcon,
   GearIcon,
-  BookOpenIcon,
   RowsIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 /** Clipboard write plus the toast, in one place — six things copy on this page. */
 async function copyText(value: string, label: string) {
@@ -1259,7 +1259,12 @@ function ChannelSetup({
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "grid gap-4",
+          isWeb && "lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
+        )}
+      >
         {isWeb ? (
           <Tabs defaultValue="embed" className="min-w-0">
             <TabsList>
@@ -1315,121 +1320,54 @@ function ChannelSetup({
             away. This guidance used to be eight lines of prose per
             card, which is how a page with two channels became a
             page you scroll. */}
-        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
-          {isWeb ? (
-            <>
-              <p className="flex items-center gap-1.5 text-sm font-medium">
-                <InfoIcon className="size-4 text-muted-foreground" />
-                What your visitors see
-              </p>
-              <p className="text-xs text-muted-foreground">
-                A round chat button in the bottom-right corner.
-                Clicking it slides the chat open; on a phone it fills
-                the screen. Colour, side, icon and teaser are all set
-                on the script tag.
-              </p>
-              <GuideDialog
-                title="Customising the widget"
-                description="Add any of these to the script tag. All optional."
-                trigger={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 self-start bg-background"
-                  >
-                    <GearIcon /> View customisation options
-                  </Button>
-                }
-              >
-                <OptionRow attribute={'data-color="#25D366"'}>
-                  Recolours the launcher and the chat header
-                  together. Any CSS colour.
-                </OptionRow>
-                <OptionRow attribute={'data-position="left"'}>
-                  Moves the launcher to the bottom-left. Defaults to
-                  the right.
-                </OptionRow>
-                <OptionRow attribute={'data-icon="chat"'}>
-                  Swaps the WhatsApp glyph for a neutral speech
-                  bubble — use it when the widget is not WhatsApp.
-                </OptionRow>
-                <OptionRow attribute={'data-teaser="Need a hand?"'}>
-                  A one-line bubble beside the launcher before anyone
-                  clicks it.
-                </OptionRow>
-                <OptionRow attribute={'data-auto-open="5000"'}>
-                  Opens the chat itself after this many
-                  milliseconds. Leave it off unless you mean it.
-                </OptionRow>
-              </GuideDialog>
-            </>
-          ) : (
-            <>
-              <p className="flex items-center gap-1.5 text-sm font-medium">
-                <InfoIcon className="size-4 text-muted-foreground" />
-                Wiring this up in Meta
-              </p>
-              <p className="text-xs text-muted-foreground">
-                After setting the callback URL, subscribe to the{" "}
-                <span className="font-mono">messages</span> field.
-                Meta will verify the URL — make sure it is publicly
-                reachable.
-              </p>
-              <GuideDialog
-                title="Connecting this number in Meta"
-                description="In your app on developers.facebook.com."
-                trigger={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 self-start bg-background"
-                  >
-                    <BookOpenIcon /> View setup guide
-                  </Button>
-                }
-              >
-                <ol className="flex list-decimal flex-col gap-2 pl-4 text-xs text-muted-foreground">
-                  <li>
-                    Open your app, then{" "}
-                    <strong className="text-foreground">
-                      WhatsApp {"→"} Configuration
-                    </strong>
-                    .
-                  </li>
-                  <li>
-                    Paste the callback URL from this card into{" "}
-                    <strong className="text-foreground">
-                      Callback URL
-                    </strong>
-                    .
-                  </li>
-                  <li>
-                    Meta insists on a verify token. Type anything you
-                    like — it is not checked.
-                  </li>
-                  <li>
-                    Press{" "}
-                    <strong className="text-foreground">
-                      Verify and save
-                    </strong>
-                    . Meta calls the URL immediately, so it has to be
-                    publicly reachable — use a tunnel while developing
-                    locally.
-                  </li>
-                  <li>
-                    Under{" "}
-                    <strong className="text-foreground">
-                      Webhook fields
-                    </strong>
-                    , subscribe to{" "}
-                    <span className="font-mono">messages</span>.
-                    Nothing arrives without this step.
-                  </li>
-                </ol>
-              </GuideDialog>
-            </>
-          )}
-        </div>
+        {isWeb ? (
+          <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <InfoIcon className="size-4 text-muted-foreground" />
+              What your visitors see
+            </p>
+            <p className="text-xs text-muted-foreground">
+              A round chat button in the bottom-right corner.
+              Clicking it slides the chat open; on a phone it fills
+              the screen. Colour, side, icon and teaser are all set
+              on the script tag.
+            </p>
+            <GuideDialog
+              title="Customising the widget"
+              description="Add any of these to the script tag. All optional."
+              trigger={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-1 self-start bg-background"
+                >
+                  <GearIcon /> View customisation options
+                </Button>
+              }
+            >
+              <OptionRow attribute={'data-color="#25D366"'}>
+                Recolours the launcher and the chat header
+                together. Any CSS colour.
+              </OptionRow>
+              <OptionRow attribute={'data-position="left"'}>
+                Moves the launcher to the bottom-left. Defaults to
+                the right.
+              </OptionRow>
+              <OptionRow attribute={'data-icon="chat"'}>
+                Swaps the WhatsApp glyph for a neutral speech
+                bubble — use it when the widget is not WhatsApp.
+              </OptionRow>
+              <OptionRow attribute={'data-teaser="Need a hand?"'}>
+                A one-line bubble beside the launcher before anyone
+                clicks it.
+              </OptionRow>
+              <OptionRow attribute={'data-auto-open="5000"'}>
+                Opens the chat itself after this many
+                milliseconds. Leave it off unless you mean it.
+              </OptionRow>
+            </GuideDialog>
+          </div>
+        ) : null}
       </div>
 
       {!isWeb ? (
@@ -1825,10 +1763,7 @@ export default function ChannelsPage() {
   // The webhook is served by the Convex deployment, not the Next app, so the
   // URL is public without a tunnel and the access token stays inside Convex.
   const webhookBase = (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
-      process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".convex.cloud", ".convex.site") ??
-      "")
+    process.env.NEXT_PUBLIC_SITE_URL || "https://agent.magicwebs.ai"
   ).replace(/\/$/, "");
 
   const hasAgents = (agents ?? []).length > 0;

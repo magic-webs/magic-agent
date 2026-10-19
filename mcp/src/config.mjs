@@ -58,9 +58,7 @@ export const CONVEX_URL = setting(
   "CONVEX_URL"
 );
 export const SITE_URL = (
-  setting("NEXT_PUBLIC_SITE_URL", "PUBLIC_SITE_URL") ??
-  CONVEX_URL?.replace(".convex.cloud", ".convex.site") ??
-  ""
+  setting("NEXT_PUBLIC_SITE_URL", "PUBLIC_SITE_URL") ?? "https://agent.magicwebs.ai"
 ).replace(/\/$/, "");
 export const USERNAME = setting("MAGIC_AI_BOT_USERNAME", "ADMIN_EMAIL");
 export const PASSWORD = setting("MAGIC_AI_BOT_PASSWORD", "ADMIN_PASSWORD");

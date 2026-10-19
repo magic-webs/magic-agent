@@ -46,6 +46,7 @@ import {
   FloppyDiskIcon,
   ImageIcon,
   PaperPlaneTiltIcon,
+  SquaresFourIcon,
   TestTubeIcon,
   TrashIcon,
   XIcon,
@@ -61,6 +62,8 @@ import {
   type Category,
   type Channel,
 } from "./shared";
+import { TemplateGallery } from "./template-gallery";
+import { placeholdersIn, type NotificationTemplate } from "./templates";
 
 type Form = {
   title: string;
@@ -129,6 +132,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
     localInput(broadcast?.scheduledAt ?? Date.now() + 60 * 60 * 1000)
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(() => !broadcast && modifies);
   const imageInput = useRef<HTMLInputElement>(null);
 
   const reach = useQuery(api.platformNotifications.audience, { audience: form.audience });
@@ -205,10 +209,44 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
     );
   };
 
+  const applyTemplate = (template: NotificationTemplate) => {
+    const written = form.title.trim() || form.body.trim() || form.emailBody.trim() || form.smsText.trim();
+    if (written && !window.confirm("Replace what you have written with this template?")) return;
+    const available = configured ?? { push: true, email: true, sms: true };
+    set({
+      title: template.title,
+      body: template.body,
+      category: template.category,
+      channels: {
+        push: template.channels.push && available.push,
+        email: template.channels.email && available.email,
+        sms: template.channels.sms && available.sms,
+      },
+      emailSubject: template.emailSubject ?? "",
+      emailBody: template.emailBody,
+      smsText: template.smsText,
+      linkLabel: template.linkLabel ?? "",
+    });
+    setGalleryOpen(false);
+  };
+
+  const unfilled = placeholdersIn(
+    form.title,
+    form.body,
+    form.linkLabel,
+    form.channels.email ? `${form.emailSubject} ${form.emailBody}` : "",
+    form.channels.sms ? form.smsText : ""
+  );
+
   const readOnly = !modifies;
   const scheduled = broadcast?.status === "scheduled";
   const channelOn = CHANNELS.some((channel) => form.channels[channel.value]);
-  const ready = form.title.trim() && form.body.trim() && channelOn && (reach?.workspaces ?? 0) > 0;
+  const ready =
+    form.title.trim() &&
+    form.body.trim() &&
+    channelOn &&
+    unfilled.length === 0 &&
+    (reach?.workspaces ?? 0) > 0;
   const previews = CHANNELS.filter((channel) => form.channels[channel.value]);
 
   return (
@@ -243,6 +281,9 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                 <TrashIcon /> Delete
               </Button>
             ) : null}
+            <Button variant="outline" disabled={busy !== null} onClick={() => setGalleryOpen(true)}>
+              <SquaresFourIcon /> Templates
+            </Button>
             <Button
               variant="outline"
               disabled={busy !== null}
@@ -275,6 +316,13 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
           </div>
         )}
       </header>
+
+      {unfilled.length > 0 && !readOnly ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+          Replace the placeholders before sending:{" "}
+          <span className="font-mono text-xs">{unfilled.join(" ")}</span>
+        </div>
+      ) : null}
 
       {scheduled && broadcast?.scheduledAt ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm">
@@ -643,6 +691,8 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
           </Card>
         </div>
       </div>
+
+      <TemplateGallery open={galleryOpen} onOpenChange={setGalleryOpen} onPick={applyTemplate} />
 
       <Dialog open={testOpen} onOpenChange={setTestOpen}>
         <DialogContent className="sm:max-w-md">

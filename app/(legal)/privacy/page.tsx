@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy — Magic Agent",
   description:
-    "What Magic Agent collects, why, who processes it, and how to have it deleted.",
+    "What Magic Agent collects, why, and how to have it deleted.",
 };
 
 /**
@@ -11,8 +11,7 @@ export const metadata: Metadata = {
  *
  * Written from what the code actually does rather than from a template: every
  * category below corresponds to a table in the Convex schema or a request the
- * app makes, and the sub-processor list is the set of services the backend
- * genuinely calls. Anything a lawyer has to supply — the operating entity, its
+ * app makes. Anything a lawyer has to supply — the operating entity, its
  * address, the governing law — is marked and must be filled in before this is
  * published.
  */
@@ -145,40 +144,6 @@ export default function PrivacyPage() {
             />
           </tbody>
         </table>
-      </Section>
-
-      <Section title="Who else processes it">
-        <p>
-          We use these sub-processors. Each receives only what its function
-          requires.
-        </p>
-        <table className="w-full text-left text-sm">
-          <tbody>
-            <Row
-              what="Convex"
-              why="Database, file storage and server functions. All workspace data is held here."
-            />
-            <Row
-              what="Vercel AI Gateway"
-              why="Routes model calls. Message text and the retrieved context are sent for the model to answer."
-            />
-            <Row
-              what="Model providers via that gateway"
-              why="DeepSeek for chat, OpenAI for embeddings and voice-note transcription, Fish Audio for spoken greetings."
-            />
-            <Row
-              what="Expo push service, then Google FCM and Apple APNs"
-              why="Delivers notifications. Receives the push token and the notification's title and body — for example an order number or a contact's name."
-            />
-            <Row
-              what="Meta (WhatsApp Business Platform)"
-              why="Carries WhatsApp messages, where a workspace has connected a number."
-            />
-          </tbody>
-        </table>
-        <p>
-          We do not sell personal data and we do not share it for advertising.
-        </p>
       </Section>
 
       <Section title="How long it is kept">

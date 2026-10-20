@@ -48,3 +48,4 @@ next-env.d.ts
 # on exactly one machine.
 /.claude/skills/
 changes.md
+rcs-api.pdf

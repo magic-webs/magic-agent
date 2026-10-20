@@ -100,7 +100,7 @@ export default function SupportPage() {
             <a href="/privacy" className="underline hover:text-foreground">
               Privacy Policy
             </a>{" "}
-            — what is stored and who processes it
+            — what is stored and how to have it deleted
           </li>
           <li>
             <a href="/terms" className="underline hover:text-foreground">

@@ -55,11 +55,11 @@ export default function LegalLayout({
         <div className="mx-auto w-full max-w-3xl px-6 py-6 text-sm text-muted-foreground">
           © {new Date().getFullYear()} Magic Webs Technologies Pvt Ltd.{" "}
           <a
-            href="https://www.magicwebs.in/"
+            href="https://www.magicwebs.ai/"
             className="hover:text-foreground"
             rel="noreferrer"
           >
-            magicwebs.in
+            magicwebs.ai
           </a>
         </div>
       </footer>

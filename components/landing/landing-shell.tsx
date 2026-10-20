@@ -18,7 +18,7 @@ export function LandingShell({ children }: { children: React.ReactNode }) {
         </style>
       </noscript>
 
-      <div className={cn("landing flex min-h-svh flex-col bg-(--paper) text-(--ink)", display.variable)}>
+      <div className={cn("landing isolate flex min-h-svh flex-col bg-(--paper) text-(--ink)", display.variable)}>
         <SiteNav />
         <main>{children}</main>
         <SiteFooter />

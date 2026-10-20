@@ -74,6 +74,7 @@ export default async function LandingPage() {
   return (
     <LandingShell>
       <AgentRingHero
+        next="draft"
         lines={["Every customer,", "answered in seconds"]}
         action={
           <Link href="/login" className={cn(PILL, "h-[52px] bg-(--ink) px-8 text-[17px] text-(--paper)")}>
@@ -101,7 +102,10 @@ export default async function LandingPage() {
         }
       />
 
-      <section className={cn(CONTAINER, "flex flex-col items-center gap-7 pt-[clamp(4rem,9vw,7rem)] text-center")}>
+      <section
+        id="draft"
+        className={cn(CONTAINER, "flex flex-col items-center gap-7 pt-[clamp(4rem,9vw,7rem)] text-center")}
+      >
         <MaskLines lines={["Describe the job.", "We'll draft the agent."]} />
         <Reveal className="flex w-full justify-center">
           <p className="w-[640px] max-w-full text-[20px] leading-[30px] text-(--ink-muted) max-[600px]:text-base max-[600px]:leading-6">

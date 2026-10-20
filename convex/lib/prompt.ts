@@ -419,5 +419,5 @@ export function compileSystemPrompt(opts: {
 // Used for the very first assistant turn on a fresh conversation.
 export function resolveGreeting(agent: AgentShape, workspaceName: string): string {
   if (agent.greeting?.trim()) return agent.greeting.trim();
-  return `Hello, you're through to ${agent.botName} at ${workspaceName}. How can I help you today?`;
+  return `Hi, I'm ${agent.botName} from ${workspaceName}. How can I help you today?`;
 }

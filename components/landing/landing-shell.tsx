@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Script from "next/script";
 import { Instrument_Sans } from "next/font/google";
 import { Logo } from "@/components/logo";
 import { SmoothScroll } from "@/components/landing/smooth-scroll";
@@ -22,6 +23,11 @@ export function LandingShell({ children }: { children: React.ReactNode }) {
         <main>{children}</main>
         <SiteFooter />
       </div>
+
+      <Script
+        src="https://agent.magicwebs.ai/widget/gpxtzfkin6ma6113t41xib2ib45t/embed.js"
+        strategy="lazyOnload"
+      />
     </SmoothScroll>
   );
 }

@@ -125,10 +125,10 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
 
   return (
     <div ref={section} className="relative">
-      <div className="sticky top-0 flex h-svh flex-col justify-center overflow-hidden py-20 max-[600px]:py-16">
+      <div className="sticky top-0 flex h-svh flex-col justify-center-safe overflow-hidden py-[clamp(1.5rem,7svh,5rem)]">
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">{heading}</div>
 
-        <div className="relative mt-10 overflow-x-auto [scrollbar-width:none] [--gutter:16px] sm:[--gutter:24px] [&::-webkit-scrollbar]:hidden">
+        <div className="relative mt-[clamp(1.25rem,4svh,2.5rem)] shrink-0 overflow-x-auto [scrollbar-width:none] [--gutter:16px] sm:[--gutter:24px] [&::-webkit-scrollbar]:hidden">
           <div
             ref={track}
             className="flex w-max gap-4 px-[max(var(--gutter),calc((100vw-1200px)/2+var(--gutter)))] will-change-transform"
@@ -187,7 +187,7 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
           />
         </div>
 
-        <div className="mx-auto mt-10 flex w-full max-w-[1200px] items-center gap-4 px-4 sm:px-6">
+        <div className="mx-auto mt-[clamp(1.25rem,4svh,2.5rem)] flex w-full max-w-[1200px] shrink-0 items-center gap-4 px-4 sm:px-6">
           <span className="font-mono text-xs text-(--ink-muted) tabular-nums">
             <span ref={count}>01</span> / {String(AGENT_TEMPLATES.length).padStart(2, "0")}
           </span>

@@ -6,9 +6,10 @@ import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "#work", label: "Product" },
-  { href: "#use-cases", label: "Use cases" },
-  { href: "#templates", label: "Templates" },
+  { href: "/#work", label: "Product" },
+  { href: "/#use-cases", label: "Use cases" },
+  { href: "/#templates", label: "Templates" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function SiteNav() {

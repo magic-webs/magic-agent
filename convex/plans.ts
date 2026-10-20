@@ -19,8 +19,10 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_CURRENCY_TERMS,
   PLATFORM_CURRENCY,
+  USD_PRICES,
   allCurrencyTerms,
   planCurrency,
+  publicPricing,
 } from "./lib/plans";
 import { isValidCurrency } from "./lib/regional";
 import { slugify } from "./lib/shared";
@@ -70,6 +72,13 @@ export const adminCatalogue = query({
       })),
     };
   },
+});
+
+/** The plans on sale in every currency, for the public pricing page. */
+export const publicCatalogue = query({
+  args: {},
+  handler: async (ctx) =>
+    publicPricing(await billingSettings(ctx), await allPlans(ctx)),
 });
 
 /**
@@ -448,13 +457,6 @@ export const removePlan = mutation({
     return null;
   },
 });
-
-/** USD prices for the plans a fresh catalogue starts with, by plan code. */
-const USD_PRICES: Record<string, { price: number; list: number }> = {
-  starter: { price: 49, list: 49 },
-  growth: { price: 99, list: 119 },
-  scale: { price: 199, list: 249 },
-};
 
 /**
  * Mark the plans made before currencies as INR and add a USD copy of each,

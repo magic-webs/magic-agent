@@ -207,6 +207,104 @@ export const DEFAULT_PLANS: Array<{
   },
 ];
 
+/** USD prices for the plans a fresh catalogue starts with, by plan code. */
+export const USD_PRICES: Record<string, { price: number; list: number }> = {
+  starter: { price: 49, list: 49 },
+  growth: { price: 99, list: 119 },
+  scale: { price: 199, list: 249 },
+};
+
+// --- Public pricing ------------------------------------------------------------
+
+export type PublicPlan = Omit<(typeof DEFAULT_PLANS)[number], "description"> & {
+  description?: string;
+};
+
+type CataloguePlan = PublicPlan & {
+  currency?: string;
+  status: "active" | "hidden";
+};
+
+export type CurrencyPricing = {
+  currency: string;
+  gstPercent: number;
+  extraAgentListMicros: number;
+  extraAgentPriceMicros: number;
+  welcomeBonusMicros: number;
+  plans: PublicPlan[];
+};
+
+export type PublicPricing = {
+  trialDays: number;
+  currencies: CurrencyPricing[];
+};
+
+function startingCatalogue(): CataloguePlan[] {
+  return DEFAULT_PLANS.flatMap((plan) => {
+    const usd = USD_PRICES[plan.code];
+    const inr = { ...plan, currency: PLATFORM_CURRENCY, status: "active" as const };
+    if (!usd) return [inr];
+    return [
+      inr,
+      {
+        ...inr,
+        currency: "USD",
+        priceMicros: toMicros(usd.price),
+        listPriceMicros: toMicros(Math.max(usd.list, usd.price)),
+      },
+    ];
+  });
+}
+
+/**
+ * What the public pricing page shows: the plans on sale in each currency and
+ * that currency's terms. Before billing is switched on, what it starts with.
+ */
+export function publicPricing(
+  settings:
+    | (TermsCarrier & {
+        trialDays: number;
+        welcomeBonus?: Array<{ currency: string; amountMicros: number }>;
+      })
+    | null,
+  plans: CataloguePlan[]
+): PublicPricing {
+  if (!settings) {
+    return publicPricing(
+      { ...DEFAULT_SETTINGS, currencies: DEFAULT_CURRENCY_TERMS },
+      startingCatalogue()
+    );
+  }
+  const currencies = allCurrencyTerms(settings).flatMap((terms) => {
+    const onSale = plans.filter(
+      (plan) =>
+        plan.status === "active" && planCurrency(plan) === terms.currency
+    );
+    if (onSale.length === 0) return [];
+    return [
+      {
+        currency: terms.currency,
+        gstPercent: terms.gstPercent,
+        extraAgentListMicros: terms.extraAgentListMicros,
+        extraAgentPriceMicros: terms.extraAgentPriceMicros,
+        welcomeBonusMicros: welcomeBonusOf(settings, terms.currency),
+        plans: onSale.map((plan) => ({
+          code: plan.code,
+          name: plan.name,
+          description: plan.description,
+          listPriceMicros: plan.listPriceMicros,
+          priceMicros: plan.priceMicros,
+          includedAiAgents: plan.includedAiAgents,
+          includedHumanAgents: plan.includedHumanAgents,
+          features: plan.features,
+          highlighted: plan.highlighted,
+        })),
+      },
+    ];
+  });
+  return { trialDays: settings.trialDays, currencies };
+}
+
 // --- Pricing -----------------------------------------------------------------
 
 export type PricingSettings = {

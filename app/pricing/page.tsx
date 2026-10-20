@@ -7,6 +7,7 @@ import { MaskLines } from "@/components/landing/mask-lines";
 import { Reveal } from "@/components/landing/reveal";
 import { PricingPlans } from "@/components/landing/pricing-plans";
 import { ClosingPanel } from "@/components/landing/closing-panel";
+import { StoreBadges } from "@/components/landing/store-badges";
 import { loadPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { ArrowRightIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr";
@@ -131,6 +132,9 @@ export default async function PricingPage() {
           Start free trial
           <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
+        <div data-fade>
+          <StoreBadges className="justify-center" />
+        </div>
       </ClosingPanel>
     </LandingShell>
   );

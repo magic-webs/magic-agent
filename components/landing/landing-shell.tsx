@@ -5,6 +5,7 @@ import { Logo } from "@/components/logo";
 import { SmoothScroll } from "@/components/landing/smooth-scroll";
 import { SiteNav } from "@/components/landing/site-nav";
 import { CONTAINER } from "@/components/landing/bits";
+import { StoreBadges } from "@/components/landing/store-badges";
 import { cn } from "@/lib/utils";
 
 const display = Instrument_Sans({ subsets: ["latin"], variable: "--font-display" });
@@ -48,6 +49,7 @@ function SiteFooter() {
             <a href="mailto:support@magicwebs.ai" className="text-sm text-white hover:underline">
               support@magicwebs.ai
             </a>
+            <StoreBadges className="mt-2" />
           </div>
           <nav className="flex flex-col gap-3 text-sm text-white/60">
             <span className="text-xs tracking-[0.12em] text-white/40 uppercase">Product</span>

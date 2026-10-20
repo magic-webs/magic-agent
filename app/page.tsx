@@ -18,6 +18,7 @@ import { MaskLines } from "@/components/landing/mask-lines";
 import { ChatScene, EnquiryScene, InsightScene } from "@/components/landing/scenes";
 import { TemplateRail } from "@/components/landing/template-rail";
 import { ClosingPanel } from "@/components/landing/closing-panel";
+import { StoreBadges } from "@/components/landing/store-badges";
 import { loadPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react/dist/ssr";
@@ -204,6 +205,9 @@ export default async function LandingPage() {
           Get started
           <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
+        <div data-fade>
+          <StoreBadges className="justify-center" />
+        </div>
       </ClosingPanel>
     </LandingShell>
   );

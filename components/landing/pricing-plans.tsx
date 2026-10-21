@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { CheckIcon } from "@phosphor-icons/react";
 import { isIndian } from "@/convex/lib/currency";
 import type { CurrencyPricing, PublicPlan, PublicPricing } from "@/convex/lib/plans";
 import { currencySymbol, moneyIn } from "@/components/billing/plan-bits";
-import { PILL } from "@/components/landing/bits";
+import { SpecularButton } from "@/components/landing/specular-button";
 import { cn } from "@/lib/utils";
 
 const DESKS = 3;
@@ -145,16 +144,18 @@ function PlanCard({ plan, offer }: { plan: PublicPlan; offer: CurrencyPricing })
         </span>
       </div>
 
-      <Link
+      <SpecularButton
         href="/login"
-        className={cn(
-          PILL,
-          "justify-center",
-          featured ? "bg-(--paper) text-(--ink)" : "bg-(--ink) text-(--paper)"
-        )}
+        radius={999}
+        tint={featured ? "var(--paper)" : "var(--ink)"}
+        tintOpacity={1}
+        textColor={featured ? "var(--ink)" : "var(--paper)"}
+        lineColor="#10b981"
+        autoAnimate
+        className="h-12 px-6 py-0 text-[15px]"
       >
         Start free trial
-      </Link>
+      </SpecularButton>
 
       <ul className="flex flex-col gap-2.5 border-t border-current/10 pt-6 text-[15px]">
         {plan.features.map((feature) => (

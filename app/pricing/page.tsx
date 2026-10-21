@@ -1,13 +1,13 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { PLATFORM_CURRENCY, PLATFORM_LOCALE, type PublicPricing } from "@/convex/lib/plans";
 import { LandingShell } from "@/components/landing/landing-shell";
-import { CONTAINER, Eyebrow, PILL, SECTION } from "@/components/landing/bits";
+import { CONTAINER, Eyebrow, SECTION } from "@/components/landing/bits";
 import { MaskLines } from "@/components/landing/mask-lines";
 import { Reveal } from "@/components/landing/reveal";
 import { PricingPlans } from "@/components/landing/pricing-plans";
 import { ClosingPanel } from "@/components/landing/closing-panel";
 import { StoreBadges } from "@/components/landing/store-badges";
+import { SpecularButton } from "@/components/landing/specular-button";
 import { loadPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { ArrowRightIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr";
@@ -147,14 +147,12 @@ export default async function PricingPage() {
         <p data-fade className="max-w-md text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/90">
           Describe your business, add your price list, connect WhatsApp. Choose a plan when you are ready.
         </p>
-        <Link
-          data-fade
-          href="/login"
-          className={cn(PILL, "bg-white text-[#1c1b19] shadow-[0_10px_30px_-10px_rgb(0_20_60/0.4)]")}
-        >
-          Start free trial
-          <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
+        <div data-fade>
+          <SpecularButton href="/login" size="md" radius={999} tintOpacity={0.08} blur={12} lineColor="#10b981" autoAnimate className="group">
+            Start free trial
+            <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </SpecularButton>
+        </div>
         <div data-fade>
           <StoreBadges className="justify-center" />
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { SpecularButton } from "@/components/landing/specular-button";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -69,13 +70,19 @@ export function SiteNav() {
           >
             Log in
           </Link>
-          <Link
+          <SpecularButton
             href="/login"
-            className="inline-flex h-11 items-center rounded-full bg-(--ink) px-5 text-[15px] font-medium text-(--paper) transition-transform hover:-translate-y-0.5 max-[600px]:h-10 max-[600px]:px-4 max-[600px]:text-sm"
+            radius={999}
+            tint="var(--ink)"
+            tintOpacity={1}
+            textColor="var(--paper)"
+            lineColor="#10b981"
+            autoAnimate
+            className="h-11 px-5 py-0 text-[15px] max-[600px]:h-10 max-[600px]:px-4 max-[600px]:text-sm"
           >
             <span className="max-[600px]:hidden">Create your agent</span>
             <span className="min-[601px]:hidden">Get started</span>
-          </Link>
+          </SpecularButton>
         </div>
       </div>
     </header>

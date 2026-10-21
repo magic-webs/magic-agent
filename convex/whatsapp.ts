@@ -90,6 +90,7 @@ async function bill(
     to: string;
     source: BillingSource;
     messages: Array<{ message: Outbound; wamid?: string }>;
+    aiEventId?: Id<"billingEvents">;
   }
 ): Promise<void> {
   const messages = args.messages.flatMap(({ message, wamid }) => {
@@ -105,6 +106,7 @@ async function bill(
     ];
   });
   if (messages.length === 0) return;
+  const [first, ...rest] = messages;
   try {
     await ctx.runMutation(internal.billing.recordSent, {
       workspaceId: args.workspaceId,
@@ -112,7 +114,10 @@ async function bill(
       conversationId: args.conversationId,
       to: args.to,
       source: args.source,
-      messages,
+      messages: [
+        { ...first, ...(args.aiEventId ? { aiEventId: args.aiEventId } : {}) },
+        ...rest,
+      ],
     });
   } catch (error) {
     console.error(
@@ -437,6 +442,7 @@ type TurnOutcome = {
   text: string | null;
   conversationId: Id<"conversations"> | null;
   replyMessageId?: Id<"messages">;
+  aiEventId?: Id<"billingEvents">;
   toolCalls: string[];
   heldForHuman?: boolean;
   answeredWithControl?: boolean;
@@ -510,6 +516,7 @@ async function deliverReply(
     to,
     source: "agent",
     messages: delivered,
+    aiEventId: result.aiEventId,
   });
 
   return { handled: true, toolCalls: result.toolCalls };

@@ -20,7 +20,6 @@ import {
   BILLING_CATEGORIES,
   DEFAULT_AI_PRICING,
   MESSAGE_CATEGORIES,
-  aiPriceFor,
   billingCurrency,
   defaultAiPricing,
   defaultMarkups,
@@ -107,6 +106,7 @@ export const recordSent = internalMutation({
         preview: v.optional(v.string()),
         templateName: v.optional(v.string()),
         wamid: v.optional(v.string()),
+        aiEventId: v.optional(v.id("billingEvents")),
       })
     ),
   },
@@ -372,7 +372,6 @@ export const workspaceSummary = query({
     const totals = { messages: 0, amountMicros: 0 };
     const previous = { messages: 0, amountMicros: 0 };
     const byCategory = emptyCategories();
-    const ai = { messages: 0, amountMicros: 0 };
     const others = new Map<
       string,
       { amountMicros: number; messages: number }
@@ -389,22 +388,26 @@ export const workspaceSummary = query({
       daily.set(key, { date: key, messages: 0, spend: 0, amountMicros: 0 });
     }
 
+    // An account sees the AI charge on a reply as part of service: inside
+    // the WhatsApp message that carried the reply, or as one of its own on
+    // any other channel.
     for (const row of rows) {
       const inCurrency = row.currency === currency;
+      const message = row.mergedInto === undefined ? 1 : 0;
       if (row.createdAt < windowStart) {
-        previous.messages += 1;
+        previous.messages += message;
         if (inCurrency) previous.amountMicros += row.amountMicros;
         continue;
       }
 
-      const kind = row.category === "ai" ? ai : byCategory[row.category];
-      totals.messages += 1;
-      kind.messages += 1;
+      const kind = byCategory[row.category === "ai" ? "service" : row.category];
+      totals.messages += message;
+      kind.messages += message;
       if (!row.rated) unrated += 1;
       if (row.status === "pending") pending += 1;
 
       const bucket = daily.get(dayKey(row.createdAt));
-      if (bucket) bucket.messages += 1;
+      if (bucket) bucket.messages += message;
 
       if (!inCurrency) {
         addSpend(others, row);
@@ -414,8 +417,6 @@ export const workspaceSummary = query({
       kind.amountMicros += row.amountMicros;
       if (bucket) bucket.amountMicros += row.amountMicros;
     }
-
-    const aiPrice = await aiPriceFor(ctx, args.workspaceId, currency);
 
     return {
       windowDays: days,
@@ -428,16 +429,6 @@ export const workspaceSummary = query({
         category,
         ...byCategory[category],
       })),
-      // Beside the categories, not among them: app builds already installed
-      // have a label for each of the four and none for this.
-      ai,
-      aiPrice: aiPrice
-        ? {
-            firstMicros: aiPrice.firstMicros,
-            capMicros: aiPrice.capMicros,
-            rampReplies: aiPrice.rampReplies,
-          }
-        : null,
       daily: [...daily.values()].map((day) => ({
         ...day,
         // Whole units for the chart axis; the table and tiles use micros.
@@ -461,33 +452,54 @@ export const workspaceSummary = query({
 export const ledger = query({
   args: {
     workspaceId: v.id("workspaces"),
-    category: v.optional(v.union(messageCategory, v.literal("ai"))),
+    category: v.optional(messageCategory),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     const category = args.category;
 
-    const page = category
-      ? await ctx.db
-          .query("billingEvents")
-          .withIndex("by_workspace_category_createdAt", (q) =>
-            q.eq("workspaceId", args.workspaceId).eq("category", category)
-          )
-          .order("desc")
-          .paginate(args.paginationOpts)
-      : await ctx.db
-          .query("billingEvents")
-          .withIndex("by_workspace_createdAt", (q) =>
-            q.eq("workspaceId", args.workspaceId)
-          )
-          .order("desc")
-          .paginate(args.paginationOpts);
+    // An AI charge shown inside the WhatsApp message that carried it is not
+    // a row of its own; one on any other channel reads as service.
+    const page =
+      category && category !== "service"
+        ? await ctx.db
+            .query("billingEvents")
+            .withIndex("by_workspace_category_createdAt", (q) =>
+              q.eq("workspaceId", args.workspaceId).eq("category", category)
+            )
+            .order("desc")
+            .paginate(args.paginationOpts)
+        : await ctx.db
+            .query("billingEvents")
+            .withIndex("by_workspace_createdAt", (q) =>
+              q.eq("workspaceId", args.workspaceId)
+            )
+            .order("desc")
+            .filter((q) =>
+              category
+                ? q.and(
+                    q.eq(q.field("mergedInto"), undefined),
+                    q.or(
+                      q.eq(q.field("category"), "service"),
+                      q.eq(q.field("category"), "ai")
+                    )
+                  )
+                : q.eq(q.field("mergedInto"), undefined)
+            )
+            .paginate(args.paginationOpts);
 
     const names = new Map<string, string | null>();
-    const rows: Array<Doc<"billingEvents"> & { contactName: string | null }> =
-      [];
+    const rows: Array<
+      Omit<Doc<"billingEvents">, "category"> & {
+        category: MessageCategory;
+        contactName: string | null;
+      }
+    > = [];
     for (const row of page.page) {
+      const ai = row.aiEventId
+        ? await ctx.db.get("billingEvents", row.aiEventId)
+        : null;
       if (!names.has(row.to)) {
         const contact = await ctx.db
           .query("contacts")
@@ -497,7 +509,16 @@ export const ledger = query({
           .first();
         names.set(row.to, contact?.name ?? null);
       }
-      rows.push({ ...row, contactName: names.get(row.to) ?? null });
+      rows.push({
+        ...row,
+        replyNumber: undefined,
+        aiEventId: undefined,
+        mergedInto: undefined,
+        category: row.category === "ai" ? "service" : row.category,
+        amountMicros:
+          row.amountMicros + (ai && ai.currency === row.currency ? ai.amountMicros : 0),
+        contactName: names.get(row.to) ?? null,
+      });
     }
 
     return { ...page, page: rows };

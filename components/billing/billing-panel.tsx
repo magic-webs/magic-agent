@@ -4,11 +4,10 @@ import { useMemo, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
-  BILLING_CATEGORIES,
   CATEGORY_LABELS,
+  MESSAGE_CATEGORIES,
   SOURCE_LABELS,
   formatMoney,
-  type BillingCategory,
   type MessageCategory,
 } from "@/convex/lib/billing";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -50,7 +49,7 @@ import {
 
 const PAGE = 25;
 
-type Filter = "all" | BillingCategory;
+type Filter = "all" | MessageCategory;
 
 const PHONE = /^\+?\d{6,15}$/;
 
@@ -83,8 +82,8 @@ function useStamp() {
 }
 
 /**
- * A workspace's billing: what each WhatsApp message and agent reply cost, by
- * category, and every one of them in a ledger.
+ * A workspace's billing: what each message cost, by category, and every one
+ * of them in a ledger.
  *
  * Read-only for the company, which sees only what it pays. An administrator
  * sees an edit button on the markup, the same dialog the admin billing page
@@ -131,24 +130,11 @@ export function BillingPanel({ days }: { days: number }) {
       : 0;
   const rateOf = (category: MessageCategory) =>
     data.prices ? data.prices[`${category}Micros`] : null;
-  const kinds: Array<{
-    category: BillingCategory;
-    messages: number;
-    amountMicros: number;
-    rate: string;
-  }> = [
-    ...data.byCategory.map((row) => {
-      const rate = rateOf(row.category);
-      return { ...row, rate: rate === null ? "no rate" : `${money(rate)} / msg` };
-    }),
-    {
-      category: "ai",
-      ...data.ai,
-      rate: data.aiPrice
-        ? `${money(data.aiPrice.firstMicros)}–${money(data.aiPrice.capMicros)} / reply`
-        : "no rate",
-    },
-  ];
+  const rateLabel = (category: MessageCategory) => {
+    const rate = rateOf(category);
+    if (rate === null) return "no rate";
+    return `${category === "service" ? "from " : ""}${money(rate)} / msg`;
+  };
 
   const editMarkup =
     canModify("billing") && markups ? (
@@ -251,22 +237,10 @@ export function BillingPanel({ days }: { days: number }) {
             <CardTitle>By conversation type</CardTitle>
             {data.prices ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                Per message to {data.prices.marketLabel}.{" "}
-                {data.prices.chargeFree
-                  ? "Meta's free messages are charged as usual."
-                  : "Meta's free messages are free."}
+                Per message to {data.prices.marketLabel}.
                 {data.pending > 0
                   ? ` ${data.pending.toLocaleString()} recent ${data.pending === 1 ? "message is" : "messages are"} at an estimate until Meta confirms ${data.pending === 1 ? "it" : "them"}.`
                   : ""}
-              </p>
-            ) : null}
-            {data.aiPrice ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                An agent&apos;s first reply in a conversation costs{" "}
-                {money(data.aiPrice.firstMicros)}, rising with each reply to{" "}
-                {money(data.aiPrice.capMicros)} from reply{" "}
-                {data.aiPrice.rampReplies.toLocaleString()} on, on any channel.
-                On WhatsApp the message is charged as well.
               </p>
             ) : null}
           </div>
@@ -281,7 +255,7 @@ export function BillingPanel({ days }: { days: number }) {
               role="img"
               aria-label="Share of spend by conversation type"
             >
-              {kinds
+              {data.byCategory
                 .filter((row) => row.amountMicros > 0)
                 .map((row) => (
                   <div
@@ -295,8 +269,8 @@ export function BillingPanel({ days }: { days: number }) {
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {kinds.map((row) => (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {data.byCategory.map((row) => (
               <div
                 key={row.category}
                 className="flex flex-col gap-2 rounded-lg border bg-card p-3"
@@ -307,7 +281,7 @@ export function BillingPanel({ days }: { days: number }) {
                     {CATEGORY_LABELS[row.category]}
                   </span>
                   <span className="text-right text-xs text-muted-foreground tabular-nums">
-                    {row.rate}
+                    {rateLabel(row.category)}
                   </span>
                 </div>
                 <p className="font-heading text-2xl leading-none font-semibold">
@@ -315,13 +289,7 @@ export function BillingPanel({ days }: { days: number }) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {row.messages.toLocaleString()}{" "}
-                  {row.category === "ai"
-                    ? row.messages === 1
-                      ? "reply"
-                      : "replies"
-                    : row.messages === 1
-                      ? "message"
-                      : "messages"}
+                  {row.messages === 1 ? "message" : "messages"}
                 </p>
               </div>
             ))}
@@ -350,7 +318,7 @@ export function BillingPanel({ days }: { days: number }) {
               { key: "messages", label: "Messages" },
             ]}
             noun="spent"
-            emptyLabel="Spend appears here once a WhatsApp message goes out or an agent replies."
+            emptyLabel="Spend appears here once a message goes out."
           />
         </CardContent>
       </Card>
@@ -394,7 +362,7 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
             size="sm"
           >
             <ToggleGroupItem value="all">All</ToggleGroupItem>
-            {BILLING_CATEGORIES.map((category) => (
+            {MESSAGE_CATEGORIES.map((category) => (
               <ToggleGroupItem key={category} value={category}>
                 {CATEGORY_LABELS[category]}
               </ToggleGroupItem>
@@ -416,9 +384,7 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
               <EmptyTitle>
                 {filter === "all"
                   ? "No billed messages yet"
-                  : filter === "ai"
-                    ? "No AI replies yet"
-                    : `No ${CATEGORY_LABELS[filter].toLowerCase()} messages yet`}
+                  : `No ${CATEGORY_LABELS[filter].toLowerCase()} messages yet`}
               </EmptyTitle>
             </EmptyHeader>
           </Empty>
@@ -462,11 +428,6 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <CategoryBadge category={row.category} />
-                        {row.replyNumber ? (
-                          <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
-                            #{row.replyNumber}
-                          </span>
-                        ) : null}
                       </TableCell>
                       <TableCell className="hidden text-xs whitespace-nowrap text-muted-foreground md:table-cell">
                         {SOURCE_LABELS[row.source]}
@@ -530,16 +491,14 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
 function LedgerStatus({
   row,
 }: {
-  row: { status?: "pending" | "settled" | "refunded"; billable?: boolean };
+  row: { status?: "pending" | "settled" | "refunded" };
 }) {
   const label =
     row.status === "pending"
       ? "Estimate"
       : row.status === "refunded"
         ? "Refunded"
-        : row.billable === false
-          ? "Free from Meta"
-          : null;
+        : null;
   if (!label) return null;
   return (
     <span className="block text-[11px] font-normal text-muted-foreground">

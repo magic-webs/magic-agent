@@ -1905,6 +1905,7 @@ export type TurnResult = {
   text: string | null;
   conversationId: Id<"conversations"> | null;
   replyMessageId?: Id<"messages">;
+  aiEventId?: Id<"billingEvents">;
   toolCalls: string[];
   /** Which agent actually produced `text`. */
   agentId?: Id<"agents">;
@@ -2446,6 +2447,7 @@ ${message}`
       answeredWithControl: askedItself,
       conversationId: turn.conversationId,
       replyMessageId: finished.replyMessageId,
+      aiEventId: finished.aiEventId,
       toolCalls: turn.trace.map((t) => t.toolName),
       agentId: agent._id,
       agentBotName: agent.botName,

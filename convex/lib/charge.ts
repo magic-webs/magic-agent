@@ -46,6 +46,8 @@ export async function charge(
     preview?: string;
     templateName?: string;
     wamid?: string;
+    /** The AI charge on the agent reply this message carries. */
+    aiEventId?: Id<"billingEvents">;
   }
 ): Promise<Id<"billingEvents">> {
   const now = Date.now();
@@ -83,17 +85,39 @@ export async function charge(
     currency,
     amountMicros: priced.amountMicros,
   });
+  if (args.aiEventId) {
+    await attachAi(ctx, args.workspaceId, eventId, args.aiEventId);
+  }
   return eventId;
+}
+
+/** Show an AI charge as part of the WhatsApp message that carried the reply. */
+async function attachAi(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  messageEventId: Id<"billingEvents">,
+  aiEventId: Id<"billingEvents">
+): Promise<void> {
+  const ai = await ctx.db.get("billingEvents", aiEventId);
+  if (!ai || ai.workspaceId !== workspaceId || ai.category !== "ai" || ai.mergedInto) {
+    return;
+  }
+  await ctx.db.patch("billingEvents", messageEventId, { aiEventId });
+  await ctx.db.patch("billingEvents", aiEventId, { mergedInto: messageEventId });
 }
 
 /**
  * Charge an agent's reply, on any channel, at its place in the conversation.
- * On WhatsApp the message itself is billed separately, as service.
+ * On WhatsApp the message itself is billed separately, as service, and the
+ * two are shown to the account as one charge.
+ *
+ * `since` is when the turn started: a menu or buttons the agent sent during
+ * it has already been billed, and carries the reply.
  */
 export async function chargeAiReply(
   ctx: MutationCtx,
-  args: { conversation: Doc<"conversations">; preview?: string }
-): Promise<void> {
+  args: { conversation: Doc<"conversations">; preview?: string; since?: number }
+): Promise<Id<"billingEvents">> {
   const { conversation } = args;
   const now = Date.now();
   const reply = (conversation.aiReplyCount ?? 0) + 1;
@@ -105,7 +129,7 @@ export async function chargeAiReply(
   const amountMicros = price ? aiReplyMicros(price, reply) : 0;
   const preview = args.preview?.replace(/\s+/g, " ").trim();
 
-  await ctx.db.insert("billingEvents", {
+  const eventId = await ctx.db.insert("billingEvents", {
     workspaceId: conversation.workspaceId,
     conversationId: conversation._id,
     channelId: conversation.channelId,
@@ -129,6 +153,28 @@ export async function chargeAiReply(
     currency,
     amountMicros,
   });
+
+  if (conversation.channelType === "whatsapp" && args.since !== undefined) {
+    const since = args.since;
+    const sent = await ctx.db
+      .query("billingEvents")
+      .withIndex("by_workspace_createdAt", (q) =>
+        q.eq("workspaceId", conversation.workspaceId).gte("createdAt", since)
+      )
+      .order("desc")
+      .take(50);
+    const carrier = sent.find(
+      (row) =>
+        row.conversationId === conversation._id &&
+        row.category === "service" &&
+        row.source === "agent" &&
+        !row.aiEventId
+    );
+    if (carrier) {
+      await attachAi(ctx, conversation.workspaceId, carrier._id, eventId);
+    }
+  }
+  return eventId;
 }
 
 export async function billingEventFor(
@@ -234,4 +280,9 @@ export async function refund(
     billable: false,
     settledAt: Date.now(),
   });
+  // The reply never reached the customer, so neither is the AI charge on it.
+  if (event.aiEventId) {
+    const ai = await ctx.db.get("billingEvents", event.aiEventId);
+    if (ai) await refund(ctx, ai);
+  }
 }

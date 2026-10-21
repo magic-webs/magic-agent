@@ -250,6 +250,10 @@ export const billingTables = {
     to: v.string(),
     category: v.union(messageCategory, v.literal("ai")),
     replyNumber: v.optional(v.number()),
+    /** On a WhatsApp message: the AI charge on the agent reply it carried. */
+    aiEventId: v.optional(v.id("billingEvents")),
+    /** On an AI charge: the WhatsApp message it is shown as part of. */
+    mergedInto: v.optional(v.id("billingEvents")),
     source: v.union(
       v.literal("agent"),
       v.literal("human"),

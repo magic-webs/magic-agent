@@ -1543,10 +1543,15 @@ export const finishTurn = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
+    let aiEventId: Id<"billingEvents"> | undefined;
     if (args.chargeAi) {
       const conversation = await ctx.db.get("conversations", args.conversationId);
       if (conversation) {
-        await chargeAiReply(ctx, { conversation, preview: args.replyText });
+        aiEventId = await chargeAiReply(ctx, {
+          conversation,
+          preview: args.replyText,
+          since: now - (args.latencyMs ?? 0),
+        });
       }
     }
 
@@ -1613,7 +1618,7 @@ export const finishTurn = internalMutation({
       }
     }
 
-    return { success: true, replyMessageId };
+    return { success: true, replyMessageId, aiEventId };
   },
 });
 

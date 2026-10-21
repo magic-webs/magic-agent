@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Card,
   CardContent,
@@ -37,20 +36,21 @@ type Draft = {
   header: string;
   footer: string;
   buttonText: string;
-  mode: "agents" | "custom";
+  custom: boolean;
   options: WelcomeOption[];
 };
 
 function draftFrom(data: MenuData): Draft {
   const saved = data.saved;
+  const custom = Boolean(saved && saved.options.length > 0);
   return {
     enabled: saved?.enabled ?? true,
-    body: saved?.body ?? "",
+    body: saved?.body.trim() || data.defaultBody,
     header: saved?.header ?? "",
     footer: saved?.footer ?? "",
     buttonText: saved?.buttonText ?? "",
-    mode: saved && saved.options.length > 0 ? "custom" : "agents",
-    options: saved && saved.options.length > 0 ? saved.options : data.agentOptions,
+    custom,
+    options: custom ? saved!.options : data.agentOptions,
   };
 }
 
@@ -78,15 +78,19 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
   const [saving, setSaving] = useState(false);
 
   const set = (patch: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...patch }));
-  const options = draft.mode === "agents" ? data.agentOptions : draft.options;
+  const options = draft.custom ? draft.options : data.agentOptions;
   const asList = options.length > WELCOME_LIMITS.buttons;
 
+  const editOptions = (change: (current: WelcomeOption[]) => WelcomeOption[]) =>
+    setDraft((prev) => ({
+      ...prev,
+      custom: true,
+      options: change(prev.custom ? prev.options : data.agentOptions),
+    }));
   const setOption = (index: number, patch: Partial<WelcomeOption>) =>
-    set({
-      options: draft.options.map((option, at) =>
-        at === index ? { ...option, ...patch } : option
-      ),
-    });
+    editOptions((current) =>
+      current.map((option, at) => (at === index ? { ...option, ...patch } : option))
+    );
 
   const save = async () => {
     setSaving(true);
@@ -95,21 +99,20 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
         workspaceId: workspace._id,
         menu: {
           enabled: draft.enabled,
-          body: draft.body,
+          body: draft.body.trim() === data.defaultBody ? "" : draft.body,
           header: draft.header || undefined,
           footer: draft.footer || undefined,
           buttonText: draft.buttonText || undefined,
-          options:
-            draft.mode === "agents"
-              ? []
-              : draft.options
-                  .filter((option) => option.title.trim())
-                  .map((option) => ({
-                    title: option.title,
-                    ...(option.description?.trim()
-                      ? { description: option.description }
-                      : {}),
-                  })),
+          options: !draft.custom
+            ? []
+            : draft.options
+                .filter((option) => option.title.trim())
+                .map((option) => ({
+                  title: option.title,
+                  ...(option.description?.trim()
+                    ? { description: option.description }
+                    : {}),
+                })),
         },
       });
       toast.add({ title: "Welcome menu saved", type: "success" });
@@ -159,9 +162,6 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
               value={draft.body}
               onChange={(event) => set({ body: event.target.value })}
             />
-            <p className="text-xs text-muted-foreground">
-              Leave it empty to use “{data.defaultBody}”
-            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -188,104 +188,68 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
 
           <div className="flex flex-col gap-2">
             <Label>Buttons</Label>
-            <ToggleGroup
-              variant="outline"
-              value={[draft.mode]}
-              onValueChange={(next) =>
-                next[0] && set({ mode: next[0] as Draft["mode"] })
-              }
-            >
-              <ToggleGroupItem value="agents">From my agents</ToggleGroupItem>
-              <ToggleGroupItem value="custom">Custom</ToggleGroupItem>
-            </ToggleGroup>
-
-            {draft.mode === "agents" ? (
-              data.agentOptions.length > 0 ? (
-                <div className="flex flex-col gap-1.5 rounded-lg border p-3 text-sm">
-                  <p className="text-xs text-muted-foreground">
-                    One button per live agent, kept up to date as agents are
-                    added or paused.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.agentOptions.map((option) => (
-                      <span
-                        key={option.title}
-                        className="rounded-md border bg-muted/40 px-2 py-0.5 text-xs"
-                      >
-                        {option.title}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                  No live agents take handovers yet, so there is nothing to put
-                  on the buttons and the menu is not sent. Switch to Custom, or
-                  make an agent live.
-                </p>
-              )
-            ) : (
-              <div className="flex flex-col gap-2">
-                {draft.options.map((option, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                      <Input
-                        aria-label={`Button ${index + 1}`}
-                        placeholder="Book a visit"
-                        maxLength={WELCOME_LIMITS.title}
-                        value={option.title}
-                        onChange={(event) => setOption(index, { title: event.target.value })}
-                      />
-                      <Input
-                        aria-label={`Button ${index + 1} description`}
-                        placeholder={asList ? "Shown under it in the list" : "Shown in lists only"}
-                        maxLength={WELCOME_LIMITS.description}
-                        value={option.description ?? ""}
-                        onChange={(event) =>
-                          setOption(index, { description: event.target.value })
-                        }
-                      />
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Remove button ${index + 1}`}
-                      onClick={() =>
-                        set({ options: draft.options.filter((_, at) => at !== index) })
-                      }
-                    >
-                      <TrashIcon />
-                    </Button>
-                  </div>
-                ))}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={draft.options.length >= WELCOME_LIMITS.options}
-                    onClick={() =>
-                      set({ options: [...draft.options, { title: "" }] })
+            {options.map((option, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                  <Input
+                    aria-label={`Button ${index + 1}`}
+                    placeholder="Book a visit"
+                    maxLength={WELCOME_LIMITS.title}
+                    value={option.title}
+                    onChange={(event) => setOption(index, { title: event.target.value })}
+                  />
+                  <Input
+                    aria-label={`Button ${index + 1} description`}
+                    placeholder={asList ? "Shown under it in the list" : "Shown in lists only"}
+                    maxLength={WELCOME_LIMITS.description}
+                    value={option.description ?? ""}
+                    onChange={(event) =>
+                      setOption(index, { description: event.target.value })
                     }
-                  >
-                    <PlusIcon /> Add button
-                  </Button>
-                  {data.agentOptions.length > 0 ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => set({ options: data.agentOptions })}
-                    >
-                      <RobotIcon /> Fill from my agents
-                    </Button>
-                  ) : null}
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Up to {WELCOME_LIMITS.options}, {WELCOME_LIMITS.title} characters
-                  each. WhatsApp shows three as buttons; four or more become a
-                  list behind one button.
-                </p>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Remove button ${index + 1}`}
+                  onClick={() =>
+                    editOptions((current) => current.filter((_, at) => at !== index))
+                  }
+                >
+                  <TrashIcon />
+                </Button>
               </div>
-            )}
+            ))}
+            {options.length === 0 ? (
+              <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                No live agents take handovers yet, so the menu is not sent. Add a
+                button, or make an agent live.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={options.length >= WELCOME_LIMITS.options}
+                onClick={() => editOptions((current) => [...current, { title: "" }])}
+              >
+                <PlusIcon /> Add button
+              </Button>
+              {draft.custom && data.agentOptions.length > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => set({ custom: false, options: data.agentOptions })}
+                >
+                  <RobotIcon /> Follow my agents
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {draft.custom
+                ? `Up to ${WELCOME_LIMITS.options}, ${WELCOME_LIMITS.title} characters each. WhatsApp shows three as buttons; four or more become a list behind one button.`
+                : "One button per live agent, kept up to date as agents are added or paused. Change any of them to set your own."}
+            </p>
           </div>
 
           {asList ? (

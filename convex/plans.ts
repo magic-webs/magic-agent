@@ -13,7 +13,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { requireModify, requireScope, requireWorkspace } from "./lib/auth";
 import { allPlans, billingSettings, billingTermsFor } from "./lib/account";
-import { toMicros, workspaceCurrency } from "./lib/billing";
+import { defaultAiPricing, toMicros, workspaceCurrency } from "./lib/billing";
 import {
   DEFAULT_PLANS,
   DEFAULT_SETTINGS,
@@ -78,7 +78,11 @@ export const adminCatalogue = query({
 export const publicCatalogue = query({
   args: {},
   handler: async (ctx) =>
-    publicPricing(await billingSettings(ctx), await allPlans(ctx)),
+    publicPricing(
+      await billingSettings(ctx),
+      await allPlans(ctx),
+      await defaultAiPricing(ctx)
+    ),
 });
 
 /**

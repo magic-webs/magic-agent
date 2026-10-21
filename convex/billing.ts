@@ -17,10 +17,15 @@ import {
   requireWorkspace,
 } from "./lib/auth";
 import {
+  BILLING_CATEGORIES,
+  DEFAULT_AI_PRICING,
   MESSAGE_CATEGORIES,
+  aiPriceFor,
   billingCurrency,
+  defaultAiPricing,
   defaultMarkups,
   effectiveMarkups,
+  workspaceAiPricing,
   workspaceCurrency,
   homeMarket,
   metaCostOf,
@@ -28,6 +33,8 @@ import {
   quote,
   toMicros,
   workspaceMarkups,
+  type AiPricingCard,
+  type BillingCategory,
   type MessageCategory,
 } from "./lib/billing";
 import { MARKETS, marketLabel } from "./lib/markets";
@@ -282,6 +289,23 @@ const marginList = (map: Map<string, Margin>) =>
     marginMicros: value.billedMicros - value.metaCostMicros,
   }));
 
+type AiPricingView = AiPricingCard & {
+  scope: "workspace" | "default";
+  updatedAt: number;
+};
+
+function aiPricingView(
+  card: Doc<"aiPricing">,
+  scope: AiPricingView["scope"]
+): AiPricingView {
+  return {
+    scope,
+    rampReplies: card.rampReplies,
+    byCurrency: card.byCurrency,
+    updatedAt: card.updatedAt,
+  };
+}
+
 /** What an account pays per message, for its own billing page. */
 export const prices = query({
   args: { workspaceId: v.id("workspaces") },
@@ -348,6 +372,7 @@ export const workspaceSummary = query({
     const totals = { messages: 0, amountMicros: 0 };
     const previous = { messages: 0, amountMicros: 0 };
     const byCategory = emptyCategories();
+    const ai = { messages: 0, amountMicros: 0 };
     const others = new Map<
       string,
       { amountMicros: number; messages: number }
@@ -372,8 +397,9 @@ export const workspaceSummary = query({
         continue;
       }
 
+      const kind = row.category === "ai" ? ai : byCategory[row.category];
       totals.messages += 1;
-      byCategory[row.category].messages += 1;
+      kind.messages += 1;
       if (!row.rated) unrated += 1;
       if (row.status === "pending") pending += 1;
 
@@ -385,9 +411,11 @@ export const workspaceSummary = query({
         continue;
       }
       totals.amountMicros += row.amountMicros;
-      byCategory[row.category].amountMicros += row.amountMicros;
+      kind.amountMicros += row.amountMicros;
       if (bucket) bucket.amountMicros += row.amountMicros;
     }
+
+    const aiPrice = await aiPriceFor(ctx, args.workspaceId, currency);
 
     return {
       windowDays: days,
@@ -400,6 +428,16 @@ export const workspaceSummary = query({
         category,
         ...byCategory[category],
       })),
+      // Beside the categories, not among them: app builds already installed
+      // have a label for each of the four and none for this.
+      ai,
+      aiPrice: aiPrice
+        ? {
+            firstMicros: aiPrice.firstMicros,
+            capMicros: aiPrice.capMicros,
+            rampReplies: aiPrice.rampReplies,
+          }
+        : null,
       daily: [...daily.values()].map((day) => ({
         ...day,
         // Whole units for the chart axis; the table and tiles use micros.
@@ -423,7 +461,7 @@ export const workspaceSummary = query({
 export const ledger = query({
   args: {
     workspaceId: v.id("workspaces"),
-    category: v.optional(messageCategory),
+    category: v.optional(v.union(messageCategory, v.literal("ai"))),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
@@ -497,16 +535,23 @@ export const adminOverview = query({
         .filter((card) => card.workspaceId !== undefined)
         .map((card) => [card.workspaceId as Id<"workspaces">, card])
     );
+    const aiCards = await ctx.db.query("aiPricing").take(workspaces.length + 1);
+    const aiFallback = aiCards.find((card) => card.workspaceId === undefined);
+    const ownAiCard = new Map(
+      aiCards
+        .filter((card) => card.workspaceId !== undefined)
+        .map((card) => [card.workspaceId as Id<"workspaces">, card])
+    );
 
     type Stats = {
       messages: number;
-      byCategory: Record<MessageCategory, number>;
+      byCategory: Record<BillingCategory, number>;
       spend: Map<string, { amountMicros: number; messages: number }>;
       margin: Map<string, Margin>;
     };
     const blank = (): Stats => ({
       messages: 0,
-      byCategory: { service: 0, utility: 0, marketing: 0, authentication: 0 },
+      byCategory: { service: 0, utility: 0, marketing: 0, authentication: 0, ai: 0 },
       spend: new Map(),
       margin: new Map(),
     });
@@ -534,7 +579,7 @@ export const adminOverview = query({
     for (const [workspaceId, entry] of stats) {
       if (known.has(workspaceId)) continue;
       orphaned.messages += entry.messages;
-      for (const category of MESSAGE_CATEGORIES) {
+      for (const category of BILLING_CATEGORIES) {
         orphaned.byCategory[category] += entry.byCategory[category];
       }
       for (const [currency, value] of entry.spend) {
@@ -552,6 +597,8 @@ export const adminOverview = query({
       windowDays: days,
       truncated: scanned.length === SCAN_CAP,
       defaultMarkups: fallback ? markupView(fallback, "default") : null,
+      defaultAiPricing: aiFallback ? aiPricingView(aiFallback, "default") : null,
+      builtInAiPricing: DEFAULT_AI_PRICING,
       totals: {
         messages: totals.messages,
         byCategory: totals.byCategory,
@@ -562,6 +609,7 @@ export const adminOverview = query({
         workspaces.map(async (workspace) => {
           const entry = stats.get(workspace._id) ?? blank();
           const own = ownCard.get(workspace._id);
+          const ownAi = ownAiCard.get(workspace._id);
           return {
             workspaceId: workspace._id,
             name: workspace.name,
@@ -572,6 +620,7 @@ export const adminOverview = query({
             locale: workspace.locale,
             logoSrc: await logoSrcFor(ctx, workspace),
             markups: own ? markupView(own, "workspace") : null,
+            aiPricing: ownAi ? aiPricingView(ownAi, "workspace") : null,
             messages: entry.messages,
             byCategory: entry.byCategory,
             spend: spendList(entry.spend),
@@ -831,6 +880,104 @@ export const clearMarkups = mutation({
     await requireScopedWorkspace(ctx, "billing", args.workspaceId, "modify");
     const existing = await workspaceMarkups(ctx, args.workspaceId);
     if (existing) await ctx.db.delete("billingMarkups", existing._id);
+    return null;
+  },
+});
+
+const MAX_RAMP_REPLIES = 10_000;
+
+/** An account's own AI reply prices and the default, for the admin editor. */
+export const aiPricing = query({
+  args: { workspaceId: v.optional(v.id("workspaces")) },
+  handler: async (ctx, args) => {
+    const principal = await requireScope(ctx, "billing");
+    if (args.workspaceId && !covers(principal, args.workspaceId)) {
+      throw new ConvexError("You do not have access to this workspace.");
+    }
+    const fallback = await defaultAiPricing(ctx);
+    const own = args.workspaceId
+      ? await workspaceAiPricing(ctx, args.workspaceId)
+      : null;
+    return {
+      own: own ? aiPricingView(own, "workspace") : null,
+      default: fallback ? aiPricingView(fallback, "default") : null,
+      builtIn: DEFAULT_AI_PRICING,
+    };
+  },
+});
+
+/**
+ * Set what an agent's reply costs — for one account, or, with no workspace,
+ * the default. Prices arrive in whole currency units.
+ */
+export const setAiPricing = mutation({
+  args: {
+    workspaceId: v.optional(v.id("workspaces")),
+    rampReplies: v.number(),
+    byCurrency: v.array(
+      v.object({ currency: v.string(), first: v.number(), cap: v.number() })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const principal = await requireModify(ctx, "billing");
+    if (args.workspaceId) {
+      const workspace = await ctx.db.get("workspaces", args.workspaceId);
+      if (!workspace) throw new ConvexError("Workspace not found");
+      if (!covers(principal, args.workspaceId)) {
+        throw new ConvexError("You do not have access to this workspace.");
+      }
+    } else if (principal.workspaceIds) {
+      throw new ConvexError("Only a role over every workspace can change the default AI prices.");
+    }
+    if (
+      !Number.isInteger(args.rampReplies) ||
+      args.rampReplies < 1 ||
+      args.rampReplies > MAX_RAMP_REPLIES
+    ) {
+      throw new ConvexError(
+        `The reply that reaches the full price must be between 1 and ${MAX_RAMP_REPLIES}.`
+      );
+    }
+    const seen = new Set<string>();
+    const byCurrency = args.byCurrency.map((entry) => {
+      const code = entry.currency.trim().toUpperCase();
+      if (!isValidCurrency(code)) {
+        throw new ConvexError(`${entry.currency} is not a currency code.`);
+      }
+      if (seen.has(code)) throw new ConvexError(`${code} is listed twice.`);
+      seen.add(code);
+      const firstMicros = amountMicros(`The ${code} first-reply price`, entry.first);
+      const capMicros = amountMicros(`The ${code} full price`, entry.cap);
+      if (firstMicros > capMicros) {
+        throw new ConvexError(
+          `The ${code} first-reply price cannot be more than the full price.`
+        );
+      }
+      return { currency: code, firstMicros, capMicros };
+    });
+
+    const fields = { rampReplies: args.rampReplies, byCurrency, updatedAt: Date.now() };
+    const existing = args.workspaceId
+      ? await workspaceAiPricing(ctx, args.workspaceId)
+      : await defaultAiPricing(ctx);
+    if (existing) {
+      await ctx.db.patch("aiPricing", existing._id, fields);
+      return existing._id;
+    }
+    return await ctx.db.insert("aiPricing", {
+      workspaceId: args.workspaceId,
+      ...fields,
+    });
+  },
+});
+
+/** Put an account back on the default AI prices. */
+export const clearAiPricing = mutation({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireScopedWorkspace(ctx, "billing", args.workspaceId, "modify");
+    const existing = await workspaceAiPricing(ctx, args.workspaceId);
+    if (existing) await ctx.db.delete("aiPricing", existing._id);
     return null;
   },
 });

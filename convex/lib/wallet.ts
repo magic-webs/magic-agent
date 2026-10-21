@@ -1,8 +1,8 @@
 /**
- * The prepaid wallet WhatsApp messages are drawn from.
+ * The prepaid wallet WhatsApp messages and agents' replies are drawn from.
  *
  * Every charged message comes off the balance as it is recorded (see
- * ./charge). A service reply goes out whatever the balance — a customer who
+ * ./charge). A service reply or an agent's reply goes out whatever the balance — a customer who
  * wrote in is never left unanswered for want of credit — so the balance can
  * go below zero; templates, which the business starts, are held back instead
  * (`templateBlock`). Crossing the low-balance line warns the company once and,

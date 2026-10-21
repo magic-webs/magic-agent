@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
+  BILLING_CATEGORIES,
   CATEGORY_LABELS,
-  MESSAGE_CATEGORIES,
   SOURCE_LABELS,
   formatMoney,
+  type BillingCategory,
   type MessageCategory,
 } from "@/convex/lib/billing";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -49,7 +50,9 @@ import {
 
 const PAGE = 25;
 
-type Filter = "all" | MessageCategory;
+type Filter = "all" | BillingCategory;
+
+const PHONE = /^\+?\d{6,15}$/;
 
 /**
  * An instant in the workspace's own timezone and locale — the ledger is read
@@ -80,8 +83,8 @@ function useStamp() {
 }
 
 /**
- * A workspace's billing: what each WhatsApp message cost, by category, and
- * every one of them in a ledger.
+ * A workspace's billing: what each WhatsApp message and agent reply cost, by
+ * category, and every one of them in a ledger.
  *
  * Read-only for the company, which sees only what it pays. An administrator
  * sees an edit button on the markup, the same dialog the admin billing page
@@ -119,15 +122,33 @@ export function BillingPanel({ days }: { days: number }) {
     amountMicros: day.amountMicros,
     messages: day.messages,
   }));
-  const templates =
-    data.totals.messages -
-    (data.byCategory.find((row) => row.category === "service")?.messages ?? 0);
+  const templates = data.byCategory
+    .filter((row) => row.category !== "service")
+    .reduce((sum, row) => sum + row.messages, 0);
   const average =
     data.totals.messages > 0
       ? Math.round(data.totals.amountMicros / data.totals.messages)
       : 0;
   const rateOf = (category: MessageCategory) =>
     data.prices ? data.prices[`${category}Micros`] : null;
+  const kinds: Array<{
+    category: BillingCategory;
+    messages: number;
+    amountMicros: number;
+    rate: string;
+  }> = [
+    ...data.byCategory.map((row) => {
+      const rate = rateOf(row.category);
+      return { ...row, rate: rate === null ? "no rate" : `${money(rate)} / msg` };
+    }),
+    {
+      category: "ai",
+      ...data.ai,
+      rate: data.aiPrice
+        ? `${money(data.aiPrice.firstMicros)}–${money(data.aiPrice.capMicros)} / reply`
+        : "no rate",
+    },
+  ];
 
   const editMarkup =
     canModify("billing") && markups ? (
@@ -239,6 +260,15 @@ export function BillingPanel({ days }: { days: number }) {
                   : ""}
               </p>
             ) : null}
+            {data.aiPrice ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                An agent&apos;s first reply in a conversation costs{" "}
+                {money(data.aiPrice.firstMicros)}, rising with each reply to{" "}
+                {money(data.aiPrice.capMicros)} from reply{" "}
+                {data.aiPrice.rampReplies.toLocaleString()} on, on any channel.
+                On WhatsApp the message is charged as well.
+              </p>
+            ) : null}
           </div>
           {editMarkup}
         </CardHeader>
@@ -251,7 +281,7 @@ export function BillingPanel({ days }: { days: number }) {
               role="img"
               aria-label="Share of spend by conversation type"
             >
-              {data.byCategory
+              {kinds
                 .filter((row) => row.amountMicros > 0)
                 .map((row) => (
                   <div
@@ -265,33 +295,36 @@ export function BillingPanel({ days }: { days: number }) {
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {data.byCategory.map((row) => {
-              const rate = rateOf(row.category);
-              return (
-                <div
-                  key={row.category}
-                  className="flex flex-col gap-2 rounded-lg border bg-card p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <CategoryDot category={row.category} />
-                      {CATEGORY_LABELS[row.category]}
-                    </span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {rate === null ? "no rate" : `${money(rate)} / msg`}
-                    </span>
-                  </div>
-                  <p className="font-heading text-2xl leading-none font-semibold">
-                    {money(row.amountMicros)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {row.messages.toLocaleString()}{" "}
-                    {row.messages === 1 ? "message" : "messages"}
-                  </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {kinds.map((row) => (
+              <div
+                key={row.category}
+                className="flex flex-col gap-2 rounded-lg border bg-card p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <CategoryDot category={row.category} />
+                    {CATEGORY_LABELS[row.category]}
+                  </span>
+                  <span className="text-right text-xs text-muted-foreground tabular-nums">
+                    {row.rate}
+                  </span>
                 </div>
-              );
-            })}
+                <p className="font-heading text-2xl leading-none font-semibold">
+                  {money(row.amountMicros)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {row.messages.toLocaleString()}{" "}
+                  {row.category === "ai"
+                    ? row.messages === 1
+                      ? "reply"
+                      : "replies"
+                    : row.messages === 1
+                      ? "message"
+                      : "messages"}
+                </p>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -317,7 +350,7 @@ export function BillingPanel({ days }: { days: number }) {
               { key: "messages", label: "Messages" },
             ]}
             noun="spent"
-            emptyLabel="Spend appears here once a WhatsApp message goes out."
+            emptyLabel="Spend appears here once a WhatsApp message goes out or an agent replies."
           />
         </CardContent>
       </Card>
@@ -361,7 +394,7 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
             size="sm"
           >
             <ToggleGroupItem value="all">All</ToggleGroupItem>
-            {MESSAGE_CATEGORIES.map((category) => (
+            {BILLING_CATEGORIES.map((category) => (
               <ToggleGroupItem key={category} value={category}>
                 {CATEGORY_LABELS[category]}
               </ToggleGroupItem>
@@ -383,7 +416,9 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
               <EmptyTitle>
                 {filter === "all"
                   ? "No billed messages yet"
-                  : `No ${CATEGORY_LABELS[filter].toLowerCase()} messages yet`}
+                  : filter === "ai"
+                    ? "No AI replies yet"
+                    : `No ${CATEGORY_LABELS[filter].toLowerCase()} messages yet`}
               </EmptyTitle>
             </EmptyHeader>
           </Empty>
@@ -404,27 +439,34 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {results.map((row) => (
+                  {results.map((row) => {
+                    const phone = PHONE.test(row.to)
+                      ? `+${row.to.replace(/^\+/, "")}`
+                      : null;
+                    return (
                     <TableRow key={row._id}>
                       <TableCell className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                         {stamp(row.createdAt)}
                       </TableCell>
                       <TableCell className="max-w-48 min-w-0">
                         <span className="block truncate text-sm font-medium">
-                          {row.contactName ?? `+${row.to.replace(/^\+/, "")}`}
+                          {row.contactName ?? phone ?? "Visitor"}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
-                          {row.contactName ? (
-                            <span className="font-mono">
-                              +{row.to.replace(/^\+/, "")}
-                            </span>
+                          {row.contactName && phone ? (
+                            <span className="font-mono">{phone}</span>
                           ) : null}
-                          {row.contactName && row.market ? " · " : null}
+                          {row.contactName && phone && row.market ? " · " : null}
                           {row.market ? marketLabel(row.market) : null}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <CategoryBadge category={row.category} />
+                        {row.replyNumber ? (
+                          <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
+                            #{row.replyNumber}
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell className="hidden text-xs whitespace-nowrap text-muted-foreground md:table-cell">
                         {SOURCE_LABELS[row.source]}
@@ -461,7 +503,8 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
                         <LedgerStatus row={row} />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

@@ -1,4 +1,4 @@
-import { CATEGORY_LABELS, type MessageCategory } from "@/convex/lib/billing";
+import { CATEGORY_LABELS, type BillingCategory } from "@/convex/lib/billing";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * the workspace primary: the workspace palette is one hue, and four shades of
  * it would read as a ranking rather than four kinds of message.
  */
-const TONE: Record<MessageCategory, { dot: string; badge: string; bar: string }> = {
+const TONE: Record<BillingCategory, { dot: string; badge: string; bar: string }> = {
   service: {
     dot: "bg-emerald-500",
     badge:
@@ -34,9 +34,15 @@ const TONE: Record<MessageCategory, { dot: string; badge: string; bar: string }>
       "bg-violet-50 text-violet-800 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/25",
     bar: "bg-violet-500",
   },
+  ai: {
+    dot: "bg-rose-500",
+    badge:
+      "bg-rose-50 text-rose-800 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/25",
+    bar: "bg-rose-500",
+  },
 };
 
-export function categoryBarClass(category: MessageCategory): string {
+export function categoryBarClass(category: BillingCategory): string {
   return TONE[category].bar;
 }
 
@@ -44,7 +50,7 @@ export function CategoryDot({
   category,
   className,
 }: {
-  category: MessageCategory;
+  category: BillingCategory;
   className?: string;
 }) {
   return (
@@ -55,7 +61,7 @@ export function CategoryDot({
   );
 }
 
-export function CategoryBadge({ category }: { category: MessageCategory }) {
+export function CategoryBadge({ category }: { category: BillingCategory }) {
   return (
     <span
       className={cn(

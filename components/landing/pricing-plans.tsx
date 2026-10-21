@@ -86,7 +86,7 @@ export function PricingPlans({
 
       <p className="mt-8 text-center text-sm leading-relaxed text-(--ink-muted)">
         Extra agents {money(offer.extraAgentPriceMicros)} a month each{gst}. WhatsApp
-        messages are paid from a prepaid wallet at per-message rates
+        messages and AI replies are paid from a prepaid wallet at per-message rates
         {offer.welcomeBonusMicros > 0
           ? `, and every new wallet starts with ${money(offer.welcomeBonusMicros)} of credit.`
           : "."}

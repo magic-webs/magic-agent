@@ -136,7 +136,7 @@ function rupeesIn(text: string): number | null {
 }
 
 /**
- * The wallet WhatsApp messages are paid from: what it holds, how long that
+ * The wallet WhatsApp messages and AI replies are paid from: what it holds, how long that
  * lasts, and the two ways to fill it — by hand, or automatically from a
  * saved mandate when it runs low.
  *

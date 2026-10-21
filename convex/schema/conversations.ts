@@ -146,6 +146,7 @@ export const conversationsTables = {
       v.literal("closed")
     ),
     messageCount: v.number(),
+    aiReplyCount: v.optional(v.number()),
     messageLimitReachedAt: v.optional(v.number()),
     limitSessionStartedAt: v.optional(v.number()),
     limitSessionStartCount: v.optional(v.number()),

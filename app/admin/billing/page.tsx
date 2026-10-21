@@ -6,15 +6,20 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import {
+  BILLING_CATEGORIES,
   CATEGORY_LABELS,
   MESSAGE_CATEGORIES,
+  aiPriceIn,
+  aiReplyMicros,
   formatMoney,
+  type AiPricingCard,
 } from "@/convex/lib/billing";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
 import { CompanyLogo } from "@/components/company-logo";
 import { CategoryDot } from "@/components/billing/category";
 import { MarkupDialog } from "@/components/billing/markup-dialog";
+import { AiPricingDialog } from "@/components/billing/ai-pricing-dialog";
 import {
   ImportMetaRatesDialog,
   MetaRatesDialog,
@@ -48,6 +53,7 @@ import {
 import {
   MagnifyingGlassIcon,
   PencilSimpleIcon,
+  SparkleIcon,
   TableIcon,
   UploadSimpleIcon,
   WarningIcon,
@@ -127,16 +133,23 @@ export default function AdminBillingPage() {
       row.slug.includes(needle)
   );
   const ownCards = accounts.filter((row) => row.markups).length;
+  const ownAiCards = accounts.filter((row) => row.aiPricing).length;
+  const aiFallback = data?.defaultAiPricing ?? data?.builtInAiPricing ?? null;
+  const aiPriceOf = (own: AiPricingCard | null, code: string) =>
+    (own && aiPriceIn(own, code)) ??
+    (data?.defaultAiPricing && aiPriceIn(data.defaultAiPricing, code)) ??
+    (data ? aiPriceIn(data.builtInAiPricing, code) : null);
+  const aiPrice = aiPriceOf(null, currency);
   const inCurrency = <T extends { currency: string }>(list: T[]) =>
     list.filter((entry) => entry.currency === currency);
   const totals = {
     messages: accounts.reduce((sum, row) => sum + row.messages, 0),
     byCategory: Object.fromEntries(
-      MESSAGE_CATEGORIES.map((category) => [
+      BILLING_CATEGORIES.map((category) => [
         category,
         accounts.reduce((sum, row) => sum + row.byCategory[category], 0),
       ])
-    ) as Record<(typeof MESSAGE_CATEGORIES)[number], number>,
+    ) as Record<(typeof BILLING_CATEGORIES)[number], number>,
     spend: inCurrency(data?.totals.spend ?? []),
     margin: inCurrency(data?.totals.margin ?? []),
   };
@@ -150,7 +163,8 @@ export default function AdminBillingPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Meta&apos;s rate for each WhatsApp message plus the platform markup,
-            what each account consumed, and what the platform kept.
+            the charge on every agent reply, what each account consumed, and
+            what the platform kept.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -202,7 +216,7 @@ export default function AdminBillingPage() {
             </Tabs>
           ) : null}
 
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {/* ---------------------------------------------- Meta's rates */}
             <Card>
               <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
@@ -342,6 +356,76 @@ export default function AdminBillingPage() {
               </CardContent>
             </Card>
 
+            {/* ------------------------------------------- AI reply charge */}
+            <Card>
+              <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CardTitle>AI reply charge</CardTitle>
+                  <CardDescription>
+                    On every agent reply, for each {currency} account without
+                    its own — {accounts.length - ownAiCards} of{" "}
+                    {accounts.length}.
+                    {data.defaultAiPricing ? "" : " Built-in prices until saved."}
+                  </CardDescription>
+                </div>
+                {modifies && !me?.scoped && aiFallback ? (
+                  <AiPricingDialog
+                    current={data.defaultAiPricing}
+                    fallback={aiFallback}
+                    currencies={currencies}
+                    currency={currency}
+                    trigger={
+                      <Button size="sm" variant="outline">
+                        <PencilSimpleIcon /> Edit
+                      </Button>
+                    }
+                  />
+                ) : null}
+              </CardHeader>
+              <CardContent>
+                {aiPrice ? (
+                  <ul className="flex flex-col gap-1.5 text-sm">
+                    {[
+                      { label: "Reply 1", micros: aiPrice.firstMicros },
+                      ...(aiPrice.rampReplies > 2
+                        ? [
+                            {
+                              label: `Reply ${Math.round(aiPrice.rampReplies / 2)}`,
+                              micros: aiReplyMicros(
+                                aiPrice,
+                                Math.round(aiPrice.rampReplies / 2)
+                              ),
+                            },
+                          ]
+                        : []),
+                      {
+                        label: `Reply ${aiPrice.rampReplies} and after`,
+                        micros: aiPrice.capMicros,
+                      },
+                    ].map((point) => (
+                      <li
+                        key={point.label}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="text-muted-foreground">
+                          {point.label}
+                        </span>
+                        <span className="tabular-nums">{money(point.micros)}</span>
+                      </li>
+                    ))}
+                    <li className="flex items-center justify-between gap-2 border-t pt-1.5">
+                      <span className="text-muted-foreground">On WhatsApp</span>
+                      <span>+ service message</span>
+                    </li>
+                  </ul>
+                ) : (
+                  <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    No {currency} price. Agent replies count at zero.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
             {/* ------------------------------------------------ consumption */}
             <Card>
               <CardHeader>
@@ -353,7 +437,7 @@ export default function AdminBillingPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <ul className="flex flex-col gap-1.5 text-sm">
-                  {MESSAGE_CATEGORIES.map((category) => (
+                  {BILLING_CATEGORIES.map((category) => (
                     <li
                       key={category}
                       className="flex items-center justify-between gap-2"
@@ -421,7 +505,7 @@ export default function AdminBillingPage() {
                   <TableHeader className="sticky top-0 z-10 bg-card shadow-[inset_0_-1px_0_var(--border)] [&_tr]:border-b-0">
                     <TableRow>
                       <TableHead className="min-w-48">Account</TableHead>
-                      {MESSAGE_CATEGORIES.map((category) => (
+                      {BILLING_CATEGORIES.map((category) => (
                         <TableHead
                           key={category}
                           className="hidden text-right md:table-cell"
@@ -437,13 +521,14 @@ export default function AdminBillingPage() {
                       <TableHead className="hidden text-right sm:table-cell">
                         Margin
                       </TableHead>
-                      <TableHead className="w-12" />
+                      <TableHead className="w-20" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.map((row) => {
                       const markups = row.markups ?? data.defaultMarkups;
                       const rates = indiaIn(row.billedIn);
+                      const ai = aiPriceOf(row.aiPricing, row.billedIn);
                       return (
                         <TableRow key={row.workspaceId}>
                           <TableCell className="max-w-64 min-w-0">
@@ -471,6 +556,7 @@ export default function AdminBillingPage() {
                                     : data.defaultMarkups
                                       ? "default markup"
                                       : "no markup"}
+                                  {row.aiPricing ? " · own AI price" : ""}
                                 </span>
                               </span>
                             </Link>
@@ -500,6 +586,24 @@ export default function AdminBillingPage() {
                               </span>
                             </TableCell>
                           ))}
+                          <TableCell className="hidden text-right whitespace-nowrap tabular-nums md:table-cell">
+                            {ai ? (
+                              <span
+                                className={
+                                  row.aiPricing ? "" : "text-muted-foreground"
+                                }
+                              >
+                                {formatMoney(ai.firstMicros, row.billedIn, row.locale)}
+                                –
+                                {formatMoney(ai.capMicros, row.billedIn, row.locale)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                            <span className="block text-[11px] text-muted-foreground">
+                              {row.byCategory.ai.toLocaleString()} replies
+                            </span>
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {row.messages.toLocaleString()}
                           </TableCell>
@@ -517,6 +621,7 @@ export default function AdminBillingPage() {
                           </TableCell>
                           <TableCell>
                             {modifies ? (
+                            <div className="flex justify-end gap-0.5">
                             <MarkupDialog
                               workspaceId={row.workspaceId}
                               workspaceName={row.name}
@@ -535,6 +640,26 @@ export default function AdminBillingPage() {
                                 </Button>
                               }
                             />
+                            {aiFallback ? (
+                              <AiPricingDialog
+                                workspaceId={row.workspaceId}
+                                workspaceName={row.name}
+                                current={row.aiPricing}
+                                fallback={aiFallback}
+                                currencies={currencies}
+                                currency={row.billedIn}
+                                trigger={
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    aria-label={`Edit AI prices for ${row.name}`}
+                                  >
+                                    <SparkleIcon />
+                                  </Button>
+                                }
+                              />
+                            ) : null}
+                            </div>
                             ) : null}
                           </TableCell>
                         </TableRow>
@@ -545,7 +670,7 @@ export default function AdminBillingPage() {
                         <TableCell className="text-muted-foreground italic">
                           Deleted workspaces
                         </TableCell>
-                        {MESSAGE_CATEGORIES.map((category) => (
+                        {BILLING_CATEGORIES.map((category) => (
                           <TableCell
                             key={category}
                             className="hidden text-right text-[11px] text-muted-foreground md:table-cell"

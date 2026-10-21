@@ -10,7 +10,13 @@
  */
 
 import type { Id } from "../_generated/dataModel";
-import { toMicros } from "./billing";
+import {
+  DEFAULT_AI_PRICING,
+  aiPriceIn,
+  toMicros,
+  type AiPrice,
+  type AiPricingCard,
+} from "./billing";
 
 /** Plans and the wallet are priced in Razorpay's own currency. */
 export const PLATFORM_CURRENCY = "INR";
@@ -231,6 +237,7 @@ export type CurrencyPricing = {
   extraAgentListMicros: number;
   extraAgentPriceMicros: number;
   welcomeBonusMicros: number;
+  aiReply: AiPrice | null;
   plans: PublicPlan[];
 };
 
@@ -267,7 +274,8 @@ export function publicPricing(
         welcomeBonus?: Array<{ currency: string; amountMicros: number }>;
       })
     | null,
-  plans: CataloguePlan[]
+  plans: CataloguePlan[],
+  ai: AiPricingCard | null = null
 ): PublicPricing {
   if (!settings) {
     return publicPricing(
@@ -288,6 +296,9 @@ export function publicPricing(
         extraAgentListMicros: terms.extraAgentListMicros,
         extraAgentPriceMicros: terms.extraAgentPriceMicros,
         welcomeBonusMicros: welcomeBonusOf(settings, terms.currency),
+        aiReply:
+          (ai && aiPriceIn(ai, terms.currency)) ??
+          aiPriceIn(DEFAULT_AI_PRICING, terms.currency),
         plans: onSale.map((plan) => ({
           code: plan.code,
           name: plan.name,

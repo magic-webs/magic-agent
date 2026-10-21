@@ -23,6 +23,9 @@ export type MessageCategory =
 
 export type TemplateCategory = Exclude<MessageCategory, "service">;
 
+/** A ledger row: a WhatsApp message, or the AI charge on an agent's reply. */
+export type BillingCategory = MessageCategory | "ai";
+
 export type BillingSource =
   "agent" | "human" | "follow_up" | "campaign" | "system" | "notification";
 
@@ -33,19 +36,23 @@ export const MESSAGE_CATEGORIES: MessageCategory[] = [
   "authentication",
 ];
 
-export const CATEGORY_LABELS: Record<MessageCategory, string> = {
+export const BILLING_CATEGORIES: BillingCategory[] = [...MESSAGE_CATEGORIES, "ai"];
+
+export const CATEGORY_LABELS: Record<BillingCategory, string> = {
   service: "Service",
   utility: "Utility",
   marketing: "Marketing",
   authentication: "Authentication",
+  ai: "AI reply",
 };
 
 /** What each category covers, in the words an account owner would use. */
-export const CATEGORY_HINTS: Record<MessageCategory, string> = {
+export const CATEGORY_HINTS: Record<BillingCategory, string> = {
   service: "Replies inside the 24-hour window — agents, your team, follow-ups",
   utility: "Template updates about something the customer already started",
   marketing: "Template greetings and offers — festivals, birthdays, campaigns",
   authentication: "Template one-time passcodes",
+  ai: "Your agents' replies on any channel, rising with each reply in a conversation",
 };
 
 export const SOURCE_LABELS: Record<BillingSource, string> = {
@@ -299,6 +306,76 @@ export async function homeMarket(
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .unique();
   return marketOf(settings?.defaultCountryCode ?? "91");
+}
+
+// --- AI replies -------------------------------------------------------------
+
+export type AiPrice = { firstMicros: number; capMicros: number; rampReplies: number };
+
+export type AiPricingCard = {
+  rampReplies: number;
+  byCurrency: Array<{ currency: string; firstMicros: number; capMicros: number }>;
+};
+
+/** What every account pays until an administrator saves prices of their own. */
+export const DEFAULT_AI_PRICING: AiPricingCard = {
+  rampReplies: 100,
+  byCurrency: [
+    { currency: "INR", firstMicros: 150_000, capMicros: 400_000 },
+    { currency: "USD", firstMicros: 5_000, capMicros: 19_000 },
+  ],
+};
+
+export function aiPriceIn(card: AiPricingCard, currency: string): AiPrice | null {
+  const entry = card.byCurrency.find((row) => row.currency === currency);
+  if (!entry) return null;
+  return {
+    firstMicros: entry.firstMicros,
+    capMicros: entry.capMicros,
+    rampReplies: card.rampReplies,
+  };
+}
+
+/** The `reply`th agent reply in a conversation, rising in a straight line to the cap. */
+export function aiReplyMicros(price: AiPrice, reply: number): number {
+  if (price.rampReplies <= 1 || reply >= price.rampReplies) return price.capMicros;
+  const step = (Math.max(reply, 1) - 1) / (price.rampReplies - 1);
+  return Math.round(price.firstMicros + (price.capMicros - price.firstMicros) * step);
+}
+
+export async function defaultAiPricing(
+  ctx: QueryCtx
+): Promise<Doc<"aiPricing"> | null> {
+  return await ctx.db
+    .query("aiPricing")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", undefined))
+    .first();
+}
+
+export async function workspaceAiPricing(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">
+): Promise<Doc<"aiPricing"> | null> {
+  return await ctx.db
+    .query("aiPricing")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .first();
+}
+
+/** The account's own AI price in a currency, else the default's, else the built-in one. */
+export async function aiPriceFor(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  currency: string
+): Promise<(AiPrice & { scope: "workspace" | "default" | "built_in" }) | null> {
+  const own = await workspaceAiPricing(ctx, workspaceId);
+  const ownPrice = own ? aiPriceIn(own, currency) : null;
+  if (ownPrice) return { ...ownPrice, scope: "workspace" };
+  const fallback = await defaultAiPricing(ctx);
+  const fallbackPrice = fallback ? aiPriceIn(fallback, currency) : null;
+  if (fallbackPrice) return { ...fallbackPrice, scope: "default" };
+  const builtIn = aiPriceIn(DEFAULT_AI_PRICING, currency);
+  return builtIn ? { ...builtIn, scope: "built_in" } : null;
 }
 
 export type Quote = {

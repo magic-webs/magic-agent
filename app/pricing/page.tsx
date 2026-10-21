@@ -32,11 +32,31 @@ function inEach(pricing: PublicPricing, pick: (entry: PublicPricing["currencies"
   return pricing.currencies.map((entry) => whole(pick(entry), entry.currency)).join(" or ");
 }
 
+function fraction(micros: number, currency: string): string {
+  return new Intl.NumberFormat(currency === PLATFORM_CURRENCY ? PLATFORM_LOCALE : "en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  }).format(micros / 1_000_000);
+}
+
+function aiReplyAnswer(pricing: PublicPricing): string | null {
+  const priced = pricing.currencies.flatMap((entry) =>
+    entry.aiReply ? [{ currency: entry.currency, ...entry.aiReply }] : []
+  );
+  if (priced.length === 0) return null;
+  const first = priced.map((entry) => fraction(entry.firstMicros, entry.currency)).join(" or ");
+  const cap = priced.map((entry) => fraction(entry.capMicros, entry.currency)).join(" or ");
+  return `From the same wallet, on every channel. The first reply in a conversation costs ${first}, and each one after costs a little more, up to ${cap} from reply ${priced[0].rampReplies} onward. On WhatsApp, Meta's charge for the message is added on top.`;
+}
+
 function questions(pricing: PublicPricing) {
   const gst = pricing.currencies.find((entry) => entry.gstPercent > 0)?.gstPercent;
   const bonus = pricing.currencies.some((entry) => entry.welcomeBonusMicros > 0)
     ? ` Every new wallet starts with ${inEach(pricing, (entry) => entry.welcomeBonusMicros)} of credit.`
     : "";
+  const aiReply = aiReplyAnswer(pricing);
   return [
     {
       question: "How does the free trial work?",
@@ -54,6 +74,9 @@ function questions(pricing: PublicPricing) {
       question: "How are WhatsApp messages charged?",
       answer: `Separately from the plan, from a prepaid wallet. Meta prices each message by its type and the country of the number it goes to, and the wallet pays for each one as it is sent. Top up whenever you like, or let it recharge itself when the balance runs low.${bonus}`,
     },
+    ...(aiReply
+      ? [{ question: "What does an AI reply cost?", answer: aiReply }]
+      : []),
     {
       question: "Can I change or cancel my plan?",
       answer:

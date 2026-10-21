@@ -9,8 +9,11 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import {
+  aiPriceFor,
+  aiReplyMicros,
   metaCategory,
   quote,
+  workspaceCurrency,
   type BillingSource,
   type MessageCategory,
 } from "./billing";
@@ -83,6 +86,51 @@ export async function charge(
   return eventId;
 }
 
+/**
+ * Charge an agent's reply, on any channel, at its place in the conversation.
+ * On WhatsApp the message itself is billed separately, as service.
+ */
+export async function chargeAiReply(
+  ctx: MutationCtx,
+  args: { conversation: Doc<"conversations">; preview?: string }
+): Promise<void> {
+  const { conversation } = args;
+  const now = Date.now();
+  const reply = (conversation.aiReplyCount ?? 0) + 1;
+  await ctx.db.patch("conversations", conversation._id, { aiReplyCount: reply });
+
+  const contact = await ctx.db.get("contacts", conversation.contactId);
+  const currency = await workspaceCurrency(ctx, conversation.workspaceId);
+  const price = await aiPriceFor(ctx, conversation.workspaceId, currency);
+  const amountMicros = price ? aiReplyMicros(price, reply) : 0;
+  const preview = args.preview?.replace(/\s+/g, " ").trim();
+
+  await ctx.db.insert("billingEvents", {
+    workspaceId: conversation.workspaceId,
+    conversationId: conversation._id,
+    channelId: conversation.channelId,
+    to: contact?.externalId ?? "",
+    category: "ai",
+    replyNumber: reply,
+    source: "agent",
+    preview: preview ? preview.slice(0, PREVIEW_MAX) : undefined,
+    currency,
+    amountMicros,
+    rated: price !== null,
+    metaCostMicros: 0,
+    markupMicros: amountMicros,
+    status: "settled",
+    settledAt: now,
+    createdAt: now,
+  });
+
+  await debitWallet(ctx, {
+    workspaceId: conversation.workspaceId,
+    currency,
+    amountMicros,
+  });
+}
+
 export async function billingEventFor(
   ctx: MutationCtx,
   wamid: string
@@ -139,7 +187,7 @@ export async function settle(
   event: Doc<"billingEvents">,
   pricing: { billable?: boolean; category?: string; type?: string }
 ): Promise<void> {
-  if (event.status !== "pending") return;
+  if (event.status !== "pending" || event.category === "ai") return;
   const meta = metaCategory(pricing.category);
   const category = meta?.category ?? event.category;
   const priced = await quote(ctx, {

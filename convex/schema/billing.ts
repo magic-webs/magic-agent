@@ -229,12 +229,27 @@ export const billingTables = {
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),
 
+  /** What an agent's reply costs: rising from the first reply to a cap at `rampReplies`. */
+  aiPricing: defineTable({
+    workspaceId: v.optional(v.id("workspaces")),
+    rampReplies: v.number(),
+    byCurrency: v.array(
+      v.object({
+        currency: v.string(),
+        firstMicros: v.number(),
+        capMicros: v.number(),
+      })
+    ),
+    updatedAt: v.number(),
+  }).index("by_workspace", ["workspaceId"]),
+
   billingEvents: defineTable({
     workspaceId: v.id("workspaces"),
     conversationId: v.optional(v.id("conversations")),
     channelId: v.optional(v.id("channels")),
     to: v.string(),
-    category: messageCategory,
+    category: v.union(messageCategory, v.literal("ai")),
+    replyNumber: v.optional(v.number()),
     source: v.union(
       v.literal("agent"),
       v.literal("human"),

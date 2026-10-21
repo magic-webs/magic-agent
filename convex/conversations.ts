@@ -16,6 +16,7 @@ import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
 import { recordAgentReply, REPLY_PREVIEW_CHARS } from "./lib/agentStats";
+import { chargeAiReply } from "./lib/charge";
 import {
   EMPTY_INBOX_COUNTS,
   INBOX_COUNT_KEYS,
@@ -1537,9 +1538,17 @@ export const finishTurn = internalMutation({
         toolOk: v.boolean(),
       })
     ),
+    chargeAi: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+
+    if (args.chargeAi) {
+      const conversation = await ctx.db.get("conversations", args.conversationId);
+      if (conversation) {
+        await chargeAiReply(ctx, { conversation, preview: args.replyText });
+      }
+    }
 
     for (const call of args.toolCalls) {
       await ctx.db.insert("messages", {

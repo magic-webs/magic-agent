@@ -2435,6 +2435,7 @@ ${message}`
       errorText: generationError,
       latencyMs: Date.now() - startedAt,
       toolCalls: turn.trace,
+      chargeAi: !!args.channelId && !generationError && (!!replyText || askedItself),
     });
 
     return {

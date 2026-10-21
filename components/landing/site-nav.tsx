@@ -1,29 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Logo } from "@/components/logo";
+import { GooeyNav } from "@/components/landing/gooey-nav";
 import { SpecularButton } from "@/components/landing/specular-button";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/#work", label: "Product" },
-  { href: "/#use-cases", label: "Use cases" },
-  { href: "/#templates", label: "Templates" },
-  { href: "/pricing", label: "Pricing" },
+  { href: "/#work", label: "Product", section: "work" },
+  { href: "/#use-cases", label: "Use cases", section: "use-cases" },
+  { href: "/#templates", label: "Templates", section: "templates" },
+  { href: "/pricing", label: "Pricing", section: "pricing" },
 ];
 
+const NAV_STYLE = {
+  "--gn-ink": "var(--ink)",
+  "--gn-muted": "var(--ink-muted)",
+  "--gn-frame": "color-mix(in srgb, var(--surface) 72%, transparent)",
+  "--gn-frame-edge": "var(--line)",
+} as CSSProperties;
+
 export function SiteNav() {
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
-  const [hidden, setHidden] = useState(false);
+  const [section, setSection] = useState(0);
+  const held = useRef<{ index: number; until: number } | null>(null);
 
   useEffect(() => {
-    let last = window.scrollY;
     const onScroll = () => {
-      const y = window.scrollY;
-      setScrolled(y > 24);
-      setHidden(y > last && y > window.innerHeight * 0.8);
-      last = y;
+      setScrolled(window.scrollY > 24);
+
+      const line = window.innerHeight * 0.4;
+      const reached = Math.max(
+        0,
+        LINKS.findLastIndex((link) => {
+          const top = document.getElementById(link.section)?.getBoundingClientRect().top;
+          return top !== undefined && top <= line;
+        })
+      );
+      // A clicked link keeps the pill while the smooth scroll passes the sections before it.
+      const hold = held.current;
+      if (hold && hold.index !== reached && performance.now() < hold.until) return;
+      held.current = null;
+      setSection(reached);
     };
     const frame = requestAnimationFrame(onScroll);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -33,14 +54,13 @@ export function SiteNav() {
     };
   }, []);
 
+  const page = LINKS.findIndex((link) => link.href === pathname);
+
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 text-(--ink) transition-[translate,background-color,border-color] duration-500 ease-out",
-        scrolled
-          ? "border-b border-(--line) bg-(--paper)/80 backdrop-blur-xl"
-          : "border-b border-transparent",
-        hidden && "-translate-y-full"
+        "fixed inset-x-0 top-0 z-50 text-(--ink) transition-colors duration-500 ease-out",
+        scrolled && "bg-(--paper)/80 backdrop-blur-xl"
       )}
     >
       <div className="mx-auto flex h-21 w-full max-w-[1600px] items-center justify-between gap-6 px-4 sm:px-8 max-[600px]:h-16">
@@ -51,17 +71,20 @@ export function SiteNav() {
           </span>
         </Link>
 
-        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center rounded-full border border-(--line) p-1 text-[15px] lg:flex">
-          {LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="rounded-full px-4 py-2 transition-colors hover:bg-(--ink)/6"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
+        <div className="absolute left-1/2 hidden -translate-x-1/2 lg:block">
+          <GooeyNav
+            items={LINKS}
+            activeIndex={page >= 0 ? page : section}
+            onChange={(index) => {
+              held.current = { index, until: performance.now() + 1500 };
+              setSection(index);
+            }}
+            theme="light"
+            color="#1c1b19"
+            activeTextColor="#f6f5f1"
+            style={NAV_STYLE}
+          />
+        </div>
 
         <div className="flex items-center gap-2">
           <Link

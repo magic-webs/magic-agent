@@ -45,8 +45,11 @@ import {
   bumpStats,
   sentRecently,
   statsFor,
+  waveKey,
   type MarketingCounts,
 } from "./lib/marketingStats";
+import { failureClass } from "./lib/metaErrors";
+import { pauseRollout } from "./lib/rolloutPause";
 import {
   audienceCategory as audienceCategoryValidator,
   audienceSelection as audienceSelectionValidator,
@@ -74,6 +77,7 @@ type ShownTemplate = Extract<Outbound, { kind: "template" }>;
 
 /** How many contacts one send batch covers. */
 export const SEND_BATCH = 40;
+const PLAN_BATCH = 200;
 /** How far the audience count looks before it says "at least". */
 const AUDIENCE_SCAN_CAP = 2000;
 /** The longest window the calendar query answers for — a month and a bit. */
@@ -994,10 +998,13 @@ export const audiencePage = internalQuery({
     guestSegment: v.optional(guestSegmentValidator),
     now: v.optional(v.number()),
     bestHour: v.optional(v.union(v.number(), v.null())),
+    planning: v.optional(v.boolean()),
+    rollout: v.optional(v.object({ eventId: v.id("marketingEvents"), wave: v.number() })),
     cursor: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
-    const options = { numItems: SEND_BATCH, cursor: args.cursor };
+    const options = { numItems: args.planning ? PLAN_BATCH : SEND_BATCH, cursor: args.cursor };
+    const rollout = args.rollout;
     const bestHour = args.bestHour;
     const monthDay = args.monthDay;
     const campaignId = args.campaignId;
@@ -1010,7 +1017,16 @@ export const audiencePage = internalQuery({
     let candidates: Array<Doc<"contacts"> | null>;
     let continueCursor: string;
     let isDone: boolean;
-    if (fromGuests) {
+    if (rollout) {
+      const page = await ctx.db
+        .query("rolloutRecipients")
+        .withIndex("by_eventId_and_wave_and_score", (q) =>
+          q.eq("eventId", rollout.eventId).eq("wave", rollout.wave)
+        )
+        .paginate(options);
+      candidates = await Promise.all(page.page.map((row) => ctx.db.get("contacts", row.contactId)));
+      ({ continueCursor, isDone } = page);
+    } else if (fromGuests) {
       const page = await ctx.db
         .query("eventGuests")
         .withIndex("by_campaignId_and_contactId", (q) => q.eq("campaignId", campaignId))
@@ -1047,11 +1063,10 @@ export const audiencePage = internalQuery({
     }
 
     const settings = await settingsFor(ctx, args.workspaceId);
-    const cap = !monthDay && args.now ? (settings?.weeklyCap ?? 0) : 0;
+    const cap = !monthDay && args.now && !args.planning ? (settings?.weeklyCap ?? 0) : 0;
     const known = knownCategories(settings);
-    const records = fromGuests
-      ? undefined
-      : await loadRecordMatch(ctx, args.workspaceId, args.audience);
+    const records =
+      fromGuests || rollout ? undefined : await loadRecordMatch(ctx, args.workspaceId, args.audience);
 
     const contacts: Array<{
       contactId: Id<"contacts">;
@@ -1064,6 +1079,7 @@ export const audiencePage = internalQuery({
       if (!reachable(contact)) continue;
       if (
         !fromGuests &&
+        !rollout &&
         !(await inSelection(ctx, contact, args.audience, {
           known,
           now: args.now ?? Date.now(),
@@ -1266,6 +1282,7 @@ export const recordBatch = internalMutation({
     skipped: v.optional(v.number()),
     nextCursor: v.optional(v.union(v.string(), v.null())),
     nextWave: v.optional(v.number()),
+    rolloutWave: v.optional(v.number()),
     done: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -1273,6 +1290,7 @@ export const recordBatch = internalMutation({
     let sent = 0;
     let failed = 0;
     let lastError: string | undefined;
+    const classes: Partial<MarketingCounts> = {};
     const shown = await shownTemplate(ctx, args.workspaceId, args.templateName);
 
     for (const result of args.results) {
@@ -1288,12 +1306,15 @@ export const recordBatch = internalMutation({
         delivery: result.ok ? "sent" : "failed",
         linkCode: result.ok ? result.linkCode : undefined,
         linkTarget: result.ok ? result.linkTarget : undefined,
+        wave: args.rolloutWave,
         createdAt: now,
       });
 
       if (!result.ok) {
         failed++;
         lastError = result.error;
+        const kind = failureClass(result.error);
+        if (kind) classes[kind] = (classes[kind] ?? 0) + 1;
         continue;
       }
       sent++;
@@ -1332,7 +1353,16 @@ export const recordBatch = internalMutation({
     }
 
     if (sent > 0 || failed > 0) {
-      await bumpStats(ctx, args.workspaceId, args.key, { sent, failed });
+      await bumpStats(ctx, args.workspaceId, args.key, { sent, failed, ...classes });
+      if (args.rolloutWave !== undefined) {
+        await bumpStats(
+          ctx,
+          args.workspaceId,
+          waveKey(args.key, args.rolloutWave),
+          { sent, failed, ...classes },
+          { rollup: false }
+        );
+      }
     }
 
     if (args.eventId) {
@@ -1355,6 +1385,13 @@ export const recordBatch = internalMutation({
               }
             : {}),
         });
+        if (classes.blocked && args.rolloutWave !== undefined) {
+          await pauseRollout(
+            ctx,
+            event._id,
+            "WhatsApp refused messages for spam or policy. Paused to protect your number."
+          );
+        }
       }
     }
     return { sent, failed };
@@ -1617,6 +1654,7 @@ export const recordReviews = internalMutation({
         metaTemplateId: v.optional(v.string()),
         reason: v.optional(v.string()),
         category: v.optional(v.string()),
+        quality: v.optional(v.string()),
       })
     ),
   },
@@ -1631,9 +1669,11 @@ export const recordReviews = internalMutation({
       const status = row.status.toUpperCase();
       const category = metaCategory(row.category);
       const reason = status === "REJECTED" ? row.reason : undefined;
+      const quality = row.quality ?? template.qualityScore;
       if (
         template.metaStatus === status &&
         template.metaRejectedReason === reason &&
+        template.qualityScore === quality &&
         (!row.metaTemplateId || template.metaTemplateId === row.metaTemplateId) &&
         (!category || template.category === category)
       ) {
@@ -1642,6 +1682,7 @@ export const recordReviews = internalMutation({
       await ctx.db.patch("marketingTemplates", template._id, {
         metaStatus: status,
         metaRejectedReason: reason,
+        qualityScore: quality,
         ...(row.metaTemplateId ? { metaTemplateId: row.metaTemplateId } : {}),
         ...(category ? { category } : {}),
         updatedAt: Date.now(),

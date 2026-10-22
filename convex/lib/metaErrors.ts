@@ -30,6 +30,22 @@ export function failureCode(error: string | undefined): string {
   return "other";
 }
 
+export type FailureClass = "blocked" | "heldBack" | "unreachable";
+
+const CLASSES: Record<string, FailureClass> = {
+  "131048": "blocked",
+  "368": "blocked",
+  "131031": "blocked",
+  "131049": "heldBack",
+  "130472": "heldBack",
+  "131026": "unreachable",
+  "131050": "unreachable",
+};
+
+export function failureClass(error: string | undefined): FailureClass | null {
+  return CLASSES[failureCode(error)] ?? null;
+}
+
 export function failureLabel(code: string): string {
   if (REASONS[code]) return REASONS[code];
   if (code === "auth") return "The channel's access token was refused";

@@ -53,6 +53,57 @@ export const importCounts = v.object({
   saved: v.number(),
 });
 
+export const healthQuality = v.union(
+  v.literal("GREEN"),
+  v.literal("YELLOW"),
+  v.literal("RED"),
+  v.literal("UNKNOWN")
+);
+
+export const rolloutState = v.object({
+  phase: v.union(
+    v.literal("planning"),
+    v.literal("sending"),
+    v.literal("watching"),
+    v.literal("holding"),
+    v.literal("done")
+  ),
+  shares: v.array(v.number()),
+  gapDays: v.number(),
+  engagedFirst: v.boolean(),
+  limitTier: v.optional(v.string()),
+  planCursor: v.optional(v.union(v.string(), v.null())),
+  planned: v.number(),
+  queued: v.number(),
+  targets: v.optional(v.array(v.number())),
+  step: v.number(),
+  stepLeft: v.number(),
+  wave: v.number(),
+  lastSize: v.optional(v.number()),
+  shrink: v.optional(v.number()),
+  holds: v.number(),
+  heldForWave: v.optional(v.boolean()),
+  ackWave: v.optional(v.number()),
+  waveGap: v.optional(v.number()),
+  waveStartedAt: v.optional(v.number()),
+  waveEndedAt: v.optional(v.number()),
+  nextCheckAt: v.optional(v.number()),
+});
+
+const counters = {
+  sent: v.number(),
+  failed: v.number(),
+  delivered: v.number(),
+  read: v.number(),
+  replied: v.number(),
+  clicked: v.number(),
+  optedOut: v.number(),
+  converted: v.optional(v.number()),
+  heldBack: v.optional(v.number()),
+  blocked: v.optional(v.number()),
+  unreachable: v.optional(v.number()),
+};
+
 export const audienceCategory = v.object({
   key: v.string(),
   label: v.string(),
@@ -88,6 +139,7 @@ export const marketingTables = {
         v.literal("authentication")
       )
     ),
+    qualityScore: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -125,6 +177,7 @@ export const marketingTables = {
     trackLinks: v.optional(v.boolean()),
     smartTiming: v.optional(v.boolean()),
     wave: v.optional(v.number()),
+    rollout: v.optional(rolloutState),
     lastError: v.optional(v.string()),
     startedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),
@@ -187,6 +240,7 @@ export const marketingTables = {
     convertedAt: v.optional(v.number()),
     linkCode: v.optional(v.string()),
     linkTarget: v.optional(v.string()),
+    wave: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_linkCode", ["linkCode"])
@@ -200,29 +254,71 @@ export const marketingTables = {
     workspaceId: v.id("workspaces"),
     key: v.string(),
     shard: v.number(),
-    sent: v.number(),
-    failed: v.number(),
-    delivered: v.number(),
-    read: v.number(),
-    replied: v.number(),
-    clicked: v.number(),
-    optedOut: v.number(),
-    converted: v.optional(v.number()),
+    ...counters,
   }).index("by_key_and_shard", ["key", "shard"]),
 
   marketingDaily: defineTable({
     workspaceId: v.id("workspaces"),
     day: v.string(),
     shard: v.number(),
-    sent: v.number(),
-    failed: v.number(),
-    delivered: v.number(),
-    read: v.number(),
-    replied: v.number(),
-    clicked: v.number(),
-    optedOut: v.number(),
-    converted: v.optional(v.number()),
+    ...counters,
   }).index("by_workspaceId_and_day_and_shard", ["workspaceId", "day", "shard"]),
+
+  marketingHourly: defineTable({
+    workspaceId: v.id("workspaces"),
+    hour: v.number(),
+    shard: v.number(),
+    sent: v.number(),
+  }).index("by_workspaceId_and_hour_and_shard", ["workspaceId", "hour", "shard"]),
+
+  rolloutRecipients: defineTable({
+    eventId: v.id("marketingEvents"),
+    contactId: v.id("contacts"),
+    score: v.number(),
+    wave: v.optional(v.number()),
+  })
+    .index("by_eventId_and_wave_and_score", ["eventId", "wave", "score"])
+    .index("by_eventId_and_contactId", ["eventId", "contactId"]),
+
+  rolloutChecks: defineTable({
+    eventId: v.id("marketingEvents"),
+    wave: v.number(),
+    at: v.number(),
+    quality: v.optional(healthQuality),
+    limitTier: v.optional(v.string()),
+    used24h: v.optional(v.number()),
+    metrics: v.optional(
+      v.object({
+        sent: v.number(),
+        failed: v.number(),
+        delivered: v.number(),
+        optedOut: v.number(),
+        heldBack: v.number(),
+        blocked: v.number(),
+        unreachable: v.number(),
+      })
+    ),
+    decision: v.union(
+      v.literal("launch"),
+      v.literal("hold"),
+      v.literal("wait"),
+      v.literal("pause"),
+      v.literal("finish")
+    ),
+    size: v.optional(v.number()),
+    reason: v.string(),
+  }).index("by_eventId_and_at", ["eventId", "at"]),
+
+  channelHealth: defineTable({
+    workspaceId: v.id("workspaces"),
+    channelId: v.id("channels"),
+    quality: healthQuality,
+    limitTier: v.optional(v.string()),
+    throughput: v.optional(v.string()),
+    alert: v.optional(v.string()),
+    source: v.union(v.literal("meta"), v.literal("webhook")),
+    checkedAt: v.number(),
+  }).index("by_channelId", ["channelId"]),
 
   audiences: defineTable({
     workspaceId: v.id("workspaces"),

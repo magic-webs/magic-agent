@@ -16,6 +16,8 @@ import { eventKey, statsFor } from "./lib/marketingStats";
 import { failureCode } from "./lib/metaErrors";
 import { audienceSelection } from "./schema/marketing";
 import { clampHour, startEvent, templateInWorkspace } from "./marketing";
+import { resumeRollout } from "./marketingRollout";
+import { normaliseTier, validPlan } from "./lib/rollout";
 
 const REPORT_SCAN = 3000;
 const RETARGET_BATCH = 200;
@@ -133,10 +135,24 @@ export const save = mutation({
     ratePerMinute: v.optional(v.number()),
     trackLinks: v.optional(v.boolean()),
     smartTiming: v.optional(v.boolean()),
+    rollout: v.optional(
+      v.object({
+        shares: v.array(v.number()),
+        gapDays: v.number(),
+        engagedFirst: v.boolean(),
+        limitTier: v.optional(v.string()),
+      })
+    ),
+    draft: v.optional(v.boolean()),
     sendNow: v.boolean(),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    if (args.draft && args.sendNow) throw new ConvexError("A draft cannot be sent now.");
+    if (args.rollout) {
+      const problem = validPlan(args.rollout);
+      if (problem) throw new ConvexError(problem);
+    }
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
     const title = args.title.trim().slice(0, 80);
@@ -156,7 +172,9 @@ export const save = mutation({
     } else {
       if (!isLocalDate(date)) throw new ConvexError("Pick a day.");
       sendAt = zonedToInstant(date, sendHour, workspace.timezone);
-      if (sendAt <= now) throw new ConvexError("That time has already passed. Pick a later one, or send now.");
+      if (sendAt <= now && !args.draft) {
+        throw new ConvexError("That time has already passed. Pick a later one, or send now.");
+      }
     }
 
     const fields = {
@@ -172,13 +190,29 @@ export const save = mutation({
         !args.audience.segments?.length
         ? undefined
         : args.audience,
-      ratePerMinute: args.ratePerMinute
-        ? Math.min(MAX_RATE, Math.max(MIN_RATE, Math.round(args.ratePerMinute)))
-        : undefined,
+      ratePerMinute:
+        args.ratePerMinute && !args.rollout
+          ? Math.min(MAX_RATE, Math.max(MIN_RATE, Math.round(args.ratePerMinute)))
+          : undefined,
       trackLinks: args.trackLinks ?? true,
-      smartTiming: args.smartTiming || undefined,
+      smartTiming: (args.smartTiming && !args.rollout) || undefined,
       wave: undefined,
-      status: "scheduled" as const,
+      rollout: args.rollout
+        ? {
+            phase: "planning" as const,
+            shares: args.rollout.shares,
+            gapDays: args.rollout.gapDays,
+            engagedFirst: args.rollout.engagedFirst,
+            limitTier: normaliseTier(args.rollout.limitTier),
+            planned: 0,
+            queued: 0,
+            step: 0,
+            stepLeft: 0,
+            wave: 0,
+            holds: 0,
+          }
+        : undefined,
+      status: args.draft ? ("draft" as const) : ("scheduled" as const),
       lastError: undefined,
       updatedAt: now,
     };
@@ -226,6 +260,10 @@ export const resume = mutation({
     const event = await requireBroadcast(ctx, args.eventId);
     if (event.status !== "paused") throw new ConvexError("This campaign is not paused.");
     const now = Date.now();
+    if (event.rollout && event.startedAt) {
+      await resumeRollout(ctx, event);
+      return { success: true };
+    }
     if (!event.startedAt) {
       await ctx.db.patch("marketingEvents", event._id, {
         status: "scheduled",

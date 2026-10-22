@@ -1,4 +1,5 @@
 import type { Doc } from "@/convex/_generated/dataModel";
+import type { Quality } from "@/convex/lib/rollout";
 import {
   renderTemplate,
   templateBlocker,
@@ -28,11 +29,46 @@ type TemplateLike = {
   metaRejectedReason?: string;
 };
 
-const APPROVED_TONE =
+export const APPROVED_TONE =
   "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/25";
-const WAITING_TONE =
+export const WAITING_TONE =
   "bg-amber-50 text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/25";
-const REFUSED_TONE = "bg-destructive/10 text-destructive";
+export const REFUSED_TONE = "bg-destructive/10 text-destructive";
+
+export const QUALITY: Record<Quality, { label: string; className: string }> = {
+  GREEN: { label: "Green", className: APPROVED_TONE },
+  YELLOW: { label: "Yellow", className: WAITING_TONE },
+  RED: { label: "Red", className: REFUSED_TONE },
+  UNKNOWN: { label: "Not known", className: "bg-muted text-muted-foreground" },
+};
+
+export function shortTime(ms: number) {
+  return new Date(ms).toLocaleString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function rolloutLabel(rollout: NonNullable<Doc<"marketingEvents">["rollout"]>): string {
+  switch (rollout.phase) {
+    case "planning":
+      return "Preparing the list";
+    case "sending":
+      return `Wave ${rollout.wave} sending`;
+    case "holding":
+      return rollout.nextCheckAt ? `Holding · checks again ${shortTime(rollout.nextCheckAt)}` : "Holding";
+    case "watching":
+      if (rollout.wave === 0) return "Checking before wave 1";
+      return rollout.nextCheckAt
+        ? `Wave ${rollout.wave} sent · next check ${shortTime(rollout.nextCheckAt)}`
+        : `Wave ${rollout.wave} sent`;
+    case "done":
+      return `${rollout.wave} ${rollout.wave === 1 ? "wave" : "waves"}`;
+  }
+}
 
 /** Whether it can send now — the same answer the sender reaches. */
 export const templateReady = (template: TemplateLike) => templateBlocker(template) === null;

@@ -11,6 +11,7 @@ import { failureCode, failureLabel } from "@/convex/lib/metaErrors";
 import { RankedBars, StatTile } from "@/components/dashboard-charts";
 import { STATUS_VARIANT, dayLabel, fail, hourLabel, pct, statusLabel } from "@/components/marketing/format";
 import { ConfirmButton } from "@/components/marketing/calendar";
+import { RolloutProgress } from "@/components/marketing/campaigns/rollout-progress";
 import { formatPhone, plural } from "@/components/marketing/audience/shared";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
@@ -118,6 +119,7 @@ export function CampaignReport({
                 {statusLabel(campaign.status, report?.stats.sent)}
               </Badge>
             ) : null}
+            {campaign?.rollout ? <Badge variant="outline">Smart</Badge> : null}
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
             {campaign
@@ -138,6 +140,7 @@ export function CampaignReport({
                 <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{campaign.lastError}</p>
 
               ) : null}
+              {campaign?.rollout ? <RolloutProgress eventId={eventId} /> : null}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <StatTile label="Sent" value={sent} previous={null} />
                 <StatTile label="Delivered" value={pct(stats.delivered, sent)} previous={null} suffix="%" />

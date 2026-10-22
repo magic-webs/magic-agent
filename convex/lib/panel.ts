@@ -60,6 +60,10 @@ export async function request(
 export function providerError(status: number, body: unknown, text: string): string {
   const root = (body ?? {}) as Json;
   const error = (root.error ?? root.data ?? root) as Json;
+  const code =
+    typeof error.code === "number" || (typeof error.code === "string" && /^\d+$/.test(error.code))
+      ? `(#${error.code}) `
+      : "";
   const details = Array.isArray(error.details) ? (error.details[0] as Json) : null;
   const message =
     (details?.message as string | undefined) ??
@@ -73,9 +77,9 @@ export function providerError(status: number, body: unknown, text: string): stri
   if (said && INFRA.test(said)) {
     console.error("[panel] provider error", status, said);
     const who = /zepto|zoho/i.test(said) ? "the email provider" : "the provider";
-    return `${who} rejected the request (HTTP ${status})`;
+    return `${who} rejected the request (HTTP ${status}${code ? ` ${code.trim()}` : ""})`;
   }
-  return `HTTP ${status}: ${said || "no response body"}`;
+  return `HTTP ${status}: ${code}${said || "no response body"}`;
 }
 
 export function channelHeaders(channel: { accessToken: string }): Record<string, string> {
@@ -115,8 +119,14 @@ export type PanelTemplate = {
   status: string;
   /** Why Meta turned it down, when it did and the panel says. */
   rejectedReason?: string;
+  quality?: string;
   components: string;
 };
+
+function qualityOf(raw: unknown): string | undefined {
+  const score = typeof raw === "string" ? raw : (raw as Json | undefined)?.score;
+  return typeof score === "string" && score ? score.toUpperCase() : undefined;
+}
 
 function templateRow(row: Json): PanelTemplate | null {
   const name = typeof row.name === "string" ? row.name.trim() : "";
@@ -138,6 +148,7 @@ function templateRow(row: Json): PanelTemplate | null {
     category: String(row.category ?? "UTILITY").toUpperCase(),
     status: String(row.status ?? "UNKNOWN").toUpperCase(),
     rejectedReason: reason,
+    quality: qualityOf(row.quality_score),
     components: JSON.stringify(row.components ?? []),
   };
 }

@@ -234,6 +234,7 @@ async function recordReviews(
           metaTemplateId: found.providerId,
           reason: found.rejectedReason,
           category: found.category,
+          quality: found.quality,
         },
       ];
     }

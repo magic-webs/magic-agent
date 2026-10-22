@@ -99,6 +99,7 @@ async function sendPage(
     track?: string;
     cursor: string | null;
     wave?: { bestHour: number | null; next?: number };
+    rolloutWave?: number;
     context: {
       workspaceName: string;
       agentId: Id<"agents"> | null;
@@ -118,6 +119,10 @@ async function sendPage(
     guestSegment: args.guestSegment,
     now: Date.now(),
     bestHour: args.wave?.bestHour,
+    rollout:
+      args.eventId && args.rolloutWave !== undefined
+        ? { eventId: args.eventId, wave: args.rolloutWave }
+        : undefined,
     cursor: args.cursor,
   });
   const lastWave = !args.wave || args.wave.next === undefined;
@@ -174,7 +179,8 @@ async function sendPage(
     skipped: page.skipped,
     nextCursor: page.isDone ? null : page.continueCursor,
     nextWave: page.isDone && !lastWave ? args.wave?.next : undefined,
-    done: page.isDone && lastWave,
+    rolloutWave: args.rolloutWave,
+    done: page.isDone && lastWave && args.rolloutWave === undefined,
   });
 
   return page.isDone ? null : { cursor: page.continueCursor, sent: results.length };
@@ -278,14 +284,24 @@ export const runEvent = internalAction({
       blocker(context) ??
       (context.template ? unfilled(context.template.body, values) : null);
     if (reason || !context.template || !context.channel) {
-      await ctx.runMutation(internal.marketing.failEvent, {
-        eventId: args.eventId,
-        error: reason ?? "Nothing to send.",
-      });
+      await ctx.runMutation(
+        context.event.rollout ? internal.marketingRollout.pause : internal.marketing.failEvent,
+        { eventId: args.eventId, error: reason ?? "Nothing to send." }
+      );
       return null;
     }
 
-    const smart = context.event.smartTiming && !context.event.campaignId;
+    const rollout = context.event.rollout;
+    if (rollout?.phase === "planning") {
+      await ctx.scheduler.runAfter(0, internal.marketingRollout.plan, {
+        eventId: args.eventId,
+        cursor: rollout.planCursor ?? null,
+      });
+      return null;
+    }
+    if (rollout && rollout.phase !== "sending") return null;
+
+    const smart = context.event.smartTiming && !context.event.campaignId && !rollout;
     const wave = context.event.wave ?? 0;
     const waveAt = (index: number) => context!.event.sendAt + Math.max(0, index - 1) * HOUR_MS;
     const next = await sendPage(ctx, {
@@ -302,6 +318,7 @@ export const runEvent = internalAction({
       audience: context.event.audience ?? context.campaign?.audience,
       campaignId: context.event.campaignId,
       guestSegment: context.event.guestSegment,
+      rolloutWave: rollout?.wave,
       track:
         context.event.trackLinks || context.event.campaignId
           ? slug(context.campaign?.title ?? context.event.title)
@@ -325,6 +342,11 @@ export const runEvent = internalAction({
       await ctx.scheduler.runAfter(delay, internal.marketingSend.runEvent, {
         eventId: args.eventId,
         cursor: next.cursor,
+      });
+    } else if (rollout) {
+      await ctx.runMutation(internal.marketingRollout.waveSent, {
+        eventId: args.eventId,
+        wave: rollout.wave,
       });
     } else if (smart && wave < SMART_WAVES) {
       await ctx.scheduler.runAt(Math.max(Date.now(), waveAt(wave + 1)), internal.marketingSend.runEvent, {

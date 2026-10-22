@@ -82,7 +82,12 @@ type WebhookValue = {
   statuses?: Array<{
     id?: string;
     status?: string;
-    errors?: Array<{ title?: string; message?: string; error_data?: { details?: string } }>;
+    errors?: Array<{
+      code?: number | string;
+      title?: string;
+      message?: string;
+      error_data?: { details?: string };
+    }>;
     pricing?: { billable?: unknown; category?: unknown; type?: unknown };
   }>;
 };
@@ -92,6 +97,31 @@ function webhookValues(shape: Record<string, unknown>): WebhookValue[] {
   return entries.flatMap((entry: { changes?: Array<{ value?: WebhookValue }> }) =>
     (entry?.changes ?? []).flatMap((change) => (change?.value ? [change.value] : []))
   );
+}
+
+const HEALTH_FIELDS = new Set([
+  "phone_number_quality_update",
+  "business_capability_update",
+  "account_alerts",
+  "message_template_status_update",
+  "message_template_quality_update",
+]);
+
+function healthChanges(shape: Record<string, unknown>) {
+  const entries = Array.isArray(shape.entry) ? shape.entry : [];
+  return entries.flatMap((entry: { changes?: Array<{ field?: unknown; value?: unknown }> }) =>
+    (entry?.changes ?? []).flatMap((change) =>
+      typeof change?.field === "string" && HEALTH_FIELDS.has(change.field) && change.value
+        ? [{ field: change.field, value: change.value }]
+        : []
+    )
+  );
+}
+
+function withCode(code: unknown, text: string | undefined): string | undefined {
+  const known = typeof code === "number" || (typeof code === "string" && /^\d+$/.test(code));
+  if (!known) return text;
+  return text ? `(#${code}) ${text}` : `(#${code})`;
 }
 
 function hasMessages(shape: Record<string, unknown>): boolean {
@@ -112,17 +142,18 @@ function queueReport(shape: Record<string, unknown>) {
   const response = shape.response as
     | {
         messages?: Array<{ id?: unknown }>;
-        error?: { message?: unknown; error_data?: { details?: unknown } };
+        error?: { code?: unknown; message?: unknown; error_data?: { details?: unknown } };
       }
     | undefined;
   const wamid = response?.messages?.[0]?.id;
-  const problem = response?.error?.error_data?.details ?? response?.error?.message;
+  const details = response?.error?.error_data?.details ?? response?.error?.message;
+  const problem = withCode(response?.error?.code, typeof details === "string" ? details : undefined);
   const failed = message.message_status === "failed" || Boolean(response?.error);
   return {
     queueId: message.queue_id,
     ...(typeof wamid === "string" ? { wamid } : {}),
     failed,
-    ...(failed && typeof problem === "string" ? { error: problem.slice(0, 300) } : {}),
+    ...(failed && problem ? { error: problem.slice(0, 300) } : {}),
   };
 }
 
@@ -131,8 +162,10 @@ function deliveryStatuses(shape: Record<string, unknown>) {
     (value.statuses ?? []).flatMap((status) => {
       if (!status.id || !status.status || !RECEIPTS.has(status.status)) return [];
       const problem = status.errors?.[0];
-      const error =
-        problem?.error_data?.details ?? problem?.message ?? problem?.title;
+      const error = withCode(
+        problem?.code,
+        problem?.error_data?.details ?? problem?.message ?? problem?.title
+      );
       const pricing = status.pricing;
       return [
         {
@@ -264,9 +297,17 @@ http.route({
       });
     }
 
+    const health = healthChanges(shape);
+    if (health.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.marketingRollout.applyHealthWebhook, {
+        channelKey,
+        changes: health,
+      });
+    }
+
     // Meta retries anything that is slow or non-2xx, so acknowledge straight
     // away and do the model work in a scheduled action.
-    if (statuses.length === 0 || hasMessages(shape)) {
+    if ((statuses.length === 0 && health.length === 0) || hasMessages(shape)) {
       await ctx.scheduler.runAfter(0, internal.whatsapp.handleInbound, {
         channelKey,
         payload,

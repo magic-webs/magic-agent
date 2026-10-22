@@ -179,6 +179,16 @@ function present(event: string, data: unknown): Presentation {
     };
   }
 
+  if (event.startsWith("campaign_")) {
+    return {
+      title: text("title") ?? "Smart campaign",
+      body: text("message") ?? "Open Marketing for the details.",
+      channelId: CHANNELS.default,
+      sound: "default",
+      priority: event === "campaign_paused" ? "high" : "default",
+    };
+  }
+
   // Anything else still arrives rather than being silently dropped, so a new
   // event type is visible before it has been given its own copy.
   return {

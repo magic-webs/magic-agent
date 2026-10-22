@@ -10,6 +10,7 @@ import {
   datedLabel,
   hourLabel,
   rate,
+  rolloutLabel,
   statusLabel,
 } from "@/components/marketing/format";
 import { localDate } from "@/components/marketing/calendar";
@@ -105,11 +106,19 @@ export function CampaignsTab() {
                     >
                       {row.title}
                     </Link>
+                    {row.rollout ? (
+                      <Badge variant="outline" className="ml-2 align-middle">
+                        Smart
+                      </Badge>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
                       {datedLabel(row.date, today)} · {hourLabel(row.sendHour)}
                       {row.templateName ? ` · ${row.templateName}` : ""}
                       {row.audience ? " · chosen audience" : " · everyone"}
                     </p>
+                    {row.rollout && row.status === "sending" ? (
+                      <p className="text-xs text-muted-foreground">{rolloutLabel(row.rollout)}</p>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[row.status]} className="gap-1">

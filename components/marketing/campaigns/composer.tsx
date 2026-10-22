@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
 import { templateBlocker } from "@/convex/lib/marketing";
+import { recommendedPlan, type RolloutPlan } from "@/convex/lib/rollout";
 import {
   HOURS,
   dayLabel,
@@ -18,6 +19,7 @@ import {
 import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
+import { SmartReview } from "@/components/marketing/campaigns/smart-review";
 import {
   AudiencePicker,
   EVERYONE,
@@ -36,14 +38,18 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/components/ui/toast";
-import { PaperPlaneTiltIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, PaperPlaneTiltIcon, WarningCircleIcon } from "@phosphor-icons/react";
 
 type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
   headerMediaUrl?: string | null;
 };
 
+export type CampaignMode = "manual" | "smart";
+
 export type CampaignDraft = {
+  mode: CampaignMode;
+  plan: RolloutPlan;
   eventId?: Id<"marketingEvents">;
   title: string;
   templateId?: Id<"marketingTemplates">;
@@ -57,8 +63,10 @@ export type CampaignDraft = {
   when: "now" | "later";
 };
 
-export function emptyCampaign(today: string): CampaignDraft {
+export function emptyCampaign(today: string, mode: CampaignMode = "manual"): CampaignDraft {
   return {
+    mode,
+    plan: recommendedPlan(),
     title: "",
     message: "",
     audience: EVERYONE,
@@ -98,6 +106,7 @@ export function CampaignComposer({
   templates,
   categories,
   today,
+  startInReview = false,
   onClose,
   onSaved,
 }: {
@@ -105,6 +114,7 @@ export function CampaignComposer({
   templates: Template[];
   categories: Category[];
   today: string;
+  startInReview?: boolean;
   onClose: () => void;
   onSaved: (eventId: Id<"marketingEvents">, sentNow: boolean) => void;
 }) {
@@ -113,7 +123,9 @@ export function CampaignComposer({
   const save = useMutation(api.marketingBroadcasts.save);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [reviewing, setReviewing] = useState(startInReview && initial.mode === "smart");
   const [audienceValid, setAudienceValid] = useState(true);
+  const smart = draft.mode === "smart";
   const set = (patch: Partial<CampaignDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const template = templates.find((t) => t._id === draft.templateId);
@@ -134,9 +146,10 @@ export function CampaignComposer({
     (a, b) => Number(templateReady(b)) - Number(templateReady(a))
   );
 
-  const submit = async () => {
+  const submit = async (asDraft = false) => {
     if (!draft.templateId) return;
     setBusy(true);
+    const now = draft.when === "now" && !asDraft;
     try {
       const eventId = await save({
         workspaceId: workspace._id,
@@ -147,20 +160,33 @@ export function CampaignComposer({
         audience: draft.audience,
         date: draft.when === "now" ? today : draft.date,
         sendHour: draft.sendHour,
-        ratePerMinute: draft.ratePerMinute,
+        ratePerMinute: smart ? undefined : draft.ratePerMinute,
         trackLinks: draft.trackLinks,
-        smartTiming: draft.smartTiming,
-        sendNow: draft.when === "now",
+        smartTiming: smart ? undefined : draft.smartTiming,
+        rollout: smart ? draft.plan : undefined,
+        draft: asDraft || undefined,
+        sendNow: now,
       });
       toast.add({
-        title: draft.when === "now" ? "Sending now" : "Campaign scheduled",
-        description:
-          draft.when === "now"
-            ? "Watch it go out in the report."
+        title: asDraft
+          ? "Saved as a draft"
+          : now
+            ? smart
+              ? "Smart campaign started"
+              : "Sending now"
+            : smart
+              ? "Smart campaign scheduled"
+              : "Campaign scheduled",
+        description: asDraft
+          ? "Open it from Campaigns to launch it."
+          : now
+            ? smart
+              ? "It checks your number, then sends the first wave."
+              : "Watch it go out in the report."
             : `${dayLabel(draft.date)} at ${hourLabel(draft.sendHour)}.`,
         type: "success",
       });
-      onSaved(eventId, draft.when === "now");
+      onSaved(eventId, now);
     } catch (error) {
       fail("Could not save the campaign", error);
     } finally {
@@ -168,13 +194,13 @@ export function CampaignComposer({
     }
   };
 
-  const cannotSubmit =
+  const cannotReview =
     busy ||
     !audienceValid ||
     !draft.title.trim() ||
     !draft.templateId ||
-    (needsMessage && !draft.message.trim()) ||
-    (draft.when === "now" && Boolean(blocker));
+    (needsMessage && !draft.message.trim());
+  const cannotSubmit = cannotReview || (draft.when === "now" && Boolean(blocker));
 
   const money = (micros: number) =>
     estimate?.currency ? formatMoney(micros, estimate.currency) : null;
@@ -206,13 +232,33 @@ export function CampaignComposer({
     />
   );
 
+  if (smart && reviewing) {
+    return (
+      <SmartReview
+        draft={draft}
+        template={template}
+        estimate={estimate}
+        preview={preview("phone")}
+        today={today}
+        busy={busy}
+        launchBlocked={cannotSubmit}
+        onChange={set}
+        onBack={() => setReviewing(false)}
+        onSave={submit}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">{draft.eventId ? "Edit campaign" : "New campaign"}</h2>
+          <h2 className="text-lg font-semibold">
+            {draft.eventId ? "Edit" : "New"} {smart ? "smart campaign" : "campaign"}
+          </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            One approved WhatsApp template, sent to the people you choose. Unsubscribed contacts are
-            always left out.
+            {smart
+              ? "Pick who gets it and what they read. Next you review the wave plan before anything is sent."
+              : "One approved WhatsApp template, sent to the people you choose. Unsubscribed contacts are always left out."}
           </p>
         </div>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_296px]">
@@ -292,14 +338,14 @@ export function CampaignComposer({
             </label>
           </Section>
 
-          <Section step={4} title="When it goes">
+          <Section step={4} title={smart ? "When it starts" : "When it goes"}>
             <ToggleGroup
               variant="outline"
               value={[draft.when]}
               onValueChange={(next) => next[0] && set({ when: next[0] as CampaignDraft["when"] })}
             >
               <ToggleGroupItem value="later">Schedule</ToggleGroupItem>
-              <ToggleGroupItem value="now">Send now</ToggleGroupItem>
+              <ToggleGroupItem value="now">{smart ? "Start now" : "Send now"}</ToggleGroupItem>
             </ToggleGroup>
             <div className="grid gap-3 sm:grid-cols-3">
               {draft.when === "later" ? (
@@ -325,33 +371,44 @@ export function CampaignComposer({
                   </div>
                 </>
               ) : null}
-              <div className="flex flex-col gap-1.5">
-                <Label>Speed</Label>
-                <SelectField
-                  aria-label="Speed"
-                  value={String(draft.ratePerMinute ?? 0)}
-                  onValueChange={(value) => set({ ratePerMinute: Number(value) || undefined })}
-                  options={SPEEDS}
-                />
-              </div>
+              {smart ? null : (
+                <div className="flex flex-col gap-1.5">
+                  <Label>Speed</Label>
+                  <SelectField
+                    aria-label="Speed"
+                    value={String(draft.ratePerMinute ?? 0)}
+                    onValueChange={(value) => set({ ratePerMinute: Number(value) || undefined })}
+                    options={SPEEDS}
+                  />
+                </div>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Sending slower spreads replies out so your team can keep up, and is gentler on a new
-              number&apos;s quality rating.
-            </p>
-            <label className="flex items-start gap-2 text-sm">
-              <Checkbox
-                checked={draft.smartTiming}
-                onCheckedChange={(next) => set({ smartTiming: next === true })}
-              />
-              <span>
-                Send at each person&apos;s best time
-                <span className="block text-xs text-muted-foreground">
-                  Goes out over the next 24 hours, each person at the hour they usually read your
-                  messages. People without a habit yet get it at the time above.
-                </span>
-              </span>
-            </label>
+            {smart ? (
+              <p className="text-xs text-muted-foreground">
+                The first wave goes out then. Later waves go at the same hour on the days in the
+                plan, each only after a health check. Smart sets the speed.
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Sending slower spreads replies out so your team can keep up, and is gentler on a
+                  new number&apos;s quality rating.
+                </p>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={draft.smartTiming}
+                    onCheckedChange={(next) => set({ smartTiming: next === true })}
+                  />
+                  <span>
+                    Send at each person&apos;s best time
+                    <span className="block text-xs text-muted-foreground">
+                      Goes out over the next 24 hours, each person at the hour they usually read
+                      your messages. People without a habit yet get it at the time above.
+                    </span>
+                  </span>
+                </label>
+              </>
+            )}
           </Section>
 
           <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
@@ -416,7 +473,11 @@ export function CampaignComposer({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          {draft.when === "now" ? (
+          {smart ? (
+            <Button onClick={() => setReviewing(true)} disabled={cannotReview}>
+              Review plan <ArrowRightIcon />
+            </Button>
+          ) : draft.when === "now" ? (
             <ConfirmButton
               disabled={cannotSubmit}
               heading="Send it now?"

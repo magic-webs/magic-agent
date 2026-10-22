@@ -43,7 +43,6 @@ const RECHECK_PAGE = 200;
 const READY_CONFIDENCE = 0.8;
 const JUNK_PROBABILITY = 0.5;
 const FLAG_PROBABILITY = 0.8;
-const INTEREST_CONFIDENCE = 0.6;
 
 type Counts = Infer<typeof importCounts>;
 type RowStatus = Infer<typeof importRowStatus>;
@@ -504,7 +503,6 @@ const sortedRow = v.object({
   junk: v.optional(v.number()),
   business: v.optional(v.boolean()),
   doNotContact: v.optional(v.boolean()),
-  interest: v.optional(v.union(v.literal("cold"), v.literal("warm"), v.literal("hot"))),
   sortError: v.optional(v.string()),
 });
 
@@ -534,14 +532,12 @@ export const recordSorted = internalMutation({
         tags = [...new Set([...tags, "business"])];
       }
       if (result.doNotContact) fixes.push("do_not_contact");
-      if (result.interest) tags = [...new Set([...tags, result.interest])];
       await ctx.db.patch("audienceImportRows", row._id, {
         category: result.category,
         confidence: result.confidence,
         junk: result.junk,
         business: result.business,
         doNotContact: result.doNotContact,
-        interest: result.interest,
         company,
         tags: tags.slice(0, 10),
         fixes,
@@ -606,15 +602,6 @@ function questionsFor(
             type: "boolean",
             instructions: `${subject}The notes say this person asked not to be contacted or messaged`,
           },
-          [`${prefix}interest`]: {
-            type: "score",
-            instructions: `${subject}How interested in buying is this contact`,
-            criteria: [
-              "No interest or not interested",
-              "Some interest or unclear",
-              "Keen, asked for details or ready to buy",
-            ],
-          },
         }
       : {}),
   };
@@ -627,7 +614,6 @@ function readAnswers(
   criteria: Record<string, string>
 ): Infer<typeof sortedRow> {
   const choice = choiceOf(answers[`${prefix}category`]);
-  const interest = answers[`${prefix}interest`];
   const junk = probabilityOf(answers[`${prefix}junk`]) ?? undefined;
   const valid = Boolean(row.name) && (junk ?? 0) < JUNK_PROBABILITY;
   return {
@@ -638,14 +624,6 @@ function readAnswers(
     business: (probabilityOf(answers[`${prefix}business`]) ?? 0) >= FLAG_PROBABILITY || undefined,
     doNotContact:
       (probabilityOf(answers[`${prefix}doNotContact`]) ?? 0) >= FLAG_PROBABILITY || undefined,
-    interest:
-      interest?.type === "score" && interest.confidence >= INTEREST_CONFIDENCE
-        ? interest.score >= 1.5
-          ? "hot"
-          : interest.score <= 0.5
-            ? "cold"
-            : "warm"
-        : undefined,
   };
 }
 

@@ -158,6 +158,201 @@ export function parseContactCsv(text: string): ContactParse {
   return { rows, missingPhone, hasHeader };
 }
 
+/** What one column of an imported file becomes. */
+export type ContactField = Field | "notes" | "skip";
+
+export const CONTACT_FIELDS: Array<{ value: ContactField; label: string }> = [
+  { value: "phone", label: "Phone" },
+  { value: "name", label: "Name" },
+  { value: "first", label: "First name" },
+  { value: "last", label: "Last name" },
+  { value: "email", label: "Email" },
+  { value: "company", label: "Company" },
+  { value: "birthday", label: "Birthday" },
+  { value: "tags", label: "Labels" },
+  { value: "notes", label: "Add to notes" },
+  { value: "skip", label: "Don't import" },
+];
+
+/** A contacts file as read, before anyone says what its columns are. */
+export type ContactTable = {
+  /** Every line with something in it, each cell's spaces tidied. */
+  lines: string[][];
+  width: number;
+  /** Blank lines between the ones with something in them. */
+  emptyLines: number;
+  /** Cells that had spaces at either end, or runs of them inside. */
+  tidiedCells: number;
+  /** Whether the first line reads as column names. */
+  hasHeader: boolean;
+};
+
+export function readContactTable(text: string): ContactTable {
+  const lines: string[][] = [];
+  let emptyLines = 0;
+  let pendingEmpty = 0;
+  let tidiedCells = 0;
+  for (const raw of parseCsv(text)) {
+    const cells = raw.map((cell) => {
+      const tidy = cell.replace(/\s+/g, " ").trim();
+      if (tidy !== cell) tidiedCells++;
+      return tidy;
+    });
+    if (!cells.some(Boolean)) {
+      pendingEmpty++;
+      continue;
+    }
+    // Only blanks with something after them count; a file's trailing
+    // newline is not an empty row.
+    if (lines.length > 0) emptyLines += pendingEmpty;
+    pendingEmpty = 0;
+    lines.push(cells);
+  }
+  const first = lines[0] ?? [];
+  // A first line with no number above lines that have one is a header even
+  // when its names are not recognised — "Name, Contact".
+  const hasHeader =
+    first.map(fieldOf).includes("phone") ||
+    (lines.length > 1 && !first.some(looksLikePhone) && lines.slice(1, 6).some((line) => line.some(looksLikePhone)));
+  return { lines, width: Math.max(0, ...lines.map((line) => line.length)), emptyLines, tidiedCells, hasHeader };
+}
+
+export function columnNames(table: ContactTable, hasHeader: boolean): string[] {
+  return Array.from(
+    { length: table.width },
+    (_, i) => (hasHeader ? table.lines[0]?.[i] : "") || `Column ${i + 1}`
+  );
+}
+
+const isEmail = (cell: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cell);
+
+/**
+ * A starting mapping: each column by its header, and a column whose header
+ * says nothing by what its values look like. Anything left goes to notes,
+ * which is where an unrecognised column always went.
+ */
+export function guessMapping(table: ContactTable, hasHeader: boolean): ContactField[] {
+  const names = columnNames(table, hasHeader);
+  const sample = table.lines.slice(hasHeader ? 1 : 0, 50);
+  const share = (i: number, test: (cell: string) => boolean) => {
+    const values = sample.map((line) => line[i] ?? "").filter(Boolean);
+    return values.length ? values.filter(test).length / values.length : 0;
+  };
+
+  const fields: Array<ContactField | null> = names.map((name) => (hasHeader ? fieldOf(name) : null));
+  const taken = new Set<ContactField>(fields.filter((field): field is ContactField => field !== null));
+  if (taken.has("first") || taken.has("last")) taken.add("name");
+
+  return fields.map((field, i) => {
+    if (field) return field;
+    // "Phone 1 - Label: Mobile" describes another column; it is not worth a note.
+    if (hasHeader && /\b(type|label)\b/.test(clean(names[i]))) return "skip";
+    const guess: ContactField | null =
+      !taken.has("phone") && share(i, looksLikePhone) >= 0.6
+        ? "phone"
+        : !taken.has("email") && share(i, isEmail) >= 0.6
+          ? "email"
+          : !taken.has("birthday") && share(i, (cell) => normaliseBirthday(cell) !== null) >= 0.6
+            ? "birthday"
+            : !taken.has("name") && share(i, (cell) => /\p{L}/u.test(cell) && !looksLikePhone(cell)) >= 0.6
+              ? "name"
+              : null;
+    if (guess) {
+      taken.add(guess);
+      return guess;
+    }
+    return "notes";
+  });
+}
+
+/**
+ * Every line as a contact, by the mapping chosen. A line with no number keeps
+ * an empty phone, so the caller decides whether it goes or is fixed later.
+ */
+export function mapContactRows(
+  table: ContactTable,
+  hasHeader: boolean,
+  mapping: ContactField[]
+): ContactRow[] {
+  const names = columnNames(table, hasHeader);
+  return table.lines.slice(hasHeader ? 1 : 0).map((cells) => {
+    // The first column of each kind with something in it wins, as a Google
+    // export's "Phone 1" over its "Phone 2".
+    const pick = (field: ContactField) => {
+      for (let i = 0; i < mapping.length; i++) {
+        if (mapping[i] === field && cells[i]) return cells[i];
+      }
+      return undefined;
+    };
+    const joined = [pick("first"), pick("last")].filter(Boolean).join(" ");
+    // Every column set to labels adds to them. One that is not a labels column
+    // of its own — "Gender", "Religion" — names its values, so "H" arrives as
+    // "religion-h" rather than a tag nobody can place.
+    const tags = mapping
+      .flatMap((field, i) => {
+        if (field !== "tags" || !cells[i]) return [];
+        const prefix = hasHeader && fieldOf(names[i]) !== "tags" ? `${names[i]} ` : "";
+        return cells[i]
+          .split(/[,;|]|:::/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .map((value) => `${prefix}${value}`);
+      })
+      .join(", ");
+    const notes = mapping
+      .map((field, i) =>
+        field === "notes" && cells[i] ? (hasHeader ? `${names[i]}: ${cells[i]}` : cells[i]) : null
+      )
+      .filter(Boolean)
+      .join("; ");
+    return {
+      // Google writes several numbers into one cell as "a ::: b".
+      phone: pick("phone")?.split(":::")[0].trim() ?? "",
+      name: pick("name") ?? (joined || undefined),
+      email: pick("email"),
+      company: pick("company"),
+      birthday: pick("birthday"),
+      tags: tags || undefined,
+      notes: notes || undefined,
+    };
+  });
+}
+
+/** The same number however it was written: "098765 43210" is "+91 98765 43210". */
+function phoneKey(phone: string, countryCode: string): string {
+  const digits = phone.replace(/\D/g, "").replace(/^0+/, "");
+  return digits.length === 10 ? `${countryCode}${digits}` : digits;
+}
+
+/**
+ * One row per number, the first kept and filled in from its repeats — a
+ * second line that has the email the first was missing is not thrown away.
+ */
+export function mergeRepeats(
+  rows: ContactRow[],
+  countryCode: string
+): { rows: ContactRow[]; removed: number } {
+  const seen = new Map<string, ContactRow>();
+  const kept: ContactRow[] = [];
+  let removed = 0;
+  for (const row of rows) {
+    const key = row.phone ? phoneKey(row.phone, countryCode) : "";
+    const first = key ? seen.get(key) : undefined;
+    if (!first) {
+      const copy = { ...row };
+      if (key) seen.set(key, copy);
+      kept.push(copy);
+      continue;
+    }
+    removed++;
+    for (const field of ["name", "email", "company", "birthday", "notes"] as const) {
+      if (!first[field] && row[field]) first[field] = row[field];
+    }
+    if (row.tags) first.tags = [first.tags, row.tags].filter(Boolean).join(", ");
+  }
+  return { rows: kept, removed };
+}
+
 /** A file to fill in, showing each column the way it can be written. */
 export function sampleContactCsv(): string {
   return toCsv([

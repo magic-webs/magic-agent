@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { FIX_LABELS, PROBLEM_LABELS, type ContactFix, type ContactProblem } from "@/convex/lib/contactClean";
 import { downloadCsv } from "@/lib/csv";
-import { parseContactCsv, rowFromCells, sampleContactCsv, type ContactRow } from "@/lib/contact-csv";
+import {
+  guessMapping,
+  mapContactRows,
+  mergeRepeats,
+  readContactTable,
+  rowFromCells,
+  sampleContactCsv,
+  type ContactField,
+  type ContactRow,
+  type ContactTable,
+} from "@/lib/contact-csv";
 import { useWorkspace } from "@/components/workspace-provider";
 import { SelectField } from "@/components/select-field";
 import { Badge } from "@/components/ui/badge";
@@ -40,14 +50,18 @@ import {
   ArrowCounterClockwiseIcon,
   BroomIcon,
   CheckCircleIcon,
+  CheckIcon,
   DownloadSimpleIcon,
   ProhibitIcon,
   SparkleIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react";
 import { categoryLabel, categoryTone, fail, formatPhone, plural, type Category } from "./shared";
+import { ColumnMapping, ImportPreview } from "./column-mapping";
 
 const CHUNK = 500;
+/** What one import holds; the server refuses more. */
+const MAX_IMPORT = 10_000;
 const CHECK_BATCH = 10;
 
 type Source = "csv" | "paste";
@@ -84,20 +98,47 @@ export function ImportUpload({
   const [source, setSource] = useState<Source>("csv");
   const [name, setName] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
-  const [fileRows, setFileRows] = useState<ContactRow[]>([]);
-  const [missing, setMissing] = useState(0);
+  const [table, setTable] = useState<ContactTable | null>(null);
+  const [hasHeader, setHasHeader] = useState(false);
+  const [mapping, setMapping] = useState<ContactField[]>([]);
+  const [limit, setLimit] = useState<"all" | "first">("all");
+  const [firstCount, setFirstCount] = useState(100);
+  const [dropRepeats, setDropRepeats] = useState(true);
+  const [dropNoPhone, setDropNoPhone] = useState(true);
   const [pasted, setPasted] = useState("");
   const [countryCode, setCountryCode] = useState("91");
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const rows = source === "csv" ? fileRows : parsePaste(pasted);
+  const prepared = useMemo(() => {
+    if (!table) return null;
+    const mapped = mapContactRows(table, hasHeader, mapping);
+    const taken = limit === "first" ? mapped.slice(0, Math.max(0, firstCount)) : mapped;
+    const noPhone = taken.filter((row) => !row.phone).length;
+    const kept = dropNoPhone ? taken.filter((row) => row.phone) : taken;
+    const merged = mergeRepeats(kept, countryCode);
+    return {
+      total: mapped.length,
+      taken: taken.length,
+      noPhone,
+      repeats: merged.removed,
+      rows: dropRepeats ? merged.rows : kept,
+    };
+  }, [table, hasHeader, mapping, limit, firstCount, dropNoPhone, dropRepeats, countryCode]);
+
+  const rows = source === "csv" ? (prepared?.rows ?? []) : parsePaste(pasted);
+  const mapped = source === "paste" || mapping.includes("phone");
+  const tooMany = rows.length > MAX_IMPORT;
 
   const readFile = async (file: File) => {
-    const parsed = parseContactCsv(await file.text());
+    const read = readContactTable(await file.text());
+    const rowsInFile = read.lines.length - (read.hasHeader ? 1 : 0);
     setFileName(file.name);
-    setFileRows(parsed.rows);
-    setMissing(parsed.missingPhone.length);
+    setTable(read);
+    setHasHeader(read.hasHeader);
+    setMapping(guessMapping(read, read.hasHeader));
+    setLimit(rowsInFile > MAX_IMPORT ? "first" : "all");
+    setFirstCount(Math.min(rowsInFile, rowsInFile > MAX_IMPORT ? MAX_IMPORT : 100));
     if (!name) setName(file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
   };
 
@@ -146,8 +187,8 @@ export function ImportUpload({
         </p>
       </div>
       <div className="flex flex-col gap-4">
-        <ol className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
-          {["Upload", "Clean up", "Agent Check", "Review and save"].map((label, index) => (
+        <ol className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-5">
+          {["Upload", "Map columns", "Clean up", "Agent Check", "Review and save"].map((label, index) => (
             <li
               key={label}
               className="flex items-center gap-2 rounded-md border border-border px-3 py-2"
@@ -201,8 +242,8 @@ export function ImportUpload({
                 {fileName ? fileName : "Choose a CSV file"}
               </span>
               <span className="text-xs text-muted-foreground">
-                Google Contacts, Excel or any spreadsheet saved as CSV. Columns are found by their
-                headers.
+                Google Contacts, Excel or any spreadsheet saved as CSV. You choose what each column
+                is next.
               </span>
               <input
                 type="file"
@@ -216,8 +257,8 @@ export function ImportUpload({
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
-                {fileName
-                  ? `${plural(fileRows.length, "row")} with a number${missing ? `, ${missing} without one` : ""}.`
+                {prepared
+                  ? `${plural(prepared.total, "row")} in the file, in ${plural(table?.width ?? 0, "column")}.`
                   : "Only a phone column is needed. Name, email, company, birthday, labels and notes help sorting."}
               </span>
               <Button
@@ -243,6 +284,87 @@ export function ImportUpload({
           </div>
         )}
 
+        {source === "csv" && table && prepared ? (
+          <>
+            <ColumnMapping
+              table={table}
+              hasHeader={hasHeader}
+              onHasHeader={(value) => {
+                setHasHeader(value);
+                setMapping(guessMapping(table, value));
+              }}
+              mapping={mapping}
+              onMapping={setMapping}
+            />
+
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">Rows to import</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <ToggleGroup
+                  value={[limit]}
+                  onValueChange={(next) => next[0] && setLimit(next[0] as "all" | "first")}
+                  variant="outline"
+                >
+                  <ToggleGroupItem value="all" disabled={prepared.total > MAX_IMPORT}>
+                    All {prepared.total.toLocaleString()} rows
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="first">First</ToggleGroupItem>
+                </ToggleGroup>
+                {limit === "first" ? (
+                  <Input
+                    type="number"
+                    min={1}
+                    max={Math.min(prepared.total, MAX_IMPORT)}
+                    value={firstCount}
+                    aria-label="How many rows"
+                    className="h-8 w-28"
+                    onChange={(event) =>
+                      setFirstCount(Math.max(1, Math.min(MAX_IMPORT, Number(event.target.value) || 1)))
+                    }
+                  />
+                ) : null}
+                {prepared.total > MAX_IMPORT ? (
+                  <span className="text-xs text-muted-foreground">
+                    One import holds up to {MAX_IMPORT.toLocaleString()} contacts.
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">Basic cleaning</h3>
+              <ul className="flex flex-col gap-1.5 text-sm">
+                <li className="flex items-center gap-2 text-muted-foreground">
+                  <CheckIcon className="size-4 text-emerald-600" />
+                  {table.tidiedCells > 0
+                    ? `Extra spaces trimmed in ${plural(table.tidiedCells, "cell")}`
+                    : "No extra spaces to trim"}
+                  {table.emptyLines > 0 ? `, ${plural(table.emptyLines, "empty line")} left out` : ""}
+                </li>
+                <li>
+                  <label className="flex items-center gap-2">
+                    <Checkbox checked={dropNoPhone} onCheckedChange={(next) => setDropNoPhone(Boolean(next))} />
+                    Skip rows with no phone number ({prepared.noPhone.toLocaleString()})
+                  </label>
+                </li>
+                <li>
+                  <label className="flex items-center gap-2">
+                    <Checkbox checked={dropRepeats} onCheckedChange={(next) => setDropRepeats(Boolean(next))} />
+                    Remove repeated numbers, keeping the first ({prepared.repeats.toLocaleString()})
+                  </label>
+                </li>
+              </ul>
+              <p className="text-xs text-muted-foreground">
+                After upload every row is cleaned up again — numbers checked, names and companies
+                tidied, emails that aren&apos;t valid dropped, test data flagged — and you review it all
+                before anything is saved.
+              </p>
+            </div>
+
+            {mapped ? <ImportPreview table={table} hasHeader={hasHeader} mapping={mapping} /> : null}
+          </>
+        ) : null}
+
         <label className="flex items-start gap-2 text-sm">
           <Checkbox checked={consent} onCheckedChange={(next) => setConsent(Boolean(next))} />
           <span>
@@ -255,7 +377,16 @@ export function ImportUpload({
         <Button variant="outline" onClick={onClose} disabled={Boolean(busy)}>
           Cancel
         </Button>
-        <Button onClick={() => void start()} disabled={Boolean(busy) || rows.length === 0 || !consent}>
+        {tooMany ? (
+          <span className="mr-auto self-center text-xs text-destructive">
+            One import holds up to {MAX_IMPORT.toLocaleString()} contacts — import the first{" "}
+            {MAX_IMPORT.toLocaleString()} and the rest in another.
+          </span>
+        ) : null}
+        <Button
+          onClick={() => void start()}
+          disabled={Boolean(busy) || rows.length === 0 || !consent || !mapped || tooMany}
+        >
           {busy ? <Spinner /> : <BroomIcon />}
           {busy ?? `Clean up and sort ${plural(rows.length, "contact")}`}
         </Button>
@@ -659,11 +790,6 @@ function RowsTable({
                       </Badge>
                     )
                   )}
-                  {row.interest ? (
-                    <Badge variant="outline" className="text-[10px]">
-                      {row.interest === "hot" ? "Keen" : row.interest === "warm" ? "Some interest" : "Not interested"}
-                    </Badge>
-                  ) : null}
                 </div>
               </TableCell>
               <TableCell>

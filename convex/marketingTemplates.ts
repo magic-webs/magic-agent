@@ -53,35 +53,48 @@ const NO_WABA =
 const UPLOAD_TIMEOUT_MS = 60_000;
 
 /**
- * The sample Meta reviews a media header against. Meta wants a handle from
- * its resumable upload, so the file goes up through the panel first; a panel
- * that does not pass uploads through gets the file's public address instead.
+ * The sample Meta reviews a media header against: a handle from Meta's
+ * resumable upload, which the panel serves at `uploads` and `uploads/{id}`.
+ * Meta refuses a template whose sample is a plain link, so a failed upload
+ * stops the apply with its reason rather than sending one.
  */
 async function mediaHandle(panel: PanelConfig, media: HeaderMedia): Promise<string> {
-  const link = fileUrl(media.key);
+  const failed = (why: string) =>
+    new ConvexError(`The header ${media.type} could not be sent to Meta for review — ${why}`);
   try {
-    const file = await fetch(link);
-    if (!file.ok) return link;
+    const file = await fetch(fileUrl(media.key));
+    if (!file.ok) throw failed(`the file could not be read (HTTP ${file.status})`);
     const bytes = await file.arrayBuffer();
     const session = await request(
-      `${panelRoot(panel)}/app/uploads?file_length=${bytes.byteLength}&file_type=${encodeURIComponent(media.mimeType)}`,
+      `${panelRoot(panel)}/uploads?file_length=${bytes.byteLength}&file_type=${encodeURIComponent(media.mimeType)}`,
       { method: "POST", headers: channelHeaders(panel) }
     );
     const id = ((session.body ?? {}) as Json).id;
-    if (!session.ok || typeof id !== "string") return link;
+    if (!session.ok || typeof id !== "string") {
+      throw failed(providerError(session.status, session.body, session.text));
+    }
     const upload = await request(
-      `${panelRoot(panel)}/${id}`,
+      `${panelRoot(panel)}/uploads/${id}`,
       {
         method: "POST",
-        headers: { ...channelHeaders(panel), "Content-Type": media.mimeType, file_offset: "0" },
+        headers: {
+          ...channelHeaders(panel),
+          Authorization: `OAuth ${panel.accessToken}`,
+          "Content-Type": media.mimeType,
+          "file-offset": "0",
+        },
         body: bytes,
       },
       UPLOAD_TIMEOUT_MS
     );
     const handle = ((upload.body ?? {}) as Json).h;
-    return upload.ok && typeof handle === "string" ? handle : link;
-  } catch {
-    return link;
+    if (!upload.ok || typeof handle !== "string") {
+      throw failed(providerError(upload.status, upload.body, upload.text));
+    }
+    return handle;
+  } catch (error) {
+    if (error instanceof ConvexError) throw error;
+    throw failed(errorText(error));
   }
 }
 
@@ -156,6 +169,13 @@ export const apply = action({
     // with `success` alone, which means it has gone back into review.
     const answer = ((response.body ?? {}) as Json) ?? {};
     const inner = ((answer.data as Json | undefined) ?? answer) as Json;
+    // The panel can answer 200 without creating anything; a new template
+    // that Meta took always comes back with its id.
+    if (!template.metaTemplateId && inner.id === undefined) {
+      throw new ConvexError(
+        `Meta did not create it — ${providerError(response.status, response.body, response.text)}`
+      );
+    }
     const status = typeof inner.status === "string" ? inner.status : "PENDING";
     await ctx.runMutation(internal.marketing.recordApplied, {
       templateId: template._id,
@@ -172,7 +192,12 @@ type LinkedTemplate = {
   templateId: Id<"marketingTemplates">;
   metaTemplateName: string;
   languageCode: string;
+  metaStatus: string | null;
+  appliedAt: number | null;
 };
+
+/** Long enough for Meta's list to show a template it has just been sent. */
+const LISTING_GRACE_MS = 15 * 60 * 1000;
 
 const linkedTo = (row: PanelTemplate, templates: LinkedTemplate[]) =>
   templates.find(
@@ -194,22 +219,29 @@ async function recordReviews(
   templates: LinkedTemplate[],
   listed: PanelTemplate[]
 ): Promise<number> {
+  const now = Date.now();
   const rows = templates.flatMap((template) => {
     const found = listed.find(
       (row) =>
         row.name === template.metaTemplateName &&
         sameLanguage(row.language, template.languageCode)
     );
-    return found
-      ? [
-          {
-            templateId: template.templateId,
-            status: found.status,
-            metaTemplateId: found.providerId,
-            reason: found.rejectedReason,
-            category: found.category,
-          },
-        ]
+    if (found) {
+      return [
+        {
+          templateId: template.templateId,
+          status: found.status,
+          metaTemplateId: found.providerId,
+          reason: found.rejectedReason,
+          category: found.category,
+        },
+      ];
+    }
+    // Waiting on a review Meta has no record of: it never got there, and
+    // would otherwise show as in review for good.
+    const waiting = template.metaStatus === "PENDING" || template.metaStatus === "IN_APPEAL";
+    return waiting && template.appliedAt !== null && now - template.appliedAt > LISTING_GRACE_MS
+      ? [{ templateId: template.templateId, status: "MISSING" }]
       : [];
   });
   if (rows.length === 0) return 0;

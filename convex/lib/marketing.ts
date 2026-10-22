@@ -266,6 +266,8 @@ export function templateBlocker(template: {
       }. Change it and apply it again.`;
     case "CHANGED":
       return `${name} was changed after it was applied. Apply the change to Meta first.`;
+    case "MISSING":
+      return `Meta has no record of ${name} — it never reached them. Apply it again.`;
     default:
       return `${name} is ${template.metaStatus.toLowerCase()} in Meta and cannot send.`;
   }

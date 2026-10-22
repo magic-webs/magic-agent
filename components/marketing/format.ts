@@ -55,6 +55,8 @@ export function templateStanding(template: TemplateLike): { label: string; class
       return { label: "Changed", className: WAITING_TONE };
     case "REJECTED":
       return { label: "Rejected", className: REFUSED_TONE };
+    case "MISSING":
+      return { label: "Not at Meta", className: REFUSED_TONE };
     default:
       return { label: template.metaStatus.toLowerCase(), className: REFUSED_TONE };
   }

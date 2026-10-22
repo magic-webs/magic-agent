@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { UploadSimpleIcon } from "@phosphor-icons/react";
+import { TrayArrowDownIcon } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
 
 const BATCH = 200;
@@ -161,7 +161,7 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
       <DialogTrigger
         render={
           <Button variant="outline">
-            <UploadSimpleIcon /> Import
+            <TrayArrowDownIcon /> Import
           </Button>
         }
       />
@@ -255,7 +255,7 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
             Cancel
           </Button>
           <Button disabled={rows.length === 0 || progress !== null} onClick={run}>
-            {progress !== null ? <Spinner /> : <UploadSimpleIcon />}
+            {progress !== null ? <Spinner /> : <TrayArrowDownIcon />}
             {progress !== null
               ? `Importing ${progress} of ${rows.length}`
               : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}

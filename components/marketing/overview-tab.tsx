@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CalendarCheckIcon, PaperPlaneTiltIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import { CalendarCheckIcon, PaperPlaneTiltIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
 import { pct, rate } from "@/components/marketing/format";
 
 const PERIODS = [
@@ -59,7 +59,7 @@ export function OverviewTab({ onGo }: { onGo: (tab: string) => void }) {
         <div className="flex flex-wrap gap-2">
           <SelectField aria-label="Period" className="w-40" value={days} onValueChange={setDays} options={PERIODS} />
           <Button variant="outline" onClick={() => onGo("audience")}>
-            <UploadSimpleIcon /> Import contacts
+            <TrayArrowDownIcon /> Import contacts
           </Button>
           <Button variant="outline" onClick={() => onGo("events")}>
             <CalendarCheckIcon /> New event

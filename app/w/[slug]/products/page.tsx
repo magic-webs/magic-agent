@@ -93,8 +93,6 @@ import {
   TrashIcon,
   MagnifyingGlassIcon,
   SparkleIcon,
-  UploadSimpleIcon,
-  FileCsvIcon,
   DownloadSimpleIcon,
   WarningIcon,
   CheckCircleIcon,
@@ -103,6 +101,7 @@ import {
   BookOpenTextIcon,
   FolderIcon,
   type Icon,
+  TrayArrowDownIcon,
 } from "@phosphor-icons/react";
 
 type CatalogueProduct = FunctionReturnType<
@@ -596,7 +595,7 @@ function ImportDialog() {
       <DialogTrigger
         render={
           <Button variant="outline">
-            <UploadSimpleIcon /> Import
+            <TrayArrowDownIcon /> Import
           </Button>
         }
       />
@@ -616,7 +615,7 @@ function ImportDialog() {
                 <SparkleIcon /> Draft with AI
               </TabsTrigger>
               <TabsTrigger value="csv">
-                <FileCsvIcon /> Import CSV
+                <TrayArrowDownIcon /> Import CSV
               </TabsTrigger>
             </TabsList>
 
@@ -814,7 +813,7 @@ function ImportDialog() {
               ) : null}
 
               <Button onClick={runImport} disabled={busy || blocked}>
-                {busy ? <Spinner /> : <UploadSimpleIcon />}{" "}
+                {busy ? <Spinner /> : <TrayArrowDownIcon />}{" "}
                 {parsed &&
                 parsed.issues.length === 0 &&
                 parsed.products.length > 0

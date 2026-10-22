@@ -33,11 +33,11 @@ import { downloadCsv, toCsv } from "@/lib/csv";
 import {
   ArrowsClockwiseIcon,
   CopyIcon,
-  DownloadSimpleIcon,
   PauseIcon,
   PlayIcon,
   StopIcon,
   UsersThreeIcon,
+  TrayArrowUpIcon,
 } from "@phosphor-icons/react";
 
 type Outcome = "all" | "delivered" | "read" | "replied" | "clicked" | "failed" | "not_read" | "optedOut";
@@ -340,7 +340,7 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
           options={OUTCOMES}
         />
         <Button size="sm" variant="outline" disabled={exporting} onClick={() => void exportCsv()}>
-          {exporting ? <Spinner /> : <DownloadSimpleIcon />} Export
+          {exporting ? <Spinner /> : <TrayArrowUpIcon />} Export
         </Button>
       </div>
       {outcome !== "all" ? (

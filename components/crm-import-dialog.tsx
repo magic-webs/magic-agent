@@ -22,7 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { friendlyError } from "@/lib/errors";
-import { ClockCounterClockwiseIcon } from "@phosphor-icons/react";
+import { TrayArrowDownIcon } from "@phosphor-icons/react";
 
 const STATUS_LABEL = {
   running: "Importing…",
@@ -89,7 +89,7 @@ export function CrmImportDialog() {
       <DialogTrigger
         render={
           <Button variant="outline">
-            {running ? <Spinner /> : <ClockCounterClockwiseIcon />} Import from CRM
+            {running ? <Spinner /> : <TrayArrowDownIcon />} Import from CRM
           </Button>
         }
       />
@@ -168,7 +168,7 @@ export function CrmImportDialog() {
               disabled={!chosenChannel || !baseUrl.trim() || !apiKey.trim() || busy}
               onClick={() => void submit()}
             >
-              {busy ? <Spinner /> : null} {job ? "Import again" : "Start import"}
+              {busy ? <Spinner /> : <TrayArrowDownIcon />} {job ? "Import again" : "Start import"}
             </Button>
           )}
         </DialogFooter>

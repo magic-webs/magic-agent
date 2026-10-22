@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
-import { DownloadSimpleIcon } from "@phosphor-icons/react";
+import { TrayArrowUpIcon } from "@phosphor-icons/react";
 
 const PAGE = 500;
 
@@ -79,7 +79,7 @@ export function ExportRecordsButton({
 
   return (
     <Button variant="outline" onClick={() => void run()} disabled={busy}>
-      {busy ? <Spinner /> : <DownloadSimpleIcon />} Export CSV
+      {busy ? <Spinner /> : <TrayArrowUpIcon />} Export CSV
     </Button>
   );
 }

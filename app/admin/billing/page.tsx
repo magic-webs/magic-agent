@@ -55,8 +55,8 @@ import {
   PencilSimpleIcon,
   SparkleIcon,
   TableIcon,
-  UploadSimpleIcon,
   WarningIcon,
+  TrayArrowDownIcon,
 } from "@phosphor-icons/react";
 
 type Spend = Array<{
@@ -251,7 +251,7 @@ export default function AdminBillingPage() {
                       defaultCurrency={currency}
                       trigger={
                         <Button size="sm" variant="outline">
-                          <UploadSimpleIcon /> Import
+                          <TrayArrowDownIcon /> Import
                         </Button>
                       }
                     />

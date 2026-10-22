@@ -51,6 +51,7 @@ import {
   TrashIcon,
   UserPlusIcon,
   UsersThreeIcon,
+  TrayArrowDownIcon,
 } from "@phosphor-icons/react";
 import { PersonDialog, type Person } from "./person-dialog";
 import { AudienceSettingsDialog } from "./settings-dialog";
@@ -242,7 +243,7 @@ export function AudienceTab({
           </Button>
           <RecheckButton categories={categories} />
           <Button nativeButton={false} render={<Link href={importBase} />}>
-            <BroomIcon /> Import contacts
+            <TrayArrowDownIcon /> Import contacts
           </Button>
         </div>
       </div>

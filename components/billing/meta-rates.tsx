@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import { TrashIcon } from "@phosphor-icons/react";
+import { TrashIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
 
 type ParsedRow = {
@@ -368,7 +368,7 @@ export function ImportMetaRatesDialog({
             disabled={busy || !parsed || parsed.rows.length === 0 || !date}
             onClick={() => void submit()}
           >
-            {busy ? <Spinner /> : null} Import
+            {busy ? <Spinner /> : <TrayArrowDownIcon />} Import
           </Button>
         </DialogFooter>
       </DialogContent>

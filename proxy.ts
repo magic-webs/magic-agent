@@ -7,6 +7,7 @@ import {
 } from "@/lib/session";
 
 const LOGIN_PATH = "/login";
+const SIGNUP_PATH = "/signup";
 
 /** The area a session belongs to. Mirrors the redirect the login route returns. */
 function homeFor(role: string | undefined, ownSlug: string | undefined) {
@@ -38,7 +39,7 @@ export function proxy(request: NextRequest) {
   // Already signed in? The sign-in form has nothing to offer — bounce to the
   // area this session owns. Doing it here rather than in the page means no
   // form flashes up before the redirect.
-  if (pathname === LOGIN_PATH) {
+  if (pathname === LOGIN_PATH || pathname === SIGNUP_PATH) {
     if (!hasSession) return NextResponse.next();
 
     const home = homeFor(role, ownSlug);
@@ -91,5 +92,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/admin/:path*", "/w/:path*", "/desk/:path*"],
+  matcher: ["/login", "/signup", "/admin/:path*", "/w/:path*", "/desk/:path*"],
 };

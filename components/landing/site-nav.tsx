@@ -94,7 +94,7 @@ export function SiteNav() {
             Log in
           </Link>
           <SpecularButton
-            href="/login"
+            href="/signup"
             radius={999}
             tint="var(--ink)"
             tintOpacity={1}

@@ -448,6 +448,15 @@ function LoginForm() {
         )}
       </Card>
 
+      {needsSetup === false && !pending ? (
+        <p className="text-sm text-muted-foreground">
+          New to Magic Agent?{" "}
+          <Link href="/signup" className="font-medium text-foreground underline underline-offset-2">
+            Create your agent
+          </Link>
+        </p>
+      ) : null}
+
       <Link href="/" className="text-xs text-muted-foreground underline">
         Back to the website
       </Link>

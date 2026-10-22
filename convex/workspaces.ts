@@ -5,7 +5,8 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { mutation } from "./functions";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { WithoutSystemFields } from "convex/server";
 import { kvPair, workspaceStage } from "./schema";
 import { slugify, randomKey } from "./lib/shared";
 import {
@@ -88,6 +89,39 @@ async function uniqueSlug(ctx: MutationCtx, desired: string): Promise<string> {
     candidate = `${base}-${attempt + 2}`;
   }
   return `${base}-${randomKey(6)}`;
+}
+
+type Defaulted = "locale" | "timezone" | "currency" | "facts";
+type NewWorkspace = Omit<
+  WithoutSystemFields<Doc<"workspaces">>,
+  Defaulted | "slug" | "webhookSecret" | "status" | "createdAt" | "updatedAt"
+> &
+  Partial<Pick<Doc<"workspaces">, Defaulted>>;
+
+/** A new workspace with its trial, welcome bonus and owner on the roster. */
+export async function insertWorkspace(
+  ctx: MutationCtx,
+  fields: NewWorkspace
+): Promise<{ workspaceId: Id<"workspaces">; slug: string }> {
+  const now = Date.now();
+  const slug = await uniqueSlug(ctx, fields.name);
+  const workspaceId = await ctx.db.insert("workspaces", {
+    ...fields,
+    name: fields.name.trim(),
+    slug,
+    locale: fields.locale || "en-GB",
+    timezone: fields.timezone || "Europe/London",
+    currency: fields.currency || "GBP",
+    webhookSecret: randomKey(32),
+    facts: fields.facts ?? [],
+    status: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await grantWelcomeBonus(ctx, workspaceId);
+  const workspace = await ctx.db.get("workspaces", workspaceId);
+  if (workspace) await ensureOwnerMember(ctx, workspace);
+  return { workspaceId, slug };
 }
 
 export const list = query({
@@ -228,11 +262,8 @@ export const create = mutation({
   handler: async (ctx, args) => {
     await requireEveryWorkspace(ctx);
     const checked = regional(args);
-    const now = Date.now();
-    const slug = await uniqueSlug(ctx, args.name);
-    const workspaceId = await ctx.db.insert("workspaces", {
-      name: args.name.trim(),
-      slug,
+    return await insertWorkspace(ctx, {
+      name: args.name,
       ownerName: args.ownerName?.trim() || undefined,
       tagline: args.tagline,
       description: args.description,
@@ -241,21 +272,13 @@ export const create = mutation({
       supportEmail: args.supportEmail,
       supportPhone: args.supportPhone,
       address: args.address,
-      locale: checked.locale || "en-GB",
-      timezone: checked.timezone || "Europe/London",
-      currency: checked.currency || "GBP",
+      locale: checked.locale,
+      timezone: checked.timezone,
+      currency: checked.currency,
       theme: args.theme,
       webhookUrl: args.webhookUrl,
-      webhookSecret: randomKey(32),
-      facts: args.facts ?? [],
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
+      facts: args.facts,
     });
-    await grantWelcomeBonus(ctx, workspaceId);
-    const workspace = await ctx.db.get("workspaces", workspaceId);
-    if (workspace) await ensureOwnerMember(ctx, workspace);
-    return { workspaceId, slug };
   },
 });
 
@@ -549,11 +572,8 @@ export const seedDemo = mutation({
   args: {},
   handler: async (ctx): Promise<{ workspaceId: Id<"workspaces">; slug: string }> => {
     await requireEveryWorkspace(ctx);
-    const now = Date.now();
-    const slug = await uniqueSlug(ctx, "Northwind Print Co");
-    const workspaceId = await ctx.db.insert("workspaces", {
+    return await insertWorkspace(ctx, {
       name: "Northwind Print Co",
-      slug,
       tagline: "Commercial print, packaging and merchandise",
       description:
         "Northwind Print Co is a commercial printer supplying business stationery, marketing print, packaging and branded merchandise to UK businesses. Quotes are prepared by the sales team; the bot never quotes prices itself.",
@@ -568,14 +588,6 @@ export const seedDemo = mutation({
         { key: "Delivery", value: "UK mainland only, 3–7 working days" },
         { key: "Minimum order", value: "£75 excluding VAT" },
       ],
-      webhookSecret: randomKey(32),
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
     });
-    await grantWelcomeBonus(ctx, workspaceId);
-    const workspace = await ctx.db.get("workspaces", workspaceId);
-    if (workspace) await ensureOwnerMember(ctx, workspace);
-    return { workspaceId, slug };
   },
 });

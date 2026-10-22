@@ -6,11 +6,8 @@ import { describeUserAgent } from "@/lib/device";
 import {
   CHALLENGE_COOKIE,
   DESK_PATH,
-  ROLE_COOKIE,
-  SESSION_COOKIE,
-  WORKSPACE_COOKIE,
   challengeCookieOptions,
-  sessionCookieOptions,
+  setSessionCookies,
   type SessionRole,
 } from "@/lib/session";
 
@@ -48,23 +45,7 @@ function signedIn(
         ? DESK_PATH
         : "/admin";
 
-  jar.delete(CHALLENGE_COOKIE);
-  jar.set({
-    name: SESSION_COOKIE,
-    value: sessionToken,
-    ...sessionCookieOptions(),
-  });
-  jar.set({ name: ROLE_COOKIE, value: role, ...sessionCookieOptions() });
-  if (workspaceSlug) {
-    jar.set({
-      name: WORKSPACE_COOKIE,
-      value: workspaceSlug,
-      ...sessionCookieOptions(),
-    });
-  } else {
-    jar.delete(WORKSPACE_COOKIE);
-  }
-
+  setSessionCookies(jar, sessionToken, role, workspaceSlug);
   return NextResponse.json({ ok: true, redirectTo });
 }
 

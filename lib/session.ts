@@ -1,3 +1,5 @@
+import type { cookies } from "next/headers";
+
 // Shared session-cookie contract between the route handlers and middleware.
 //
 // The cookie holds an opaque, long-lived session token and is httpOnly, so
@@ -51,4 +53,27 @@ export function sessionCookieOptions() {
 
 export function challengeCookieOptions() {
   return { ...sessionCookieOptions(), maxAge: CHALLENGE_MAX_AGE_S };
+}
+
+/** A sign-up waiting on its emailed code; lives as long as its codes do. */
+export const SIGNUP_COOKIE = "mab_signup";
+
+export function signupCookieOptions() {
+  return { ...sessionCookieOptions(), maxAge: 60 * 60 };
+}
+
+export function setSessionCookies(
+  jar: Awaited<ReturnType<typeof cookies>>,
+  sessionToken: string,
+  role: SessionRole,
+  workspaceSlug: string | null
+) {
+  jar.delete(CHALLENGE_COOKIE);
+  jar.set({ name: SESSION_COOKIE, value: sessionToken, ...sessionCookieOptions() });
+  jar.set({ name: ROLE_COOKIE, value: role, ...sessionCookieOptions() });
+  if (workspaceSlug) {
+    jar.set({ name: WORKSPACE_COOKIE, value: workspaceSlug, ...sessionCookieOptions() });
+  } else {
+    jar.delete(WORKSPACE_COOKIE);
+  }
 }

@@ -81,7 +81,7 @@ export function PromptBox() {
             <span className="max-[480px]:hidden">Goes live on your own number</span>
           </span>
           <Link
-            href="/login"
+            href={value.trim() ? { pathname: "/signup", query: { brief: value.trim() } } : "/signup"}
             aria-label="Create this agent"
             className="flex size-10 items-center justify-center rounded-full bg-(--ink) text-(--paper) transition-transform hover:-translate-y-0.5"
           >

@@ -1319,6 +1319,9 @@ export const deleteExpiredSessions = internalMutation({
         await ctx.db.delete("authChallenges", challenge._id);
       }
     }
+    for (const signup of await ctx.db.query("signups").collect()) {
+      if (signup.expiresAt < now) await ctx.db.delete("signups", signup._id);
+    }
     return { removed };
   },
 });

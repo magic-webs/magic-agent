@@ -145,7 +145,7 @@ function PlanCard({ plan, offer }: { plan: PublicPlan; offer: CurrencyPricing })
       </div>
 
       <SpecularButton
-        href="/login"
+        href="/signup"
         radius={999}
         tint={featured ? "var(--paper)" : "var(--ink)"}
         tintOpacity={1}

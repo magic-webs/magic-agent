@@ -1,10 +1,14 @@
 "use node";
 
-import { createHmac } from "node:crypto";
+import { createHmac, randomInt } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { platformEmail, platformFrom, sendPlatformEmail } from "./lib/notifications";
+import { signupCodeEmailHtml } from "./lib/platformEmail";
+import { publicSiteUrl } from "./lib/publicUrl";
+import type { SignupEmail } from "./signup";
 
 // OWASP's 2023 floor for PBKDF2-SHA256.
 const PBKDF2_ITERATIONS = 210_000;
@@ -1499,6 +1503,122 @@ export const disableTwoFactor = action({
       principal: caller.key,
     });
     return { success: true };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Sign-up from the website: a workspace and a user login, once the emailed
+// code comes back. The trial and welcome bonus come with the workspace.
+// ---------------------------------------------------------------------------
+
+function signupCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+async function sendSignupCode(details: SignupEmail, code: string): Promise<void> {
+  const brand = platformFrom().fromName;
+  const site = process.env.PUBLIC_SITE_URL ? publicSiteUrl() : undefined;
+  const sent = await sendPlatformEmail({
+    to: [details.email],
+    subject: `${code} is your ${brand} code`,
+    html: signupCodeEmailHtml({ ...details, code, site, brand }),
+  });
+  if (!sent.ok) {
+    console.error("auth.signUp: code email failed", sent.error);
+    throw new ConvexError("The code could not be emailed. Try again in a minute.");
+  }
+}
+
+export const startSignUp = action({
+  args: {
+    name: v.string(),
+    businessName: v.string(),
+    email: v.string(),
+    password: v.string(),
+    timezone: v.optional(v.string()),
+    locale: v.optional(v.string()),
+    brief: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ challenge: string; email: string }> => {
+    const name = args.name.trim();
+    const businessName = args.businessName.trim();
+    const email = args.email.trim().toLowerCase();
+    if (!name) throw new ConvexError("Enter your name.");
+    if (!businessName) throw new ConvexError("Enter your business name.");
+    if (name.length > 80 || businessName.length > 80) {
+      throw new ConvexError("Keep names under 80 characters.");
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      throw new ConvexError("Enter a valid email address.");
+    }
+    if (args.password.length < 12) {
+      throw new ConvexError("Choose a password of at least 12 characters.");
+    }
+    if (!platformEmail()) {
+      throw new ConvexError("Sign-up is not open right now. Try again later.");
+    }
+
+    const challenge = randomToken(32);
+    const code = signupCode();
+    const details: SignupEmail = await ctx.runMutation(internal.signup.start, {
+      tokenHash: await sha256Hex(challenge),
+      codeHash: await sha256Hex(`${challenge}:${code}`),
+      email,
+      name,
+      businessName,
+      passwordHash: await hashPassword(args.password),
+      timezone: args.timezone?.trim().slice(0, 64) || undefined,
+      locale: args.locale?.trim().slice(0, 35) || undefined,
+      brief: args.brief?.trim().slice(0, 2000) || undefined,
+    });
+    await sendSignupCode(details, code);
+    return { challenge, email };
+  },
+});
+
+export const resendSignUpCode = action({
+  args: { challenge: v.string() },
+  handler: async (ctx, args): Promise<{ email: string }> => {
+    const challenge = args.challenge.trim();
+    const code = signupCode();
+    const details: SignupEmail = await ctx.runMutation(internal.signup.resend, {
+      tokenHash: await sha256Hex(challenge),
+      codeHash: await sha256Hex(`${challenge}:${code}`),
+    });
+    await sendSignupCode(details, code);
+    return { email: details.email };
+  },
+});
+
+export const finishSignUp = action({
+  args: {
+    challenge: v.string(),
+    code: v.string(),
+    device: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ sessionToken: string; expiresAt: number; workspaceSlug: string }> => {
+    const challenge = args.challenge.trim();
+    const done = await ctx.runMutation(internal.signup.complete, {
+      tokenHash: await sha256Hex(challenge),
+      codeHash: await sha256Hex(`${challenge}:${args.code.replace(/\D/g, "")}`),
+    });
+    if (!done.ok) {
+      throw new ConvexError({ message: done.error, restart: done.restart });
+    }
+    const opened = await openSession(
+      ctx,
+      { role: "user", userId: done.userId },
+      { source: "web", device: cleanDevice(args.device), mode: "exclusive" }
+    );
+    if (!opened.ok) throw new ConvexError("Your account is ready. Sign in to open it.");
+    return {
+      sessionToken: opened.sessionToken,
+      expiresAt: opened.expiresAt,
+      workspaceSlug: done.slug,
+    };
   },
 });
 

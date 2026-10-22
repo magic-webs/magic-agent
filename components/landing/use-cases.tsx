@@ -49,7 +49,7 @@ export function UseCases() {
       {CASES.map(({ icon: Icon, title, body, ask, tag }) => (
         <Link
           key={title}
-          href="/login"
+          href="/signup"
           className="group flex flex-col overflow-hidden rounded-[22px] border border-(--line) bg-(--surface) transition duration-500 ease-out hover:-translate-y-1.5 hover:shadow-[0_30px_60px_-35px_rgb(20_40_80/0.45)]"
         >
           <div className="stage-mesh relative h-52 overflow-hidden">

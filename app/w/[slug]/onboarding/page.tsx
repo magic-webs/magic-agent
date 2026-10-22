@@ -154,7 +154,7 @@ export default function OnboardingHubPage() {
       </header>
 
       {/* ------------------------------------------------------------- dial */}
-      <Card className="overflow-hidden">
+      <Card className="shrink-0 overflow-hidden">
         <CardContent className="flex flex-col items-center gap-6 py-2 sm:flex-row sm:gap-8">
           {loading ? (
             <Skeleton className="size-36 shrink-0 rounded-full" />

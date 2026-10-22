@@ -114,6 +114,26 @@ export const authTables = {
     expiresAt: v.number(),
   }).index("by_tokenHash", ["tokenHash"]),
 
+  /** A sign-up from the website, held until its emailed code comes back. */
+  signups: defineTable({
+    tokenHash: v.string(),
+    email: v.string(),
+    name: v.string(),
+    businessName: v.string(),
+    passwordHash: v.string(),
+    timezone: v.optional(v.string()),
+    locale: v.optional(v.string()),
+    brief: v.optional(v.string()),
+    codeHash: v.string(),
+    attempts: v.number(),
+    sends: v.number(),
+    sentAt: v.number(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_email", ["email"]),
+
   twoFactor: defineTable({
     principal: v.string(),
     secret: v.string(),

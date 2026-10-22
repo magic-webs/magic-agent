@@ -146,6 +146,7 @@ import type * as schema_platform from "../schema/platform.js";
 import type * as schema_records from "../schema/records.js";
 import type * as schema_validators from "../schema/validators.js";
 import type * as schema_workspaces from "../schema/workspaces.js";
+import type * as signup from "../signup.js";
 import type * as speech from "../speech.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as team from "../team.js";
@@ -306,6 +307,7 @@ declare const fullApi: ApiFromModules<{
   "schema/records": typeof schema_records;
   "schema/validators": typeof schema_validators;
   "schema/workspaces": typeof schema_workspaces;
+  signup: typeof signup;
   speech: typeof speech;
   subscriptions: typeof subscriptions;
   team: typeof team;

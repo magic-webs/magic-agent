@@ -80,7 +80,7 @@ export default async function LandingPage() {
         lines={["Every customer,", "answered in seconds"]}
         action={
           <SpecularButton
-            href="/login"
+            href="/signup"
             radius={999}
             tint="var(--ink)"
             tintOpacity={1}
@@ -208,7 +208,7 @@ export default async function LandingPage() {
           Describe your business, add your price list, connect WhatsApp. Live this afternoon.
         </p>
         <div data-fade>
-          <SpecularButton href="/login" size="md" radius={999} tintOpacity={0.08} blur={12} lineColor="#10b981" autoAnimate className="group">
+          <SpecularButton href="/signup" size="md" radius={999} tintOpacity={0.08} blur={12} lineColor="#10b981" autoAnimate className="group">
             Get started
             <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
           </SpecularButton>

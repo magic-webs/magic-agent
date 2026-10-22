@@ -163,7 +163,8 @@ function bannerFor(
       tone: "warning",
     };
   }
-  if (status.lowBalance) {
+  // A trial wallet holds only the welcome credit, which starts below the line.
+  if (status.lowBalance && (access.state !== "trial" || status.balanceMicros <= 0)) {
     const balance = money(status.balanceMicros);
     return {
       text: status.rechargeInFlight

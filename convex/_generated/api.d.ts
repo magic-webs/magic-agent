@@ -82,6 +82,7 @@ import type * as lib_optOut from "../lib/optOut.js";
 import type * as lib_ordersBook from "../lib/ordersBook.js";
 import type * as lib_panel from "../lib/panel.js";
 import type * as lib_payments from "../lib/payments.js";
+import type * as lib_personalise from "../lib/personalise.js";
 import type * as lib_plans from "../lib/plans.js";
 import type * as lib_platformEmail from "../lib/platformEmail.js";
 import type * as lib_pricing from "../lib/pricing.js";
@@ -247,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ordersBook": typeof lib_ordersBook;
   "lib/panel": typeof lib_panel;
   "lib/payments": typeof lib_payments;
+  "lib/personalise": typeof lib_personalise;
   "lib/plans": typeof lib_plans;
   "lib/platformEmail": typeof lib_platformEmail;
   "lib/pricing": typeof lib_pricing;

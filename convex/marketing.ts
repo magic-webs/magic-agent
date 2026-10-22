@@ -78,6 +78,8 @@ type ShownTemplate = Extract<Outbound, { kind: "template" }>;
 /** How many contacts one send batch covers. */
 export const SEND_BATCH = 40;
 const PLAN_BATCH = 200;
+const FIELD_SCAN = 1000;
+const PREVIEW_SCAN = 400;
 /** How far the audience count looks before it says "at least". */
 const AUDIENCE_SCAN_CAP = 2000;
 /** The longest window the calendar query answers for — a month and a bit. */
@@ -110,6 +112,18 @@ async function settingsFor(
     .query("marketingSettings")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .unique();
+}
+
+function personOf(contact: Doc<"contacts">) {
+  return {
+    name: contact.name,
+    externalId: contact.externalId,
+    phone: contact.phone,
+    email: contact.email,
+    company: contact.company,
+    birthday: contact.birthday,
+    attributes: contact.attributes.slice(0, 40),
+  };
 }
 
 /** The number greetings go out from: the workspace's first live WhatsApp channel. */
@@ -812,6 +826,68 @@ export const stats = query({
   },
 });
 
+/** What a template blank can be filled from: the fields contacts actually have. */
+export const contactFields = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const contacts = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(FIELD_SCAN);
+    const keys = new Map<string, { key: string; count: number }>();
+    const counts = { named: 0, email: 0, company: 0, birthday: 0 };
+    for (const contact of contacts) {
+      if (contact.name?.trim()) counts.named++;
+      if (contact.email?.trim()) counts.email++;
+      if (contact.company?.trim()) counts.company++;
+      if (contact.birthday) counts.birthday++;
+      for (const row of contact.attributes) {
+        const id = row.key.trim().toLowerCase();
+        if (!id || !row.value.trim()) continue;
+        const entry = keys.get(id) ?? { key: row.key.trim(), count: 0 };
+        entry.count++;
+        keys.set(id, entry);
+      }
+    }
+    return {
+      scanned: contacts.length,
+      ...counts,
+      attributes: [...keys.values()].sort((a, b) => b.count - a.count).slice(0, 50),
+    };
+  },
+});
+
+/** A few real people from the audience, to preview a personalised message as. */
+export const previewContacts = query({
+  args: {
+    workspaceId: v.id("workspaces"),
+    audience: audienceSelectionValidator,
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const settings = await settingsFor(ctx, args.workspaceId);
+    const known = knownCategories(settings);
+    const records = await loadRecordMatch(ctx, args.workspaceId, args.audience);
+    const contacts = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(PREVIEW_SCAN);
+    const found = [];
+    for (const contact of contacts) {
+      if (found.length >= 20) break;
+      if (!reachable(contact)) continue;
+      if (!(await inSelection(ctx, contact, args.audience, { known, now: args.now, records }))) continue;
+      found.push(contact);
+    }
+    return found
+      .sort((a, b) => Number(Boolean(b.name?.trim())) - Number(Boolean(a.name?.trim())))
+      .slice(0, 5)
+      .map((contact) => ({ _id: contact._id, ...personOf(contact) }));
+  },
+});
+
 // ---------------------------------------------------------------- the sweeps
 
 export async function startEvent(
@@ -1068,11 +1144,12 @@ export const audiencePage = internalQuery({
     const records =
       fromGuests || rollout ? undefined : await loadRecordMatch(ctx, args.workspaceId, args.audience);
 
-    const contacts: Array<{
-      contactId: Id<"contacts">;
-      to: string;
-      name?: string;
-    }> = [];
+    const contacts: Array<
+      ReturnType<typeof personOf> & {
+        contactId: Id<"contacts">;
+        to: string;
+      }
+    > = [];
     let skipped = 0;
     for (const contact of candidates) {
       if (!contact || contact.workspaceId !== args.workspaceId) continue;
@@ -1111,7 +1188,7 @@ export const audiencePage = internalQuery({
       contacts.push({
         contactId: contact._id,
         to: contact.externalId,
-        name: contact.name,
+        ...personOf(contact),
       });
     }
 
@@ -1483,6 +1560,7 @@ export const testContext = internalQuery({
       to,
       contactId: contact?._id ?? null,
       contactName: contact?.name ?? null,
+      person: contact ? personOf(contact) : null,
     };
   },
 });

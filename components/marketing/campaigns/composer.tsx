@@ -5,14 +5,20 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
-import { templateBlocker } from "@/convex/lib/marketing";
+import { renderTemplate, templateBlocker } from "@/convex/lib/marketing";
+import {
+  fillProblems,
+  fillsFor,
+  personalValues,
+  type Person,
+  type VariableFill,
+} from "@/convex/lib/personalise";
 import { recommendedPlan, type RolloutPlan } from "@/convex/lib/rollout";
 import {
   HOURS,
   dayLabel,
   fail,
   hourLabel,
-  previewTemplate,
   templateOptionLabel,
   templateReady,
 } from "@/components/marketing/format";
@@ -20,6 +26,7 @@ import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import { SmartReview } from "@/components/marketing/campaigns/smart-review";
+import { VariableMapper } from "@/components/marketing/campaigns/variable-mapper";
 import {
   AudiencePicker,
   EVERYONE,
@@ -35,10 +42,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/components/ui/toast";
-import { ArrowRightIcon, PaperPlaneTiltIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  ArrowRightIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  PaperPlaneTiltIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 
 type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
@@ -54,6 +66,7 @@ export type CampaignDraft = {
   title: string;
   templateId?: Id<"marketingTemplates">;
   message: string;
+  variables: VariableFill[];
   audience: AudienceChoice;
   date: string;
   sendHour: number;
@@ -69,6 +82,7 @@ export function emptyCampaign(today: string, mode: CampaignMode = "manual"): Cam
     plan: recommendedPlan(),
     title: "",
     message: "",
+    variables: [],
     audience: EVERYONE,
     date: today,
     sendHour: 10,
@@ -85,7 +99,11 @@ const SPEEDS = [
   { value: "30", label: "30 a minute" },
 ];
 
-const MESSAGE_VARIABLE = /\{\{\s*message\s*\}\}/;
+const SAMPLE_PERSON: Person = { name: "Asha Sharma" };
+
+function personName(person: Person) {
+  return person.name?.trim() || (person.externalId ? `+${person.externalId}` : "a contact");
+}
 
 function Section({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
   return (
@@ -125,6 +143,7 @@ export function CampaignComposer({
   const [busy, setBusy] = useState(false);
   const [reviewing, setReviewing] = useState(startInReview && initial.mode === "smart");
   const [audienceValid, setAudienceValid] = useState(true);
+  const [sample, setSample] = useState(0);
   const smart = draft.mode === "smart";
   const set = (patch: Partial<CampaignDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -135,8 +154,19 @@ export function CampaignComposer({
     audience: draft.audience,
     now,
   });
-  const needsMessage = template ? MESSAGE_VARIABLE.test(template.body) : false;
+  const people = useQuery(
+    api.marketing.previewContacts,
+    template && audienceValid ? { workspaceId: workspace._id, audience: draft.audience, now } : "skip"
+  );
+  const fills = template ? fillsFor(template.body, draft.variables, draft.message) : [];
+  const blanks = template ? fillProblems(template.body, fills) : [];
   const blocker = template ? templateBlocker(template) : null;
+  const person = people?.length ? people[sample % people.length] : SAMPLE_PERSON;
+  const setFills = (next: VariableFill[]) =>
+    set({
+      variables: next,
+      message: next.find((fill) => fill.variable === "message" && fill.source === "text")?.text ?? draft.message,
+    });
   const short =
     estimate?.balanceMicros !== null &&
     estimate?.balanceMicros !== undefined &&
@@ -157,6 +187,7 @@ export function CampaignComposer({
         title: draft.title,
         templateId: draft.templateId,
         message: draft.message,
+        variables: fills,
         audience: draft.audience,
         date: draft.when === "now" ? today : draft.date,
         sendHour: draft.sendHour,
@@ -199,26 +230,54 @@ export function CampaignComposer({
     !audienceValid ||
     !draft.title.trim() ||
     !draft.templateId ||
-    (needsMessage && !draft.message.trim());
+    blanks.length > 0;
   const cannotSubmit = cannotReview || (draft.when === "now" && Boolean(blocker));
 
   const money = (micros: number) =>
     estimate?.currency ? formatMoney(micros, estimate.currency) : null;
 
+  const previewBody = () => {
+    if (!template) return "";
+    const values = personalValues(
+      fills,
+      {
+        business: workspace.name,
+        event: draft.title.trim() || "the day",
+        date: dayLabel(draft.when === "now" ? today : draft.date),
+        venue: "",
+        message: "",
+      },
+      person
+    );
+    for (const key of Object.keys(values) as Array<keyof typeof values>) values[key] ||= "…";
+    return renderTemplate(template.body, values).text;
+  };
+
+  const previewAs =
+    template && fills.length > 0 ? (
+      <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+        {people && people.length > 1 ? (
+          <Button size="icon-sm" variant="ghost" aria-label="Previous contact" onClick={() => setSample((n) => n + people.length - 1)}>
+            <CaretLeftIcon />
+          </Button>
+        ) : null}
+        <span>
+          {people?.length ? "As " : "Sample: "}
+          <span className="font-medium text-foreground">{personName(person)}</span>
+        </span>
+        {people && people.length > 1 ? (
+          <Button size="icon-sm" variant="ghost" aria-label="Next contact" onClick={() => setSample((n) => n + 1)}>
+            <CaretRightIcon />
+          </Button>
+        ) : null}
+      </div>
+    ) : null;
+
   const preview = (size: "card" | "phone") => (
     <WhatsAppPreview
       size={size}
       className={size === "card" ? "lg:hidden" : undefined}
-      body={
-        template
-          ? previewTemplate(template.body, {
-              business: workspace.name,
-              event: draft.title,
-              date: dayLabel(draft.when === "now" ? today : draft.date),
-              message: draft.message,
-            })
-          : ""
-      }
+      body={previewBody()}
       header={template?.header}
       headerMedia={
         template?.headerMedia
@@ -236,9 +295,15 @@ export function CampaignComposer({
     return (
       <SmartReview
         draft={draft}
+        fills={fills}
         template={template}
         estimate={estimate}
-        preview={preview("phone")}
+        preview={
+          <>
+            {previewAs}
+            {preview("phone")}
+          </>
+        }
         today={today}
         busy={busy}
         launchBlocked={cannotSubmit}
@@ -294,32 +359,19 @@ export function CampaignComposer({
                 <WarningCircleIcon className="size-3.5" /> {blocker}
               </p>
             ) : null}
-            {needsMessage ? (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="campaign-message">The line that fills {"{{message}}"}</Label>
-                <Textarea
-                  id="campaign-message"
-                  rows={2}
-                  maxLength={400}
-                  value={draft.message}
-                  placeholder="The message to send"
-                  onChange={(e) => set({ message: e.target.value })}
-                />
-              </div>
-            ) : null}
+            {template ? <VariableMapper body={template.body} fills={fills} onChange={setFills} /> : null}
             {template ? (
               <div className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3">
                 <p className="text-xs font-medium text-muted-foreground lg:hidden">
                   What a customer reads
                 </p>
+                <div className="lg:hidden">{previewAs}</div>
                 {preview("card")}
                 <TestSendButton
                   templateId={template._id}
                   message={draft.message}
-                  disabledReason={
-                    blocker ??
-                    (needsMessage && !draft.message.trim() ? "Write the line for {{message}} first." : null)
-                  }
+                  variables={fills}
+                  disabledReason={blocker ?? blanks[0] ?? null}
                 />
               </div>
             ) : null}
@@ -464,6 +516,7 @@ export function CampaignComposer({
             <p className="text-center text-xs font-medium text-muted-foreground">
               What a customer reads
             </p>
+            {previewAs}
             {preview("phone")}
           </div>
         </aside>

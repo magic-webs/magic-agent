@@ -14,7 +14,8 @@ import { isEveryone, measureAudience, type AudienceSelection } from "./lib/audie
 import { isLocalDate, templateBlocker, zonedToInstant } from "./lib/marketing";
 import { eventKey, statsFor } from "./lib/marketingStats";
 import { failureCode } from "./lib/metaErrors";
-import { audienceSelection } from "./schema/marketing";
+import { audienceSelection, variableFill } from "./schema/marketing";
+import { cleanFills, fillProblems } from "./lib/personalise";
 import { clampHour, startEvent, templateInWorkspace } from "./marketing";
 import { resumeRollout } from "./marketingRollout";
 import { normaliseTier, validPlan } from "./lib/rollout";
@@ -129,6 +130,7 @@ export const save = mutation({
     title: v.string(),
     templateId: v.id("marketingTemplates"),
     message: v.optional(v.string()),
+    variables: v.optional(v.array(variableFill)),
     audience: audienceSelection,
     date: v.string(),
     sendHour: v.number(),
@@ -159,6 +161,9 @@ export const save = mutation({
     if (!title) throw new ConvexError("Give the campaign a name.");
     const template = await templateInWorkspace(ctx, args.workspaceId, args.templateId);
     await checkAudience(ctx, args.workspaceId, args.audience);
+    const variables = cleanFills(template.body, args.variables ?? []);
+    const blank = fillProblems(template.body, variables)[0];
+    if (blank) throw new ConvexError(blank);
 
     const now = Date.now();
     const sendHour = clampHour(args.sendHour);
@@ -184,6 +189,7 @@ export const save = mutation({
       sendAt,
       templateId: template._id,
       note: args.message?.trim().slice(0, 400) || undefined,
+      variables: variables.length > 0 ? variables : undefined,
       audience:
         isEveryone(args.audience) &&
         args.audience.excludeAudienceIds.length === 0 &&

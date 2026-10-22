@@ -12,7 +12,6 @@ import { buildMessage, providerMessageId } from "./lib/whatsappSend";
 import {
   asParameter,
   eventDateLabel,
-  greetingName,
   missingVariables,
   renderTemplate,
   sampleValues,
@@ -21,6 +20,8 @@ import {
   type TemplateVariable,
 } from "./lib/marketing";
 import type { AudienceSelection } from "./lib/audience";
+import { personalValues, type VariableFill } from "./lib/personalise";
+import { variableFill } from "./schema/marketing";
 import { slug, trackFirstLink } from "./lib/links";
 import { errorText, providerError } from "./lib/panel";
 import { publicSiteUrl } from "./lib/publicUrl";
@@ -100,6 +101,7 @@ async function sendPage(
     cursor: string | null;
     wave?: { bestHour: number | null; next?: number };
     rolloutWave?: number;
+    variables?: VariableFill[];
     context: {
       workspaceName: string;
       agentId: Id<"agents"> | null;
@@ -139,10 +141,10 @@ async function sendPage(
   }> = [];
   const base = process.env.TRACKING_BASE_URL ?? publicSiteUrl();
   for (const contact of page.contacts) {
-    const rendered = renderTemplate(args.context.template.body, {
-      ...args.values,
-      name: greetingName(contact.name),
-    });
+    const rendered = renderTemplate(
+      args.context.template.body,
+      personalValues(args.variables, args.values, contact)
+    );
     const { text, parameters, code, target }: ReturnType<typeof trackFirstLink> =
       args.track && base
         ? trackFirstLink(rendered.parameters, rendered.text, base, args.track)
@@ -235,8 +237,8 @@ function eventValues(context: {
  * an empty parameter, so a {{venue}} with no venue is caught here once rather
  * than failing for every contact.
  */
-function unfilled(body: string, values: SharedValues): string | null {
-  const missing = missingVariables(body, { ...values, name: "there" });
+function unfilled(body: string, values: SharedValues, fills?: VariableFill[]): string | null {
+  const missing = missingVariables(body, personalValues(fills, values, null));
   if (missing.length === 0) return null;
   const names = missing.map((name) => `{{${name}}}`).join(" and ");
   return missing.includes("message")
@@ -282,7 +284,7 @@ export const runEvent = internalAction({
     const values = eventValues(context);
     const reason =
       blocker(context) ??
-      (context.template ? unfilled(context.template.body, values) : null);
+      (context.template ? unfilled(context.template.body, values, context.event.variables) : null);
     if (reason || !context.template || !context.channel) {
       await ctx.runMutation(
         context.event.rollout ? internal.marketingRollout.pause : internal.marketing.failEvent,
@@ -319,6 +321,7 @@ export const runEvent = internalAction({
       campaignId: context.event.campaignId,
       guestSegment: context.event.guestSegment,
       rolloutWave: rollout?.wave,
+      variables: context.event.variables,
       track:
         context.event.trackLinks || context.event.campaignId
           ? slug(context.campaign?.title ?? context.event.title)
@@ -428,12 +431,13 @@ export const sendTest = action({
     eventId: v.optional(v.id("marketingEvents")),
     templateId: v.optional(v.id("marketingTemplates")),
     message: v.optional(v.string()),
+    variables: v.optional(v.array(variableFill)),
   },
   handler: async (ctx, args): Promise<{ to: string; text: string }> => {
     if (!args.eventId && !args.templateId) {
       throw new ConvexError("Say what to test: a calendar entry or a template.");
     }
-    const { message: typed, ...target } = args;
+    const { message: typed, variables, ...target } = args;
     let context = await ctx.runQuery(internal.marketing.testContext, target);
 
     if (
@@ -468,16 +472,17 @@ export const sendTest = action({
           venue: samples.venue,
           message: asParameter(typed ?? "") || samples.message,
         };
+    const fills = variables ?? context.event?.variables;
     const reason =
-      blocker(context) ?? (template ? unfilled(template.body, values) : null);
+      blocker(context) ?? (template ? unfilled(template.body, values, fills) : null);
     if (reason || !template || !context.channel) {
       throw new ConvexError(reason ?? "Nothing to send.");
     }
 
-    const { text, parameters } = renderTemplate(template.body, {
-      ...values,
-      name: greetingName(context.contactName ?? undefined),
-    });
+    const { text, parameters } = renderTemplate(
+      template.body,
+      personalValues(fills, values, context.person)
+    );
     const sent = await sendTemplate(context.channel, context.to, template, parameters, text);
     if (!sent.ok) throw new ConvexError(`WhatsApp did not accept it — ${sent.error}`);
 

@@ -53,6 +53,33 @@ export const importCounts = v.object({
   saved: v.number(),
 });
 
+export const variableFill = v.object({
+  variable: v.union(
+    v.literal("name"),
+    v.literal("business"),
+    v.literal("event"),
+    v.literal("date"),
+    v.literal("venue"),
+    v.literal("message")
+  ),
+  source: v.union(
+    v.literal("first_name"),
+    v.literal("full_name"),
+    v.literal("phone"),
+    v.literal("email"),
+    v.literal("company"),
+    v.literal("birthday"),
+    v.literal("attribute"),
+    v.literal("business"),
+    v.literal("campaign"),
+    v.literal("date"),
+    v.literal("text")
+  ),
+  key: v.optional(v.string()),
+  text: v.optional(v.string()),
+  fallback: v.optional(v.string()),
+});
+
 export const healthQuality = v.union(
   v.literal("GREEN"),
   v.literal("YELLOW"),
@@ -158,6 +185,7 @@ export const marketingTables = {
     campaignId: v.optional(v.id("marketingCampaigns")),
     offsetDays: v.optional(v.number()),
     message: v.optional(v.string()),
+    variables: v.optional(v.array(variableFill)),
     audience: v.optional(audienceSelection),
     guestSegment: v.optional(guestSegment),
     status: v.union(

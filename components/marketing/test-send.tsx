@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import type { VariableFill } from "@/convex/lib/personalise";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,11 +49,13 @@ export function TestSendButton({
   eventId,
   templateId,
   message,
+  variables,
   disabledReason,
 }: {
   eventId?: Id<"marketingEvents">;
   templateId?: Id<"marketingTemplates">;
   message?: string;
+  variables?: VariableFill[];
   /** Why it cannot be tested yet, when it cannot. */
   disabledReason?: string | null;
 }) {
@@ -64,7 +67,13 @@ export function TestSendButton({
   const send = async () => {
     setBusy(true);
     try {
-      const result = await sendTest({ to: number, eventId, templateId, message: message?.trim() || undefined });
+      const result = await sendTest({
+        to: number,
+        eventId,
+        templateId,
+        message: message?.trim() || undefined,
+        variables,
+      });
       keepLastNumber(number.trim());
       toast.add({
         title: `Test sent to +${result.to}`,

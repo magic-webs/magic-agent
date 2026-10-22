@@ -142,6 +142,11 @@ export function renderTemplate(
   return { text, parameters };
 }
 
+/** Each variable a body uses, once, in the order Meta numbers them. */
+export function variablesIn(body: string): TemplateVariable[] {
+  return [...new Set([...body.matchAll(VARIABLE)].map((match) => match[1] as TemplateVariable))];
+}
+
 /**
  * The variables a body uses that have nothing to fill them. Meta refuses a
  * template send with an empty parameter, so this is checked before sending

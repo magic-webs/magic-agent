@@ -19,7 +19,9 @@ import {
   recommendedPlan,
   validPlan,
 } from "@/convex/lib/rollout";
+import type { VariableFill } from "@/convex/lib/personalise";
 import type { CampaignDraft } from "@/components/marketing/campaigns/composer";
+import { fillLabel } from "@/components/marketing/campaigns/variable-mapper";
 import { HOURS, QUALITY, dayLabel, hourLabel, shortDayLabel } from "@/components/marketing/format";
 import { ConfirmButton } from "@/components/marketing/calendar";
 import { plural } from "@/components/marketing/audience/shared";
@@ -78,6 +80,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 export function SmartReview({
   draft,
+  fills,
   template,
   estimate,
   preview,
@@ -89,6 +92,7 @@ export function SmartReview({
   onSave,
 }: {
   draft: CampaignDraft;
+  fills: VariableFill[];
   template: Doc<"marketingTemplates"> | undefined;
   estimate: Estimate | undefined;
   preview: ReactNode;
@@ -174,6 +178,14 @@ export function SmartReview({
               <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                 <Row label="Name">{draft.title}</Row>
                 <Row label="Template">{template?.name ?? "—"}</Row>
+                {fills.length > 0 ? (
+                  <div className="flex justify-between gap-3 sm:col-span-2">
+                    <dt className="text-muted-foreground">Blanks</dt>
+                    <dd className="text-right">
+                      {fills.map((fill, index) => `{{${index + 1}}} ${fillLabel(fill)}`).join(" · ")}
+                    </dd>
+                  </div>
+                ) : null}
                 <Row label="Will receive it">
                   {plural(estimate.reachable, "person", "people")}
                   {estimate.partial ? "+" : ""}

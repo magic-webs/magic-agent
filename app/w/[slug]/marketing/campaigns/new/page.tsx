@@ -85,6 +85,7 @@ export default function NewCampaignPage() {
             : `${source.title} (copy)`,
         templateId: source.templateId,
         message: source.note ?? "",
+        variables: source.variables ?? [],
         audience: followUpList
           ? { ...EVERYONE, audienceIds: [followUpList] }
           : (source.audience ?? EVERYONE),

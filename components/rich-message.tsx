@@ -791,17 +791,47 @@ export function RichMessage({
 
   switch (message.kind) {
     case "text":
-    case "template": {
-      const text =
-        message.kind === "text"
-          ? message.body
-          : (message.preview ?? `[${message.templateName}]`);
       return (
         <div className="whitespace-pre-wrap">
-          <WhatsAppText text={text}>
+          <WhatsAppText text={message.body}>
             <MetaSpacer meta={meta} />
           </WhatsAppText>
           <MetaStamp meta={meta} mode="pin" />
+        </div>
+      );
+
+    case "template": {
+      const header = message.headerMedia
+        ? { type: message.headerMedia.type, media: { link: message.headerMedia.link } }
+        : message.headerText
+          ? { type: "text" as const, text: message.headerText }
+          : undefined;
+      return (
+        <div className="flex min-w-60 flex-col gap-1">
+          <HeaderBlock header={header} meta={meta} />
+          <Body text={message.preview ?? `[${message.templateName}]`} />
+          <Foot text={message.footer} />
+          <MetaStamp meta={meta} />
+          {message.buttons?.length ? (
+            <Actions>
+              {message.buttons.map((button, index) => (
+                <Action
+                  key={`${button.text}-${index}`}
+                  icon={
+                    button.type === "url" ? (
+                      <ArrowSquareOutIcon weight="bold" />
+                    ) : button.type === "phone" ? (
+                      <PhoneIcon weight="bold" />
+                    ) : (
+                      <ArrowBendUpLeftIcon weight="bold" />
+                    )
+                  }
+                  label={button.text}
+                  disabled
+                />
+              ))}
+            </Actions>
+          ) : null}
         </div>
       );
     }

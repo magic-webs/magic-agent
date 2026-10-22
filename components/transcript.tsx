@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { RichMessage, parseRichPayload } from "@/components/rich-message";
+import { WhatsAppText } from "@/components/whatsapp-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -479,7 +480,7 @@ export function TranscriptView({
                     }
                   />
                 ) : (
-                  message.text
+                  <WhatsAppText text={message.text ?? ""} />
                 )}
               </BubbleContent>
             </Bubble>

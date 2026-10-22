@@ -68,6 +68,9 @@ import {
   tidyParts,
 } from "./lib/templateParts";
 import { deleteFile, fileUrl, requireOwnKey, uploadUrlFor } from "./lib/files";
+import type { Outbound } from "./lib/whatsappSend";
+
+type ShownTemplate = Extract<Outbound, { kind: "template" }>;
 
 /** How many contacts one send batch covers. */
 export const SEND_BATCH = 40;
@@ -1157,18 +1160,59 @@ async function marketingThread(
   return await ctx.db.get("conversations", conversationId);
 }
 
+/**
+ * The approved template as the customer sees it — header, footer and buttons
+ * around the body — so the inbox can draw it the way WhatsApp does.
+ */
+async function shownTemplate(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  metaName: string | undefined
+): Promise<ShownTemplate | null> {
+  if (!metaName) return null;
+  const templates = await ctx.db
+    .query("marketingTemplates")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(200);
+  const template = templates.find((row) => row.metaTemplateName === metaName);
+  return template ? templateAsShown(template) : null;
+}
+
+export function templateAsShown(template: Doc<"marketingTemplates">): ShownTemplate | null {
+  if (!template.metaTemplateName) return null;
+  const parts = tidyParts(template);
+  return {
+    kind: "template",
+    templateName: template.metaTemplateName,
+    languageCode: template.languageCode,
+    ...(parts.headerMedia
+      ? { headerMedia: { type: parts.headerMedia.type, link: fileUrl(parts.headerMedia.key) } }
+      : {}),
+    headerText: parts.header,
+    footer: parts.footer,
+    buttons: parts.buttons?.map(({ type, text }) => ({ type, text })),
+  };
+}
+
 /** Writes one delivered marketing message into a thread, as the desk's. */
 async function writeMarketingMessage(
   ctx: MutationCtx,
   thread: Doc<"conversations">,
-  args: { text: string; agentId?: Id<"agents">; now: number; wamid?: string }
+  args: {
+    text: string;
+    agentId?: Id<"agents">;
+    now: number;
+    wamid?: string;
+    shown?: ShownTemplate | null;
+  }
 ) {
   const messageId = await ctx.db.insert("messages", {
     workspaceId: thread.workspaceId,
     conversationId: thread._id,
     role: "assistant",
-    kind: "text",
+    kind: args.shown ? "rich" : "text",
     text: args.text,
+    ...(args.shown ? { payload: JSON.stringify({ ...args.shown, preview: args.text }) } : {}),
     agentId: args.agentId,
     createdAt: args.now,
   });
@@ -1229,6 +1273,7 @@ export const recordBatch = internalMutation({
     let sent = 0;
     let failed = 0;
     let lastError: string | undefined;
+    const shown = await shownTemplate(ctx, args.workspaceId, args.templateName);
 
     for (const result of args.results) {
       const sendId = await ctx.db.insert("marketingSends", {
@@ -1281,6 +1326,7 @@ export const recordBatch = internalMutation({
         agentId: args.agentId,
         now,
         wamid: result.wamid,
+        shown,
       });
       await ctx.db.patch("marketingSends", sendId, { messageId });
     }
@@ -1452,6 +1498,7 @@ export const recordTest = internalMutation({
         agentId: args.agentId,
         now,
         wamid: args.wamid,
+        shown: await shownTemplate(ctx, args.workspaceId, args.templateName),
       });
     }
     return null;
@@ -1518,6 +1565,7 @@ export const reviewContext = internalQuery({
           metaTemplateName: t.metaTemplateName!,
           languageCode: t.languageCode,
           metaStatus: t.metaStatus ?? null,
+          appliedAt: t.appliedAt ?? null,
         })),
     };
   },

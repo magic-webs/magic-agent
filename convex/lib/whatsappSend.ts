@@ -199,6 +199,10 @@ export type Outbound =
       headerMedia?: { type: "image" | "video"; link: string };
       /** What the customer reads, for the transcript. Never sent. */
       preview?: string;
+      /** The rest of what the approved template shows, for the transcript. Never sent. */
+      headerText?: string;
+      footer?: string;
+      buttons?: Array<{ type: "quick_reply" | "url" | "phone"; text: string }>;
     };
 
 // ---------------------------------------------------------------------------

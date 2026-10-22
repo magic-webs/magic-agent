@@ -49,6 +49,7 @@ import { claimSerial } from "./records";
 import { ensureOwnerMember } from "./team";
 import { newFileKey, r2, type FileFolder } from "./lib/files";
 import { MEMBER_SCOPES } from "./lib/auth";
+import { templateAsShown } from "./marketing";
 
 const WORKSPACE_BATCH = 20;
 const ORDER_BATCH = 100;
@@ -1122,5 +1123,106 @@ export const purgeRecordActivity = internalMutation({
       });
     }
     return { removed, done: page.isDone };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Website sign-ups, marked
+//
+//   bunx convex run migrations:signupSources
+//
+// Marks the workspaces that signed themselves up before `source` was kept. A
+// sign-up makes its owner's login and the workspace in one transaction, so
+// they share a creation time; a login the team adds comes later, by hand.
+// ---------------------------------------------------------------------------
+
+export const signupSources = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("users")
+      .paginate({ numItems: LOGIN_BATCH, cursor: args.cursor ?? null });
+
+    let marked = 0;
+    for (const user of page.page) {
+      if (user.createdBy || user.workspaceIds.length !== 1) continue;
+      const workspace = await ctx.db.get("workspaces", user.workspaceIds[0]!);
+      if (!workspace || workspace.source || Math.abs(workspace.createdAt - user.createdAt) > 1000) {
+        continue;
+      }
+      await ctx.db.patch("workspaces", workspace._id, { source: "signup" });
+      marked++;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.signupSources, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { marked, done: page.isDone };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Template sends, drawn as templates
+//
+//   bunx convex run migrations:templateMessages
+//
+// Marketing sends used to go into the inbox as their text alone, so the inbox
+// could not show the header, footer or buttons the customer saw. This finds
+// each one by matching its text against the workspace's templates and stores
+// the template beside it.
+// ---------------------------------------------------------------------------
+
+const MESSAGE_BATCH = 200;
+/** Less fixed text than this, and a template would match unrelated replies. */
+const MIN_TEMPLATE_TEXT = 20;
+
+function templatePattern(body: string): RegExp | null {
+  const pieces = body.trim().split(/\{\{\s*(?:name|business|event|date|venue|message)\s*\}\}/);
+  if (pieces.join("").replace(/\s+/g, "").length < MIN_TEMPLATE_TEXT) return null;
+  const literal = (piece: string) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${pieces.map(literal).join("[\\s\\S]*?")}$`);
+}
+
+export const templateMessages = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("messages")
+      .paginate({ numItems: MESSAGE_BATCH, cursor: args.cursor ?? null });
+
+    const known = new Map<Id<"workspaces">, Array<{ pattern: RegExp; shown: object }>>();
+    let converted = 0;
+    for (const message of page.page) {
+      if (message.role !== "assistant" || message.kind !== "text" || !message.text) continue;
+      let templates = known.get(message.workspaceId);
+      if (!templates) {
+        const rows = await ctx.db
+          .query("marketingTemplates")
+          .withIndex("by_workspace", (q) => q.eq("workspaceId", message.workspaceId))
+          .take(200);
+        templates = rows.flatMap((row) => {
+          const pattern = templatePattern(row.body);
+          const shown = templateAsShown(row);
+          return pattern && shown ? [{ pattern, shown }] : [];
+        });
+        known.set(message.workspaceId, templates);
+      }
+      const match = templates.find((template) => template.pattern.test(message.text!.trim()));
+      if (!match) continue;
+      await ctx.db.patch("messages", message._id, {
+        kind: "rich",
+        payload: JSON.stringify({ ...match.shown, preview: message.text }),
+      });
+      converted++;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.templateMessages, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { converted, done: page.isDone };
   },
 });

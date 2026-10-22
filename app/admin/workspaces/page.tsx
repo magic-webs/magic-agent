@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
@@ -47,6 +47,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { SelectField } from "@/components/select-field";
 import QRCode from "react-qr-code";
 import {
   Popover,
@@ -62,8 +63,10 @@ import {
   WhatsAppLogo,
 } from "@/components/brand-icons";
 import {
+  WORKSPACE_STAGES,
   WorkspaceStageBadge,
   WorkspaceStagePicker,
+  displayedStage,
 } from "@/components/workspace-stage";
 import {
   CurrencyPicker,
@@ -90,8 +93,10 @@ import {
   CopyIcon,
   GlobeIcon,
   MagicWandIcon,
+  MagnifyingGlassIcon,
   SparkleIcon,
   TableIcon,
+  XIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
@@ -285,6 +290,39 @@ function Managers({ managers }: { managers: WorkspaceManager[] }) {
       {names}
     </span>
   );
+}
+
+type Workspace = FunctionReturnType<typeof api.workspaces.list>[number];
+
+const ANY = "any";
+
+const FILTER_KEYS = ["q", "stage", "channel", "rm", "source", "status"] as const;
+type Filters = Record<(typeof FILTER_KEYS)[number], string>;
+
+function matches(workspace: Workspace, filters: Filters): boolean {
+  const query = filters.q.trim().toLowerCase();
+  if (
+    query &&
+    ![workspace.name, workspace.slug, workspace.industry, workspace.ownerName, workspace.supportEmail].some(
+      (text) => text?.toLowerCase().includes(query),
+    )
+  ) {
+    return false;
+  }
+  if (filters.stage && displayedStage(workspace.stage) !== filters.stage) return false;
+  if (filters.channel === "none") {
+    if (workspace.channels.length > 0) return false;
+  } else if (filters.channel && !workspace.channels.some((channel) => channel.type === filters.channel)) {
+    return false;
+  }
+  if (filters.rm === "none") {
+    if (workspace.managers.length > 0) return false;
+  } else if (filters.rm && !workspace.managers.some((manager) => manager._id === filters.rm)) {
+    return false;
+  }
+  if (filters.source && (workspace.source ?? "team") !== filters.source) return false;
+  if (filters.status && workspace.status !== filters.status) return false;
+  return true;
 }
 
 function lastLogin(time: number | null): string {
@@ -539,7 +577,7 @@ function CreateWorkspaceDialog() {
   );
 }
 
-export default function AdminWorkspacesPage() {
+function WorkspacesDirectory() {
   // The layout has already established that this is an administrator, so the
   // query is asked outright rather than skipped on a role check.
   const workspaces = useQuery(api.workspaces.list, {});
@@ -548,8 +586,38 @@ export default function AdminWorkspacesPage() {
   const manages = canModify("workspaces");
   const createsWorkspaces = manages && !(me?.role === "admin" && me.scoped);
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [seeding, setSeeding] = useState(false);
   const [view, setView] = useState<View>("list");
+  // Its own state so the box keeps up with typing; the URL follows it, as it
+  // does the other filters, so they survive opening a workspace and coming back.
+  const [query, setQuery] = useState(() => params.get("q") ?? "");
+
+  const filters = {
+    ...(Object.fromEntries(FILTER_KEYS.map((key) => [key, params.get(key) ?? ""])) as Filters),
+    q: query,
+  };
+  const filtering = FILTER_KEYS.some((key) => filters[key]);
+  const setFilter = (key: keyof Filters, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value && value !== ANY) next.set(key, value);
+    else next.delete(key);
+    window.history.replaceState(null, "", `${pathname}${next.size ? `?${next}` : ""}`);
+  };
+  const clearFilters = () => {
+    setQuery("");
+    window.history.replaceState(null, "", pathname);
+  };
+
+  const shown = workspaces?.filter((workspace) => matches(workspace, filters)) ?? [];
+  const managers = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const workspace of workspaces ?? []) {
+      for (const manager of workspace.managers) byId.set(manager._id, manager.name);
+    }
+    return [...byId].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [workspaces]);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
@@ -644,183 +712,296 @@ export default function AdminWorkspacesPage() {
             </div>
           </EmptyContent>
         </Empty>
-      ) : view === "list" ? (
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-44">Workspace</TableHead>
-                <TableHead className="min-w-36">Stage</TableHead>
-                <TableHead className="hidden sm:table-cell min-w-32">
-                  Channels
-                </TableHead>
-                <TableHead className="hidden md:table-cell min-w-32">
-                  RM
-                </TableHead>
-                <TableHead className="hidden lg:table-cell min-w-28">
-                  Last login
-                </TableHead>
-                <TableHead className="hidden xl:table-cell min-w-24">
-                  Created
-                </TableHead>
-                <TableHead className="w-44" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {workspaces.map((workspace) => (
-                <TableRow key={workspace._id}>
-                  <TableCell className="max-w-56 min-w-0">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <CompanyLogo
-                        src={workspace.logoSrc}
-                        className="size-7 rounded-md"
-                      />
-                      <span className="truncate font-medium">
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-60">
+              <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                placeholder="Find a workspace"
+                aria-label="Find a workspace"
+                className="pl-8"
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setFilter("q", event.target.value);
+                }}
+              />
+            </div>
+            <SelectField
+              aria-label="Stage"
+              className="min-w-36"
+              value={filters.stage || ANY}
+              onValueChange={(value) => setFilter("stage", value)}
+              options={[
+                { value: ANY, label: "Any stage" },
+                ...WORKSPACE_STAGES.map(({ value, label }) => ({ value, label })),
+                { value: "custom", label: "Custom" },
+              ]}
+            />
+            <SelectField
+              aria-label="Channel"
+              className="min-w-36"
+              value={filters.channel || ANY}
+              onValueChange={(value) => setFilter("channel", value)}
+              options={[
+                { value: ANY, label: "Any channel" },
+                ...CHANNEL_KINDS.map(({ type, label }) => ({ value: type, label })),
+                { value: "none", label: "No channels" },
+              ]}
+            />
+            <SelectField
+              aria-label="RM"
+              className="min-w-32"
+              value={filters.rm || ANY}
+              onValueChange={(value) => setFilter("rm", value)}
+              options={[
+                { value: ANY, label: "Any RM" },
+                { value: "none", label: "Unassigned" },
+                ...managers.map(([value, label]) => ({ value, label })),
+              ]}
+            />
+            <SelectField
+              aria-label="Source"
+              className="min-w-36"
+              value={filters.source || ANY}
+              onValueChange={(value) => setFilter("source", value)}
+              options={[
+                { value: ANY, label: "Any source" },
+                { value: "signup", label: "Website sign-up" },
+                { value: "team", label: "Added by the team" },
+              ]}
+            />
+            <SelectField
+              aria-label="Status"
+              className="min-w-32"
+              value={filters.status || ANY}
+              onValueChange={(value) => setFilter("status", value)}
+              options={[
+                { value: ANY, label: "Any status" },
+                { value: "active", label: "Active" },
+                { value: "archived", label: "Archived" },
+              ]}
+            />
+            {filtering ? (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <XIcon /> Clear
+              </Button>
+            ) : null}
+            <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+              {shown.length === workspaces.length
+                ? `${workspaces.length} workspaces`
+                : `${shown.length} of ${workspaces.length}`}
+            </span>
+          </div>
+
+          {shown.length === 0 ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BuildingsIcon />
+                </EmptyMedia>
+                <EmptyTitle>No workspaces match</EmptyTitle>
+                <EmptyDescription>
+                  Nothing fits every filter at once. Loosen one, or clear them all.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button variant="outline" onClick={clearFilters}>
+                  <XIcon /> Clear filters
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : view === "list" ? (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-44">Workspace</TableHead>
+                    <TableHead className="min-w-36">Stage</TableHead>
+                    <TableHead className="hidden sm:table-cell min-w-32">
+                      Channels
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell min-w-32">
+                      RM
+                    </TableHead>
+                    <TableHead className="hidden lg:table-cell min-w-28">
+                      Last login
+                    </TableHead>
+                    <TableHead className="hidden xl:table-cell min-w-24">
+                      Created
+                    </TableHead>
+                    <TableHead className="w-44" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((workspace) => (
+                    <TableRow key={workspace._id}>
+                      <TableCell className="max-w-56 min-w-0">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <CompanyLogo
+                            src={workspace.logoSrc}
+                            className="size-7 rounded-md"
+                          />
+                          <span className="truncate font-medium">
+                            {workspace.name}
+                          </span>
+                          {workspace.status === "archived" ? (
+                            <Badge variant="secondary">archived</Badge>
+                          ) : null}
+                          {workspace.source === "signup" ? (
+                            <Badge variant="outline">sign-up</Badge>
+                          ) : null}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        {manages ? (
+                          <WorkspaceStagePicker
+                            workspaceId={workspace._id}
+                            name={workspace.name}
+                            stage={workspace.stage}
+                            label={workspace.stageLabel}
+                          />
+                        ) : (
+                          <WorkspaceStageBadge
+                            stage={workspace.stage}
+                            label={workspace.stageLabel}
+                          />
+                        )}
+                      </TableCell>
+
+                      <TableCell className="hidden sm:table-cell">
+                        <ChannelIcons channels={workspace.channels} />
+                      </TableCell>
+
+                      <TableCell className="hidden md:table-cell max-w-44">
+                        <Managers managers={workspace.managers} />
+                      </TableCell>
+
+                      <TableCell className="hidden lg:table-cell text-xs whitespace-nowrap text-muted-foreground">
+                        {lastLogin(workspace.lastLoginAt)}
+                      </TableCell>
+
+                      <TableCell className="hidden xl:table-cell text-xs whitespace-nowrap text-muted-foreground">
+                        {formatDistanceToNow(workspace.createdAt, {
+                          addSuffix: true,
+                        })}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            nativeButton={false}
+                            render={
+                              <Link
+                                href={`/admin/activity?workspace=${workspace._id}`}
+                              />
+                            }
+                          >
+                            <ClockCounterClockwiseIcon /> Activity
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            nativeButton={false}
+                            render={<Link href={`/w/${workspace.slug}`} />}
+                          >
+                            Open <ArrowRightIcon />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {shown.map((workspace) => (
+                <Card key={workspace._id} className="flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CompanyLogo src={workspace.logoSrc} className="size-9" />
+                      <span className="min-w-0 flex-1 truncate">
                         {workspace.name}
                       </span>
                       {workspace.status === "archived" ? (
                         <Badge variant="secondary">archived</Badge>
                       ) : null}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2">
+                      {workspace.tagline ||
+                        workspace.description ||
+                        workspace.industry ||
+                        "No description yet"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="mt-auto flex flex-col gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      /{workspace.slug}
                     </span>
-                  </TableCell>
-
-                  <TableCell>
-                    {manages ? (
-                      <WorkspaceStagePicker
-                        workspaceId={workspace._id}
-                        name={workspace.name}
-                        stage={workspace.stage}
-                        label={workspace.stageLabel}
-                      />
-                    ) : (
+                    <div className="flex items-center justify-between gap-2">
                       <WorkspaceStageBadge
                         stage={workspace.stage}
                         label={workspace.stageLabel}
                       />
-                    )}
-                  </TableCell>
-
-                  <TableCell className="hidden sm:table-cell">
-                    <ChannelIcons channels={workspace.channels} />
-                  </TableCell>
-
-                  <TableCell className="hidden md:table-cell max-w-44">
-                    <Managers managers={workspace.managers} />
-                  </TableCell>
-
-                  <TableCell className="hidden lg:table-cell text-xs whitespace-nowrap text-muted-foreground">
-                    {lastLogin(workspace.lastLoginAt)}
-                  </TableCell>
-
-                  <TableCell className="hidden xl:table-cell text-xs whitespace-nowrap text-muted-foreground">
-                    {formatDistanceToNow(workspace.createdAt, {
-                      addSuffix: true,
-                    })}
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        nativeButton={false}
-                        render={
-                          <Link
-                            href={`/admin/activity?workspace=${workspace._id}`}
-                          />
-                        }
-                      >
-                        <ClockCounterClockwiseIcon /> Activity
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        nativeButton={false}
-                        render={<Link href={`/w/${workspace.slug}`} />}
-                      >
-                        Open <ArrowRightIcon />
-                      </Button>
+                      <ChannelIcons channels={workspace.channels} />
                     </div>
-                  </TableCell>
-                </TableRow>
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate">
+                        RM:{" "}
+                        {workspace.managers.length
+                          ? workspace.managers.map((m) => m.name).join(", ")
+                          : "Unassigned"}
+                      </span>
+                      <span className="shrink-0">
+                        Login {lastLogin(workspace.lastLoginAt).toLowerCase()}
+                      </span>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="lg"
+                          variant="ghost"
+                          nativeButton={false}
+                          aria-label="Activity"
+                          render={
+                            <Link
+                              href={`/admin/activity?workspace=${workspace._id}`}
+                            />
+                          }
+                        >
+                          <ClockCounterClockwiseIcon />
+                        </Button>
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          nativeButton={false}
+                          render={<Link href={`/w/${workspace.slug}`} />}
+                        >
+                          Open <ArrowRightIcon />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {workspaces.map((workspace) => (
-            <Card key={workspace._id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CompanyLogo src={workspace.logoSrc} className="size-9" />
-                  <span className="min-w-0 flex-1 truncate">
-                    {workspace.name}
-                  </span>
-                  {workspace.status === "archived" ? (
-                    <Badge variant="secondary">archived</Badge>
-                  ) : null}
-                </CardTitle>
-                <CardDescription className="line-clamp-2">
-                  {workspace.tagline ||
-                    workspace.description ||
-                    workspace.industry ||
-                    "No description yet"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="mt-auto flex flex-col gap-2">
-                <span className="font-mono text-xs text-muted-foreground">
-                  /{workspace.slug}
-                </span>
-                <div className="flex items-center justify-between gap-2">
-                  <WorkspaceStageBadge
-                    stage={workspace.stage}
-                    label={workspace.stageLabel}
-                  />
-                  <ChannelIcons channels={workspace.channels} />
-                </div>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="min-w-0 truncate">
-                    RM:{" "}
-                    {workspace.managers.length
-                      ? workspace.managers.map((m) => m.name).join(", ")
-                      : "Unassigned"}
-                  </span>
-                  <span className="shrink-0">
-                    Login {lastLogin(workspace.lastLoginAt).toLowerCase()}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-end gap-1">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="lg"
-                      variant="ghost"
-                      nativeButton={false}
-                      aria-label="Activity"
-                      render={
-                        <Link
-                          href={`/admin/activity?workspace=${workspace._id}`}
-                        />
-                      }
-                    >
-                      <ClockCounterClockwiseIcon />
-                    </Button>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      nativeButton={false}
-                      render={<Link href={`/w/${workspace.slug}`} />}
-                    >
-                      Open <ArrowRightIcon />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+export default function AdminWorkspacesPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={8} columns={7} />}>
+      <WorkspacesDirectory />
+    </Suspense>
   );
 }

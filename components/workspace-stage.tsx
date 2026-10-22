@@ -41,6 +41,9 @@ const PRESETS = [
   { value: "live", label: "Live", dot: "bg-emerald-500" },
 ] as const satisfies ReadonlyArray<{ value: StoredStage; label: string; dot: string }>;
 
+export const WORKSPACE_STAGES = PRESETS;
+export const displayedStage = selected;
+
 type Stage = (typeof PRESETS)[number]["value"] | "custom";
 
 function selected(stage: StoredStage | undefined): Stage {

@@ -161,6 +161,7 @@ export const complete = internalMutation({
       timezone,
       locale: row.locale && isValidLocale(row.locale) ? row.locale : indian ? "en-IN" : undefined,
       currency: indian ? "INR" : "USD",
+      source: "signup",
     });
     const userId = await ctx.db.insert("users", {
       email: row.email,

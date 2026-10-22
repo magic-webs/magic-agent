@@ -411,7 +411,8 @@ export function CampaignComposer({
           </div>
         </aside>
         </div>
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/80 sm:-mx-6 sm:px-6">
+        {/* Sticky stops at the scroller's padding, so the bar reaches into it. */}
+        <div className="sticky -bottom-4 z-20 -mx-4 -mb-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>

@@ -41,7 +41,10 @@ const OCCASION_LABELS: Record<string, string> = {
 export default function MarketingTemplatesPage() {
   const workspace = useWorkspace();
   const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
-  const templates = useMemo(() => overview?.templates ?? [], [overview]);
+  const templates = useMemo(
+    () => [...(overview?.templates ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [overview]
+  );
   const [draft, setDraft] = useState<TemplateDraft | null>(null);
   const syncTemplates = useAction(api.marketingTemplates.sync);
   const [checking, setChecking] = useState(false);

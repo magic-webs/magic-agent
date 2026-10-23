@@ -43,19 +43,22 @@ import {
 import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  CalendarLock01Icon,
   CleanIcon,
   Delete02Icon,
   FileImportIcon,
   LeftToRightListBulletIcon,
   NotificationOff01Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
   Search01Icon,
-  Settings01Icon,
   Tag01Icon,
   UserAdd01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
+import { isBuiltIn } from "@/convex/lib/audience";
 import { PersonDialog, type Person } from "./person-dialog";
-import { AudienceSettingsDialog } from "./settings-dialog";
+import { CategoryDialog, MAX_CATEGORIES, WeeklyLimitDialog, weeklyLimitLabel } from "./settings-dialog";
 import { RecheckButton } from "./import-flow";
 import {
   categoryDot,
@@ -123,7 +126,8 @@ export function AudienceTab({
   const [deleting, setDeleting] = useState(false);
   const [pendingMove, setPendingMove] = useState<string | null>(null);
   const importBase = `/w/${workspace.slug}/marketing/audience/import`;
-  const [settingsOpen, setSettingsOpen] = useState(0);
+  const [categoryDialog, setCategoryDialog] = useState<{ editing: Category | null } | null>(null);
+  const [limitOpen, setLimitOpen] = useState(false);
 
   const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
   const imports = useQuery(api.audienceImports.list, { workspaceId: workspace._id });
@@ -146,6 +150,21 @@ export function AudienceTab({
     },
     { initialNumItems: PAGE_SIZE }
   );
+
+  const loadMoreRow = useRef<HTMLTableRowElement>(null);
+  const { status: peopleStatus, loadMore: loadMorePeople } = people;
+  useEffect(() => {
+    const node = loadMoreRow.current;
+    if (!node || peopleStatus !== "CanLoadMore") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMorePeople(PAGE_SIZE);
+      },
+      { root: node.closest("[data-slot=table-container]"), rootMargin: "0px 0px 240px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [peopleStatus, loadMorePeople]);
 
   const updatePeople = useMutation(api.audience.updatePeople);
   const createAudience = useMutation(api.audience.create);
@@ -192,6 +211,15 @@ export function AudienceTab({
       setBusy(false);
     }
   };
+  const deleteList = (withContacts: boolean) => {
+    if (view.kind !== "audience") return;
+    const audienceId = view.id;
+    const done = withContacts ? "List deleted. Its contacts are being removed." : "List deleted";
+    void bulk(() => removeAudience({ audienceId, withContacts }), done).then((ok) => {
+      setDeleting(false);
+      if (ok) choose({ kind: "all" });
+    });
+  };
   const move = (category: string) =>
     void bulk(
       () => updatePeople({ workspaceId: workspace._id, contactIds: ids, category }),
@@ -224,14 +252,33 @@ export function AudienceTab({
       label: `${audience.name} (${audience.memberCount.toLocaleString()})`,
     })),
   ];
+  const canAddCategory = categories.filter((category) => !isBuiltIn(category.key)).length < MAX_CATEGORIES;
+  const newCategory = () => setCategoryDialog({ editing: null });
+  const viewedCategory =
+    view.kind === "category" && !isBuiltIn(view.key)
+      ? categories.find((category) => category.key === view.key)
+      : undefined;
 
   return (
     <div className="flex flex-col gap-4">
       <Header>
-        <Button variant="ghost" size="icon" aria-label="Audience settings" onClick={() => setSettingsOpen((n) => n + 1)}>
-          <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+        <Button variant="outline" onClick={() => setLimitOpen(true)}>
+          <HugeiconsIcon icon={CalendarLock01Icon} strokeWidth={2} /> {weeklyLimitLabel(weeklyCap)}
         </Button>
-        <ExportContactsButton />
+        <ExportContactsButton
+          reachable={countText(reachable, capped)}
+          optedOut={countText(optedOut, capped)}
+          categories={categories.map((category) => ({
+            key: category.key,
+            label: category.label,
+            count: categoryCount(category.key),
+          }))}
+          lists={(audiences ?? []).map((audience) => ({
+            id: audience._id,
+            name: audience.name,
+            count: audience.memberCount.toLocaleString(),
+          }))}
+        />
         <Button variant="outline" onClick={onAddByHand}>
           <HugeiconsIcon icon={UserAdd01Icon} strokeWidth={2} /> Add by hand
         </Button>
@@ -280,13 +327,18 @@ export function AudienceTab({
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <SelectField
-          aria-label="Show"
-          className="w-full lg:hidden"
-          value={viewKey(view)}
-          onValueChange={chooseKey}
-          options={viewOptions}
-        />
+        <div className="flex gap-2 lg:hidden">
+          <SelectField
+            aria-label="Show"
+            className="w-full"
+            value={viewKey(view)}
+            onValueChange={chooseKey}
+            options={viewOptions}
+          />
+          <Button variant="outline" size="icon" aria-label="New category" disabled={!canAddCategory} onClick={newCategory}>
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+          </Button>
+        </div>
         <nav className="hidden flex-col gap-3 lg:flex">
           <RailGroup title="Everyone">
             <RailItem active={view.kind === "all"} onClick={() => choose({ kind: "all" })} icon={<HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />}>
@@ -301,7 +353,22 @@ export function AudienceTab({
               Unsubscribed
             </RailItem>
           </RailGroup>
-          <RailGroup title="Categories">
+          <RailGroup
+            title="Categories"
+            action={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="-my-1"
+                aria-label="New category"
+                title={canAddCategory ? "New category" : `Up to ${MAX_CATEGORIES} categories of your own`}
+                disabled={!canAddCategory}
+                onClick={newCategory}
+              >
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+              </Button>
+            }
+          >
             {categories.map((category) => (
               <RailItem
                 key={category.key}
@@ -375,6 +442,16 @@ export function AudienceTab({
                 onClick={() => setDeleting(true)}
               >
                 <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete list
+              </Button>
+            ) : null}
+            {viewedCategory ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto"
+                onClick={() => setCategoryDialog({ editing: viewedCategory })}
+              >
+                <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit category
               </Button>
             ) : null}
           </div>
@@ -452,10 +529,10 @@ export function AudienceTab({
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="overflow-x-auto rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
+            <div className="overflow-hidden rounded-md border border-border">
+              <Table containerClassName="max-h-[65vh] overflow-auto overscroll-contain">
+                <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--color-border)]">
+                  <TableRow className="hover:bg-transparent">
                     <TableHead className="w-8">
                       <Checkbox
                         aria-label={`Select these ${rows.length}`}
@@ -531,20 +608,17 @@ export function AudienceTab({
                       </TableCell>
                     </TableRow>
                   ))}
+                  {more ? (
+                    <TableRow ref={loadMoreRow} className="hover:bg-transparent">
+                      <TableCell colSpan={5} className="py-3">
+                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                          <Spinner /> Loading more contacts…
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
-              {more ? (
-                <div className="flex justify-center border-t border-border p-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={people.status === "LoadingMore"}
-                    onClick={() => people.loadMore(PAGE_SIZE)}
-                  >
-                    {people.status === "LoadingMore" ? <Spinner /> : null} Show more
-                  </Button>
-                </div>
-              ) : null}
             </div>
           )}
         </div>
@@ -561,23 +635,20 @@ export function AudienceTab({
             <AlertDialogTitle>
               Delete the list “{view.kind === "audience" ? view.name : ""}”?
             </AlertDialogTitle>
-            <AlertDialogDescription>The contacts stay. Only the list goes.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Delete just the list and everyone in it stays a contact, or delete its contacts too.
+              Anyone who has messaged you, has an order, record, payment link or form entry, is a
+              guest at an event, or is in another list is always kept. Deleted contacts and their
+              campaign messages cannot be brought back.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={busy}
-              onClick={() => {
-                if (view.kind !== "audience") return;
-                const audienceId = view.id;
-                void bulk(() => removeAudience({ audienceId }), "List deleted").then((ok) => {
-                  setDeleting(false);
-                  if (ok) choose({ kind: "all" });
-                });
-              }}
-            >
-              {busy ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Delete list
+            <Button variant="outline" disabled={busy} onClick={() => deleteList(false)}>
+              Delete list only
+            </Button>
+            <Button variant="destructive" disabled={busy} onClick={() => deleteList(true)}>
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete list and contacts
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -604,14 +675,17 @@ export function AudienceTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {settingsOpen ? (
-        <AudienceSettingsDialog
-          key={settingsOpen}
-          open
+      {categoryDialog ? (
+        <CategoryDialog
           categories={categories}
           weeklyCap={weeklyCap}
-          onClose={() => setSettingsOpen(0)}
+          editing={categoryDialog.editing}
+          onClose={() => setCategoryDialog(null)}
+          onRemoved={() => choose({ kind: "all" })}
         />
+      ) : null}
+      {limitOpen ? (
+        <WeeklyLimitDialog categories={categories} weeklyCap={weeklyCap} onClose={() => setLimitOpen(false)} />
       ) : null}
     </div>
   );
@@ -628,7 +702,7 @@ export function AudienceTabSkeleton({
   return (
     <div className="flex flex-col gap-4">
       <Header>
-        <Skeleton className="size-8 rounded-lg" aria-hidden />
+        <Skeleton className="h-8 w-52 rounded-lg" aria-hidden />
         <ExportContactsButton />
         <Button variant="outline" onClick={onAddByHand}>
           <HugeiconsIcon icon={UserAdd01Icon} strokeWidth={2} /> Add by hand
@@ -647,7 +721,10 @@ export function AudienceTabSkeleton({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <Skeleton className="h-8 w-full rounded-lg lg:hidden" aria-hidden />
+        <div className="flex gap-2 lg:hidden" aria-hidden>
+          <Skeleton className="h-8 flex-1 rounded-lg" />
+          <Skeleton className="size-8 rounded-lg" />
+        </div>
         <nav className="hidden flex-col gap-3 lg:flex">
           <RailGroup title="Everyone">
             <RailItem active icon={<HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />}>
@@ -779,10 +856,13 @@ function Tile({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function RailGroup({ title, children }: { title: string; children: ReactNode }) {
+function RailGroup({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{title}</p>
+      <div className="flex items-center justify-between gap-2 px-2 pb-1">
+        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+        {action}
+      </div>
       {children}
     </div>
   );

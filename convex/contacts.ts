@@ -8,6 +8,7 @@ import { requireContact, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
 import { normaliseEmail } from "./lib/notifications";
 import { checkPhone } from "./lib/contactClean";
+import { categoryOf, isBuiltIn, knownCategories } from "./lib/audience";
 import { refreshContactSearch } from "./lib/inbox";
 import schema from "./schema";
 import { channelType } from "./schema/validators";
@@ -133,28 +134,65 @@ export const exportPage = query({
   args: {
     workspaceId: v.id("workspaces"),
     paginationOpts: paginationOptsValidator,
+    audienceId: v.optional(v.id("audiences")),
+    category: v.optional(v.string()),
+    subscription: v.optional(v.union(v.literal("subscribed"), v.literal("unsubscribed"))),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
-    const result = await ctx.db
-      .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .paginate(args.paginationOpts);
-    return {
-      ...result,
-      page: result.page
-        .filter((contact) => contact.channelType === "whatsapp")
-        .map((contact) => ({
-          name: contact.name ?? null,
-          // The number messages actually go to, which `phone` — editable on
-          // the Contacts page — need not be.
-          phone: contact.externalId,
-          birthday: contact.birthday ?? null,
-          email: contact.email ?? null,
-          company: contact.company ?? null,
-          optedOutAt: contact.optedOutAt ?? null,
-        })),
-    };
+    const category = args.category;
+    const known =
+      category === undefined
+        ? new Set<string>()
+        : knownCategories(
+            await ctx.db
+              .query("marketingSettings")
+              .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+              .unique()
+          );
+    const keep = (contact: Doc<"contacts"> | null): contact is Doc<"contacts"> =>
+      contact !== null &&
+      contact.workspaceId === args.workspaceId &&
+      contact.channelType === "whatsapp" &&
+      (category === undefined || categoryOf(contact, known) === category) &&
+      (args.subscription !== "subscribed" || !contact.optedOutAt) &&
+      (args.subscription !== "unsubscribed" || Boolean(contact.optedOutAt));
+    const row = (contact: Doc<"contacts">) => ({
+      name: contact.name ?? null,
+      // The number messages actually go to, which `phone` — editable on
+      // the Contacts page — need not be.
+      phone: contact.externalId,
+      birthday: contact.birthday ?? null,
+      email: contact.email ?? null,
+      company: contact.company ?? null,
+      optedOutAt: contact.optedOutAt ?? null,
+    });
+
+    if (args.audienceId) {
+      const audienceId = args.audienceId;
+      const audience = await ctx.db.get("audiences", audienceId);
+      if (!audience || audience.workspaceId !== args.workspaceId) throw new ConvexError("List not found");
+      const result = await ctx.db
+        .query("audienceMembers")
+        .withIndex("by_audienceId_and_contactId", (q) => q.eq("audienceId", audienceId))
+        .paginate(args.paginationOpts);
+      const contacts = await Promise.all(result.page.map((member) => ctx.db.get("contacts", member.contactId)));
+      return { ...result, page: contacts.filter(keep).map(row) };
+    }
+
+    const result =
+      category && known.has(category) && !isBuiltIn(category)
+        ? await ctx.db
+            .query("contacts")
+            .withIndex("by_workspace_and_category", (q) =>
+              q.eq("workspaceId", args.workspaceId).eq("category", category)
+            )
+            .paginate(args.paginationOpts)
+        : await ctx.db
+            .query("contacts")
+            .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+            .paginate(args.paginationOpts);
+    return { ...result, page: result.page.filter(keep).map(row) };
   },
 });
 

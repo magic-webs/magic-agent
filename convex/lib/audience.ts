@@ -3,7 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import type { audienceCategory, audienceSelection } from "../schema/marketing";
 import { sentRecently } from "./marketingStats";
-import { tidyName } from "./contactClean";
+import { isProperName } from "./contactClean";
 import { marketOf } from "./markets";
 import { inSegments } from "./segments";
 import { normalisePhone } from "./notifications";
@@ -34,7 +34,8 @@ export const BUILT_IN_CATEGORIES: AudienceCategory[] = [
   {
     key: NOT_VALID,
     label: "Incomplete",
-    description: "The name is missing, fake or a placeholder, or the number cannot be used.",
+    description:
+      "The name is missing or not a real name: a placeholder, a greeting like hi or hello, emojis, styled letters, digits or symbols — or the number cannot be used.",
   },
 ];
 
@@ -47,7 +48,7 @@ export function withBuiltIns(stored: AudienceCategory[] | undefined): AudienceCa
 }
 
 export function validityOf(name: string | undefined): string {
-  return tidyName(name).value ? VALID : NOT_VALID;
+  return isProperName(name) ? VALID : NOT_VALID;
 }
 
 export function categoryOf(

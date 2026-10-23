@@ -26,6 +26,7 @@ export type ContactProblem = "phone_missing" | "phone_invalid" | "phone_not_mobi
 export type ContactFix =
   | "name_tidied"
   | "name_dropped"
+  | "name_edited"
   | "email_dropped"
   | "birthday_dropped"
   | "company_tidied"
@@ -42,6 +43,7 @@ export const PROBLEM_LABELS: Record<ContactProblem, string> = {
 export const FIX_LABELS: Record<ContactFix, string> = {
   name_tidied: "Name tidied",
   name_dropped: "Name was not a name",
+  name_edited: "Name edited",
   email_dropped: "Email was not valid",
   birthday_dropped: "Birthday could not be read",
   company_tidied: "Company tidied",
@@ -53,6 +55,21 @@ const PLACEHOLDER_NAMES = new Set([
   "na", "n/a", "nil", "none", "null", "unknown", "test", "testing", "abc", "xyz",
   "customer", "user", "-", ".", "..", "?", "no name",
 ]);
+
+const CHAT_WORD = /^(hi+|hel+o+w?|hl+o+|he+y+|hy|namaste|namaskar|ok|okay|thanks?|thanku|thankyou|bye)$/;
+const GREETING = /\bgood (morning|afternoon|evening|night)\b/;
+
+export function isProperName(raw: string | undefined): boolean {
+  const text = raw?.replace(/[\s  -   　]+/g, " ").trim();
+  if (!text) return false;
+  if (/\p{Extended_Pictographic}/u.test(text)) return false;
+  if (text.normalize("NFKC") !== text.normalize("NFC")) return false;
+  if (!/^[\p{L}\p{M}‌‍ .'’-]+$/u.test(text)) return false;
+  if ((text.match(/\p{L}/gu) ?? []).length < 2) return false;
+  const lower = text.toLowerCase();
+  if (PLACEHOLDER_NAMES.has(lower) || GREETING.test(lower)) return false;
+  return !lower.split(/[ .'’-]+/).some((word) => CHAT_WORD.test(word));
+}
 
 function tidyText(raw: string): string {
   return raw
@@ -76,6 +93,21 @@ export function tidyName(raw: string | undefined): { value?: string; fix?: Conta
   const shouty = text === text.toUpperCase() || text === text.toLowerCase();
   const value = (shouty && /[a-z]/i.test(text) ? titleCase(text) : text).slice(0, 80);
   return { value, fix: value !== raw.trim() ? "name_tidied" : undefined };
+}
+
+/** A usable name made from what is left once emojis, symbols, digits and chat words go, or "". */
+export function suggestName(raw: string | undefined): string {
+  if (!raw) return "";
+  const words = tidyText(raw)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^\p{L}\p{M}‌‍ .'’-]+/gu, " ")
+    .split(" ")
+    .filter((word) => word && !CHAT_WORD.test(word.toLowerCase()))
+    .map((word) =>
+      /^\p{Lu}?[\p{Ll}\p{M}]*$|^\p{Lu}[\p{Ll}\p{M}]+\p{Lu}[\p{Ll}\p{M}]+$/u.test(word) ? word : titleCase(word)
+    );
+  const name = tidyName(words.join(" ")).value ?? "";
+  return isProperName(name) ? name : "";
 }
 
 function fakeDigits(local: string): boolean {

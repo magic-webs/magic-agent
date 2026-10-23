@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { isBuiltIn } from "@/convex/lib/audience";
+import { ConfirmButton } from "@/components/marketing/calendar";
 import { useWorkspace } from "@/components/workspace-provider";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
@@ -21,9 +23,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
-import { isBuiltIn } from "@/convex/lib/audience";
+import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { fail, type Category } from "./shared";
+
+export const MAX_CATEGORIES = 10;
 
 const CAP_OPTIONS = [
   { value: "0", label: "No limit" },
@@ -33,174 +36,193 @@ const CAP_OPTIONS = [
   })),
 ];
 
-function keysFor(categories: Category[], reserved: Category[]): string[] {
-  const taken = new Set([...reserved, ...categories].map((c) => c.key).filter(Boolean));
-  taken.add("unknown");
-  return categories.map((category) => {
-    if (category.key) return category.key;
-    const base =
-      category.label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .slice(0, 24) || "category";
-    let key = base;
-    for (let n = 2; taken.has(key); n++) key = `${base}_${n}`;
-    taken.add(key);
-    return key;
-  });
+export function weeklyLimitLabel(cap: number) {
+  return `Weekly limit: ${cap > 0 ? `${cap} per person` : "none"}`;
 }
 
-function problemsOf(categories: Category[], reserved: Category[]): Array<string | null> {
-  const labels = categories.map((c) => c.label.trim().toLowerCase());
-  const builtInLabels = reserved.map((c) => c.label.toLowerCase());
-  return categories.map((category, index) => {
-    const label = labels[index];
-    if (!label) return category.description.trim() ? "Give it a name." : null;
-    if (builtInLabels.includes(label)) return `${category.label.trim()} is built in. Pick another name.`;
-    if (labels.indexOf(label) !== index) return "Another category has this name.";
-    return null;
-  });
+function keyFor(label: string, taken: Set<string>): string {
+  const base =
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 24) || "category";
+  let key = base;
+  for (let n = 2; taken.has(key); n++) key = `${base}_${n}`;
+  return key;
 }
 
-export function AudienceSettingsDialog({
-  open,
-  categories: initialCategories,
-  weeklyCap: initialCap,
-  onClose,
-}: {
-  open: boolean;
-  categories: Category[];
-  weeklyCap: number;
-  onClose: () => void;
-}) {
+function useSaveSettings() {
   const workspace = useWorkspace();
   const saveSettings = useMutation(api.marketing.saveAudienceSettings);
-  const builtIn = initialCategories.filter((c) => isBuiltIn(c.key));
-  const [categories, setCategories] = useState(initialCategories.filter((c) => !isBuiltIn(c.key)));
-  const [cap, setCap] = useState(String(initialCap));
   const [busy, setBusy] = useState(false);
-  const [tried, setTried] = useState(false);
-  const problems = problemsOf(categories, builtIn);
-
-  const change = (index: number, patch: Partial<Category>) =>
-    setCategories(categories.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-
-  const save = async () => {
-    setTried(true);
-    if (problems.some(Boolean)) return;
-    const kept = categories.filter((c) => c.label.trim() || c.description.trim());
-    const keys = keysFor(kept, builtIn);
+  const save = async (weeklyCap: number, categories: Category[], done: string) => {
     setBusy(true);
     try {
-      await saveSettings({
-        workspaceId: workspace._id,
-        weeklyCap: Number(cap),
-        categories: kept.map((category, index) => ({ ...category, key: keys[index] })),
-      });
-      toast.add({ title: "Audience settings saved", type: "success" });
-      onClose();
+      await saveSettings({ workspaceId: workspace._id, weeklyCap, categories });
+      toast.add({ title: done, type: "success" });
+      return true;
     } catch (error) {
       fail("Could not save", error);
+      return false;
     } finally {
       setBusy(false);
     }
   };
+  return { busy, save };
+}
+
+export function CategoryDialog({
+  categories,
+  weeklyCap,
+  editing,
+  onClose,
+  onRemoved,
+}: {
+  categories: Category[];
+  weeklyCap: number;
+  editing: Category | null;
+  onClose: () => void;
+  onRemoved?: () => void;
+}) {
+  const custom = categories.filter((c) => !isBuiltIn(c.key));
+  const [label, setLabel] = useState(editing?.label ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
+  const [tried, setTried] = useState(false);
+  const { busy, save } = useSaveSettings();
+
+  const name = label.trim();
+  const lower = name.toLowerCase();
+  const problem = !name
+    ? "Give it a name."
+    : categories.some((c) => isBuiltIn(c.key) && c.label.toLowerCase() === lower)
+      ? `${name} is built in. Pick another name.`
+      : custom.some((c) => c.key !== editing?.key && c.label.trim().toLowerCase() === lower)
+        ? "Another category has this name."
+        : null;
+
+  const submit = async () => {
+    setTried(true);
+    if (problem) return;
+    const fields = { label: name, description: description.trim() };
+    const next = editing
+      ? custom.map((c) => (c.key === editing.key ? { ...c, ...fields } : c))
+      : [...custom, { ...fields, key: keyFor(name, new Set([...categories.map((c) => c.key), "unknown"])) }];
+    if (await save(weeklyCap, next, editing ? "Category saved" : "Category added")) onClose();
+  };
+
+  const remove = async () => {
+    if (!editing) return;
+    const next = custom.filter((c) => c.key !== editing.key);
+    if (await save(weeklyCap, next, "Category removed")) {
+      onRemoved?.();
+      onClose();
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Audience settings</DialogTitle>
+          <DialogTitle>{editing ? "Edit category" : "New category"}</DialogTitle>
           <DialogDescription>
-            The categories new contacts are sorted into, and how often one person can be messaged.
+            A group contacts are sorted into alongside Complete and Incomplete — customers, leads,
+            suppliers. Agent Check reads the description to decide who belongs here.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label>Messages per person</Label>
-            <SelectField aria-label="Weekly limit" value={cap} onValueChange={setCap} options={CAP_OPTIONS} />
+            <Label htmlFor="category-name">Name</Label>
+            <Input
+              id="category-name"
+              value={label}
+              maxLength={40}
+              placeholder="Customers"
+              aria-invalid={tried && problem ? true : undefined}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+            {tried && problem ? <p className="text-xs text-destructive">{problem}</p> : null}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="category-description">Who belongs here</Label>
+            <Textarea
+              id="category-description"
+              rows={3}
+              maxLength={300}
+              value={description}
+              placeholder="People who have bought from us at least once"
+              onChange={(e) => setDescription(e.target.value)}
+            />
             <p className="text-xs text-muted-foreground">
-              Campaigns and event reminders skip anyone who has already had this many in the last
-              seven days. Birthday wishes are not counted. Meta limits marketing messages per person
-              too, and sends past its limit fail.
+              Describe it the way you would explain it to a new colleague.
             </p>
           </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>Categories</Label>
-            <p className="text-xs text-muted-foreground">
-              Every contact is Complete or Incomplete to begin with. Add your own groups — customers,
-              leads, suppliers — and describe each the way you would explain it to a new colleague:
-              the description is what Agent Check reads to sort complete contacts into them. Removing
-              a category sends its people back to being sorted automatically.
-            </p>
-            {builtIn.map((category) => (
-              <div
-                key={category.key}
-                className="flex flex-col gap-1 rounded-md border border-dashed border-border bg-muted/40 p-3 sm:flex-row sm:items-start sm:gap-3"
-              >
-                <span className="flex items-center justify-between gap-2 text-sm font-medium sm:w-44 sm:shrink-0">
-                  {category.label}
-                  <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase sm:hidden">
-                    Built in
-                  </span>
-                </span>
-                <span className="flex-1 text-xs text-muted-foreground">{category.description}</span>
-                <span className="hidden text-[10px] font-medium tracking-wide text-muted-foreground uppercase sm:inline">
-                  Built in
-                </span>
-              </div>
-            ))}
-            {categories.map((category, index) => (
-              <div
-                key={index}
-                className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-[180px_minmax(0,1fr)_auto]"
-              >
-                <div className="flex flex-col gap-1">
-                  <Input
-                    value={category.label}
-                    placeholder="Name"
-                    maxLength={40}
-                    aria-invalid={(tried || category.label.trim() !== "") && problems[index] ? true : undefined}
-                    onChange={(e) => change(index, { label: e.target.value })}
-                  />
-                  {(tried || category.label.trim() !== "") && problems[index] ? (
-                    <p className="text-xs text-destructive">{problems[index]}</p>
-                  ) : null}
-                </div>
-                <Textarea
-                  rows={2}
-                  value={category.description}
-                  placeholder="Who belongs here"
-                  onChange={(e) => change(index, { description: e.target.value })}
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Remove category"
-                  onClick={() => setCategories(categories.filter((_, i) => i !== index))}
-                >
-                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                </Button>
-              </div>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              disabled={categories.length >= 10}
-              onClick={() => setCategories([...categories, { key: "", label: "", description: "" }])}
+        </DialogBody>
+        <DialogFooter>
+          {editing ? (
+            <ConfirmButton
+              variant="ghost"
+              className="text-destructive sm:mr-auto"
+              disabled={busy}
+              heading={`Remove ${editing.label}?`}
+              description="Its contacts go back to being sorted into Complete or Incomplete automatically."
+              confirmLabel="Remove"
+              destructive
+              onConfirm={remove}
             >
-              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a category
-            </Button>
-          </div>
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Remove
+            </ConfirmButton>
+          ) : null}
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submit()} disabled={busy}>
+            {busy ? <Spinner /> : null} {editing ? "Save" : "Add category"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function WeeklyLimitDialog({
+  categories,
+  weeklyCap,
+  onClose,
+}: {
+  categories: Category[];
+  weeklyCap: number;
+  onClose: () => void;
+}) {
+  const [cap, setCap] = useState(String(weeklyCap));
+  const { busy, save } = useSaveSettings();
+
+  const submit = async () => {
+    const custom = categories.filter((c) => !isBuiltIn(c.key));
+    if (await save(Number(cap), custom, "Weekly limit saved")) onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Weekly message limit</DialogTitle>
+          <DialogDescription>How many campaign messages one person can get in seven days.</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="flex flex-col gap-1.5">
+          <Label>Messages per person</Label>
+          <SelectField aria-label="Messages per person" value={cap} onValueChange={setCap} options={CAP_OPTIONS} />
+          <p className="text-xs text-muted-foreground">
+            Campaigns and event reminders skip anyone who has already had this many in the last seven
+            days. Birthday wishes are not counted. Meta limits marketing messages per person too, and
+            sends past its limit fail.
+          </p>
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={busy}>
+          <Button onClick={() => void submit()} disabled={busy}>
             {busy ? <Spinner /> : null} Save
           </Button>
         </DialogFooter>

@@ -516,7 +516,9 @@ export const recordSorted = internalMutation({
     for (const result of args.results) {
       const row = await ctx.db.get("audienceImportRows", result.rowId);
       if (!row || row.status !== "queued") continue;
+      const unclean = Boolean(row.name) && validityOf(row.name) === NOT_VALID;
       const sure =
+        !unclean &&
         !result.sortError &&
         (result.confidence === undefined || result.confidence >= READY_CONFIDENCE) &&
         (result.junk ?? 0) < JUNK_PROBABILITY;
@@ -590,7 +592,7 @@ function questionsFor(
       : {}),
     [`${prefix}junk`]: {
       type: "boolean",
-      instructions: `${subject}The name is keyboard mashing, a placeholder such as test or xxx, or nonsense`,
+      instructions: `${subject}The name is not a real name: keyboard mashing, a placeholder such as test or xxx, a greeting or chat word such as hi or hello, a nickname made of symbols, or nonsense`,
     },
     [`${prefix}business`]: {
       type: "boolean",
@@ -615,7 +617,7 @@ function readAnswers(
 ): Infer<typeof sortedRow> {
   const choice = choiceOf(answers[`${prefix}category`]);
   const junk = probabilityOf(answers[`${prefix}junk`]) ?? undefined;
-  const valid = Boolean(row.name) && (junk ?? 0) < JUNK_PROBABILITY;
+  const valid = validityOf(row.name) === VALID && (junk ?? 0) < JUNK_PROBABILITY;
   return {
     rowId: row._id,
     category: !valid ? NOT_VALID : choice && criteria[choice.choice] ? choice.choice : VALID,
@@ -841,15 +843,22 @@ export const updateRow = mutation({
               .first()
           : null;
       if (clash) throw new ConvexError(`That number is already on line ${clash.line}.`);
-      const status: RowStatus = problem ? "invalid" : "ready";
+      const status: RowStatus = problem
+        ? "invalid"
+        : clean.name && validityOf(clean.name) === NOT_VALID
+          ? "check"
+          : "ready";
+      const edited = args.name !== undefined || row.fixes.includes("name_edited");
       await ctx.db.patch("audienceImportRows", row._id, {
         raw,
         name: clean.name,
         phone: clean.phone,
-        fixes,
+        fixes: edited ? [...fixes, "name_edited"] : fixes,
         problem,
         status,
-        category: row.category && row.category !== NOT_VALID ? row.category : (args.category ?? validityOf(clean.name)),
+        category:
+          args.category ??
+          (row.category && !isBuiltIn(row.category) ? row.category : validityOf(clean.name)),
         existingContactId: existing?._id,
         optedOut: existing?.optedOutAt ? true : undefined,
         updatedAt: now,
@@ -1015,8 +1024,11 @@ export const saveBatch = internalMutation({
           : null;
         if (contact && contact.workspaceId === importDoc.workspaceId) {
           const patch: Partial<Doc<"contacts">> = {};
+          if (row.name && row.name !== contact.name && row.fixes.includes("name_edited")) {
+            patch.name = row.name;
+          }
           if (row.category) {
-            const category = row.category === validityOf(contact.name) ? undefined : row.category;
+            const category = row.category === validityOf(patch.name ?? contact.name) ? undefined : row.category;
             if (category !== contact.category) patch.category = category;
           }
           if (!contact.company && row.company) patch.company = row.company;
@@ -1026,7 +1038,10 @@ export const saveBatch = internalMutation({
             patch.optedOutAt = now;
             patch.optOutReason = "import";
           }
-          if (Object.keys(patch).length > 0) await ctx.db.patch("contacts", contact._id, patch);
+          if (Object.keys(patch).length > 0) {
+            await ctx.db.patch("contacts", contact._id, patch);
+            if (patch.name) await refreshContactSearch(ctx, contact._id);
+          }
         }
         await ctx.db.patch("audienceImportRows", row._id, { status: "saved", updatedAt: now });
       }
@@ -1055,7 +1070,7 @@ export const saveBatch = internalMutation({
       let contactId: Id<"contacts">;
       if (existing) {
         const patch: Partial<Doc<"contacts">> = {};
-        if (!existing.name && row.name) patch.name = row.name;
+        if (row.name && (!existing.name || row.fixes.includes("name_edited"))) patch.name = row.name;
         if (!existing.email && row.email) patch.email = row.email;
         if (!existing.company && row.company) patch.company = row.company;
         if (!existing.birthday && row.birthday) patch.birthday = row.birthday;
@@ -1063,7 +1078,8 @@ export const saveBatch = internalMutation({
           row.category &&
           (!existing.category || existing.category === "unknown" || isBuiltIn(existing.category))
         ) {
-          patch.category = row.category === validityOf(existing.name ?? row.name) ? undefined : row.category;
+          patch.category =
+            row.category === validityOf(patch.name ?? existing.name ?? row.name) ? undefined : row.category;
         }
         const tags = [...new Set([...(existing.tags ?? []), ...row.tags])].slice(0, 30);
         if (tags.length !== (existing.tags ?? []).length) patch.tags = tags;

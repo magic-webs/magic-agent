@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { FIX_LABELS, PROBLEM_LABELS, type ContactFix, type ContactProblem } from "@/convex/lib/contactClean";
+import {
+  FIX_LABELS,
+  PROBLEM_LABELS,
+  isProperName,
+  suggestName,
+  type ContactFix,
+  type ContactProblem,
+} from "@/convex/lib/contactClean";
 import { downloadCsv } from "@/lib/csv";
 import {
   guessMapping,
@@ -50,9 +57,11 @@ import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   BlockedIcon,
+  Cancel01Icon,
   CheckmarkCircle02Icon,
   CleanIcon,
   Download01Icon,
+  PencilEdit02Icon,
   SparklesIcon,
   Tick02Icon,
   Undo02Icon,
@@ -587,8 +596,8 @@ function Review({
         </h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
           {recheck
-            ? `${plural(data.total, "contact")} checked again. Change a category where it is wrong, leave out anyone you want untouched, then update.`
-            : `${plural(data.total, "row")} cleaned up and sorted. Check anything flagged, change a category where it is wrong, then save.`}
+            ? `${plural(data.total, "contact")} checked again. Fix names that would read badly in a message, change a category where it is wrong, leave out anyone you want untouched, then update.`
+            : `${plural(data.total, "row")} cleaned up and sorted. Fix names that would read badly in a message, check anything else flagged, change a category where it is wrong, then save.`}
         </p>
       </div>
       <div className="flex min-h-0 flex-col gap-3">
@@ -741,10 +750,20 @@ function RowsTable({
             <TableRow key={row._id}>
               <TableCell className="text-xs text-muted-foreground tabular-nums">{row.line}</TableCell>
               <TableCell>
-                <p className="font-medium">{row.name ?? <span className="text-muted-foreground">No name</span>}</p>
+                <NameCell
+                  name={row.name}
+                  editable={bucket === "ready" || bucket === "check"}
+                  openFirst={bucket === "check"}
+                  onSave={(name) => updateRow({ rowId: row._id, name })}
+                />
                 <p className="font-mono text-xs text-muted-foreground">
                   {row.phone ? formatPhone(row.phone) : row.raw.phone || "—"}
                 </p>
+                {row.name && !isProperName(row.name) ? (
+                  <Badge variant="outline" className="mt-1 text-[10px] text-amber-700 dark:text-amber-400">
+                    Not a clean name for messages
+                  </Badge>
+                ) : null}
                 {row.optedOut ? (
                   <Badge variant="outline" className="mt-1 text-[10px]">
                     Unsubscribed earlier
@@ -960,6 +979,81 @@ function RowsSkeleton({ bucket }: { bucket?: Bucket }) {
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function NameCell({
+  name,
+  editable,
+  openFirst,
+  onSave,
+}: {
+  name: string | undefined;
+  editable: boolean;
+  openFirst: boolean;
+  onSave: (name: string) => Promise<unknown>;
+}) {
+  const unclean = Boolean(name) && !isProperName(name);
+  const [editing, setEditing] = useState(editable && openFirst && unclean);
+  const [value, setValue] = useState(() => suggestName(name) || name || "");
+  const [busy, setBusy] = useState(false);
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <p className="font-medium">{name ?? <span className="text-muted-foreground">No name</span>}</p>
+        {editable ? (
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label="Edit name"
+            className="text-muted-foreground"
+            onClick={() => setEditing(true)}
+          >
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex max-w-80 flex-col gap-1 py-0.5"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setBusy(true);
+        try {
+          await onSave(value.trim());
+          setEditing(false);
+        } catch (error) {
+          fail("Could not change the name", error);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {name ? <p className="truncate text-xs text-muted-foreground">Was: {name}</p> : null}
+      <div className="flex gap-1">
+        <Input
+          autoFocus={!openFirst}
+          value={value}
+          aria-label="Name"
+          placeholder="Their name"
+          className="h-8"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setEditing(false);
+          }}
+        />
+        <Button size="sm" type="submit" disabled={busy || !value.trim() || value.trim() === name}>
+          {busy ? <Spinner /> : "Save"}
+        </Button>
+        <Button size="icon-sm" type="button" variant="ghost" aria-label="Cancel" onClick={() => setEditing(false)}>
+          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+        </Button>
+      </div>
+    </form>
   );
 }
 

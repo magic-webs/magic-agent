@@ -21,7 +21,13 @@ import {
   validityOf,
   withBuiltIns,
 } from "./lib/audience";
-import { cleanContact, describeForSorting, type RawContact } from "./lib/contactClean";
+import {
+  appendNote,
+  cleanContact,
+  describeForSorting,
+  mergeFields,
+  type RawContact,
+} from "./lib/contactClean";
 import {
   choiceOf,
   evaluate,
@@ -31,6 +37,7 @@ import {
   type JevQuestion,
 } from "./lib/jev";
 import { importCounts, importRowStatus } from "./schema/marketing";
+import { kvPair } from "./schema/validators";
 
 const MAX_ROWS = 10_000;
 const MAX_ADD = 500;
@@ -65,6 +72,7 @@ const rawContact = v.object({
   birthday: v.optional(v.string()),
   tags: v.optional(v.string()),
   notes: v.optional(v.string()),
+  fields: v.optional(v.array(kvPair)),
 });
 
 async function requireImport(ctx: QueryCtx, importId: Id<"audienceImports">) {
@@ -224,6 +232,12 @@ export const addRows = mutation({
         if (!first.birthday && clean.birthday) merged.birthday = clean.birthday;
         if (clean.tags.some((tag) => !first.tags.includes(tag))) {
           merged.tags = [...new Set([...first.tags, ...clean.tags])].slice(0, 10);
+        }
+        const notes = appendNote(first.notes, clean.notes);
+        if (notes !== first.notes) merged.notes = notes;
+        if (clean.fields) {
+          const fields = mergeFields(first.fields ?? [], clean.fields, false);
+          if (fields.length !== (first.fields ?? []).length) merged.fields = fields;
         }
         if (Object.keys(merged).length > 0) {
           await ctx.db.patch("audienceImportRows", first._id, { ...merged, updatedAt: now });
@@ -410,6 +424,7 @@ export const fillRecheck = internalMutation({
       }
       total++;
       const tags = (contact.tags ?? []).slice(0, 10);
+      const fields = contact.attributes.length > 0 ? contact.attributes.slice(0, 30) : undefined;
       await ctx.db.insert("audienceImportRows", {
         workspaceId: importDoc.workspaceId,
         importId: importDoc._id,
@@ -422,6 +437,7 @@ export const fillRecheck = internalMutation({
           birthday: contact.birthday,
           tags: tags.length > 0 ? tags.join(", ") : undefined,
           notes: contact.remark,
+          fields,
         },
         name: contact.name,
         phone: contact.externalId,
@@ -430,6 +446,7 @@ export const fillRecheck = internalMutation({
         birthday: contact.birthday,
         tags,
         notes: contact.remark,
+        fields,
         fixes: [],
         status: "queued",
         existingContactId: contact._id,
@@ -490,6 +507,7 @@ export const sortContext = internalQuery({
         email: row.email,
         tags: row.tags,
         notes: row.notes,
+        fields: row.fields,
         hasNotes: Boolean(row.notes || row.tags.length > 0),
       })),
     };
@@ -1083,13 +1101,19 @@ export const saveBatch = internalMutation({
         }
         const tags = [...new Set([...(existing.tags ?? []), ...row.tags])].slice(0, 30);
         if (tags.length !== (existing.tags ?? []).length) patch.tags = tags;
+        const remark = appendNote(existing.remark, row.notes);
+        if (remark !== existing.remark) patch.remark = remark;
+        if (row.fields?.length) {
+          const attributes = mergeFields(existing.attributes, row.fields, true);
+          if (JSON.stringify(attributes) !== JSON.stringify(existing.attributes)) patch.attributes = attributes;
+        }
         if (row.doNotContact && !existing.optedOutAt) {
           patch.optedOutAt = now;
           patch.optOutReason = "import";
         }
         if (Object.keys(patch).length > 0) {
           await ctx.db.patch("contacts", existing._id, patch);
-          if (patch.name) await refreshContactSearch(ctx, existing._id);
+          if (patch.name || patch.remark) await refreshContactSearch(ctx, existing._id);
         }
         contactId = existing._id;
       } else {
@@ -1104,8 +1128,10 @@ export const saveBatch = internalMutation({
           birthday: row.birthday,
           category: row.category === validityOf(row.name) ? undefined : row.category,
           tags: row.tags,
-          attributes: [],
+          remark: row.notes,
+          attributes: row.fields ?? [],
           source: "import",
+          audienceOnly: true,
           ...(row.doNotContact ? { optedOutAt: now, optOutReason: "import" as const } : {}),
           lastSeenAt: now,
           createdAt: now,

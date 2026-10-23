@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { deliveryStatus } from "./validators";
+import { deliveryStatus, kvPair } from "./validators";
 import { headerMedia, templateButton } from "../lib/templateParts";
 
 export const audienceSelection = v.object({
@@ -244,6 +244,9 @@ export const marketingTables = {
     lastBirthdayRun: v.optional(v.string()),
     weeklyCap: v.optional(v.number()),
     categories: v.optional(v.array(audienceCategory)),
+    rolloutDefaults: v.optional(
+      v.object({ shares: v.array(v.number()), gapDays: v.number(), engagedFirst: v.boolean() })
+    ),
     updatedAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
@@ -406,6 +409,7 @@ export const marketingTables = {
       birthday: v.optional(v.string()),
       tags: v.optional(v.string()),
       notes: v.optional(v.string()),
+      fields: v.optional(v.array(kvPair)),
     }),
     name: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -414,6 +418,7 @@ export const marketingTables = {
     birthday: v.optional(v.string()),
     tags: v.array(v.string()),
     notes: v.optional(v.string()),
+    fields: v.optional(v.array(kvPair)),
     problem: v.optional(v.string()),
     fixes: v.array(v.string()),
     status: importRowStatus,

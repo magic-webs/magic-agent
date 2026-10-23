@@ -110,6 +110,8 @@ export const conversationsTables = {
     ),
     category: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
+    /** Brought in for marketing and not yet heard from: kept off the Contacts page until they write in. */
+    audienceOnly: v.optional(v.boolean()),
     optedOutAt: v.optional(v.number()),
     optOutReason: v.optional(
       v.union(v.literal("keyword"), v.literal("manual"), v.literal("import"))
@@ -127,7 +129,8 @@ export const conversationsTables = {
     .index("by_workspace_external", ["workspaceId", "externalId"])
     .index("by_workspace_and_birthday", ["workspaceId", "birthday"])
     .index("by_workspace_and_category", ["workspaceId", "category"])
-    .index("by_workspace_and_bestHour", ["workspaceId", "bestHour"]),
+    .index("by_workspace_and_bestHour", ["workspaceId", "bestHour"])
+    .index("by_workspace_and_audienceOnly", ["workspaceId", "audienceOnly"]),
 
   conversations: defineTable({
     workspaceId: v.id("workspaces"),

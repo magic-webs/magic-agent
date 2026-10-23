@@ -6,7 +6,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
-import { contactsToCsv } from "@/lib/contact-csv";
+import { contactsToCsv, fieldKeysOf } from "@/lib/contact-csv";
 import { useWorkspace } from "@/components/workspace-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,7 +89,7 @@ export function ExportContactsButton({
         return;
       }
       const day = new Date().toISOString().slice(0, 10);
-      const [header, ...lines] = parseCsv(contactsToCsv(contacts));
+      const [header, ...lines] = parseCsv(contactsToCsv(contacts, fieldKeysOf(contacts)));
       const table = [
         [...header, "unsubscribed"],
         ...lines.map((line, index) => {

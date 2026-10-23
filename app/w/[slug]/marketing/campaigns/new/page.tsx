@@ -18,7 +18,7 @@ import {
   type CampaignMode,
 } from "@/components/marketing/campaigns/composer";
 import { CampaignModePicker } from "@/components/marketing/campaigns/mode-picker";
-import { recommendedPlan } from "@/convex/lib/rollout";
+import { defaultPlan } from "@/convex/lib/rollout";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -76,9 +76,10 @@ export default function NewCampaignPage() {
     );
   }
 
+  const fresh = (kind: CampaignMode) => ({ ...emptyCampaign(today, kind), plan: defaultPlan(overview.rolloutDefaults) });
   const draft: CampaignDraft = source
     ? {
-        ...emptyCampaign(today, source.rollout ? "smart" : "manual"),
+        ...fresh(source.rollout ? "smart" : "manual"),
         plan: source.rollout
           ? {
               shares: source.rollout.shares,
@@ -86,7 +87,7 @@ export default function NewCampaignPage() {
               engagedFirst: source.rollout.engagedFirst,
               limitTier: source.rollout.limitTier,
             }
-          : recommendedPlan(),
+          : defaultPlan(overview.rolloutDefaults),
         eventId: editId ? source._id : undefined,
         title: editId
           ? source.title
@@ -106,8 +107,8 @@ export default function NewCampaignPage() {
         smartTiming: source.smartTiming ?? false,
       }
     : fromBook
-      ? { ...emptyCampaign(today, mode ?? "manual"), audience: { ...EVERYONE, records: [{ bookId: fromBook }] } }
-      : emptyCampaign(today, mode ?? "manual");
+      ? { ...fresh(mode ?? "manual"), audience: { ...EVERYONE, records: [{ bookId: fromBook }] } }
+      : fresh(mode ?? "manual");
 
   return (
     <div className="flex flex-col gap-4">

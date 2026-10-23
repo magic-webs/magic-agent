@@ -13,6 +13,8 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
 import { deleteMessage } from "./lib/delivery";
+import { appendNote, fieldsFromNotes, mergeFields } from "./lib/contactClean";
+import { refreshContactSearch } from "./lib/inbox";
 import {
   categoryOf,
   isBuiltIn,
@@ -58,6 +60,8 @@ function personOf(contact: Doc<"contacts">, known: Set<string>) {
     company: contact.company ?? null,
     birthday: contact.birthday ?? null,
     tags: contact.tags ?? [],
+    notes: contact.remark ?? null,
+    fields: contact.attributes,
     source: contact.source ?? null,
     optedOutAt: contact.optedOutAt ?? null,
     createdAt: contact.createdAt,
@@ -129,8 +133,8 @@ export const people = query({
       if (args.subscription === "subscribed" && contact.optedOutAt) return false;
       if (args.subscription === "unsubscribed" && !contact.optedOutAt) return false;
       if (needle) {
-        const inText = [contact.name, contact.company, contact.email].some((field) =>
-          field?.toLowerCase().includes(needle)
+        const inText = [contact.name, contact.company, contact.email, ...contact.attributes.map((row) => row.value)].some(
+          (field) => field?.toLowerCase().includes(needle)
         );
         const inNumber =
           digits !== "" &&
@@ -242,9 +246,18 @@ export const rename = mutation({
 });
 
 export const remove = mutation({
-  args: { audienceId: v.id("audiences"), withContacts: v.optional(v.boolean()) },
+  args: {
+    audienceId: v.id("audiences"),
+    withContacts: v.optional(v.boolean()),
+    withColumns: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const audience = await requireAudience(ctx, args.audienceId);
+    if (args.withColumns) {
+      for (const importDoc of await listImports(ctx, audience.workspaceId, audience._id)) {
+        await ctx.scheduler.runAfter(0, internal.audience.stripImportFields, { importId: importDoc._id });
+      }
+    }
     await ctx.db.delete("audiences", audience._id);
     await ctx.scheduler.runAfter(0, internal.audience.purgeMembers, {
       audienceId: audience._id,
@@ -490,6 +503,203 @@ export const purgeDeletedList = internalMutation({
         importId: args.importId,
         cursor: page.continueCursor,
       });
+    }
+  },
+});
+
+// Imports saved before notes and own columns reached the contact kept them only on their rows,
+// as "Header: value; Header: value". These read them back onto the contacts, never over a value
+// a contact already has.
+async function backfillImports(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
+  const imports = await ctx.db
+    .query("audienceImports")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(500);
+  return imports.filter((row) => row.status === "saved" && row.mode !== "recheck");
+}
+
+/** The contact a saved import row went to, if it is still there. */
+async function savedContact(ctx: QueryCtx, workspaceId: Id<"workspaces">, row: Doc<"audienceImportRows">) {
+  const phone = row.phone;
+  const contact = row.existingContactId
+    ? await ctx.db.get("contacts", row.existingContactId)
+    : phone
+      ? await ctx.db
+          .query("contacts")
+          .withIndex("by_workspace_external", (q) => q.eq("workspaceId", workspaceId).eq("externalId", phone))
+          .unique()
+      : null;
+  return contact && contact.workspaceId === workspaceId ? contact : null;
+}
+
+async function backfillFor(ctx: QueryCtx, workspaceId: Id<"workspaces">, row: Doc<"audienceImportRows">) {
+  if (row.status !== "saved" || !row.notes || row.fields?.length) return null;
+  const contact = await savedContact(ctx, workspaceId, row);
+  if (!contact) return null;
+  const parsed = fieldsFromNotes(row.notes);
+  const attributes = mergeFields(contact.attributes, parsed.fields, false);
+  const remark = appendNote(contact.remark, parsed.rest.join("; "));
+  const fields = attributes.length - contact.attributes.length;
+  if (fields <= 0 && remark === contact.remark) return null;
+  return { contact, attributes, remark, fields: Math.max(0, fields), noted: remark !== contact.remark };
+}
+
+export const backfillList = internalQuery({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) =>
+    (await backfillImports(ctx, args.workspaceId)).map((row) => ({ importId: row._id, name: row.name })),
+});
+
+export const backfillPage = internalQuery({
+  args: { importId: v.id("audienceImports"), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    const importDoc = await ctx.db.get("audienceImports", args.importId);
+    if (!importDoc) throw new ConvexError("Import not found");
+    const page = await ctx.db
+      .query("audienceImportRows")
+      .withIndex("by_importId_and_line", (q) => q.eq("importId", args.importId))
+      .paginate({ numItems: 100, cursor: args.cursor });
+    let contacts = 0;
+    let fields = 0;
+    let notes = 0;
+    for (const row of page.page) {
+      const change = await backfillFor(ctx, importDoc.workspaceId, row);
+      if (!change) continue;
+      contacts++;
+      fields += change.fields;
+      if (change.noted) notes++;
+    }
+    return { contacts, fields, notes, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+export const previewBackfill = internalAction({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const imports: Array<{ importId: Id<"audienceImports">; name: string }> = await ctx.runQuery(
+      internal.audience.backfillList,
+      { workspaceId: args.workspaceId }
+    );
+    const report = [];
+    for (const item of imports) {
+      const total = { name: item.name, importId: item.importId, contacts: 0, fields: 0, notes: 0 };
+      let cursor: string | null = null;
+      for (;;) {
+        const page: { contacts: number; fields: number; notes: number; isDone: boolean; continueCursor: string } =
+          await ctx.runQuery(internal.audience.backfillPage, { importId: item.importId, cursor });
+        total.contacts += page.contacts;
+        total.fields += page.fields;
+        total.notes += page.notes;
+        if (page.isDone) break;
+        cursor = page.continueCursor;
+      }
+      report.push(total);
+    }
+    return report;
+  },
+});
+
+export const backfillImport = internalMutation({
+  args: { importId: v.id("audienceImports"), cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const importDoc = await ctx.db.get("audienceImports", args.importId);
+    if (!importDoc) return;
+    const page = await ctx.db
+      .query("audienceImportRows")
+      .withIndex("by_importId_and_line", (q) => q.eq("importId", args.importId))
+      .paginate({ numItems: 100, cursor: args.cursor ?? null });
+    for (const row of page.page) {
+      const change = await backfillFor(ctx, importDoc.workspaceId, row);
+      if (!change) continue;
+      await ctx.db.patch("contacts", change.contact._id, { attributes: change.attributes, remark: change.remark });
+      if (change.noted) await refreshContactSearch(ctx, change.contact._id);
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.audience.backfillImport, {
+        importId: args.importId,
+        cursor: page.continueCursor,
+      });
+    }
+  },
+});
+
+/** What an import put in a contact's fields, read from its row. */
+const importedFields = (row: Doc<"audienceImportRows">) =>
+  row.fields?.length ? row.fields : row.notes ? fieldsFromNotes(row.notes).fields : [];
+
+async function listImports(ctx: QueryCtx, workspaceId: Id<"workspaces">, audienceId: Id<"audiences">) {
+  const imports = await ctx.db
+    .query("audienceImports")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .take(500);
+  return imports.filter((row) => row.audienceId === audienceId && row.mode !== "recheck" && row.status === "saved");
+}
+
+/** The columns a list's imports brought in, offered for removal when the list goes. */
+export const listColumns = query({
+  args: { audienceId: v.id("audiences") },
+  handler: async (ctx, args) => {
+    const audience = await ctx.db.get("audiences", args.audienceId);
+    if (!audience) return [];
+    await requireWorkspace(ctx, audience.workspaceId);
+    const keys = new Map<string, string>();
+    for (const importDoc of await listImports(ctx, audience.workspaceId, audience._id)) {
+      const rows = await ctx.db
+        .query("audienceImportRows")
+        .withIndex("by_importId_and_line", (q) => q.eq("importId", importDoc._id))
+        .take(300);
+      for (const row of rows) {
+        if (row.status !== "saved") continue;
+        for (const field of importedFields(row)) {
+          const id = field.key.trim().toLowerCase();
+          if (!keys.has(id)) keys.set(id, field.key.trim());
+        }
+      }
+    }
+    return [...keys.values()];
+  },
+});
+
+/** Takes an import's fields back off the contacts it saved to, where they still hold the imported value. */
+export const stripImportFields = internalMutation({
+  args: { importId: v.id("audienceImports"), cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const importDoc = await ctx.db.get("audienceImports", args.importId);
+    if (!importDoc) return;
+    const page = await ctx.db
+      .query("audienceImportRows")
+      .withIndex("by_importId_and_line", (q) => q.eq("importId", args.importId))
+      .paginate({ numItems: 100, cursor: args.cursor ?? null });
+    for (const row of page.page) {
+      const fields = row.status === "saved" ? importedFields(row) : [];
+      if (fields.length === 0) continue;
+      const contact = await savedContact(ctx, importDoc.workspaceId, row);
+      if (!contact) continue;
+      const attributes = contact.attributes.filter(
+        (attribute) =>
+          !fields.some(
+            (field) =>
+              field.key.trim().toLowerCase() === attribute.key.trim().toLowerCase() && field.value === attribute.value
+          )
+      );
+      if (attributes.length !== contact.attributes.length) {
+        await ctx.db.patch("contacts", contact._id, { attributes });
+      }
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.audience.stripImportFields, {
+        importId: args.importId,
+        cursor: page.continueCursor,
+      });
+    }
+  },
+});
+
+export const backfillWorkspace = internalMutation({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    for (const row of await backfillImports(ctx, args.workspaceId)) {
+      await ctx.scheduler.runAfter(0, internal.audience.backfillImport, { importId: row._id });
     }
   },
 });

@@ -50,6 +50,7 @@ import {
 } from "./lib/marketingStats";
 import { failureClass } from "./lib/metaErrors";
 import { pauseRollout } from "./lib/rolloutPause";
+import { validPlan } from "./lib/rollout";
 import {
   audienceCategory as audienceCategoryValidator,
   audienceSelection as audienceSelectionValidator,
@@ -243,7 +244,36 @@ export const overview = query({
       },
       weeklyCap: settings?.weeklyCap ?? 0,
       categories: withBuiltIns(settings?.categories),
+      rolloutDefaults: settings?.rolloutDefaults ?? null,
     };
+  },
+});
+
+export const saveRolloutDefaults = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    shares: v.array(v.number()),
+    gapDays: v.number(),
+    engagedFirst: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const plan = { shares: args.shares, gapDays: args.gapDays, engagedFirst: args.engagedFirst };
+    const problem = validPlan(plan);
+    if (problem) throw new ConvexError(problem);
+    const existing = await settingsFor(ctx, args.workspaceId);
+    const fields = { rolloutDefaults: plan, updatedAt: Date.now() };
+    if (existing) {
+      await ctx.db.patch("marketingSettings", existing._id, fields);
+    } else {
+      await ctx.db.insert("marketingSettings", {
+        workspaceId: args.workspaceId,
+        birthdayEnabled: false,
+        birthdayHour: DEFAULT_BIRTHDAY_HOUR,
+        ...fields,
+      });
+    }
+    return { success: true };
   },
 });
 

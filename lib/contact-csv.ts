@@ -1,4 +1,5 @@
 import { normaliseBirthday } from "@/convex/lib/marketing";
+import { isCounterColumn, isNotesColumn } from "@/convex/lib/contactClean";
 import { parseCsv, toCsv } from "./csv";
 
 /**
@@ -24,7 +25,11 @@ export type ContactRow = {
   company?: string;
   tags?: string;
   notes?: string;
+  /** Columns kept as their own fields on the contact, keyed by their header. */
+  fields?: ContactFieldValue[];
 };
+
+export type ContactFieldValue = { key: string; value: string };
 
 export type ContactParse = {
   rows: ContactRow[];
@@ -159,7 +164,7 @@ export function parseContactCsv(text: string): ContactParse {
 }
 
 /** What one column of an imported file becomes. */
-export type ContactField = Field | "notes" | "skip";
+export type ContactField = Field | "field" | "notes" | "skip";
 
 export const CONTACT_FIELDS: Array<{ value: ContactField; label: string }> = [
   { value: "phone", label: "Phone" },
@@ -169,10 +174,13 @@ export const CONTACT_FIELDS: Array<{ value: ContactField; label: string }> = [
   { value: "email", label: "Email" },
   { value: "company", label: "Company" },
   { value: "birthday", label: "Birthday" },
+  { value: "field", label: "Own column" },
   { value: "tags", label: "Labels" },
   { value: "notes", label: "Add to notes" },
   { value: "skip", label: "Don't import" },
 ];
+
+export const FIELD_KEY_MAX = 40;
 
 /** A contacts file as read, before anyone says what its columns are. */
 export type ContactTable = {
@@ -228,8 +236,9 @@ const isEmail = (cell: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cell);
 
 /**
  * A starting mapping: each column by its header, and a column whose header
- * says nothing by what its values look like. Anything left goes to notes,
- * which is where an unrecognised column always went.
+ * says nothing by what its values look like. Anything left keeps its own
+ * column under its header, or goes to notes when the file has no header to
+ * name it by.
  */
 export function guessMapping(table: ContactTable, hasHeader: boolean): ContactField[] {
   const names = columnNames(table, hasHeader);
@@ -247,6 +256,8 @@ export function guessMapping(table: ContactTable, hasHeader: boolean): ContactFi
     if (field) return field;
     // "Phone 1 - Label: Mobile" describes another column; it is not worth a note.
     if (hasHeader && /\b(type|label)\b/.test(clean(names[i]))) return "skip";
+    if (hasHeader && isCounterColumn(names[i])) return "skip";
+    if (hasHeader && isNotesColumn(names[i])) return "notes";
     const guess: ContactField | null =
       !taken.has("phone") && share(i, looksLikePhone) >= 0.6
         ? "phone"
@@ -261,7 +272,7 @@ export function guessMapping(table: ContactTable, hasHeader: boolean): ContactFi
       taken.add(guess);
       return guess;
     }
-    return "notes";
+    return hasHeader ? "field" : "notes";
   });
 }
 
@@ -301,10 +312,21 @@ export function mapContactRows(
       .join(", ");
     const notes = mapping
       .map((field, i) =>
-        field === "notes" && cells[i] ? (hasHeader ? `${names[i]}: ${cells[i]}` : cells[i]) : null
+        field === "notes" && cells[i]
+          ? hasHeader && !isNotesColumn(names[i])
+            ? `${names[i]}: ${cells[i]}`
+            : cells[i]
+          : null
       )
       .filter(Boolean)
       .join("; ");
+    const fields: ContactFieldValue[] = [];
+    mapping.forEach((field, i) => {
+      const key = names[i].trim().slice(0, FIELD_KEY_MAX);
+      if (field !== "field" || !cells[i] || !key) return;
+      if (fields.some((entry) => entry.key.toLowerCase() === key.toLowerCase())) return;
+      fields.push({ key, value: cells[i] });
+    });
     return {
       // Google writes several numbers into one cell as "a ::: b".
       phone: pick("phone")?.split(":::")[0].trim() ?? "",
@@ -314,6 +336,7 @@ export function mapContactRows(
       birthday: pick("birthday"),
       tags: tags || undefined,
       notes: notes || undefined,
+      fields: fields.length ? fields : undefined,
     };
   });
 }
@@ -345,10 +368,18 @@ export function mergeRepeats(
       continue;
     }
     removed++;
-    for (const field of ["name", "email", "company", "birthday", "notes"] as const) {
+    for (const field of ["name", "email", "company", "birthday"] as const) {
       if (!first[field] && row[field]) first[field] = row[field];
     }
     if (row.tags) first.tags = [first.tags, row.tags].filter(Boolean).join(", ");
+    if (row.notes && !first.notes?.includes(row.notes)) {
+      first.notes = [first.notes, row.notes].filter(Boolean).join("; ");
+    }
+    if (row.fields) {
+      const have = new Set((first.fields ?? []).map((entry) => entry.key.toLowerCase()));
+      const added = row.fields.filter((entry) => !have.has(entry.key.toLowerCase()));
+      if (added.length) first.fields = [...(first.fields ?? []), ...added];
+    }
   }
   return { rows: kept, removed };
 }
@@ -377,6 +408,18 @@ export function phoneCell(digits: string): string {
   return `+${digits}`;
 }
 
+/** Every field key the contacts have, in the order they first appear. */
+export function fieldKeysOf(contacts: Array<{ fields?: ContactFieldValue[] | null }>): string[] {
+  const keys = new Map<string, string>();
+  for (const contact of contacts) {
+    for (const entry of contact.fields ?? []) {
+      const id = entry.key.trim().toLowerCase();
+      if (id && !keys.has(id)) keys.set(id, entry.key.trim());
+    }
+  }
+  return [...keys.values()];
+}
+
 export function contactsToCsv(
   contacts: Array<{
     name?: string | null;
@@ -384,10 +427,15 @@ export function contactsToCsv(
     birthday?: string | null;
     email?: string | null;
     company?: string | null;
-  }>
+    notes?: string | null;
+    fields?: ContactFieldValue[] | null;
+  }>,
+  fieldKeys: string[] = []
 ): string {
+  const valueOf = (fields: ContactFieldValue[] | null | undefined, key: string) =>
+    fields?.find((entry) => entry.key.trim().toLowerCase() === key.toLowerCase())?.value ?? "";
   return toCsv([
-    [...CONTACT_CSV_COLUMNS],
+    [...CONTACT_CSV_COLUMNS, "notes", ...fieldKeys],
     ...contacts.map((contact) => [
       contact.name ?? "",
       phoneCell(contact.phone.replace(/\D/g, "")),
@@ -397,6 +445,8 @@ export function contactsToCsv(
         : "",
       contact.email ?? "",
       contact.company ?? "",
+      contact.notes ?? "",
+      ...fieldKeys.map((key) => valueOf(contact.fields, key)),
     ]),
   ]);
 }

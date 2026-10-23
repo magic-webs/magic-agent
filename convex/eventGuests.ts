@@ -192,6 +192,7 @@ export const checkIn = mutation({
         name: args.name?.trim() || undefined,
         attributes: [],
         source: "manual",
+        audienceOnly: true,
         tags: ["walk-in"],
         lastSeenAt: now,
         createdAt: now,

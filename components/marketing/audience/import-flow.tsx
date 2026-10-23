@@ -177,6 +177,7 @@ export function ImportUpload({
             birthday: row.birthday,
             tags: row.tags,
             notes: row.notes,
+            fields: row.fields,
           })),
         });
       }

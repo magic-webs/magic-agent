@@ -9,16 +9,15 @@ import { formatMoney } from "@/convex/lib/billing";
 import { templateBlocker } from "@/convex/lib/marketing";
 import {
   ASSUMED_LIMIT,
-  GAP_DAYS,
   LIMIT_TIERS,
-  MAX_WAVES,
-  RECOMMENDED_SHARES,
   dailyLimit,
+  isRecommended,
   limitLabel,
   planWaves,
   recommendedPlan,
   validPlan,
 } from "@/convex/lib/rollout";
+import { WaveFields } from "@/components/marketing/campaigns/wave-plan";
 import type { VariableFill } from "@/convex/lib/personalise";
 import type { CampaignDraft } from "@/components/marketing/campaigns/composer";
 import { fillLabel } from "@/components/marketing/campaigns/variable-mapper";
@@ -29,8 +28,6 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -40,9 +37,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AlertCircleIcon,
   ArrowLeft02Icon,
-  Delete02Icon,
   FloppyDiskIcon,
-  PlusSignIcon,
   RefreshIcon,
   Rocket01Icon,
   SecurityCheckIcon,
@@ -136,8 +131,6 @@ export function SmartReview({
 
   const plan = draft.plan;
   const setPlan = (patch: Partial<CampaignDraft["plan"]>) => onChange({ plan: { ...plan, ...patch } });
-  const setShare = (index: number, value: number) =>
-    setPlan({ shares: plan.shares.map((share, i) => (i === index ? value : share)) });
 
   const knownTier = health?.limitTier ?? null;
   const tier = knownTier ?? plan.limitTier ?? null;
@@ -156,7 +149,6 @@ export function SmartReview({
   const capped = schedule.waves.some((wave) => wave.capped);
   const perPerson = estimate && estimate.reachable > 0 ? estimate.costMicros / estimate.reachable : 0;
   const money = (micros: number) => (estimate?.currency ? formatMoney(micros, estimate.currency) : null);
-  const total = plan.shares.reduce((sum, share) => sum + share, 0);
   const blocker = template ? templateBlocker(template) : null;
   const short =
     estimate?.balanceMicros !== null &&
@@ -166,10 +158,7 @@ export function SmartReview({
   const startLabel =
     draft.when === "now" ? "now" : `${dayLabel(draft.date)} at ${hourLabel(draft.sendHour)}`;
   const quality = QUALITY[health?.quality ?? "UNKNOWN"];
-  const recommended =
-    plan.gapDays === 1 &&
-    plan.engagedFirst &&
-    plan.shares.join() === RECOMMENDED_SHARES.join();
+  const recommended = isRecommended(plan);
 
   return (
     <div className="flex flex-col gap-5">
@@ -314,85 +303,21 @@ export function SmartReview({
               )
             }
           >
-            <div className="flex flex-col gap-2">
-              <Label>Wave sizes</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                {plan.shares.map((share, index) => (
-                  <div key={index} className="flex items-center gap-1 rounded-lg border border-border py-1 pr-1 pl-2">
-                    <span className="text-xs text-muted-foreground">Wave {index + 1}</span>
-                    <Input
-                      aria-label={`Wave ${index + 1} percentage`}
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={Number.isFinite(share) ? share : ""}
-                      onChange={(e) => setShare(index, Math.round(Number(e.target.value)))}
-                      className="h-7 w-16 text-right tabular-nums"
-                    />
-                    <span className="text-xs text-muted-foreground">%</span>
-                    {plan.shares.length > 1 ? (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={`Remove wave ${index + 1}`}
-                        onClick={() => setPlan({ shares: plan.shares.filter((_, i) => i !== index) })}
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                      </Button>
-                    ) : null}
-                  </div>
-                ))}
-                {plan.shares.length < MAX_WAVES ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setPlan({ shares: [...plan.shares, Math.max(1, 100 - total)] })}
-                  >
-                    <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add wave
-                  </Button>
-                ) : null}
-              </div>
-              <p className={cn("text-xs", total === 100 ? "text-muted-foreground" : "font-medium text-destructive")}>
-                {total === 100 ? "Adds up to 100%." : (problem ?? `Adds up to ${total}%.`)}
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label>Days between waves</Label>
-                <SelectField
-                  aria-label="Days between waves"
-                  value={String(plan.gapDays)}
-                  onValueChange={(value) => setPlan({ gapDays: Number(value) })}
-                  options={GAP_DAYS.map((days) => ({
-                    value: String(days),
-                    label: days === 1 ? "Every day" : `Every ${days} days`,
-                  }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Send hour ({workspace.timezone})</Label>
-                <SelectField
-                  aria-label="Send hour"
-                  value={String(draft.sendHour)}
-                  onValueChange={(value) => onChange({ sendHour: Number(value) })}
-                  options={HOURS}
-                />
-              </div>
-            </div>
-            <label className="flex items-start gap-2 text-sm">
-              <Checkbox
-                checked={plan.engagedFirst}
-                onCheckedChange={(next) => setPlan({ engagedFirst: next === true })}
-              />
-              <span>
-                Most engaged contacts first
-                <span className="block text-xs text-muted-foreground">
-                  People who replied, ordered or read recently go in the early waves. Their good
-                  response keeps your quality high for the colder contacts later.
-                </span>
-              </span>
-            </label>
+            <WaveFields
+              plan={plan}
+              onChange={setPlan}
+              aside={
+                <div className="flex flex-col gap-1.5">
+                  <Label>Send hour ({workspace.timezone})</Label>
+                  <SelectField
+                    aria-label="Send hour"
+                    value={String(draft.sendHour)}
+                    onValueChange={(value) => onChange({ sendHour: Number(value) })}
+                    options={HOURS}
+                  />
+                </div>
+              }
+            />
 
             {estimate && reachable === 0 ? (
               <p className="text-sm text-muted-foreground">Nobody matches this audience yet.</p>

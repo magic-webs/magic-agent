@@ -226,7 +226,10 @@ export const summary = query({
         orderRecords(ctx, ws, 5000),
         ctx.db.query("conversations").withIndex("by_workspace", (q) => q.eq("workspaceId", ws)).collect(),
         ctx.db.query("tools").withIndex("by_workspace", (q) => q.eq("workspaceId", ws)).collect(),
-        ctx.db.query("contacts").withIndex("by_workspace", (q) => q.eq("workspaceId", ws)).collect(),
+        ctx.db
+          .query("contacts")
+          .withIndex("by_workspace_and_audienceOnly", (q) => q.eq("workspaceId", ws).eq("audienceOnly", undefined))
+          .collect(),
       ]);
 
     return {

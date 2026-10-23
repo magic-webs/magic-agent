@@ -38,6 +38,19 @@ export function recommendedPlan(): RolloutPlan {
   return { shares: [...RECOMMENDED_SHARES], gapDays: 1, engagedFirst: true };
 }
 
+export type WavePlan = Pick<RolloutPlan, "shares" | "gapDays" | "engagedFirst">;
+
+/** Where a new smart campaign starts: the workspace's own waves, or the recommended ones. */
+export function defaultPlan(saved: WavePlan | null | undefined): RolloutPlan {
+  return saved
+    ? { shares: [...saved.shares], gapDays: saved.gapDays, engagedFirst: saved.engagedFirst }
+    : recommendedPlan();
+}
+
+export function isRecommended(plan: WavePlan): boolean {
+  return plan.gapDays === 1 && plan.engagedFirst && plan.shares.join() === RECOMMENDED_SHARES.join();
+}
+
 export function normaliseTier(raw: unknown): string | undefined {
   if (typeof raw === "number" && Number.isFinite(raw)) return tierFromLimit(raw);
   if (typeof raw !== "string") return undefined;

@@ -1226,3 +1226,71 @@ export const templateMessages = internalMutation({
     return { converted, done: page.isDone };
   },
 });
+
+// ---------------------------------------------------------------------------
+// Audience-only contacts
+//
+//   bunx convex run migrations:previewAudienceOnly
+//   bunx convex run migrations:audienceOnlyContacts
+//
+// People brought in by an import or by hand who have never written in stay
+// off the Contacts page until they do. Safe to run twice.
+// ---------------------------------------------------------------------------
+
+async function audienceOnlyCandidate(ctx: QueryCtx, contact: Doc<"contacts">): Promise<boolean> {
+  if (contact.audienceOnly || contact.lastInboundAt || contact.lastRepliedAt) return false;
+  if (contact.source !== "import" && contact.source !== "manual") return false;
+  const threads = await ctx.db
+    .query("conversations")
+    .withIndex("by_contact_agent", (q) => q.eq("contactId", contact._id))
+    .take(20);
+  return threads.every((thread) => thread.marketingOnly);
+}
+
+export const audienceOnlyPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("contacts").paginate({ numItems: 200, cursor: args.cursor });
+    const byWorkspace: Record<string, number> = {};
+    for (const contact of page.page) {
+      if (await audienceOnlyCandidate(ctx, contact)) {
+        byWorkspace[contact.workspaceId] = (byWorkspace[contact.workspaceId] ?? 0) + 1;
+      }
+    }
+    return { byWorkspace, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+export const previewAudienceOnly = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const totals: Record<string, number> = {};
+    let cursor: string | null = null;
+    for (;;) {
+      const page: { byWorkspace: Record<string, number>; isDone: boolean; continueCursor: string } =
+        await ctx.runQuery(internal.migrations.audienceOnlyPage, { cursor });
+      for (const [workspaceId, count] of Object.entries(page.byWorkspace)) {
+        totals[workspaceId] = (totals[workspaceId] ?? 0) + count;
+      }
+      if (page.isDone) return totals;
+      cursor = page.continueCursor;
+    }
+  },
+});
+
+export const audienceOnlyContacts = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("contacts").paginate({ numItems: 100, cursor: args.cursor ?? null });
+    for (const contact of page.page) {
+      if (await audienceOnlyCandidate(ctx, contact)) {
+        await ctx.db.patch("contacts", contact._id, { audienceOnly: true });
+      }
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.audienceOnlyContacts, {
+        cursor: page.continueCursor,
+      });
+    }
+  },
+});

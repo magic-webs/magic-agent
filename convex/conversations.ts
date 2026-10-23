@@ -1201,6 +1201,7 @@ export const startTurn = internalMutation({
         lastInboundAt: now,
         name: contact.name ?? args.contactName,
         phone: contact.phone ?? args.contactPhone,
+        audienceOnly: undefined,
       });
     }
 

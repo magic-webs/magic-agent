@@ -2,7 +2,9 @@
 
 import {
   CONTACT_FIELDS,
+  FIELD_KEY_MAX,
   columnNames,
+  fieldKeysOf,
   mapContactRows,
   type ContactField,
   type ContactRow,
@@ -88,6 +90,11 @@ export function ColumnMapping({
                       onMapping(mapping.map((field, j) => (j === i ? (value as ContactField) : field)))
                     }
                   />
+                  {mapping[i] === "field" ? (
+                    <span className="mt-1 block max-w-44 truncate text-[11px] text-muted-foreground">
+                      Saved as “{name.trim().slice(0, FIELD_KEY_MAX)}”
+                    </span>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}
@@ -103,7 +110,7 @@ export function ColumnMapping({
   );
 }
 
-const PREVIEW_COLUMNS: Array<{ key: keyof ContactRow; label: string }> = [
+const PREVIEW_COLUMNS: Array<{ key: Exclude<keyof ContactRow, "fields">; label: string }> = [
   { key: "name", label: "Name" },
   { key: "phone", label: "Phone" },
   { key: "email", label: "Email" },
@@ -157,6 +164,9 @@ export function ImportPreview({
   const rows = exampleRows(table, hasHeader, mapping);
   if (rows.length === 0) return null;
   const shown = PREVIEW_COLUMNS.filter(({ key }) => rows.some((row) => row[key]));
+  const fieldKeys = fieldKeysOf(rows);
+  const fieldValue = (row: ContactRow, key: string) =>
+    row.fields?.find((entry) => entry.key.toLowerCase() === key.toLowerCase())?.value;
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-semibold">How rows will come in</h3>
@@ -170,6 +180,11 @@ export function ImportPreview({
               {shown.map((column) => (
                 <TableHead key={column.key}>{column.label}</TableHead>
               ))}
+              {fieldKeys.map((key) => (
+                <TableHead key={`field:${key}`} className="whitespace-nowrap">
+                  {key}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -182,6 +197,11 @@ export function ImportPreview({
                     className="max-w-72 truncate text-xs"
                   >
                     {row[column.key] || <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                ))}
+                {fieldKeys.map((key) => (
+                  <TableCell key={`field:${key}`} className="max-w-56 truncate text-xs">
+                    {fieldValue(row, key) || <span className="text-muted-foreground">—</span>}
                   </TableCell>
                 ))}
               </TableRow>

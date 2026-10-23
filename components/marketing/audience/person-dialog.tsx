@@ -22,9 +22,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { normaliseTag } from "@/convex/lib/audience";
 import { categoryLabel, fail, formatPhone, type Category } from "./shared";
 
@@ -38,6 +39,8 @@ export type Person = {
   category: string | null;
   automatic: boolean;
   tags: string[];
+  notes: string | null;
+  fields: Array<{ key: string; value: string }>;
   source: string | null;
   optedOutAt: number | null;
   createdAt: number;
@@ -76,14 +79,37 @@ export function PersonDialog({
   const [tags, setTags] = useState<string[]>(person?.tags ?? []);
   const [tagDraft, setTagDraft] = useState("");
   const [subscribed, setSubscribedState] = useState(!person?.optedOutAt);
+  const [notes, setNotes] = useState(person?.notes ?? "");
+  const [fields, setFields] = useState(person?.fields ?? []);
+  const [fieldKey, setFieldKey] = useState("");
+  const [fieldValue, setFieldValue] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!person) return null;
 
+  const fieldsChanged = JSON.stringify(fields) !== JSON.stringify(person.fields);
+  const addField = () => {
+    const key = fieldKey.trim();
+    const value = fieldValue.trim();
+    if (!key || !value) return;
+    const index = fields.findIndex((field) => field.key.toLowerCase() === key.toLowerCase());
+    setFields(index === -1 ? [...fields, { key, value }] : fields.map((field, i) => (i === index ? { ...field, value } : field)));
+    setFieldKey("");
+    setFieldValue("");
+  };
+
   const save = async () => {
     setBusy(true);
     try {
-      await update({ contactId: person._id, name, email, company, birthday });
+      await update({
+        contactId: person._id,
+        name,
+        email,
+        company,
+        birthday,
+        ...(notes !== (person.notes ?? "") ? { remark: notes } : {}),
+        ...(fieldsChanged ? { attributes: fields } : {}),
+      });
       const removeTags = person.tags.filter((tag) => !tags.includes(tag));
       const addTags = tags.filter((tag) => !person.tags.includes(tag));
       if (category !== initialCategory || addTags.length || removeTags.length) {
@@ -192,6 +218,77 @@ export function PersonDialog({
                   addTag();
                 }
               }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Fields</Label>
+            {fields.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {fields.map((field, index) => (
+                  <div key={field.key} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] items-center gap-2">
+                    <span className="truncate text-sm text-muted-foreground" title={field.key}>
+                      {field.key}
+                    </span>
+                    <Input
+                      aria-label={field.key}
+                      value={field.value}
+                      onChange={(e) =>
+                        setFields(fields.map((row, i) => (i === index ? { ...row, value: e.target.value } : row)))
+                      }
+                    />
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={`Remove ${field.key}`}
+                      onClick={() => setFields(fields.filter((_, i) => i !== index))}
+                    >
+                      <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] items-center gap-2">
+              <Input
+                aria-label="New field name"
+                value={fieldKey}
+                maxLength={40}
+                placeholder="Field, e.g. Gender"
+                onChange={(e) => setFieldKey(e.target.value)}
+              />
+              <Input
+                aria-label="New field value"
+                value={fieldValue}
+                placeholder="Value"
+                onChange={(e) => setFieldValue(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addField();
+                  }
+                }}
+              />
+              <Button
+                size="icon-sm"
+                variant="outline"
+                aria-label="Add field"
+                disabled={!fieldKey.trim() || !fieldValue.trim()}
+                onClick={addField}
+              >
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="person-notes">Notes</Label>
+            <Textarea
+              id="person-notes"
+              rows={3}
+              value={notes}
+              placeholder="Anything worth remembering about them"
+              onChange={(e) => setNotes(e.target.value)}
             />
           </div>
 

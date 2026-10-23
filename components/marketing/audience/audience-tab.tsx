@@ -22,6 +22,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -47,6 +55,7 @@ import {
   CleanIcon,
   Delete02Icon,
   FileImportIcon,
+  LayoutTable01Icon,
   LeftToRightListBulletIcon,
   NotificationOff01Icon,
   PencilEdit02Icon,
@@ -91,6 +100,26 @@ const CONFIRM_INCOMPLETE_AT = 10;
 const AUTO = "__auto";
 const CONTACT_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-20"];
 
+function readHidden(store: string): string[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(store) ?? "[]");
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function keepHidden(store: string, hidden: string[]) {
+  try {
+    window.localStorage.setItem(store, JSON.stringify(hidden));
+  } catch {
+    // Storage switched off: the choice lasts until the page closes.
+  }
+}
+
+const fieldValue = (fields: Array<{ key: string; value: string }>, key: string) =>
+  fields.find((field) => field.key.trim().toLowerCase() === key.toLowerCase())?.value;
+
 function viewKey(view: View): string {
   if (view.kind === "category") return `category:${view.key}`;
   if (view.kind === "audience") return `audience:${view.id}`;
@@ -124,6 +153,11 @@ export function AudienceTab({
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [deleting, setDeleting] = useState(false);
+  const [removeColumns, setRemoveColumns] = useState(true);
+  const listColumns = useQuery(
+    api.audience.listColumns,
+    deleting && view.kind === "audience" ? { audienceId: view.id } : "skip"
+  );
   const [pendingMove, setPendingMove] = useState<string | null>(null);
   const importBase = `/w/${workspace.slug}/marketing/audience/import`;
   const [categoryDialog, setCategoryDialog] = useState<{ editing: Category | null } | null>(null);
@@ -132,6 +166,17 @@ export function AudienceTab({
   const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
   const imports = useQuery(api.audienceImports.list, { workspaceId: workspace._id });
   const summary = useQuery(api.audience.tags, { workspaceId: workspace._id });
+  const fieldSummary = useQuery(api.marketing.contactFields, { workspaceId: workspace._id });
+  const hiddenStore = `marketing:audience-hidden-fields:${workspace._id}`;
+  const [hiddenFields, setHiddenFields] = useState<string[]>(() => readHidden(hiddenStore));
+  const fieldKeys = (fieldSummary?.attributes ?? []).map((row) => row.key);
+  const shownFields = fieldKeys.filter((key) => !hiddenFields.includes(key.toLowerCase()));
+  const showField = (key: string, show: boolean) => {
+    const id = key.toLowerCase();
+    const next = show ? hiddenFields.filter((hidden) => hidden !== id) : [...hiddenFields, id];
+    setHiddenFields(next);
+    keepHidden(hiddenStore, next);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchDraft.trim()), 300);
@@ -214,8 +259,9 @@ export function AudienceTab({
   const deleteList = (withContacts: boolean) => {
     if (view.kind !== "audience") return;
     const audienceId = view.id;
+    const withColumns = removeColumns && (listColumns?.length ?? 0) > 0;
     const done = withContacts ? "List deleted. Its contacts are being removed." : "List deleted";
-    void bulk(() => removeAudience({ audienceId, withContacts }), done).then((ok) => {
+    void bulk(() => removeAudience({ audienceId, withContacts, withColumns }), done).then((ok) => {
       setDeleting(false);
       if (ok) choose({ kind: "all" });
     });
@@ -433,13 +479,37 @@ export function AudienceTab({
                 ...(summary?.tags ?? []).map((row) => ({ value: row.tag, label: `${row.tag} (${row.count})` })),
               ]}
             />
+            {fieldKeys.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" />}>
+                  <HugeiconsIcon icon={LayoutTable01Icon} strokeWidth={2} /> Columns
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-80 min-w-52">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Fields shown in the list</DropdownMenuLabel>
+                    {fieldKeys.map((key) => (
+                      <DropdownMenuCheckboxItem
+                        key={key}
+                        checked={!hiddenFields.includes(key.toLowerCase())}
+                        onCheckedChange={(checked) => showField(key, Boolean(checked))}
+                      >
+                        {key}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
             {view.kind === "audience" ? (
               <Button
                 variant="ghost"
                 size="sm"
                 className="ml-auto text-destructive"
                 disabled={busy}
-                onClick={() => setDeleting(true)}
+                onClick={() => {
+                  setRemoveColumns(true);
+                  setDeleting(true);
+                }}
               >
                 <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete list
               </Button>
@@ -492,7 +562,7 @@ export function AudienceTab({
           ) : null}
 
           {people.status === "LoadingFirstPage" ? (
-            <ContactsSkeleton />
+            <ContactsSkeleton fields={shownFields} />
           ) : rows.length === 0 && more ? (
             <Empty className="border border-dashed">
               <EmptyHeader>
@@ -545,6 +615,11 @@ export function AudienceTab({
                     </TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Category</TableHead>
+                    {shownFields.map((key) => (
+                      <TableHead key={`field:${key}`} className="min-w-28 whitespace-nowrap">
+                        {key}
+                      </TableHead>
+                    ))}
                     <TableHead className="hidden md:table-cell">Tags</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                   </TableRow>
@@ -585,6 +660,14 @@ export function AudienceTab({
                           {categoryLabel(categories, row.category)}
                         </span>
                       </TableCell>
+                      {shownFields.map((key) => {
+                        const value = fieldValue(row.fields, key);
+                        return (
+                          <TableCell key={`field:${key}`} title={value} className="max-w-48 truncate whitespace-nowrap">
+                            {value ?? <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                        );
+                      })}
                       <TableCell className="hidden md:table-cell">
                         <div className="flex max-w-56 flex-wrap gap-1">
                           {row.tags.slice(0, 4).map((value) => (
@@ -610,7 +693,7 @@ export function AudienceTab({
                   ))}
                   {more ? (
                     <TableRow ref={loadMoreRow} className="hover:bg-transparent">
-                      <TableCell colSpan={5} className="py-3">
+                      <TableCell colSpan={5 + shownFields.length} className="py-3">
                         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                           <Spinner /> Loading more contacts…
                         </div>
@@ -630,18 +713,30 @@ export function AudienceTab({
         <PersonDialog key={person._id} person={person} categories={categories} onClose={() => setPerson(null)} />
       ) : null}
       <AlertDialog open={deleting} onOpenChange={(next) => !busy && setDeleting(next)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="data-[size=default]:sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Delete the list “{view.kind === "audience" ? view.name : ""}”?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Delete just the list and everyone in it stays a contact, or delete its contacts too.
-              Anyone who has messaged you, has an order, record, payment link or form entry, is a
-              guest at an event, or is in another list is always kept. Deleted contacts and their
-              campaign messages cannot be brought back.
+              Delete only the list and everyone in it stays a contact, or delete its contacts too.
+              Anyone who has messaged you, ordered, has a record, payment link or form entry, is an
+              event guest or is in another list is always kept. Deleted contacts cannot be brought
+              back.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {listColumns && listColumns.length > 0 ? (
+            <label className="flex items-start gap-2 rounded-md border border-border p-3 text-sm">
+              <Checkbox checked={removeColumns} onCheckedChange={(next) => setRemoveColumns(next === true)} />
+              <span className="min-w-0">
+                Also remove the columns this list added
+                <span className="block text-xs text-muted-foreground">
+                  {listColumns.join(", ")} — taken off everyone who keeps them, unless the value was
+                  changed after the import.
+                </span>
+              </span>
+            </label>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <Button variant="outline" disabled={busy} onClick={() => deleteList(false)}>
@@ -771,6 +866,7 @@ function Header({ children }: { children: ReactNode }) {
         <p className="max-w-2xl text-sm text-muted-foreground">
           Everyone your campaigns and events can reach. Import contacts from a CSV and they are
           cleaned up and checked by Agent Check, then reviewed by you before anyone is added.
+          People brought in here show under Contacts once they message you.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">{children}</div>
@@ -778,7 +874,7 @@ function Header({ children }: { children: ReactNode }) {
   );
 }
 
-function ContactsSkeleton() {
+function ContactsSkeleton({ fields = [] }: { fields?: string[] }) {
   return (
     <div className="overflow-x-auto rounded-md border border-border" aria-hidden>
       <Table>
@@ -789,6 +885,11 @@ function ContactsSkeleton() {
             </TableHead>
             <TableHead>Contact</TableHead>
             <TableHead>Category</TableHead>
+            {fields.map((key) => (
+              <TableHead key={key} className="min-w-28 whitespace-nowrap">
+                {key}
+              </TableHead>
+            ))}
             <TableHead className="hidden md:table-cell">Tags</TableHead>
             <TableHead className="hidden sm:table-cell">Status</TableHead>
           </TableRow>
@@ -808,6 +909,11 @@ function ContactsSkeleton() {
               <TableCell>
                 <Skeleton className={`h-5 rounded ${i % 2 ? "w-20" : "w-16"}`} />
               </TableCell>
+              {fields.map((key, j) => (
+                <TableCell key={key}>
+                  <Skeleton className={`h-3.5 ${(i + j) % 2 ? "w-16" : "w-12"}`} />
+                </TableCell>
+              ))}
               <TableCell className="hidden md:table-cell">
                 <div className="flex gap-1">
                   {i % 3 !== 2 ? <Skeleton className="h-5 w-14 rounded-full" /> : null}

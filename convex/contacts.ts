@@ -7,11 +7,11 @@ import { mutation } from "./functions";
 import { requireContact, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
 import { normaliseEmail } from "./lib/notifications";
-import { checkPhone } from "./lib/contactClean";
+import { MAX_FIELDS, checkPhone } from "./lib/contactClean";
 import { categoryOf, isBuiltIn, knownCategories } from "./lib/audience";
 import { refreshContactSearch } from "./lib/inbox";
 import schema from "./schema";
-import { channelType } from "./schema/validators";
+import { channelType, kvPair } from "./schema/validators";
 
 /** The most people one paste may add. */
 const MAX_ADD = 500;
@@ -112,6 +112,7 @@ export const addMany = mutation({
         company,
         attributes: [],
         source: args.source ?? "manual",
+        audienceOnly: true,
         // Required, and there is no "never" to put: the day they were added
         // is the closest thing to when the business last heard of them.
         lastSeenAt: now,
@@ -165,6 +166,8 @@ export const exportPage = query({
       birthday: contact.birthday ?? null,
       email: contact.email ?? null,
       company: contact.company ?? null,
+      notes: contact.remark ?? null,
+      fields: contact.attributes,
       optedOutAt: contact.optedOutAt ?? null,
     });
 
@@ -388,7 +391,9 @@ export const page = query({
 
     const result = await stream(ctx.db, schema)
       .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .withIndex("by_workspace_and_audienceOnly", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("audienceOnly", undefined)
+      )
       .order("desc")
       .filterWith(keep)
       .paginate({
@@ -415,12 +420,24 @@ export const update = mutation({
     remark: v.optional(v.string()),
     /** Any readable date; stored as "MM-DD". Empty clears it. */
     birthday: v.optional(v.string()),
+    /** The contact's own fields, replacing what is there. */
+    attributes: v.optional(v.array(kvPair)),
   },
   handler: async (ctx, args) => {
     await requireContact(ctx, args.contactId);
-    const { contactId, birthday, ...rest } = args;
+    const { contactId, birthday, attributes, ...rest } = args;
 
     const patch: Record<string, unknown> = {};
+    if (attributes !== undefined) {
+      const kept: Array<{ key: string; value: string }> = [];
+      for (const row of attributes) {
+        const key = row.key.trim().slice(0, 40);
+        const value = row.value.trim().slice(0, 500);
+        if (!key || !value || kept.some((entry) => entry.key.toLowerCase() === key.toLowerCase())) continue;
+        kept.push({ key, value });
+      }
+      patch.attributes = kept.slice(0, MAX_FIELDS);
+    }
     if (birthday !== undefined) {
       const normalised = normaliseBirthday(birthday);
       if (birthday.trim() && !normalised) {

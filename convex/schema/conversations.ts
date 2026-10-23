@@ -203,6 +203,13 @@ export const conversationsTables = {
     .index("by_humanHandlingAt", ["humanHandlingAt"])
     .index("by_humanHandlingUntil", ["humanHandlingUntil"])
     .index("by_marketingOnly_and_lastMessageAt", ["marketingOnly", "lastMessageAt"])
+    .index("by_workspace_marketingOnly_lastMessageAt", ["workspaceId", "marketingOnly", "lastMessageAt"])
+    .index("by_workspace_status_marketingOnly_lastMessageAt", [
+      "workspaceId",
+      "status",
+      "marketingOnly",
+      "lastMessageAt",
+    ])
     .index("by_workspace_assignedMemberId_lastMessageAt", [
       "workspaceId",
       "assignedMemberId",

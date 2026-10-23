@@ -179,22 +179,24 @@ export async function inboxPage(
           .order("desc")
       : status
         ? conversations
-            .withIndex("by_workspace_status_lastMessageAt", (q) =>
+            .withIndex("by_workspace_status_marketingOnly_lastMessageAt", (q) =>
               q
                 .eq("workspaceId", workspaceId)
                 .eq("status", status)
+                .eq("marketingOnly", undefined)
                 .gte("lastMessageAt", since)
             )
             .order("desc")
         : conversations
-            .withIndex("by_workspace_lastMessageAt", (q) =>
-              q.eq("workspaceId", workspaceId).gte("lastMessageAt", since)
+            .withIndex("by_workspace_marketingOnly_lastMessageAt", (q) =>
+              q.eq("workspaceId", workspaceId).eq("marketingOnly", undefined).gte("lastMessageAt", since)
             )
             .order("desc");
 
   const result = await range
     .filter((q) => {
-      const all = [];
+      // A thread a send opened stays out until the person answers it.
+      const all = [q.neq(q.field("marketingOnly"), true)];
       if (term && since) all.push(q.gte(q.field("lastMessageAt"), since));
       if (unread) {
         if (term) all.push(q.eq(q.field("lastMessageRole"), "user"));

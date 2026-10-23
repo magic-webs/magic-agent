@@ -7,7 +7,7 @@ type Conversation = Doc<"conversations">;
 type ConversationFields = WithoutSystemFields<Conversation>;
 type Counted = Pick<
   Conversation,
-  "status" | "lastMessageRole" | "humanHandling" | "markedBot"
+  "status" | "lastMessageRole" | "humanHandling" | "markedBot" | "marketingOnly"
 >;
 
 export const INBOX_COUNT_KEYS = [
@@ -44,6 +44,7 @@ export function isAwaitingReply(conversation: Counted): boolean {
 }
 
 export function countsOf(conversation: Counted): InboxCounts {
+  if (conversation.marketingOnly) return EMPTY_INBOX_COUNTS;
   const unread = isAwaitingReply(conversation);
   return {
     total: 1,

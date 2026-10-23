@@ -43,7 +43,77 @@ import {
   SecurityCheckIcon,
 } from "@hugeicons/core-free-icons";
 
-type Estimate = FunctionReturnType<typeof api.marketingBroadcasts.estimate>;
+export type Estimate = FunctionReturnType<typeof api.marketingBroadcasts.estimate>;
+
+/** When the count is partial, the ceiling the chosen lists put on it, and the cost at that ceiling. */
+export function reachRange(estimate: Estimate) {
+  const upTo = estimate.partial && estimate.upTo && estimate.upTo > estimate.reachable ? estimate.upTo : null;
+  const perPerson = estimate.reachable > 0 ? estimate.costMicros / estimate.reachable : 0;
+  return { upTo, maxCostMicros: upTo ? Math.round(perPerson * upTo) : estimate.costMicros };
+}
+
+export function ReachValue({ estimate }: { estimate: Estimate }) {
+  const { upTo } = reachRange(estimate);
+  if (upTo) {
+    return (
+      <>
+        {estimate.reachable.toLocaleString()} – {plural(upTo, "person", "people")}
+      </>
+    );
+  }
+  return (
+    <>
+      {estimate.partial ? "At least " : ""}
+      {plural(estimate.reachable, "person", "people")}
+    </>
+  );
+}
+
+/** Where the people the choices match went, from the lists' size down to who is sent it. */
+export function ReachBreakdown({ estimate, filtered }: { estimate: Estimate; filtered: boolean }) {
+  if (estimate.partial) return null;
+  const fromLists = estimate.listTotal !== null && estimate.listTotal >= estimate.matched;
+  const start = fromLists && estimate.listTotal !== null ? estimate.listTotal : estimate.matched;
+  const repeats = start - estimate.matched;
+  const parts = [
+    repeats > 0
+      ? `${repeats.toLocaleString()} ${filtered ? "on more than one list or left out by your filters" : "on more than one list"}`
+      : null,
+    estimate.notWhatsApp > 0 ? `${estimate.notWhatsApp.toLocaleString()} not on WhatsApp` : null,
+    estimate.optedOut > 0 ? `${estimate.optedOut.toLocaleString()} unsubscribed` : null,
+    estimate.overCap > 0 ? `${estimate.overCap.toLocaleString()} over the weekly limit` : null,
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      {start.toLocaleString()} {fromLists ? "on your lists" : "match your choices"} → {parts.join(" · ")} →{" "}
+      {plural(estimate.reachable, "person", "people")} will receive it.
+    </p>
+  );
+}
+
+export function PartialNote({ estimate, counting }: { estimate: Estimate; counting: boolean }) {
+  if (!estimate.partial) return null;
+  if (counting) {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Spinner className="size-3" /> Counting everyone in this workspace — the exact number shows in a moment.
+      </p>
+    );
+  }
+  const { upTo } = reachRange(estimate);
+  return (
+    <p className="text-xs text-muted-foreground">
+      {estimate.partialBecause === "cap"
+        ? `The weekly limit is only checked for the first ${estimate.capLimit.toLocaleString()} people here, so the count is partial.`
+        : `Only the first ${estimate.scanLimit.toLocaleString()} contacts in this workspace are counted here, so the count is partial.`}{" "}
+      The campaign still goes to everyone who matches.
+      {upTo
+        ? ` Your lists hold ${upTo.toLocaleString()} people between them — fewer once anyone on more than one list is counted once, and unsubscribed people are left out.`
+        : ""}
+    </p>
+  );
+}
 
 const SAFETY_RULES = [
   "Checks your number's quality and daily limit before every wave.",
@@ -89,6 +159,7 @@ export function SmartReview({
   template,
   replyTo,
   estimate,
+  counting,
   preview,
   today,
   busy,
@@ -102,6 +173,7 @@ export function SmartReview({
   template: Doc<"marketingTemplates"> | undefined;
   replyTo: string;
   estimate: Estimate | undefined;
+  counting: boolean;
   preview: ReactNode;
   today: string;
   busy: boolean;
@@ -152,10 +224,11 @@ export function SmartReview({
   const perPerson = estimate && estimate.reachable > 0 ? estimate.costMicros / estimate.reachable : 0;
   const money = (micros: number) => (estimate?.currency ? formatMoney(micros, estimate.currency) : null);
   const blocker = template ? templateBlocker(template) : null;
+  const range = estimate ? reachRange(estimate) : null;
   const short =
     estimate?.balanceMicros !== null &&
     estimate?.balanceMicros !== undefined &&
-    estimate.costMicros > estimate.balanceMicros;
+    (range?.maxCostMicros ?? 0) > estimate.balanceMicros;
   const first = schedule.waves[0];
   const startLabel =
     draft.when === "now" ? "now" : `${dayLabel(draft.date)} at ${hourLabel(draft.sendHour)}`;
@@ -186,14 +259,7 @@ export function SmartReview({
                 </div>
               ) : null}
               <Row label="Will receive it">
-                {estimate ? (
-                  <>
-                    {plural(estimate.reachable, "person", "people")}
-                    {estimate.partial ? "+" : ""}
-                  </>
-                ) : (
-                  <ValueSkeleton className="h-3.5 w-20" />
-                )}
+                {estimate ? <ReachValue estimate={estimate} /> : <ValueSkeleton className="h-3.5 w-20" />}
               </Row>
               <Row label="Left out">
                 {estimate ? (
@@ -204,13 +270,26 @@ export function SmartReview({
                   <ValueSkeleton className="h-3.5 w-40" />
                 )}
               </Row>
-              {estimate && money(estimate.costMicros) ? <Row label="Estimated cost">{money(estimate.costMicros)}</Row> : null}
+              {estimate && range && money(estimate.costMicros) ? (
+                <Row label="Estimated cost">
+                  {range.upTo
+                    ? `${money(estimate.costMicros)} – ${money(range.maxCostMicros)}`
+                    : `${estimate.partial ? "At least " : ""}${money(estimate.costMicros)}`}
+                </Row>
+              ) : null}
               {estimate && estimate.balanceMicros !== null && money(estimate.balanceMicros) ? (
                 <Row label="Wallet">
                   <span className={short ? "text-destructive" : undefined}>{money(estimate.balanceMicros)}</span>
                 </Row>
               ) : null}
             </dl>
+            {estimate ? (
+              <ReachBreakdown
+                estimate={estimate}
+                filtered={draft.audience.excludeAudienceIds.length > 0 || Boolean(draft.audience.segments?.length)}
+              />
+            ) : null}
+            {estimate ? <PartialNote estimate={estimate} counting={counting} /> : null}
             {blocker ? (
               <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
                 <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" /> {blocker}
@@ -218,8 +297,8 @@ export function SmartReview({
             ) : null}
             {short ? (
               <p className="text-xs text-destructive">
-                The wallet does not cover everyone. Waves stop when it runs out — top up on the Billing
-                page first.
+                The wallet {estimate?.partial ? "may not cover" : "does not cover"} everyone. Waves stop
+                when it runs out — top up on the Billing page first.
               </p>
             ) : null}
           </Panel>

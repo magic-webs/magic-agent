@@ -214,13 +214,19 @@ export async function measureAudience(
   const records = await loadRecordMatch(ctx, workspaceId, selection);
   const known = knownCategories(settings);
   let matched = 0;
+  let notWhatsApp = 0;
+  let sendable = 0;
   let optedOut = 0;
   let overCap = 0;
   let capChecks = 0;
   const byMarket: Record<string, number> = {};
   for (const contact of contacts) {
-    if (contact.channelType !== "whatsapp") continue;
     if (!matchesWith(contact, selection, sets, { known, now, records })) continue;
+    matched++;
+    if (contact.channelType !== "whatsapp") {
+      notWhatsApp++;
+      continue;
+    }
     if (!reachable(contact)) {
       optedOut++;
       continue;
@@ -232,15 +238,118 @@ export async function measureAudience(
         continue;
       }
     }
-    matched++;
+    sendable++;
     const market = marketOf(contact.externalId);
     byMarket[market] = (byMarket[market] ?? 0) + 1;
   }
+  const partialBecause: "size" | "cap" | null =
+    contacts.length >= SIZE_SCAN_CAP ? "size" : capChecks >= CAP_CHECKS ? "cap" : null;
+  const listTotal = await listsTotal(ctx, workspaceId, selection);
   return {
-    reachable: matched,
+    reachable: sendable,
+    matched,
+    notWhatsApp,
     byMarket,
     optedOut,
     overCap,
-    partial: contacts.length >= SIZE_SCAN_CAP || capChecks >= CAP_CHECKS,
+    listTotal,
+    partial: partialBecause !== null,
+    partialBecause,
+    scanLimit: SIZE_SCAN_CAP,
+    capLimit: CAP_CHECKS,
+    upTo: partialBecause ? listTotal : null,
   };
+}
+
+export type AudienceSize = Awaited<ReturnType<typeof measureAudience>>;
+
+// Up to two lookups a contact (lists and the weekly limit), kept well inside a query's limits.
+const COUNT_PAGE = 500;
+
+export type AudienceTotals = Pick<
+  AudienceSize,
+  "reachable" | "matched" | "notWhatsApp" | "byMarket" | "optedOut" | "overCap"
+>;
+
+/** One page of an exact count, matched the way a send matches, for audiences too big to measure in one query. */
+export async function countAudiencePage(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  selection: AudienceSelection,
+  now: number,
+  cursor: string | null
+): Promise<AudienceTotals & { listTotal: number | null; cursor: string; isDone: boolean }> {
+  const settings = await ctx.db
+    .query("marketingSettings")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .unique();
+  const cap = settings?.weeklyCap ?? 0;
+  const known = knownCategories(settings);
+  const records = await loadRecordMatch(ctx, workspaceId, selection);
+  const page = await ctx.db
+    .query("contacts")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .paginate({ numItems: COUNT_PAGE, cursor });
+  const totals = emptyTotals();
+  for (const contact of page.page) {
+    if (!(await inSelection(ctx, contact, selection, { known, now, records }))) continue;
+    totals.matched++;
+    if (contact.channelType !== "whatsapp") {
+      totals.notWhatsApp++;
+      continue;
+    }
+    if (!reachable(contact)) {
+      totals.optedOut++;
+      continue;
+    }
+    if (cap > 0 && (await sentRecently(ctx, contact._id, now - WEEK_MS)) >= cap) {
+      totals.overCap++;
+      continue;
+    }
+    totals.reachable++;
+    const market = marketOf(contact.externalId);
+    totals.byMarket[market] = (totals.byMarket[market] ?? 0) + 1;
+  }
+  return {
+    ...totals,
+    listTotal: cursor === null ? await listsTotal(ctx, workspaceId, selection) : null,
+    cursor: page.continueCursor,
+    isDone: page.isDone,
+  };
+}
+
+export function emptyTotals(): AudienceTotals {
+  return { reachable: 0, matched: 0, notWhatsApp: 0, byMarket: {}, optedOut: 0, overCap: 0 };
+}
+
+export function exactSize(totals: AudienceTotals, listTotal: number | null): AudienceSize {
+  return {
+    ...totals,
+    listTotal,
+    partial: false,
+    partialBecause: null,
+    scanLimit: SIZE_SCAN_CAP,
+    capLimit: CAP_CHECKS,
+    upTo: null,
+  };
+}
+
+/** The most a selection of lists alone can reach: their sizes added up, before repeats are removed. */
+async function listsTotal(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  selection: AudienceSelection
+): Promise<number | null> {
+  const listsOnly =
+    selection.audienceIds.length > 0 &&
+    selection.categories.length === 0 &&
+    selection.tags.length === 0 &&
+    !selection.records?.length;
+  if (!listsOnly) return null;
+  let total = 0;
+  for (const id of selection.audienceIds) {
+    const audience = await ctx.db.get("audiences", id);
+    if (audience?.workspaceId === workspaceId) total += audience.memberCount;
+  }
+  return total;
 }

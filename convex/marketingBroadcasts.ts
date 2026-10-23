@@ -1,6 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
+  action,
+  internalQuery,
   query,
   type QueryCtx,
 } from "./_generated/server";
@@ -10,7 +12,16 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
 import { homeMarket, quote } from "./lib/billing";
 import { walletFor } from "./lib/wallet";
-import { isEveryone, measureAudience, type AudienceSelection } from "./lib/audience";
+import {
+  countAudiencePage,
+  emptyTotals,
+  exactSize,
+  isEveryone,
+  measureAudience,
+  type AudienceSelection,
+  type AudienceSize,
+  type AudienceTotals,
+} from "./lib/audience";
 import { isLocalDate, templateBlocker, zonedToInstant } from "./lib/marketing";
 import { eventKey, statsFor } from "./lib/marketingStats";
 import { failureCode } from "./lib/metaErrors";
@@ -105,29 +116,98 @@ export const estimate = query({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     const size = await measureAudience(ctx, args.workspaceId, args.audience, args.now);
-    const template = args.templateId
-      ? await templateInWorkspace(ctx, args.workspaceId, args.templateId)
-      : null;
-    let currency: string | null = null;
-    let costMicros = 0;
-    if (template) {
-      for (const [market, count] of Object.entries(size.byMarket)) {
-        const priced = await quote(ctx, {
-          workspaceId: args.workspaceId,
-          market,
-          category: template.category ?? "marketing",
-        });
-        currency ??= priced.currency;
-        costMicros += priced.amountMicros * count;
-      }
+    return { ...size, ...(await priceFor(ctx, args.workspaceId, args.templateId, size.byMarket)) };
+  },
+});
+
+type Pricing = { currency: string | null; costMicros: number; balanceMicros: number | null };
+
+async function priceFor(
+  ctx: QueryCtx,
+  workspaceId: Id<"workspaces">,
+  templateId: Id<"marketingTemplates"> | undefined,
+  byMarket: Record<string, number>
+): Promise<Pricing> {
+  const template = templateId ? await templateInWorkspace(ctx, workspaceId, templateId) : null;
+  let currency: string | null = null;
+  let costMicros = 0;
+  if (template) {
+    for (const [market, count] of Object.entries(byMarket)) {
+      const priced = await quote(ctx, { workspaceId, market, category: template.category ?? "marketing" });
+      currency ??= priced.currency;
+      costMicros += priced.amountMicros * count;
     }
-    const wallet = await walletFor(ctx, args.workspaceId);
-    return {
-      ...size,
-      currency,
-      costMicros,
-      balanceMicros: wallet?.balanceMicros ?? null,
-    };
+  }
+  const wallet = await walletFor(ctx, workspaceId);
+  return { currency, costMicros, balanceMicros: wallet?.balanceMicros ?? null };
+}
+
+export const countPage = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+    audience: audienceSelection,
+    now: v.number(),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<AudienceTotals & { listTotal: number | null; cursor: string; isDone: boolean }> => {
+    await requireWorkspace(ctx, args.workspaceId);
+    return await countAudiencePage(ctx, args.workspaceId, args.audience, args.now, args.cursor);
+  },
+});
+
+export const priceAudience = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+    templateId: v.optional(v.id("marketingTemplates")),
+    byMarket: v.record(v.string(), v.number()),
+  },
+  handler: async (ctx, args): Promise<Pricing> => {
+    await requireWorkspace(ctx, args.workspaceId);
+    return await priceFor(ctx, args.workspaceId, args.templateId, args.byMarket);
+  },
+});
+
+/** The exact audience, for one too big for `estimate` to count in a single query. */
+export const countAudience = action({
+  args: {
+    workspaceId: v.id("workspaces"),
+    templateId: v.optional(v.id("marketingTemplates")),
+    audience: audienceSelection,
+    now: v.number(),
+  },
+  handler: async (ctx, args): Promise<AudienceSize & Pricing> => {
+    const totals = emptyTotals();
+    let listTotal: number | null = null;
+    let cursor: string | null = null;
+    for (;;) {
+      const page: AudienceTotals & { listTotal: number | null; cursor: string; isDone: boolean } =
+        await ctx.runQuery(internal.marketingBroadcasts.countPage, {
+          workspaceId: args.workspaceId,
+          audience: args.audience,
+          now: args.now,
+          cursor,
+        });
+      if (cursor === null) listTotal = page.listTotal;
+      totals.reachable += page.reachable;
+      totals.matched += page.matched;
+      totals.notWhatsApp += page.notWhatsApp;
+      totals.optedOut += page.optedOut;
+      totals.overCap += page.overCap;
+      for (const [market, count] of Object.entries(page.byMarket)) {
+        totals.byMarket[market] = (totals.byMarket[market] ?? 0) + count;
+      }
+      if (page.isDone) break;
+      cursor = page.cursor;
+    }
+    const pricing: Pricing = await ctx.runQuery(internal.marketingBroadcasts.priceAudience, {
+      workspaceId: args.workspaceId,
+      templateId: args.templateId,
+      byMarket: totals.byMarket,
+    });
+    return { ...exactSize(totals, listTotal), ...pricing };
   },
 });
 

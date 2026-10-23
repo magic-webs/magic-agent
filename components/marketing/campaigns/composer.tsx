@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
@@ -25,7 +25,15 @@ import {
 import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
-import { SmartReview, ValueSkeleton } from "@/components/marketing/campaigns/smart-review";
+import {
+  PartialNote,
+  ReachBreakdown,
+  ReachValue,
+  SmartReview,
+  ValueSkeleton,
+  reachRange,
+  type Estimate,
+} from "@/components/marketing/campaigns/smart-review";
 import { VariableMapper } from "@/components/marketing/campaigns/variable-mapper";
 import {
   AudiencePicker,
@@ -105,6 +113,42 @@ const SPEEDS = [
 const SAMPLE_PERSON: Person = { name: "Asha Sharma" };
 
 const FRONT_DESK = "front-desk";
+
+/**
+ * The live estimate, swapped for an exact count when the live one could only
+ * count part of a big workspace.
+ */
+function useFullEstimate(args: {
+  workspaceId: Id<"workspaces">;
+  templateId?: Id<"marketingTemplates">;
+  audience: AudienceChoice;
+  now: number;
+}): { estimate: Estimate | undefined; counting: boolean } {
+  const quick = useQuery(api.marketingBroadcasts.estimate, args);
+  const countAudience = useAction(api.marketingBroadcasts.countAudience);
+  const [full, setFull] = useState<{ key: string; value: Estimate } | null>(null);
+  const key = JSON.stringify(args);
+  const partial = quick?.partial ?? false;
+
+  useEffect(() => {
+    if (!partial) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      countAudience(JSON.parse(key))
+        .then((value) => {
+          if (live) setFull({ key, value });
+        })
+        .catch(() => {});
+    }, 500);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [key, partial, countAudience]);
+
+  const exact = full?.key === key ? full.value : null;
+  return { estimate: exact ?? quick, counting: partial && !exact };
+}
 
 function personName(person: Person) {
   return person.name?.trim() || (person.externalId ? `+${person.externalId}` : "a contact");
@@ -285,7 +329,7 @@ export function CampaignComposer({
   const set = (patch: Partial<CampaignDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const template = templates.find((t) => t._id === draft.templateId);
-  const estimate = useQuery(api.marketingBroadcasts.estimate, {
+  const { estimate, counting } = useFullEstimate({
     workspaceId: workspace._id,
     templateId: draft.templateId,
     audience: draft.audience,
@@ -307,10 +351,11 @@ export function CampaignComposer({
       variables: next,
       message: next.find((fill) => fill.variable === "message" && fill.source === "text")?.text ?? draft.message,
     });
+  const range = estimate ? reachRange(estimate) : null;
   const short =
     estimate?.balanceMicros !== null &&
     estimate?.balanceMicros !== undefined &&
-    estimate.costMicros > estimate.balanceMicros;
+    (range?.maxCostMicros ?? 0) > estimate.balanceMicros;
 
   const sortedTemplates = [...templates].sort(
     (a, b) => Number(templateReady(b)) - Number(templateReady(a))
@@ -440,6 +485,7 @@ export function CampaignComposer({
         template={template}
         replyTo={replyAgent?.name ?? "Front desk"}
         estimate={estimate}
+        counting={counting}
         preview={
           <>
             {previewAs}
@@ -627,14 +673,7 @@ export function CampaignComposer({
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Will receive it</dt>
                 <dd className="font-medium tabular-nums">
-                  {estimate ? (
-                    <>
-                      {plural(estimate.reachable, "person", "people")}
-                      {estimate.partial ? "+" : ""}
-                    </>
-                  ) : (
-                    <ValueSkeleton className="h-3.5 w-20" />
-                  )}
+                  {estimate ? <ReachValue estimate={estimate} /> : <ValueSkeleton className="h-3.5 w-20" />}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
@@ -649,10 +688,14 @@ export function CampaignComposer({
                   )}
                 </dd>
               </div>
-              {estimate && money(estimate.costMicros) ? (
+              {estimate && range && money(estimate.costMicros) ? (
                 <div className="flex justify-between gap-3">
                   <dt className="text-muted-foreground">Estimated cost</dt>
-                  <dd className="font-medium tabular-nums">{money(estimate.costMicros)}</dd>
+                  <dd className="font-medium tabular-nums">
+                    {range.upTo
+                      ? `${money(estimate.costMicros)} – ${money(range.maxCostMicros)}`
+                      : `${estimate.partial ? "At least " : ""}${money(estimate.costMicros)}`}
+                  </dd>
                 </div>
               ) : null}
               {estimate && estimate.balanceMicros !== null && money(estimate.balanceMicros) ? (
@@ -664,10 +707,17 @@ export function CampaignComposer({
                 </div>
               ) : null}
             </dl>
+            {estimate ? (
+              <ReachBreakdown
+                estimate={estimate}
+                filtered={draft.audience.excludeAudienceIds.length > 0 || Boolean(draft.audience.segments?.length)}
+              />
+            ) : null}
+            {estimate ? <PartialNote estimate={estimate} counting={counting} /> : null}
             {short ? (
               <p className="text-xs text-destructive">
-                The wallet does not cover everyone. Sending stops when it runs out — top up on the
-                Billing page first.
+                The wallet {estimate?.partial ? "may not cover" : "does not cover"} everyone. Sending
+                stops when it runs out — top up on the Billing page first.
               </p>
             ) : null}
             {estimate && estimate.reachable === 0 ? (

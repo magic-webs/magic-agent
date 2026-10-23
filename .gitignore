@@ -49,3 +49,5 @@ next-env.d.ts
 /.claude/skills/
 changes.md
 rcs-api.pdf
+magic-agent-test-contacts.csv
+/test-contacts/

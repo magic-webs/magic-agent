@@ -105,6 +105,7 @@ export default function NewCampaignPage() {
         ratePerMinute: source.ratePerMinute,
         trackLinks: source.trackLinks ?? true,
         smartTiming: source.smartTiming ?? false,
+        replyAgentId: source.replyAgentId,
       }
     : fromBook
       ? { ...fresh(mode ?? "manual"), audience: { ...EVERYONE, records: [{ bookId: fromBook }] } }

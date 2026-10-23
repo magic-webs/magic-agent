@@ -2178,6 +2178,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       !args.image &&
       !args.inbound?.payload &&
       !session.quoted &&
+      !session.repliesToMarketing &&
       startedAt - session.lastActivityAt >= FRESH_AFTER_MS
     ) {
       const welcomed = await welcomeMenuTurn(ctx, turn, entryAgent, message, startedAt);

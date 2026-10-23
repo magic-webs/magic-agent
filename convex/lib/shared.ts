@@ -479,3 +479,12 @@ export const LEAD_TAG_COLORS = [
 export type LeadTagColor = (typeof LEAD_TAG_COLORS)[number];
 
 export const MAX_LEAD_TAGS = 50;
+
+// An undefined kind is an agent written before kinds existed, which was a specialist.
+export function takesHandoffs(agent: { kind?: string; status: string; acceptsHandoff?: boolean }): boolean {
+  return (
+    (agent.kind === "specialist" || agent.kind === undefined) &&
+    agent.status === "active" &&
+    agent.acceptsHandoff !== false
+  );
+}

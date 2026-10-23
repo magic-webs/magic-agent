@@ -178,7 +178,9 @@ export function CampaignReport({
             <p className="max-w-3xl text-sm text-muted-foreground">
               {`${campaign.template?.name ?? "No template"} · ${
                 campaign.startedAt ? `started ${time(campaign.startedAt)}` : `${dayLabel(campaign.date)} at ${hourLabel(campaign.sendHour)}`
-              }${campaign.audiences.length ? ` · ${campaign.audiences.map((a) => a.name).join(", ")}` : ""}`}
+              }${campaign.audiences.length ? ` · ${campaign.audiences.map((a) => a.name).join(", ")}` : ""}${
+                campaign.replyAgentName ? ` · replies go to ${campaign.replyAgentName}` : ""
+              }`}
             </p>
           ) : (
             <div className="flex h-5 items-center" aria-hidden>

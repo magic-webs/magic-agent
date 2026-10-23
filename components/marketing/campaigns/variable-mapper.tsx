@@ -109,6 +109,21 @@ export function VariableMapper({
           their own name, city or membership.
         </p>
       </div>
+      <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">
+        {body.split(/(\{\{\s*\w+\s*\}\})/).map((part, i) => {
+          const index = variables.indexOf(part.replace(/[{}\s]/g, "") as VariableFill["variable"]);
+          if (index === -1) return part;
+          return (
+            <span
+              key={i}
+              title={fillLabel(fillOf(variables[index]))}
+              className="rounded bg-primary/10 px-1 font-mono text-xs font-medium text-primary"
+            >
+              {`{{${index + 1}}}`}
+            </span>
+          );
+        })}
+      </p>
       {variables.map((variable, index) => {
         const fill = fillOf(variable);
         const label = `{{${index + 1}}}`;

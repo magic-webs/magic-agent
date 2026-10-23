@@ -204,6 +204,7 @@ export const marketingTables = {
     ratePerMinute: v.optional(v.number()),
     trackLinks: v.optional(v.boolean()),
     smartTiming: v.optional(v.boolean()),
+    replyAgentId: v.optional(v.id("agents")),
     wave: v.optional(v.number()),
     rollout: v.optional(rolloutState),
     lastError: v.optional(v.string()),

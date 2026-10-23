@@ -17,6 +17,7 @@ import {
   RICH_TOOL_NAMES,
   DEFAULT_CHAT_MODEL,
   slugify,
+  takesHandoffs,
 } from "./lib/shared";
 import {
   INTEGRATION_TOOL_NAMES,
@@ -139,18 +140,9 @@ async function handoffCandidates(
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .collect();
 
-  const eligible = agents
-    .filter(
-      (agent) =>
-        // Only specialists take handoffs. The front desk hands work outwards
-        // and the follow-up desk is not in the conversation at all, so an
-        // undefined kind — every agent written before kinds existed — counts
-        // as a specialist and nothing else does.
-        (agent.kind === "specialist" || agent.kind === undefined) &&
-        agent.status === "active" &&
-        agent.acceptsHandoff !== false
-    )
-    .sort((a, b) => a.createdAt - b.createdAt);
+  // Only specialists take handoffs. The front desk hands work outwards and the
+  // follow-up desk is not in the conversation at all.
+  const eligible = agents.filter(takesHandoffs).sort((a, b) => a.createdAt - b.createdAt);
 
   return withUniqueKeys(eligible);
 }
@@ -481,6 +473,16 @@ export const listByWorkspace = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .collect();
+  },
+});
+
+/** The agents a campaign can send its replies to. */
+export const replyTargets = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const candidates = await handoffCandidates(ctx, args.workspaceId);
+    return candidates.map(({ agent }) => ({ _id: agent._id, name: agent.name }));
   },
 });
 

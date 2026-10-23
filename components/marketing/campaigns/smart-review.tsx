@@ -87,6 +87,7 @@ export function SmartReview({
   draft,
   fills,
   template,
+  replyTo,
   estimate,
   preview,
   today,
@@ -99,6 +100,7 @@ export function SmartReview({
   draft: CampaignDraft;
   fills: VariableFill[];
   template: Doc<"marketingTemplates"> | undefined;
+  replyTo: string;
   estimate: Estimate | undefined;
   preview: ReactNode;
   today: string;
@@ -174,6 +176,7 @@ export function SmartReview({
             <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
               <Row label="Name">{draft.title}</Row>
               <Row label="Template">{template?.name ?? "—"}</Row>
+              <Row label="Replies go to">{replyTo}</Row>
               {fills.length > 0 ? (
                 <div className="flex justify-between gap-3 sm:col-span-2">
                   <dt className="text-muted-foreground">Blanks</dt>

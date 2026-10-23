@@ -1283,6 +1283,14 @@ export const startTurn = internalMutation({
       .order("desc")
       .take(args.historyLimit * 2);
 
+    const lastSaid = priorMessages.find((m) => m.role === "user" || m.role === "assistant");
+    const repliesToMarketing =
+      lastSaid?.role === "assistant" &&
+      (await ctx.db
+        .query("marketingSends")
+        .withIndex("by_messageId", (q) => q.eq("messageId", lastSaid._id))
+        .first()) !== null;
+
     const replayed = priorMessages
       .filter(
         (m) =>
@@ -1493,6 +1501,7 @@ export const startTurn = internalMutation({
       quoted: replyTo ? { text: replyTo.text, fromCustomer: replyTo.fromCustomer } : null,
       isFirstTurn: conversation.messageCount === 0,
       lastActivityAt,
+      repliesToMarketing,
     };
   },
 });

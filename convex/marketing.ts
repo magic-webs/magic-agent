@@ -33,6 +33,7 @@ import { templateBlock } from "./lib/wallet";
 import { recordAgentReply } from "./lib/agentStats";
 import { insertConversation, noteMessage } from "./lib/inbox";
 import { ensureMarketingDesk } from "./agents";
+import { takesHandoffs } from "./lib/shared";
 import {
   festivalsBetween,
   isLocalDate,
@@ -1283,6 +1284,46 @@ async function marketingThread(
   return await ctx.db.get("conversations", conversationId);
 }
 
+const HANDOVER_QUIET_MS = 24 * 60 * 60 * 1000;
+
+type ReplyAgent = { agent: Doc<"agents">; campaign: string };
+
+async function replyAgentOf(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  eventId: Id<"marketingEvents"> | undefined
+): Promise<ReplyAgent | null> {
+  const event = eventId ? await ctx.db.get("marketingEvents", eventId) : null;
+  if (!event?.replyAgentId) return null;
+  const agent = await ctx.db.get("agents", event.replyAgentId);
+  if (!agent || agent.workspaceId !== workspaceId || !takesHandoffs(agent)) return null;
+  return { agent, campaign: event.title };
+}
+
+async function handOverReplies(
+  ctx: MutationCtx,
+  thread: Doc<"conversations">,
+  reply: ReplyAgent,
+  now: number
+) {
+  const holder = thread.activeAgentId ?? thread.agentId;
+  if (thread.humanHandling || holder === reply.agent._id) return;
+  // Someone who wrote in the last day is mid-conversation with whoever holds the thread.
+  const contact = await ctx.db.get("contacts", thread.contactId);
+  if ((contact?.lastInboundAt ?? 0) > now - HANDOVER_QUIET_MS) return;
+  const from = await ctx.db.get("agents", holder);
+  await ctx.db.patch("conversations", thread._id, { activeAgentId: reply.agent._id });
+  await ctx.db.insert("messages", {
+    workspaceId: thread.workspaceId,
+    conversationId: thread._id,
+    role: "system",
+    kind: "handoff",
+    agentId: reply.agent._id,
+    text: `${from?.name ?? "Front desk"} → ${reply.agent.name}: replies to the campaign “${reply.campaign}”`,
+    createdAt: now,
+  });
+}
+
 /**
  * The approved template as the customer sees it — header, footer and buttons
  * around the body — so the inbox can draw it the way WhatsApp does.
@@ -1399,6 +1440,7 @@ export const recordBatch = internalMutation({
     let lastError: string | undefined;
     const classes: Partial<MarketingCounts> = {};
     const shown = await shownTemplate(ctx, args.workspaceId, args.templateName);
+    const reply = await replyAgentOf(ctx, args.workspaceId, args.eventId);
 
     for (const result of args.results) {
       const sendId = await ctx.db.insert("marketingSends", {
@@ -1449,6 +1491,7 @@ export const recordBatch = internalMutation({
         });
       }
       if (!thread) continue;
+      if (reply) await handOverReplies(ctx, thread, reply, now);
       const messageId = await writeMarketingMessage(ctx, thread, {
         text: result.text,
         agentId: args.agentId,

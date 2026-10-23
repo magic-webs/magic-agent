@@ -19,6 +19,7 @@ import { cleanFills, fillProblems } from "./lib/personalise";
 import { clampHour, startEvent, templateInWorkspace } from "./marketing";
 import { resumeRollout } from "./marketingRollout";
 import { normaliseTier, validPlan } from "./lib/rollout";
+import { takesHandoffs } from "./lib/shared";
 
 const REPORT_SCAN = 3000;
 const RETARGET_BATCH = 200;
@@ -83,7 +84,14 @@ export const get = query({
       const audience = await ctx.db.get("audiences", id);
       if (audience) audiences.push({ _id: audience._id, name: audience.name });
     }
-    return { ...event, template, audiences, stats: await statsFor(ctx, eventKey(event._id)) };
+    const replyAgent = event.replyAgentId ? await ctx.db.get("agents", event.replyAgentId) : null;
+    return {
+      ...event,
+      template,
+      audiences,
+      replyAgentName: replyAgent?.name ?? null,
+      stats: await statsFor(ctx, eventKey(event._id)),
+    };
   },
 });
 
@@ -137,6 +145,7 @@ export const save = mutation({
     ratePerMinute: v.optional(v.number()),
     trackLinks: v.optional(v.boolean()),
     smartTiming: v.optional(v.boolean()),
+    replyAgentId: v.optional(v.id("agents")),
     rollout: v.optional(
       v.object({
         shares: v.array(v.number()),
@@ -161,6 +170,13 @@ export const save = mutation({
     if (!title) throw new ConvexError("Give the campaign a name.");
     const template = await templateInWorkspace(ctx, args.workspaceId, args.templateId);
     await checkAudience(ctx, args.workspaceId, args.audience);
+    if (args.replyAgentId) {
+      const agent = await ctx.db.get("agents", args.replyAgentId);
+      if (!agent || agent.workspaceId !== args.workspaceId) throw new ConvexError("That agent was not found.");
+      if (!takesHandoffs(agent)) {
+        throw new ConvexError(`${agent.name} cannot take conversations. Pick another agent, or the front desk.`);
+      }
+    }
     const variables = cleanFills(template.body, args.variables ?? []);
     const blank = fillProblems(template.body, variables)[0];
     if (blank) throw new ConvexError(blank);
@@ -202,6 +218,7 @@ export const save = mutation({
           : undefined,
       trackLinks: args.trackLinks ?? true,
       smartTiming: (args.smartTiming && !args.rollout) || undefined,
+      replyAgentId: args.replyAgentId,
       wave: undefined,
       rollout: args.rollout
         ? {

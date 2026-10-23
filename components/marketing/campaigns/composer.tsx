@@ -75,6 +75,7 @@ export type CampaignDraft = {
   ratePerMinute?: number;
   trackLinks: boolean;
   smartTiming: boolean;
+  replyAgentId?: Id<"agents">;
   when: "now" | "later";
 };
 
@@ -102,6 +103,8 @@ const SPEEDS = [
 ];
 
 const SAMPLE_PERSON: Person = { name: "Asha Sharma" };
+
+const FRONT_DESK = "front-desk";
 
 function personName(person: Person) {
   return person.name?.trim() || (person.externalId ? `+${person.externalId}` : "a contact");
@@ -292,6 +295,9 @@ export function CampaignComposer({
     api.marketing.previewContacts,
     template && audienceValid ? { workspaceId: workspace._id, audience: draft.audience, now } : "skip"
   );
+  const replyTargets = useQuery(api.agents.replyTargets, { workspaceId: workspace._id });
+  const replyAgent = replyTargets?.find((agent) => agent._id === draft.replyAgentId);
+  const replyAgentGone = Boolean(draft.replyAgentId && replyTargets && !replyAgent);
   const fills = template ? fillsFor(template.body, draft.variables, draft.message) : [];
   const blanks = template ? fillProblems(template.body, fills) : [];
   const blocker = template ? templateBlocker(template) : null;
@@ -328,6 +334,7 @@ export function CampaignComposer({
         ratePerMinute: smart ? undefined : draft.ratePerMinute,
         trackLinks: draft.trackLinks,
         smartTiming: smart ? undefined : draft.smartTiming,
+        replyAgentId: draft.replyAgentId,
         rollout: smart ? draft.plan : undefined,
         draft: asDraft || undefined,
         sendNow: now,
@@ -431,6 +438,7 @@ export function CampaignComposer({
         draft={draft}
         fills={fills}
         template={template}
+        replyTo={replyAgent?.name ?? "Front desk"}
         estimate={estimate}
         preview={
           <>
@@ -513,6 +521,31 @@ export function CampaignComposer({
                 </span>
               </span>
             </label>
+            <div className="flex flex-col gap-1.5">
+              <Label>Replies go to</Label>
+              <SelectField
+                aria-label="Replies go to"
+                className="w-full sm:w-72"
+                value={draft.replyAgentId ?? FRONT_DESK}
+                onValueChange={(value) =>
+                  set({ replyAgentId: value === FRONT_DESK ? undefined : (value as Id<"agents">) })
+                }
+                options={[
+                  { value: FRONT_DESK, label: "Front desk" },
+                  ...(replyTargets ?? []).map((agent) => ({ value: agent._id, label: agent.name })),
+                  ...(replyAgentGone && draft.replyAgentId
+                    ? [{ value: draft.replyAgentId, label: "An agent that is no longer available", disabled: true }]
+                    : []),
+                ]}
+              />
+              <p className={replyAgentGone ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+                {replyAgentGone
+                  ? "That agent is paused or can no longer take conversations. Pick another, or the front desk."
+                  : replyAgent
+                    ? `${replyAgent.name} answers whoever replies — unless they wrote to you in the last day, or someone on your team is handling their chat.`
+                    : "The front desk reads each reply and hands it to the agent it belongs to."}
+              </p>
+            </div>
           </Section>
 
           <Section step={4} title={smart ? "When it starts" : "When it goes"}>

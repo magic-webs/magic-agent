@@ -23,11 +23,36 @@ import {
 } from "@/components/marketing/calendar";
 import { TouchDialog } from "@/components/marketing/events";
 import { broadcastHref, formatDate, parts, templateReady } from "@/components/marketing/format";
-import { TableSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
-import { CalendarBlankIcon, CaretLeftIcon, CaretRightIcon, PlusIcon } from "@phosphor-icons/react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  Calendar03Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
+
+const FESTIVAL_WIDTHS = ["w-2/3", "w-1/2", "w-3/4", "w-2/5", "w-3/5", "w-1/2", "w-2/3", "w-1/3"];
+
+function FestivalsSkeleton() {
+  return (
+    <>
+      {FESTIVAL_WIDTHS.map((width, i) => (
+        <div key={i} className="flex items-center gap-3 px-2 py-1.5" aria-hidden>
+          <div className="w-12 shrink-0">
+            <Skeleton className="h-3 w-10" />
+          </div>
+          <div className="flex h-5 min-w-0 flex-1 items-center">
+            <Skeleton className={cn("h-3.5", width)} />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function MarketingCalendarPage() {
   const workspace = useWorkspace();
@@ -148,7 +173,7 @@ export default function MarketingCalendarPage() {
           </p>
         </div>
         <Button onClick={() => newEvent(selected)}>
-          <CalendarBlankIcon /> Schedule greeting
+          <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} /> Schedule greeting
         </Button>
       </div>
 
@@ -156,10 +181,10 @@ export default function MarketingCalendarPage() {
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center gap-2">
             <Button size="icon" variant="outline" aria-label="Previous month" onClick={() => moveMonth(-1)}>
-              <CaretLeftIcon />
+              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
             </Button>
             <Button size="icon" variant="outline" aria-label="Next month" onClick={() => moveMonth(1)}>
-              <CaretRightIcon />
+              <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
             </Button>
             <h3 className="ml-1 text-lg font-semibold">{monthLabel(cursor.year, cursor.month)}</h3>
             <Button size="sm" variant="ghost" className="ml-auto" onClick={goToday}>
@@ -167,20 +192,17 @@ export default function MarketingCalendarPage() {
             </Button>
           </div>
 
-          {calendar === undefined ? (
-            <TableSkeleton rows={5} columns={7} />
-          ) : (
-            <MonthGrid
-              year={cursor.year}
-              month={cursor.month}
-              today={today}
-              selected={selected}
-              byDay={byDay}
-              onSelect={selectDay}
-              onEvent={openEvent}
-              onFestival={newFromFestival}
-            />
-          )}
+          <MonthGrid
+            year={cursor.year}
+            month={cursor.month}
+            today={today}
+            selected={selected}
+            byDay={byDay}
+            onSelect={selectDay}
+            onEvent={openEvent}
+            onFestival={newFromFestival}
+            loading={calendar === undefined}
+          />
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -206,6 +228,7 @@ export default function MarketingCalendarPage() {
             onEvent={openEvent}
             onNew={() => newEvent(selected)}
             onFestival={newFromFestival}
+            loading={calendar === undefined}
           />
 
           <Card size="sm">
@@ -218,7 +241,7 @@ export default function MarketingCalendarPage() {
             </CardHeader>
             <CardContent className="flex flex-col gap-1">
               {upcoming === undefined ? (
-                <Spinner />
+                <FestivalsSkeleton />
               ) : upcoming.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Every festival in the next four months is on your calendar.
@@ -235,7 +258,7 @@ export default function MarketingCalendarPage() {
                       {formatDate(festival.date, { day: "numeric", month: "short" })}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-sm">{festival.name}</span>
-                    <PlusIcon className="size-4 text-muted-foreground group-hover:text-primary" />
+                    <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-4 text-muted-foreground group-hover:text-primary" />
                   </button>
                 ))
               )}

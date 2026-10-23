@@ -4,28 +4,29 @@ import { cn } from "cn";
 import { renderTemplate, sampleValues } from "@/convex/lib/marketing";
 import { orderedButtons, tidyParts, type TemplateButton } from "@/convex/lib/templateParts";
 import { WhatsAppText } from "@/components/whatsapp-text";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowSquareOutIcon,
-  ArrowUUpLeftIcon,
+  ArrowLeft01Icon,
+  ArrowTurnBackwardIcon,
+  Attachment01Icon,
   BatteryFullIcon,
-  CameraIcon,
-  CaretLeftIcon,
-  CellSignalFullIcon,
-  ImageIcon,
+  Call02Icon,
+  Camera01Icon,
+  CheckmarkBadge01Icon,
+  Image01Icon,
+  LeftToRightListBulletIcon,
+  LinkSquare02Icon,
+  Mic01Icon,
   PlayIcon,
-  ListBulletsIcon,
-  MicrophoneIcon,
-  PaperclipIcon,
-  PhoneIcon,
-  SealCheckIcon,
-  SmileyIcon,
-  WifiHighIcon,
-} from "@phosphor-icons/react";
+  SignalFull02Icon,
+  SmileIcon,
+  Wifi01Icon,
+} from "@hugeicons/core-free-icons";
 
 const BUTTON_ICON = {
-  quick_reply: ArrowUUpLeftIcon,
-  url: ArrowSquareOutIcon,
-  phone: PhoneIcon,
+  quick_reply: ArrowTurnBackwardIcon,
+  url: LinkSquare02Icon,
+  phone: Call02Icon,
 } as const;
 
 export function WhatsAppPreview({
@@ -67,11 +68,11 @@ export function WhatsAppPreview({
             ) : headerMedia.url ? (
               <video src={headerMedia.url} muted className="size-full object-cover" />
             ) : (
-              <ImageIcon className="size-6" />
+              <HugeiconsIcon icon={Image01Icon} strokeWidth={2} className="size-6" />
             )}
             {headerMedia.type === "video" ? (
               <span className="absolute flex size-9 items-center justify-center rounded-full bg-black/50 text-white">
-                <PlayIcon weight="fill" className="size-4" />
+                <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-4" />
               </span>
             ) : null}
           </div>
@@ -92,20 +93,19 @@ export function WhatsAppPreview({
         {visible.length > 0 ? (
           <div className="-mx-2.5 mt-1 flex flex-col">
             {visible.map((button, index) => {
-              const Icon = BUTTON_ICON[button.type];
               return (
                 <span
                   key={`${button.type}-${index}`}
                   className="flex items-center justify-center gap-1.5 border-t border-border/70 px-2 py-2 text-[12.5px] font-medium text-[var(--chat-action)]"
                 >
-                  <Icon className="size-3.5 shrink-0" />
+                  <HugeiconsIcon icon={BUTTON_ICON[button.type]} strokeWidth={2} className="size-3.5 shrink-0" />
                   <span className="truncate">{button.text || "Button"}</span>
                 </span>
               );
             })}
             {shown.length > 3 ? (
               <span className="flex items-center justify-center gap-1.5 border-t border-border/70 px-2 py-2 text-[12.5px] font-medium text-[var(--chat-action)]">
-                <ListBulletsIcon className="size-3.5 shrink-0" />
+                <HugeiconsIcon icon={LeftToRightListBulletIcon} strokeWidth={2} className="size-3.5 shrink-0" />
                 See all options
               </span>
             ) : null}
@@ -149,13 +149,13 @@ export function WhatsAppPreview({
             >
               <span>9:41</span>
               <span className="flex items-center gap-1">
-                <CellSignalFullIcon className="size-3" />
-                <WifiHighIcon className="size-3" />
-                <BatteryFullIcon className="size-3.5" />
+                <HugeiconsIcon icon={SignalFull02Icon} strokeWidth={2} className="size-3" />
+                <HugeiconsIcon icon={Wifi01Icon} strokeWidth={2} className="size-3" />
+                <HugeiconsIcon icon={BatteryFullIcon} strokeWidth={2} className="size-3.5" />
               </span>
             </div>
             <div className="flex shrink-0 items-center gap-2 border-b px-2.5 py-1.5">
-              <CaretLeftIcon aria-hidden className="size-4 shrink-0 text-[var(--chat-action)]" />
+              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} aria-hidden className="size-4 shrink-0 text-[var(--chat-action)]" />
               <span
                 aria-hidden
                 className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-semibold text-white"
@@ -165,7 +165,7 @@ export function WhatsAppPreview({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1 text-[12.5px] leading-tight font-semibold">
                   <span className="truncate">{business || "Your business"}</span>
-                  <SealCheckIcon weight="fill" className="size-3 shrink-0 text-emerald-500" />
+                  <HugeiconsIcon icon={CheckmarkBadge01Icon} strokeWidth={2} className="size-3 shrink-0 text-emerald-500" />
                 </span>
                 <span className="block truncate text-[9.5px] leading-tight text-muted-foreground">
                   Business account
@@ -183,13 +183,13 @@ export function WhatsAppPreview({
             </div>
             <div aria-hidden className="flex shrink-0 items-center gap-1.5 px-2 pt-1.5 pb-3">
               <span className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border bg-background px-2.5 py-1.5">
-                <SmileyIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <HugeiconsIcon icon={SmileIcon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate text-[11px] text-muted-foreground">Message</span>
-                <PaperclipIcon className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
-                <CameraIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <HugeiconsIcon icon={Attachment01Icon} strokeWidth={2} className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
+                <HugeiconsIcon icon={Camera01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
               </span>
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
-                <MicrophoneIcon className="size-3.5" />
+                <HugeiconsIcon icon={Mic01Icon} strokeWidth={2} className="size-3.5" />
               </span>
             </div>
           </div>

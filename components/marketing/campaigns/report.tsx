@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -31,15 +32,16 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import { downloadCsv, toCsv } from "@/lib/csv";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  CopyIcon,
+  Copy01Icon,
+  FileExportIcon,
   PauseIcon,
   PlayIcon,
-  StopIcon,
-  UsersThreeIcon,
-  TrayArrowUpIcon,
-} from "@phosphor-icons/react";
+  RefreshIcon,
+  StopCircleIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 
 type Outcome = "all" | "delivered" | "read" | "replied" | "clicked" | "failed" | "not_read" | "optedOut";
 
@@ -56,9 +58,58 @@ const OUTCOMES: Array<{ value: Outcome; label: string }> = [
 
 const READ_CHART: ChartConfig = { reads: { label: "Reads", color: "var(--viz-series)" } };
 
+const TILES = ["Sent", "Delivered", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Unsubscribed", "Cost"];
+const FUNNEL = [
+  ["w-10", "w-full", "w-12"],
+  ["w-16", "w-11/12", "w-20"],
+  ["w-10", "w-2/3", "w-20"],
+  ["w-14", "w-1/3", "w-16"],
+  ["w-14", "w-1/4", "w-16"],
+  ["w-28", "w-1/12", "w-14"],
+];
+const RECIPIENT_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36"];
+
 function time(ms: number | null) {
   if (!ms) return "—";
   return new Date(ms).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+
+function ReportSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-hidden>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        {TILES.map((label) => (
+          <div key={label} className="flex flex-col gap-1 rounded-lg border border-border bg-card p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+            <Skeleton className="h-6 w-14" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
+          <p className="text-sm font-semibold">From send to reply</p>
+          <div className="flex flex-col gap-1.5 py-1.5">
+            {FUNNEL.map(([label, bar, value], i) => (
+              <div key={i} className="flex h-5 items-center">
+                <div className="flex w-[44%] shrink-0 justify-end pr-3">
+                  <Skeleton className={`h-3.5 ${label}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Skeleton className={`h-3.5 rounded-l-none ${bar}`} />
+                </div>
+                <Skeleton className={`ml-2 h-3.5 shrink-0 ${value}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
+          <p className="text-sm font-semibold">When people read it</p>
+          <Skeleton className="h-44 w-full" />
+          <p className="text-xs text-muted-foreground">Hours between sending and the blue ticks.</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function CampaignReport({
@@ -113,34 +164,38 @@ export function CampaignReport({
     <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
           <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-            {campaign?.title ?? "Campaign"}
+            {campaign ? campaign.title : <Skeleton className="my-1 h-5 w-48" aria-hidden />}
             {campaign ? (
               <Badge variant={STATUS_VARIANT[campaign.status]}>
                 {statusLabel(campaign.status, report?.stats.sent)}
               </Badge>
-            ) : null}
+            ) : (
+              <Skeleton className="h-5 w-16 rounded-full" aria-hidden />
+            )}
             {campaign?.rollout ? <Badge variant="outline">Smart</Badge> : null}
           </h2>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {campaign
-              ? `${campaign.template?.name ?? "No template"} · ${
-                  campaign.startedAt ? `started ${time(campaign.startedAt)}` : `${dayLabel(campaign.date)} at ${hourLabel(campaign.sendHour)}`
-                }${campaign.audiences.length ? ` · ${campaign.audiences.map((a) => a.name).join(", ")}` : ""}`
-              : "Loading…"}
-          </p>
+          {campaign ? (
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              {`${campaign.template?.name ?? "No template"} · ${
+                campaign.startedAt ? `started ${time(campaign.startedAt)}` : `${dayLabel(campaign.date)} at ${hourLabel(campaign.sendHour)}`
+              }${campaign.audiences.length ? ` · ${campaign.audiences.map((a) => a.name).join(", ")}` : ""}`}
+            </p>
+          ) : (
+            <div className="flex h-5 items-center" aria-hidden>
+              <Skeleton className="h-3.5 w-96 max-w-full" />
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-5">
+          {campaign?.lastError ? (
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{campaign.lastError}</p>
+
+          ) : null}
+          {campaign?.rollout ? <RolloutProgress eventId={eventId} /> : null}
           {!report || !stats ? (
-            <div className="flex justify-center py-12">
-              <Spinner />
-            </div>
+            <ReportSkeleton />
           ) : (
             <>
-              {campaign?.lastError ? (
-                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{campaign.lastError}</p>
-
-              ) : null}
-              {campaign?.rollout ? <RolloutProgress eventId={eventId} /> : null}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <StatTile label="Sent" value={sent} previous={null} />
                 <StatTile label="Delivered" value={pct(stats.delivered, sent)} previous={null} suffix="%" />
@@ -214,20 +269,19 @@ export function CampaignReport({
                   />
                 </div>
               ) : null}
-
-              <Recipients eventId={eventId} title={campaign?.title ?? "campaign"} />
             </>
           )}
+          <Recipients eventId={eventId} title={campaign?.title ?? "campaign"} />
         </div>
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           {campaign && (campaign.status === "sending" || campaign.status === "scheduled") ? (
             <Button variant="outline" disabled={busy} onClick={() => void act(() => pause({ eventId }), "Could not pause")}>
-              <PauseIcon /> Pause
+              <HugeiconsIcon icon={PauseIcon} strokeWidth={2} /> Pause
             </Button>
           ) : null}
           {campaign?.status === "paused" ? (
             <Button variant="outline" disabled={busy} onClick={() => void act(() => resume({ eventId }), "Could not resume")}>
-              <PlayIcon /> Resume
+              <HugeiconsIcon icon={PlayIcon} strokeWidth={2} /> Resume
             </Button>
           ) : null}
           {campaign && ["sending", "scheduled", "paused"].includes(campaign.status) ? (
@@ -251,7 +305,7 @@ export function CampaignReport({
                 }, "Could not stop it")
               }
             >
-              <StopIcon /> {campaign.startedAt ? "Stop sending" : "Delete"}
+              <HugeiconsIcon icon={StopCircleIcon} strokeWidth={2} /> {campaign.startedAt ? "Stop sending" : "Delete"}
             </ConfirmButton>
           ) : null}
           {campaign?.status === "sent" && stats && sent - stats.read > 0 ? (
@@ -269,11 +323,11 @@ export function CampaignReport({
                 }, "Could not start the follow-up")
               }
             >
-              <ArrowsClockwiseIcon /> Send again to {plural(sent - stats.read, "person", "people")} who didn&apos;t read
+              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Send again to {plural(sent - stats.read, "person", "people")} who didn&apos;t read
             </Button>
           ) : null}
           <Button variant="outline" onClick={onDuplicate}>
-            <CopyIcon /> Duplicate
+            <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Duplicate
           </Button>
           <Button onClick={onClose}>Back to campaigns</Button>
         </div>
@@ -343,7 +397,7 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
           options={OUTCOMES}
         />
         <Button size="sm" variant="outline" disabled={exporting} onClick={() => void exportCsv()}>
-          {exporting ? <Spinner /> : <TrayArrowUpIcon />} Export
+          {exporting ? <Spinner /> : <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} />} Export
         </Button>
       </div>
       {outcome !== "all" ? (
@@ -364,7 +418,7 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
             }
           }}
         >
-          <UsersThreeIcon className="size-4 text-muted-foreground" />
+          <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
           <span>Follow up with everyone here:</span>
           <Input
             className="h-7 w-56"
@@ -389,7 +443,28 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
             </TableRow>
           </TableHeader>
           <TableBody>
-            {results.map((row) => (
+            {status === "LoadingFirstPage" ? RECIPIENT_WIDTHS.map((width, i) => (
+              <TableRow key={i} className="hover:bg-transparent" aria-hidden>
+                <TableCell>
+                  <div className="flex h-5 items-center">
+                    <Skeleton className={`h-3.5 ${width}`} />
+                  </div>
+                  <div className="flex h-4 items-center">
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <Skeleton className="h-3 w-24" />
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <Skeleton className="h-3 w-24" />
+                </TableCell>
+                <TableCell className="hidden lg:table-cell" />
+              </TableRow>
+            )) : results.map((row) => (
               <TableRow key={row._id}>
                 <TableCell>
                   <p className="font-medium">{row.name ?? "No name"}</p>
@@ -409,11 +484,7 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
             ))}
           </TableBody>
         </Table>
-        {status === "LoadingFirstPage" ? (
-          <div className="flex justify-center p-4">
-            <Spinner />
-          </div>
-        ) : results.length === 0 ? (
+        {status === "LoadingFirstPage" ? null : results.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">Nobody here {status === "CanLoadMore" ? "on this page" : "yet"}.</p>
         ) : null}
         {status === "CanLoadMore" ? (
@@ -424,7 +495,13 @@ function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title:
           </div>
         ) : null}
       </div>
-      <p className="text-xs text-muted-foreground">{plural(results.length, "row")} shown.</p>
+      {status === "LoadingFirstPage" ? (
+        <div className="flex h-4 items-center" aria-hidden>
+          <Skeleton className="h-3 w-20" />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">{plural(results.length, "row")} shown.</p>
+      )}
     </div>
   );
 }

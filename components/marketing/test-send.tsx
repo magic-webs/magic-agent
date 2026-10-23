@@ -18,7 +18,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
-import { FlaskIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { TestTube01Icon } from "@hugeicons/core-free-icons";
 
 /** Where the last number tested with is kept, per browser. */
 const LAST_NUMBER_KEY = "marketing:test-number";
@@ -109,7 +110,7 @@ export function TestSendButton({
             disabled={Boolean(disabledReason)}
             title={disabledReason ?? undefined}
           >
-            <FlaskIcon /> Send a test
+            <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} /> Send a test
           </Button>
         }
       />
@@ -137,7 +138,7 @@ export function TestSendButton({
           </p>
         </div>
         <Button onClick={() => void send()} disabled={busy || !number.trim()}>
-          {busy ? <Spinner /> : <FlaskIcon />} Send test
+          {busy ? <Spinner /> : <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} />} Send test
         </Button>
       </PopoverContent>
     </Popover>

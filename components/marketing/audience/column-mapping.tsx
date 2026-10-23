@@ -18,7 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { WarningIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
 
 export function ColumnMapping({
   table,
@@ -95,7 +96,7 @@ export function ColumnMapping({
       </div>
       {mapping.includes("phone") ? null : (
         <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-          <WarningIcon className="size-3.5" /> Pick the column that holds phone numbers.
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3.5" /> Pick the column that holds phone numbers.
         </p>
       )}
     </div>

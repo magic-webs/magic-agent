@@ -25,7 +25,7 @@ import {
 import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
-import { SmartReview } from "@/components/marketing/campaigns/smart-review";
+import { SmartReview, ValueSkeleton } from "@/components/marketing/campaigns/smart-review";
 import { VariableMapper } from "@/components/marketing/campaigns/variable-mapper";
 import {
   AudiencePicker,
@@ -41,16 +41,18 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  PaperPlaneTiltIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+  AlertCircleIcon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  ArrowRight02Icon,
+  SentIcon,
+} from "@hugeicons/core-free-icons";
 
 type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
@@ -105,7 +107,7 @@ function personName(person: Person) {
   return person.name?.trim() || (person.externalId ? `+${person.externalId}` : "a contact");
 }
 
-function Section({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
+function Section({ step, title, children }: { step: number; title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
       <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -116,6 +118,138 @@ function Section({ step, title, children }: { step: number; title: string; child
       </h3>
       {children}
     </section>
+  );
+}
+
+function Heading({ editing, smart }: { editing: boolean; smart: boolean }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <h2 className="text-lg font-semibold">
+        {editing ? "Edit" : "New"} {smart ? "smart campaign" : "campaign"}
+      </h2>
+      <p className="max-w-3xl text-sm text-muted-foreground">
+        {smart
+          ? "Pick who gets it and what they read. Next you review the wave plan before anything is sent."
+          : "One approved WhatsApp template, sent to the people you choose. Unsubscribed contacts are always left out."}
+      </p>
+    </div>
+  );
+}
+
+const CHIP_WIDTHS = ["w-24", "w-32", "w-20", "w-28"];
+
+export function CampaignComposerSkeleton({ mode }: { mode?: CampaignMode }) {
+  const workspace = useWorkspace();
+  const smart = mode === "smart";
+  const fields = [
+    { label: "Day", width: "w-full" },
+    { label: `At (${workspace.timezone})`, width: "w-28" },
+    { label: "Speed", width: "w-40" },
+  ].slice(0, smart ? 2 : 3);
+  const checkRow = (
+    <div className="flex items-start gap-2">
+      <Skeleton className="size-4 shrink-0 rounded-[4px]" />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-36" />
+        </div>
+        <div className="flex h-4 items-center">
+          <Skeleton className="h-3 w-full max-w-xl" />
+        </div>
+        <div className="flex h-4 items-center">
+          <Skeleton className="h-3 w-2/3 max-w-sm" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-5" aria-hidden>
+      {mode ? (
+        <Heading editing={false} smart={smart} />
+      ) : (
+        <div className="flex flex-col gap-1">
+          <Skeleton className="my-1 h-5 w-52" />
+          <div className="flex h-5 items-center">
+            <Skeleton className="h-3.5 w-[36rem] max-w-full" />
+          </div>
+        </div>
+      )}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_296px]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Section step={1} title="Name it">
+            <Skeleton className="h-8 w-full rounded-lg" />
+          </Section>
+          <Section step={2} title="Who gets it">
+            <Skeleton className="h-8 w-64 rounded-lg" />
+            <div className="flex flex-col gap-1.5">
+              <Skeleton className="my-0.5 h-3 w-28" />
+              <div className="flex flex-wrap gap-1.5">
+                {CHIP_WIDTHS.map((width) => (
+                  <Skeleton key={width} className={`h-6.5 rounded-full ${width}`} />
+                ))}
+              </div>
+            </div>
+          </Section>
+          <Section step={3} title="What they read">
+            <Skeleton className="h-8 w-56 rounded-lg" />
+            {checkRow}
+          </Section>
+          <Section
+            step={4}
+            title={mode ? (smart ? "When it starts" : "When it goes") : <Skeleton className="h-3.5 w-24" />}
+          >
+            <Skeleton className="h-8 w-44 rounded-lg" />
+            <div className="grid gap-3 sm:grid-cols-3">
+              {fields.map((field) => (
+                <div key={field.label} className="flex flex-col gap-1.5">
+                  <Label>{field.label}</Label>
+                  <Skeleton className={`h-8 rounded-lg ${field.width}`} />
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col">
+              <div className="flex h-4 items-center">
+                <Skeleton className="h-3 w-full max-w-xl" />
+              </div>
+              <div className="flex h-4 items-center">
+                <Skeleton className="h-3 w-1/2 max-w-xs" />
+              </div>
+            </div>
+            {smart ? null : checkRow}
+          </Section>
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-semibold">Before it goes</p>
+            <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Will receive it</dt>
+                <dd>
+                  <ValueSkeleton className="h-3.5 w-20" />
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Left out</dt>
+                <dd>
+                  <ValueSkeleton className="h-3.5 w-40" />
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <aside className="hidden lg:block">
+          <div className="sticky top-4 flex flex-col gap-2">
+            <p className="text-center text-xs font-medium text-muted-foreground">
+              What a customer reads
+            </p>
+            <WhatsAppPreview body="" business={workspace.name} />
+          </div>
+        </aside>
+      </div>
+      <div className="sticky -bottom-4 z-20 -mx-4 -mb-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
+        <Skeleton className="h-8 w-18 rounded-lg" />
+        <Skeleton className="h-8 w-26 rounded-lg" />
+      </div>
+    </div>
   );
 }
 
@@ -258,7 +392,7 @@ export function CampaignComposer({
       <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
         {people && people.length > 1 ? (
           <Button size="icon-sm" variant="ghost" aria-label="Previous contact" onClick={() => setSample((n) => n + people.length - 1)}>
-            <CaretLeftIcon />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
           </Button>
         ) : null}
         <span>
@@ -267,7 +401,7 @@ export function CampaignComposer({
         </span>
         {people && people.length > 1 ? (
           <Button size="icon-sm" variant="ghost" aria-label="Next contact" onClick={() => setSample((n) => n + 1)}>
-            <CaretRightIcon />
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
           </Button>
         ) : null}
       </div>
@@ -316,16 +450,7 @@ export function CampaignComposer({
 
   return (
     <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">
-            {draft.eventId ? "Edit" : "New"} {smart ? "smart campaign" : "campaign"}
-          </h2>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {smart
-              ? "Pick who gets it and what they read. Next you review the wave plan before anything is sent."
-              : "One approved WhatsApp template, sent to the people you choose. Unsubscribed contacts are always left out."}
-          </p>
-        </div>
+        <Heading editing={Boolean(draft.eventId)} smart={smart} />
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_296px]">
         <div className="flex min-w-0 flex-col gap-6">
           <Section step={1} title="Name it">
@@ -356,7 +481,7 @@ export function CampaignComposer({
             />
             {blocker ? (
               <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                <WarningCircleIcon className="size-3.5" /> {blocker}
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" /> {blocker}
               </p>
             ) : null}
             {template ? <VariableMapper body={template.body} fills={fills} onChange={setFills} /> : null}
@@ -465,39 +590,47 @@ export function CampaignComposer({
 
           <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
             <p className="text-sm font-semibold">Before it goes</p>
-            {estimate === undefined ? (
-              <Spinner />
-            ) : (
-              <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+            <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Will receive it</dt>
+                <dd className="font-medium tabular-nums">
+                  {estimate ? (
+                    <>
+                      {plural(estimate.reachable, "person", "people")}
+                      {estimate.partial ? "+" : ""}
+                    </>
+                  ) : (
+                    <ValueSkeleton className="h-3.5 w-20" />
+                  )}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Left out</dt>
+                <dd className="tabular-nums">
+                  {estimate ? (
+                    <>
+                      {estimate.optedOut} unsubscribed · {estimate.overCap} over the limit
+                    </>
+                  ) : (
+                    <ValueSkeleton className="h-3.5 w-40" />
+                  )}
+                </dd>
+              </div>
+              {estimate && money(estimate.costMicros) ? (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Will receive it</dt>
-                  <dd className="font-medium tabular-nums">
-                    {plural(estimate.reachable, "person", "people")}
-                    {estimate.partial ? "+" : ""}
+                  <dt className="text-muted-foreground">Estimated cost</dt>
+                  <dd className="font-medium tabular-nums">{money(estimate.costMicros)}</dd>
+                </div>
+              ) : null}
+              {estimate && estimate.balanceMicros !== null && money(estimate.balanceMicros) ? (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Wallet</dt>
+                  <dd className={short ? "font-medium text-destructive tabular-nums" : "tabular-nums"}>
+                    {money(estimate.balanceMicros)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Left out</dt>
-                  <dd className="tabular-nums">
-                    {estimate.optedOut} unsubscribed · {estimate.overCap} over the limit
-                  </dd>
-                </div>
-                {money(estimate.costMicros) ? (
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">Estimated cost</dt>
-                    <dd className="font-medium tabular-nums">{money(estimate.costMicros)}</dd>
-                  </div>
-                ) : null}
-                {estimate.balanceMicros !== null && money(estimate.balanceMicros) ? (
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">Wallet</dt>
-                    <dd className={short ? "font-medium text-destructive tabular-nums" : "tabular-nums"}>
-                      {money(estimate.balanceMicros)}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-            )}
+              ) : null}
+            </dl>
             {short ? (
               <p className="text-xs text-destructive">
                 The wallet does not cover everyone. Sending stops when it runs out — top up on the
@@ -528,7 +661,7 @@ export function CampaignComposer({
           </Button>
           {smart ? (
             <Button onClick={() => setReviewing(true)} disabled={cannotReview}>
-              Review plan <ArrowRightIcon />
+              Review plan <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
             </Button>
           ) : draft.when === "now" ? (
             <ConfirmButton
@@ -540,11 +673,11 @@ export function CampaignComposer({
               confirmLabel="Send now"
               onConfirm={submit}
             >
-              {busy ? <Spinner /> : <PaperPlaneTiltIcon />} Send now
+              {busy ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send now
             </ConfirmButton>
           ) : (
             <Button onClick={() => void submit()} disabled={cannotSubmit}>
-              {busy ? <Spinner /> : <PaperPlaneTiltIcon />} Schedule
+              {busy ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Schedule
             </Button>
           )}
         </div>

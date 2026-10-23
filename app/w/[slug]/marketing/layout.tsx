@@ -7,11 +7,12 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { fail } from "@/components/marketing/format";
-import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { SparkleIcon, WarningCircleIcon, WhatsappLogoIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { AlertCircleIcon, SparklesIcon, WhatsappIcon } from "@hugeicons/core-free-icons";
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
@@ -22,7 +23,14 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
       {overview === undefined ? (
-        <TableSkeleton rows={1} columns={3} />
+        <div className="flex items-center gap-3 rounded-lg border border-border p-3" aria-hidden>
+          <Skeleton className="size-10 shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-3 w-72 max-w-full" />
+          </div>
+          <Skeleton className="h-7 w-28 shrink-0 rounded-lg" />
+        </div>
       ) : overview ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
           <AgentAvatar name={overview.desk?.botName ?? workspace.name} size={40} />
@@ -31,7 +39,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <p className="text-xs text-muted-foreground">
               {overview.channel ? (
                 <>
-                  <WhatsappLogoIcon className="mr-1 inline size-3.5 align-[-2px]" />
+                  <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="mr-1 inline size-3.5 align-[-2px]" />
                   Sends from {overview.channel.phone ?? overview.channel.name} to{" "}
                   {overview.audience.whatsapp}
                   {overview.audience.capped ? "+" : ""} subscribed WhatsApp contacts
@@ -66,7 +74,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
                 }
               }}
             >
-              {creatingDesk ? <Spinner /> : <SparkleIcon />} Set up the desk
+              {creatingDesk ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} Set up the desk
             </Button>
           )}
         </div>
@@ -74,7 +82,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
       {overview && !overview.channel ? (
         <Alert>
-          <WarningCircleIcon />
+          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
           <AlertTitle>Connect WhatsApp first</AlertTitle>
           <AlertDescription>
             Marketing goes out from the workspace’s WhatsApp number. Add one under{" "}

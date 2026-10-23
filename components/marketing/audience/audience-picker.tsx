@@ -10,7 +10,8 @@ import { useHourBucket } from "@/components/use-now";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { CheckIcon, MinusCircleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { MinusSignCircleIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import { plural, type Category } from "./shared";
 
@@ -71,7 +72,7 @@ function Chip({
             : "border-border hover:bg-muted/50"
       )}
     >
-      {excluded ? <MinusCircleIcon className="size-3.5" /> : active ? <CheckIcon className="size-3.5" /> : null}
+      {excluded ? <HugeiconsIcon icon={MinusSignCircleIcon} strokeWidth={2} className="size-3.5" /> : active ? <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5" /> : null}
       {children}
       {count !== undefined ? <span className="text-muted-foreground tabular-nums">{count}</span> : null}
     </button>

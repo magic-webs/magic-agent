@@ -15,20 +15,22 @@ import {
   type TemplateDraft,
 } from "@/components/marketing/template-dialog";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
-import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  CopyIcon,
-  MegaphoneIcon,
-  PlusIcon,
-  WhatsappLogoIcon,
-} from "@phosphor-icons/react";
+  Copy01Icon,
+  Megaphone01Icon,
+  PlusSignIcon,
+  RefreshIcon,
+  WhatsappIcon,
+} from "@hugeicons/core-free-icons";
 
 const OCCASION_LABELS: Record<string, string> = {
   festival: "Festival",
@@ -37,6 +39,36 @@ const OCCASION_LABELS: Record<string, string> = {
   offer: "Offer",
   general: "General",
 };
+
+const TEMPLATE_SKELETONS = [
+  { name: "w-2/3", bubble: "h-28", meta: "w-40" },
+  { name: "w-1/2", bubble: "h-36", meta: "w-32" },
+  { name: "w-3/5", bubble: "h-24", meta: "w-44" },
+];
+
+function TemplateCardsSkeleton() {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-hidden>
+      {TEMPLATE_SKELETONS.map(({ name, bubble, meta }) => (
+        <div key={name} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 min-w-0 flex-1 items-center">
+              <Skeleton className={cn("h-4", name)} />
+            </div>
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          <div className="rounded-md border border-border p-2.5">
+            <Skeleton className={cn("w-[88%] rounded-lg rounded-tl-none", bubble)} />
+          </div>
+          <div className="mt-auto flex h-4 items-center">
+            <Skeleton className={cn("h-3", meta)} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function MarketingTemplatesPage() {
   const workspace = useWorkspace();
@@ -88,17 +120,17 @@ export default function MarketingTemplatesPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" disabled={checking} onClick={() => void runStatusCheck()}>
-            {checking ? <Spinner /> : <ArrowsClockwiseIcon />} Sync templates
+            {checking ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Sync templates
           </Button>
           <Button onClick={() => setDraft(draftFor())}>
-            <PlusIcon /> New template
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New template
           </Button>
         </div>
       </div>
 
       {unlinked > 0 ? (
         <Alert>
-          <WhatsappLogoIcon />
+          <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} />
           <AlertTitle>
             {unlinked === 1 ? "1 template can't send yet" : `${unlinked} templates can't send yet`}
           </AlertTitle>
@@ -110,7 +142,7 @@ export default function MarketingTemplatesPage() {
             </p>
             {inReview ? (
               <Button size="sm" variant="outline" disabled={checking} onClick={() => void runStatusCheck()}>
-                {checking ? <Spinner /> : <ArrowsClockwiseIcon />} Check status now
+                {checking ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Check status now
               </Button>
             ) : null}
           </AlertDescription>
@@ -118,12 +150,12 @@ export default function MarketingTemplatesPage() {
       ) : null}
 
       {overview === undefined ? (
-        <TableSkeleton rows={3} columns={3} />
+        <TemplateCardsSkeleton />
       ) : templates.length === 0 ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <MegaphoneIcon />
+              <HugeiconsIcon icon={Megaphone01Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No templates yet</EmptyTitle>
             <EmptyDescription>
@@ -132,7 +164,7 @@ export default function MarketingTemplatesPage() {
             </EmptyDescription>
           </EmptyHeader>
           <Button onClick={() => setDraft(draftFor())}>
-            <PlusIcon /> New template
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New template
           </Button>
         </Empty>
       ) : (
@@ -165,7 +197,7 @@ export default function MarketingTemplatesPage() {
                     setDraft(copyDraftOf(template));
                   }}
                 >
-                  <CopyIcon />
+                  <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                 </Button>
                 <Badge variant="outline">{OCCASION_LABELS[template.occasion] ?? template.occasion}</Badge>
                 {template.category && template.category !== "marketing" ? (
@@ -194,7 +226,7 @@ export default function MarketingTemplatesPage() {
               ) : null}
               {template.metaTemplateName ? (
                 <span className="mt-auto flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
-                  <WhatsappLogoIcon className="size-3.5" />
+                  <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-3.5" />
                   {template.metaTemplateName} · {template.languageCode}
                 </span>
               ) : null}

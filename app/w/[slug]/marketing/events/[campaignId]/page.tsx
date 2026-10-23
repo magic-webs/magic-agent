@@ -10,15 +10,16 @@ import { useWorkspace } from "@/components/workspace-provider";
 import {
   CampaignDialog,
   EventCard,
+  EventCardSkeleton,
   TouchDialog,
   draftForCampaign,
   type CampaignDraft,
 } from "@/components/marketing/events";
-import { GuestsPanel } from "@/components/marketing/events/guests-panel";
-import { TableSkeleton } from "@/components/skeletons";
+import { GuestsPanel, GuestsPanelSkeleton } from "@/components/marketing/events/guests-panel";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft02Icon } from "@hugeicons/core-free-icons";
 
 export default function MarketingEventPage({
   params,
@@ -47,11 +48,14 @@ export default function MarketingEventPage({
         nativeButton={false}
         render={<Link href={back} />}
       >
-        <ArrowLeftIcon /> All events
+        <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All events
       </Button>
 
       {campaign === undefined ? (
-        <TableSkeleton rows={4} columns={3} />
+        <>
+          <EventCardSkeleton />
+          <GuestsPanelSkeleton />
+        </>
       ) : campaign === null ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
@@ -59,7 +63,7 @@ export default function MarketingEventPage({
             <EmptyDescription>It was deleted, or the link is wrong.</EmptyDescription>
           </EmptyHeader>
           <Button variant="outline" nativeButton={false} render={<Link href={back} />}>
-            <ArrowLeftIcon /> All events
+            <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All events
           </Button>
         </Empty>
       ) : (

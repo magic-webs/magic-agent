@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -46,16 +47,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowCounterClockwiseIcon,
-  BroomIcon,
-  CheckCircleIcon,
-  CheckIcon,
-  DownloadSimpleIcon,
-  ProhibitIcon,
-  SparkleIcon,
-  UploadSimpleIcon,
-} from "@phosphor-icons/react";
+  BlockedIcon,
+  CheckmarkCircle02Icon,
+  CleanIcon,
+  Download01Icon,
+  SparklesIcon,
+  Tick02Icon,
+  Undo02Icon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
 import { categoryLabel, categoryTone, fail, formatPhone, plural, type Category } from "./shared";
 import { ColumnMapping, ImportPreview } from "./column-mapping";
 
@@ -74,6 +76,8 @@ const BUCKETS: Array<{ value: Bucket; label: string }> = [
   { value: "duplicate", label: "Repeats" },
   { value: "skipped", label: "Left out" },
 ];
+const BUCKET_WIDTHS = ["w-20", "w-32", "w-24", "w-24", "w-24"];
+const ROW_WIDTHS = ["w-28", "w-36", "w-24", "w-32", "w-20", "w-40"];
 
 function parsePaste(text: string): ContactRow[] {
   return text
@@ -229,7 +233,7 @@ export function ImportUpload({
           variant="outline"
         >
           <ToggleGroupItem value="csv">
-            <UploadSimpleIcon /> Upload a file
+            <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} /> Upload a file
           </ToggleGroupItem>
           <ToggleGroupItem value="paste">Paste a list</ToggleGroupItem>
         </ToggleGroup>
@@ -237,7 +241,7 @@ export function ImportUpload({
         {source === "csv" ? (
           <div className="flex flex-col gap-2">
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-center hover:bg-muted/40">
-              <UploadSimpleIcon className="size-6 text-muted-foreground" />
+              <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} className="size-6 text-muted-foreground" />
               <span className="text-sm font-medium">
                 {fileName ? fileName : "Choose a CSV file"}
               </span>
@@ -266,7 +270,7 @@ export function ImportUpload({
                 variant="ghost"
                 onClick={() => downloadCsv("contacts-sample.csv", sampleContactCsv())}
               >
-                <DownloadSimpleIcon /> Sample file
+                <HugeiconsIcon icon={Download01Icon} strokeWidth={2} /> Sample file
               </Button>
             </div>
           </div>
@@ -335,7 +339,7 @@ export function ImportUpload({
               <h3 className="text-sm font-semibold">Basic cleaning</h3>
               <ul className="flex flex-col gap-1.5 text-sm">
                 <li className="flex items-center gap-2 text-muted-foreground">
-                  <CheckIcon className="size-4 text-emerald-600" />
+                  <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-4 text-emerald-600" />
                   {table.tidiedCells > 0
                     ? `Extra spaces trimmed in ${plural(table.tidiedCells, "cell")}`
                     : "No extra spaces to trim"}
@@ -387,7 +391,7 @@ export function ImportUpload({
           onClick={() => void start()}
           disabled={Boolean(busy) || rows.length === 0 || !consent || !mapped || tooMany}
         >
-          {busy ? <Spinner /> : <BroomIcon />}
+          {busy ? <Spinner /> : <HugeiconsIcon icon={CleanIcon} strokeWidth={2} />}
           {busy ?? `Clean up and sort ${plural(rows.length, "contact")}`}
         </Button>
       </div>
@@ -404,13 +408,7 @@ export function ImportProgress({
 }) {
   const data = useQuery(api.audienceImports.get, { importId });
 
-  if (data === undefined) {
-    return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
-    );
-  }
+  if (data === undefined) return <ImportSkeleton />;
 
   const counts = data.counts;
   const recheck = data.mode === "recheck";
@@ -435,7 +433,7 @@ export function ImportProgress({
         <div className="flex flex-col gap-4 py-6">
           <Progress value={data.total ? Math.round((sorted / data.total) * 100) : 0} />
           <div className="flex items-center gap-2 text-sm">
-            <SparkleIcon className="size-4 text-primary" />
+            <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4 text-primary" />
             {sorted.toLocaleString()} of {data.total.toLocaleString()} checked
             {batches > 0 ? (
               <span className="text-muted-foreground">
@@ -482,7 +480,7 @@ export function ImportProgress({
         <div className="flex flex-col gap-4 py-6">
           {done ? (
             <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-              <CheckCircleIcon className="size-5" weight="fill" />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-5" />
               Ready to use in campaigns and events.
             </div>
           ) : (
@@ -520,6 +518,31 @@ function CountStrip({ counts }: { counts: Doc<"audienceImports">["counts"] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function ImportSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-1" aria-hidden>
+        <Skeleton className="my-1 h-5 w-64 max-w-full" />
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-full max-w-xl" />
+        </div>
+      </div>
+      <div className="flex flex-col gap-3" aria-hidden>
+        <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
+          {BUCKETS.map((item, i) => (
+            <Skeleton key={item.value} className={`h-7 shrink-0 rounded-lg ${BUCKET_WIDTHS[i]}`} />
+          ))}
+        </div>
+        <RowsSkeleton />
+      </div>
+      <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4" aria-hidden>
+        <Skeleton className="h-8 w-20 rounded-lg" />
+        <Skeleton className="h-8 w-36 rounded-lg" />
+      </div>
+    </>
   );
 }
 
@@ -598,7 +621,7 @@ function Review({
                 void run(() => acceptAll({ importId: data._id, from: "check" }), "Could not keep them")
               }
             >
-              <CheckCircleIcon /> Keep all {counts.check.toLocaleString()}
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} /> Keep all {counts.check.toLocaleString()}
             </Button>
           ) : null}
           {bucket === "skipped" && counts.skipped > 0 ? (
@@ -611,7 +634,7 @@ function Review({
                 void run(() => acceptAll({ importId: data._id, from: "skipped" }), "Could not restore them")
               }
             >
-              <ArrowCounterClockwiseIcon /> Put all back
+              <HugeiconsIcon icon={Undo02Icon} strokeWidth={2} /> Put all back
             </Button>
           ) : null}
         </div>
@@ -664,7 +687,7 @@ function Review({
             )
           }
         >
-          {busy ? <Spinner /> : <CheckCircleIcon />} {recheck ? "Update" : "Save"}{" "}
+          {busy ? <Spinner /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />} {recheck ? "Update" : "Save"}{" "}
           {plural(counts.ready, "contact")}
         </Button>
       </div>
@@ -692,13 +715,7 @@ function RowsTable({
   const setRowsStatus = useMutation(api.audienceImports.setRowsStatus);
   const options = categories.map((category) => ({ value: category.key, label: category.label }));
 
-  if (status === "LoadingFirstPage") {
-    return (
-      <div className="flex justify-center py-10">
-        <Spinner />
-      </div>
-    );
-  }
+  if (status === "LoadingFirstPage") return <RowsSkeleton bucket={bucket} />;
   if (results.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
@@ -770,7 +787,7 @@ function RowsTable({
                         variant="outline"
                         className="gap-1 text-[10px] text-violet-700 dark:text-violet-300"
                       >
-                        <SparkleIcon className="size-3" />
+                        <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-3" />
                         {FIX_LABELS[fix]}
                         <button
                           type="button"
@@ -860,7 +877,7 @@ function RowsTable({
                         )
                       }
                     >
-                      <ProhibitIcon />
+                      <HugeiconsIcon icon={BlockedIcon} strokeWidth={2} />
                     </Button>
                   </div>
                 ) : null}
@@ -876,6 +893,72 @@ function RowsTable({
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function RowsSkeleton({ bucket }: { bucket?: Bucket }) {
+  return (
+    <div className="max-h-[65vh] overflow-auto rounded-md border border-border" aria-hidden>
+      <Table>
+        {bucket ? (
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12">Line</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead className="hidden md:table-cell">Details</TableHead>
+              <TableHead className="w-48">{bucket === "invalid" ? "Fix the number" : "Category"}</TableHead>
+              <TableHead className="w-24" />
+            </TableRow>
+          </TableHeader>
+        ) : null}
+        <TableBody>
+          {ROW_WIDTHS.map((width, i) => (
+            <TableRow key={width}>
+              <TableCell>
+                <Skeleton className="h-3 w-5" />
+              </TableCell>
+              <TableCell>
+                <div className="flex h-5 items-center">
+                  <Skeleton className={`h-3.5 ${width}`} />
+                </div>
+                <Skeleton className="my-0.5 h-3 w-28" />
+              </TableCell>
+              <TableCell className="hidden max-w-72 md:table-cell">
+                <Skeleton className={`my-0.5 h-3 ${i % 2 ? "w-32" : "w-48"}`} />
+                <div className="mt-1 flex gap-1">
+                  {i % 3 === 0 ? <Skeleton className="h-5 w-20 rounded-full" /> : null}
+                </div>
+              </TableCell>
+              <TableCell>
+                {bucket === "invalid" ? (
+                  <div className="flex gap-1">
+                    <Skeleton className="h-8 flex-1 rounded-lg" />
+                    <Skeleton className="h-7 w-10 rounded-lg" />
+                  </div>
+                ) : bucket === "duplicate" ? (
+                  <Skeleton className="h-3 w-32" />
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <Skeleton className="h-7 w-28 rounded-lg" />
+                    <Skeleton className={`h-4.5 rounded ${i % 2 ? "w-20" : "w-16"}`} />
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                {bucket === "skipped" ? (
+                  <Skeleton className="ml-auto h-7 w-20 rounded-lg" />
+                ) : bucket === "invalid" || bucket === "duplicate" ? null : (
+                  <div className="flex justify-end gap-1">
+                    {bucket === "check" ? <Skeleton className="h-7 w-12 rounded-lg" /> : null}
+                    <Skeleton className="size-7 rounded-lg" />
+                  </div>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -959,7 +1042,7 @@ export function RecheckButton({ categories }: { categories: Category[] }) {
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
-        <SparkleIcon /> Re-check with Agent Check
+        <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> Re-check with Agent Check
       </Button>
       <Dialog open={open} onOpenChange={(next) => !busy && setOpen(next)}>
         <DialogContent>
@@ -984,7 +1067,7 @@ export function RecheckButton({ categories }: { categories: Category[] }) {
               Cancel
             </Button>
             <Button disabled={busy} onClick={() => void start()}>
-              {busy ? <Spinner /> : <SparkleIcon />} Start
+              {busy ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} Start
             </Button>
           </DialogFooter>
         </DialogContent>

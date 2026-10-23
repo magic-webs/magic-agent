@@ -23,7 +23,8 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
-import { XIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { normaliseTag } from "@/convex/lib/audience";
 import { categoryLabel, fail, formatPhone, type Category } from "./shared";
 
@@ -175,7 +176,7 @@ export function PersonDialog({
                     aria-label={`Remove ${tag}`}
                     onClick={() => setTags(tags.filter((t) => t !== tag))}
                   >
-                    <XIcon className="size-3" />
+                    <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
                   </button>
                 </Badge>
               ))}

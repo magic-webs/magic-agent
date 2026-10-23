@@ -48,21 +48,23 @@ import {
 import { TestSendButton } from "@/components/marketing/test-send";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  ArrowSquareOutIcon,
-  ArrowUUpLeftIcon,
-  CopyIcon,
-  HandPalmIcon,
-  ImageIcon,
-  PaperPlaneTiltIcon,
-  PhoneIcon,
-  SparkleIcon,
-  TrashIcon,
-  UploadSimpleIcon,
-  VideoCameraIcon,
-  WarningCircleIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  AlertCircleIcon,
+  ArrowTurnBackwardIcon,
+  Call02Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  Delete02Icon,
+  HandIcon,
+  Image01Icon,
+  LinkSquare02Icon,
+  SentIcon,
+  SparklesIcon,
+  Upload01Icon,
+  Video01Icon,
+} from "@hugeicons/core-free-icons";
+
 import { fail, type Occasion, type Template } from "@/components/marketing/calendar";
 
 type TemplateCategory = NonNullable<Doc<"marketingTemplates">["category"]>;
@@ -122,11 +124,11 @@ function draftParts(draft: TemplateDraft) {
 const BUTTON_KINDS: Array<{
   type: TemplateButton["type"];
   label: string;
-  icon: typeof PhoneIcon;
+  icon: IconSvgElement;
 }> = [
-  { type: "quick_reply", label: "Quick reply", icon: ArrowUUpLeftIcon },
-  { type: "url", label: "Website", icon: ArrowSquareOutIcon },
-  { type: "phone", label: "Call", icon: PhoneIcon },
+  { type: "quick_reply", label: "Quick reply", icon: ArrowTurnBackwardIcon },
+  { type: "url", label: "Website", icon: LinkSquare02Icon },
+  { type: "phone", label: "Call", icon: Call02Icon },
 ];
 
 function blankButton(type: TemplateButton["type"]): TemplateButton {
@@ -429,9 +431,9 @@ export function TemplateDialog({
                 ) : (
                   <span className="flex size-14 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                     {mediaKind === "image" ? (
-                      <ImageIcon className="size-5" />
+                      <HugeiconsIcon icon={Image01Icon} strokeWidth={2} className="size-5" />
                     ) : (
-                      <VideoCameraIcon className="size-5" />
+                      <HugeiconsIcon icon={Video01Icon} strokeWidth={2} className="size-5" />
                     )}
                   </span>
                 )}
@@ -459,7 +461,7 @@ export function TemplateDialog({
                   disabled={busy !== null}
                   onClick={() => mediaInput.current?.click()}
                 >
-                  {busy === "upload" ? <Spinner /> : <UploadSimpleIcon />}
+                  {busy === "upload" ? <Spinner /> : <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />}
                   {parts.headerMedia ? "Replace" : "Upload"}
                 </Button>
               </div>
@@ -470,7 +472,7 @@ export function TemplateDialog({
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="template-body">Message</Label>
               <Button size="sm" variant="outline" onClick={() => void write()} disabled={busy !== null}>
-                {busy === "write" ? <Spinner /> : <SparkleIcon />}
+                {busy === "write" ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />}
                 {busy === "write" ? "Writing…" : draft.body.trim() ? "Rewrite" : "Write it for me"}
               </Button>
             </div>
@@ -523,7 +525,7 @@ export function TemplateDialog({
                   className="flex flex-col gap-2 rounded-lg border border-border p-2.5 sm:flex-row sm:items-center"
                 >
                   <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground sm:w-24">
-                    <kind.icon className="size-3.5" /> {kind.label}
+                    <HugeiconsIcon icon={kind.icon} strokeWidth={2} className="size-3.5" /> {kind.label}
                   </span>
                   <Input
                     aria-label="Button label"
@@ -566,7 +568,7 @@ export function TemplateDialog({
                       setDraft({ ...draft, buttons: draft.buttons.filter((_, i) => i !== index) })
                     }
                   >
-                    <XIcon />
+                    <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
                   </Button>
                 </div>
               );
@@ -582,7 +584,7 @@ export function TemplateDialog({
                     setDraft({ ...draft, buttons: [...draft.buttons, blankButton(kind.type)] })
                   }
                 >
-                  <kind.icon /> {kind.label}
+                  <HugeiconsIcon icon={kind.icon} strokeWidth={2} /> {kind.label}
                 </Button>
               ))}
               {!hasStop && draft.category === "marketing" ? (
@@ -597,7 +599,7 @@ export function TemplateDialog({
                     })
                   }
                 >
-                  <HandPalmIcon /> Add “{STOP_BUTTON}”
+                  <HugeiconsIcon icon={HandIcon} strokeWidth={2} /> Add “{STOP_BUTTON}”
                 </Button>
               ) : null}
             </div>
@@ -618,7 +620,7 @@ export function TemplateDialog({
                 <ul className="flex flex-col gap-1 text-xs font-medium text-destructive">
                   {problems.map((problem) => (
                     <li key={problem} className="flex items-start gap-1.5">
-                      <WarningCircleIcon className="mt-px size-3.5 shrink-0" />
+                      <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="mt-px size-3.5 shrink-0" />
                       {problem}
                     </li>
                   ))}
@@ -680,7 +682,7 @@ export function TemplateDialog({
         <DialogFooter className="sm:justify-between">
           {draft.templateId ? (
             <Button variant="ghost" onClick={() => void remove()} disabled={busy !== null}>
-              {busy === "remove" ? <Spinner /> : <TrashIcon />} Delete
+              {busy === "remove" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Delete
             </Button>
           ) : (
             <span />
@@ -688,7 +690,7 @@ export function TemplateDialog({
           <div className="flex flex-wrap items-center justify-end gap-2">
             {approvedChange ? (
               <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-                <WarningCircleIcon className="size-3.5" />
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" />
                 Saving pauses it until Meta approves the change.
               </span>
             ) : null}
@@ -698,7 +700,7 @@ export function TemplateDialog({
                 disabled={busy !== null}
                 onClick={() => setDraft(copyDraftOf(saved))}
               >
-                <CopyIcon /> Duplicate
+                <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Duplicate
               </Button>
             ) : null}
             {saved ? (
@@ -727,7 +729,7 @@ export function TemplateDialog({
                   busy !== null || !draft.name.trim() || !draft.body.trim() || problems.length > 0
                 }
               >
-                {busy === "apply" ? <Spinner /> : <PaperPlaneTiltIcon />}
+                {busy === "apply" ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />}
                 {saved?.metaTemplateId ? "Save and apply the change" : "Save and apply to Meta"}
               </Button>
             ) : null}

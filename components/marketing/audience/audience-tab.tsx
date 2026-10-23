@@ -9,7 +9,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { ExportContactsButton } from "@/components/marketing/export-contacts-button";
 import { SelectField } from "@/components/select-field";
-import { TableSkeleton } from "@/components/skeletons";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -31,6 +30,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -41,18 +41,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  BellSlashIcon,
-  BroomIcon,
-  GearSixIcon,
-  ListBulletsIcon,
-  MagnifyingGlassIcon,
-  TagIcon,
-  TrashIcon,
-  UserPlusIcon,
-  UsersThreeIcon,
-  TrayArrowDownIcon,
-} from "@phosphor-icons/react";
+  CleanIcon,
+  Delete02Icon,
+  FileImportIcon,
+  LeftToRightListBulletIcon,
+  NotificationOff01Icon,
+  Search01Icon,
+  Settings01Icon,
+  Tag01Icon,
+  UserAdd01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 import { PersonDialog, type Person } from "./person-dialog";
 import { AudienceSettingsDialog } from "./settings-dialog";
 import { RecheckButton } from "./import-flow";
@@ -85,6 +86,7 @@ const MAX_SELECTED = 500;
 const PAGE_SIZE = 50;
 const CONFIRM_INCOMPLETE_AT = 10;
 const AUTO = "__auto";
+const CONTACT_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-20"];
 
 function viewKey(view: View): string {
   if (view.kind === "category") return `category:${view.key}`;
@@ -225,36 +227,30 @@ export function AudienceTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Audience</h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Everyone your campaigns and events can reach. Import contacts from a CSV and they are
-            cleaned up and checked by Agent Check, then reviewed by you before anyone is added.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" size="icon" aria-label="Audience settings" onClick={() => setSettingsOpen((n) => n + 1)}>
-            <GearSixIcon />
-          </Button>
-          <ExportContactsButton />
-          <Button variant="outline" onClick={onAddByHand}>
-            <UserPlusIcon /> Add by hand
-          </Button>
-          <RecheckButton categories={categories} />
-          <Button nativeButton={false} render={<Link href={importBase} />}>
-            <TrayArrowDownIcon /> Import contacts
-          </Button>
-        </div>
-      </div>
+      <Header>
+        <Button variant="ghost" size="icon" aria-label="Audience settings" onClick={() => setSettingsOpen((n) => n + 1)}>
+          <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+        </Button>
+        <ExportContactsButton />
+        <Button variant="outline" onClick={onAddByHand}>
+          <HugeiconsIcon icon={UserAdd01Icon} strokeWidth={2} /> Add by hand
+        </Button>
+        <RecheckButton categories={categories} />
+        <Button nativeButton={false} render={<Link href={importBase} />}>
+          <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} /> Import contacts
+        </Button>
+      </Header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Can be messaged" value={countText(reachable, capped)} />
         <Tile label="Unsubscribed" value={countText(optedOut, capped)} />
-        <Tile label="Lists" value={countText(audiences?.length ?? 0, false)} />
+        <Tile
+          label="Lists"
+          value={audiences === undefined ? undefined : countText(audiences.length, false)}
+        />
         <Tile
           label="Complete contacts"
-          value={countText(summary?.categories.valid ?? 0, summary?.capped)}
+          value={summary === undefined ? undefined : countText(summary.categories.valid ?? 0, summary.capped)}
         />
       </div>
 
@@ -267,7 +263,7 @@ export function AudienceTab({
               href={`${importBase}/${row._id}`}
               className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/50"
             >
-              {row.status === "sorting" || row.status === "saving" ? <Spinner /> : <BroomIcon className="size-4 text-primary" />}
+              {row.status === "sorting" || row.status === "saving" ? <Spinner /> : <HugeiconsIcon icon={CleanIcon} strokeWidth={2} className="size-4 text-primary" />}
               <span className="min-w-0 flex-1 truncate font-medium">
                 {row.mode === "recheck" ? row.name.replace(/^Re-check: /, "") : row.name}
               </span>
@@ -293,13 +289,13 @@ export function AudienceTab({
         />
         <nav className="hidden flex-col gap-3 lg:flex">
           <RailGroup title="Everyone">
-            <RailItem active={view.kind === "all"} onClick={() => choose({ kind: "all" })} icon={<UsersThreeIcon />}>
+            <RailItem active={view.kind === "all"} onClick={() => choose({ kind: "all" })} icon={<HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />}>
               All contacts
             </RailItem>
             <RailItem
               active={view.kind === "unsubscribed"}
               onClick={() => choose({ kind: "unsubscribed" })}
-              icon={<BellSlashIcon />}
+              icon={<HugeiconsIcon icon={NotificationOff01Icon} strokeWidth={2} />}
               count={countText(optedOut, capped)}
             >
               Unsubscribed
@@ -320,7 +316,7 @@ export function AudienceTab({
           </RailGroup>
           <RailGroup title="Lists">
             {audiences === undefined ? (
-              <Spinner />
+              <RailSkeleton widths={["w-24", "w-32"]} />
             ) : audiences.length === 0 ? (
               <p className="px-2 text-xs text-muted-foreground">
                 Lists come from imports, or pick people and save them as one.
@@ -331,7 +327,7 @@ export function AudienceTab({
                   key={audience._id}
                   active={view.kind === "audience" && view.id === audience._id}
                   onClick={() => choose({ kind: "audience", id: audience._id, name: audience.name })}
-                  icon={<ListBulletsIcon />}
+                  icon={<HugeiconsIcon icon={LeftToRightListBulletIcon} strokeWidth={2} />}
                   count={audience.memberCount.toLocaleString()}
                 >
                   {audience.name}
@@ -344,7 +340,7 @@ export function AudienceTab({
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-0 flex-1 sm:max-w-72">
-              <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchDraft}
                 placeholder="Search name, number, company"
@@ -378,7 +374,7 @@ export function AudienceTab({
                 disabled={busy}
                 onClick={() => setDeleting(true)}
               >
-                <TrashIcon /> Delete list
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete list
               </Button>
             ) : null}
           </div>
@@ -419,12 +415,12 @@ export function AudienceTab({
           ) : null}
 
           {people.status === "LoadingFirstPage" ? (
-            <TableSkeleton rows={6} columns={4} />
+            <ContactsSkeleton />
           ) : rows.length === 0 && more ? (
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <MagnifyingGlassIcon />
+                  <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>No matches yet</EmptyTitle>
                 <EmptyDescription>Only part of your contacts has been checked so far.</EmptyDescription>
@@ -443,7 +439,7 @@ export function AudienceTab({
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <UsersThreeIcon />
+                  <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>{filtered ? "Nobody matches" : "Nobody here yet"}</EmptyTitle>
                 <EmptyDescription>
@@ -581,7 +577,7 @@ export function AudienceTab({
                 });
               }}
             >
-              {busy ? <Spinner /> : <TrashIcon />} Delete list
+              {busy ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Delete list
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -621,11 +617,164 @@ export function AudienceTab({
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+export function AudienceTabSkeleton({
+  onAddByHand,
+  birthdays,
+}: {
+  onAddByHand: () => void;
+  birthdays: ReactNode;
+}) {
+  const workspace = useWorkspace();
+  return (
+    <div className="flex flex-col gap-4">
+      <Header>
+        <Skeleton className="size-8 rounded-lg" aria-hidden />
+        <ExportContactsButton />
+        <Button variant="outline" onClick={onAddByHand}>
+          <HugeiconsIcon icon={UserAdd01Icon} strokeWidth={2} /> Add by hand
+        </Button>
+        <Skeleton className="h-8 w-56 rounded-lg" aria-hidden />
+        <Button nativeButton={false} render={<Link href={`/w/${workspace.slug}/marketing/audience/import`} />}>
+          <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} /> Import contacts
+        </Button>
+      </Header>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile label="Can be messaged" />
+        <Tile label="Unsubscribed" />
+        <Tile label="Lists" />
+        <Tile label="Complete contacts" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <Skeleton className="h-8 w-full rounded-lg lg:hidden" aria-hidden />
+        <nav className="hidden flex-col gap-3 lg:flex">
+          <RailGroup title="Everyone">
+            <RailItem active icon={<HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />}>
+              All contacts
+            </RailItem>
+            <RailItem
+              active={false}
+              icon={<HugeiconsIcon icon={NotificationOff01Icon} strokeWidth={2} />}
+              count={<Skeleton className="h-3 w-6" aria-hidden />}
+            >
+              Unsubscribed
+            </RailItem>
+          </RailGroup>
+          <RailGroup title="Categories">
+            <RailSkeleton widths={["w-20", "w-24", "w-16"]} dot />
+          </RailGroup>
+          <RailGroup title="Lists">
+            <RailSkeleton widths={["w-24", "w-32"]} />
+          </RailGroup>
+        </nav>
+
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-72">
+              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input disabled placeholder="Search name, number, company" aria-label="Search contacts" className="pl-8" />
+            </div>
+            <Skeleton className="h-8 w-44 rounded-lg" aria-hidden />
+          </div>
+          <ContactsSkeleton />
+        </div>
+      </div>
+
+      {birthdays}
+    </div>
+  );
+}
+
+function Header({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-lg font-semibold">Audience</h2>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Everyone your campaigns and events can reach. Import contacts from a CSV and they are
+          cleaned up and checked by Agent Check, then reviewed by you before anyone is added.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function ContactsSkeleton() {
+  return (
+    <div className="overflow-x-auto rounded-md border border-border" aria-hidden>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8 pr-0">
+              <Skeleton className="size-4 rounded-[4px]" />
+            </TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead className="hidden md:table-cell">Tags</TableHead>
+            <TableHead className="hidden sm:table-cell">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {CONTACT_WIDTHS.map((width, i) => (
+            <TableRow key={width}>
+              <TableCell className="pr-0">
+                <Skeleton className="size-4 rounded-[4px]" />
+              </TableCell>
+              <TableCell>
+                <div className="flex h-5 items-center">
+                  <Skeleton className={`h-3.5 ${width}`} />
+                </div>
+                <Skeleton className={`my-0.5 h-3 ${i % 3 === 1 ? "w-44" : "w-28"}`} />
+              </TableCell>
+              <TableCell>
+                <Skeleton className={`h-5 rounded ${i % 2 ? "w-20" : "w-16"}`} />
+              </TableCell>
+              <TableCell className="hidden md:table-cell">
+                <div className="flex gap-1">
+                  {i % 3 !== 2 ? <Skeleton className="h-5 w-14 rounded-full" /> : null}
+                  {i % 3 === 0 ? <Skeleton className="h-5 w-10 rounded-full" /> : null}
+                </div>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell">
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function RailSkeleton({ widths, dot }: { widths: string[]; dot?: boolean }) {
+  return (
+    <>
+      {widths.map((width) => (
+        <div key={width} className="flex items-center gap-2 px-2 py-1.5" aria-hidden>
+          <span className="flex size-4 items-center justify-center">
+            <Skeleton className={dot ? "size-2.5 rounded-full" : "size-4 rounded"} />
+          </span>
+          <div className="flex h-5 min-w-0 flex-1 items-center">
+            <Skeleton className={`h-3.5 ${width}`} />
+          </div>
+          <Skeleton className="h-3 w-6" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function Tile({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-lg border border-border px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums">{value}</p>
+      {value === undefined ? (
+        <Skeleton className="my-1 h-6 w-16" aria-hidden />
+      ) : (
+        <p className="text-2xl font-semibold tabular-nums">{value}</p>
+      )}
     </div>
   );
 }
@@ -647,15 +796,16 @@ function RailItem({
   children,
 }: {
   active: boolean;
-  onClick: () => void;
+  onClick?: () => void;
   icon: ReactNode;
-  count?: string;
+  count?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={!onClick}
       className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors [&_svg]:size-4 ${
         active ? "bg-muted font-medium" : "hover:bg-muted/50"
       }`}
@@ -726,7 +876,7 @@ function BulkBar({
       >
         <Input value={tag} placeholder="Add a tag" className="h-7 w-32" onChange={(e) => setTag(e.target.value)} />
         <Button size="sm" type="submit" variant="outline" disabled={busy || !tag.trim()}>
-          <TagIcon /> Tag
+          <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} /> Tag
         </Button>
       </form>
       {audiences.length > 0 && !inList ? (
@@ -757,7 +907,7 @@ function BulkBar({
           onChange={(e) => setListName(e.target.value)}
         />
         <Button size="sm" type="submit" variant="outline" disabled={busy || !listName.trim()}>
-          <ListBulletsIcon /> Save as list
+          <HugeiconsIcon icon={LeftToRightListBulletIcon} strokeWidth={2} /> Save as list
         </Button>
       </form>
       {onRemoveFromList ? (

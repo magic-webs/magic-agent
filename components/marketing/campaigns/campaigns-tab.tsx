@@ -16,7 +16,6 @@ import {
 import { localDate } from "@/components/marketing/calendar";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
-import { TableSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +25,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -35,7 +35,49 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MegaphoneSimpleIcon, PlusIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Megaphone02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+
+const ROW_WIDTHS = [
+  ["w-48", "w-64"],
+  ["w-36", "w-56"],
+  ["w-56", "w-72"],
+  ["w-40", "w-52"],
+  ["w-44", "w-60"],
+];
+
+function CampaignRowsSkeleton() {
+  return ROW_WIDTHS.map(([title, meta], i) => (
+    <TableRow key={i} className="hover:bg-transparent" aria-hidden>
+      <TableCell>
+        <div className="flex h-5 items-center">
+          <Skeleton className={`h-3.5 ${title}`} />
+        </div>
+        <div className="flex h-4 items-center">
+          <Skeleton className={`h-3 ${meta}`} />
+        </div>
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="ml-auto h-3.5 w-10" />
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        <Skeleton className="ml-auto h-3.5 w-9" />
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        <Skeleton className="ml-auto h-3.5 w-9" />
+      </TableCell>
+      <TableCell className="hidden lg:table-cell">
+        <Skeleton className="ml-auto h-3.5 w-9" />
+      </TableCell>
+      <TableCell className="hidden lg:table-cell">
+        <Skeleton className="ml-auto h-3.5 w-6" />
+      </TableCell>
+    </TableRow>
+  ));
+}
 
 export function CampaignsTab() {
   const workspace = useWorkspace();
@@ -60,17 +102,15 @@ export function CampaignsTab() {
           </p>
         </div>
         <Button nativeButton={false} render={<Link href={`${base}/new`} />}>
-          <PlusIcon /> New campaign
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New campaign
         </Button>
       </div>
 
-      {status === "LoadingFirstPage" ? (
-        <TableSkeleton rows={5} columns={6} />
-      ) : results.length === 0 && status === "Exhausted" ? (
+      {results.length === 0 && status === "Exhausted" ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <MegaphoneSimpleIcon />
+              <HugeiconsIcon icon={Megaphone02Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No campaigns yet</EmptyTitle>
             <EmptyDescription>
@@ -78,7 +118,7 @@ export function CampaignsTab() {
             </EmptyDescription>
           </EmptyHeader>
           <Button nativeButton={false} render={<Link href={`${base}/new`} />}>
-            <PlusIcon /> New campaign
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New campaign
           </Button>
         </Empty>
       ) : (
@@ -96,7 +136,7 @@ export function CampaignsTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {results.map((row) => (
+              {status === "LoadingFirstPage" ? <CampaignRowsSkeleton /> : results.map((row) => (
                 <TableRow key={row._id} className="cursor-pointer" onClick={() => router.push(href(row))}>
                   <TableCell>
                     <Link

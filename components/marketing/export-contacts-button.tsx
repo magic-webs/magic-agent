@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
-import { TrayArrowUpIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { FileExportIcon } from "@hugeicons/core-free-icons";
 
 /** How many contacts one export call reads. */
 const PAGE = 500;
@@ -76,7 +77,7 @@ export function ExportContactsButton() {
 
   return (
     <Button variant="outline" onClick={() => void run()} disabled={busy}>
-      {busy ? <Spinner /> : <TrayArrowUpIcon />} Export all
+      {busy ? <Spinner /> : <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} />} Export all
     </Button>
   );
 }

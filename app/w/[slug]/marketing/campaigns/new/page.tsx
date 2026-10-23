@@ -12,16 +12,17 @@ import { localDate } from "@/components/marketing/calendar";
 import { EVERYONE } from "@/components/marketing/audience/audience-picker";
 import {
   CampaignComposer,
+  CampaignComposerSkeleton,
   emptyCampaign,
   type CampaignDraft,
   type CampaignMode,
 } from "@/components/marketing/campaigns/composer";
 import { CampaignModePicker } from "@/components/marketing/campaigns/mode-picker";
 import { recommendedPlan } from "@/convex/lib/rollout";
-import { TableSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft02Icon } from "@hugeicons/core-free-icons";
 
 export default function NewCampaignPage() {
   const workspace = useWorkspace();
@@ -45,13 +46,22 @@ export default function NewCampaignPage() {
     return (
       <div className="flex flex-col gap-4">
         <Button size="sm" variant="ghost" className="w-fit" nativeButton={false} render={<Link href={base} />}>
-          <ArrowLeftIcon /> All campaigns
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All campaigns
         </Button>
         <CampaignModePicker base={base} />
       </div>
     );
   }
-  if (!overview || (sourceId && source === undefined)) return <TableSkeleton rows={6} columns={3} />;
+  if (!overview || (sourceId && source === undefined)) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Button size="sm" variant="ghost" className="w-fit" nativeButton={false} render={<Link href={base} />}>
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All campaigns
+        </Button>
+        <CampaignComposerSkeleton mode={sourceId ? undefined : (mode ?? "manual")} />
+      </div>
+    );
+  }
   if (sourceId && source === null) {
     return (
       <Empty className="border border-dashed">
@@ -60,7 +70,7 @@ export default function NewCampaignPage() {
           <EmptyDescription>It was deleted, or the link is wrong.</EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" nativeButton={false} render={<Link href={base} />}>
-          <ArrowLeftIcon /> All campaigns
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All campaigns
         </Button>
       </Empty>
     );
@@ -102,7 +112,7 @@ export default function NewCampaignPage() {
   return (
     <div className="flex flex-col gap-4">
       <Button size="sm" variant="ghost" className="w-fit" nativeButton={false} render={<Link href={base} />}>
-        <ArrowLeftIcon /> All campaigns
+        <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All campaigns
       </Button>
       <CampaignComposer
 

@@ -26,7 +26,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-import { GiftIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { AlertCircleIcon, GiftIcon } from "@hugeicons/core-free-icons";
 import type { Template } from "@/components/marketing/calendar";
 
 
@@ -97,7 +98,7 @@ export function BirthdaySettings({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <GiftIcon className="size-5 text-pink-600 dark:text-pink-400" />
+          <HugeiconsIcon icon={GiftIcon} strokeWidth={2} className="size-5 text-pink-600 dark:text-pink-400" />
           Birthday wishes
         </CardTitle>
         <CardDescription>
@@ -139,7 +140,7 @@ export function BirthdaySettings({
 
         {chosen && !templateReady(chosen) ? (
           <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-            <WarningCircleIcon className="size-3.5" />
+            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" />
             {templateBlocker(chosen)} The wishes will not send until it is approved.
           </p>
         ) : null}

@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
@@ -56,16 +57,17 @@ import {
 import { TestSendButton } from "@/components/marketing/test-send";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CalendarBlankIcon,
+  AlertCircleIcon,
+  Calendar03Icon,
+  Delete02Icon,
   GiftIcon,
-  MegaphoneIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-  SparkleIcon,
-  TrashIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+  Megaphone01Icon,
+  PlusSignIcon,
+  SentIcon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 
 
 export type Template = Doc<"marketingTemplates"> & {
@@ -88,6 +90,7 @@ const STATUS_CHIP: Record<EventStatus, string> = {
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const CHIP_WIDTHS = ["w-full", "w-2/3", "w-5/6"];
 
 // ------------------------------------------------------------------- dates
 
@@ -192,6 +195,7 @@ export function MonthGrid({
   onSelect,
   onEvent,
   onFestival,
+  loading = false,
 }: {
   year: number;
   month: number;
@@ -201,6 +205,7 @@ export function MonthGrid({
   onSelect: (date: string) => void;
   onEvent: (event: CalendarEvent) => void;
   onFestival: (festival: Festival) => void;
+  loading?: boolean;
 }) {
   const cells = useMemo(() => monthGrid(year, month), [year, month]);
 
@@ -233,6 +238,8 @@ export function MonthGrid({
           const chips = info?.events.length ?? 0;
           const isSelected = date === selected;
           const isToday = date === today;
+          const day = parts(date).day;
+          const placeholder = loading && day % 4 === 2;
 
           return (
             // A div rather than a button: the chips inside are buttons of their
@@ -264,11 +271,12 @@ export function MonthGrid({
                   !isToday && isSelected && "font-semibold text-primary"
                 )}
               >
-                {parts(date).day}
+                {day}
               </span>
 
               {/* Phones get dots; the chips need a column wider than a thumb. */}
               <div className="flex flex-wrap gap-0.5 sm:hidden">
+                {placeholder ? <Skeleton aria-hidden className="size-1.5 rounded-full" /> : null}
                 {chips ? <span className="size-1.5 rounded-full bg-primary" /> : null}
                 {info?.birthdays.length ? (
                   <span className="size-1.5 rounded-full bg-pink-600 dark:bg-pink-400" />
@@ -279,6 +287,9 @@ export function MonthGrid({
               </div>
 
               <div className="hidden min-w-0 flex-col gap-0.5 sm:flex">
+                {placeholder ? (
+                  <Skeleton aria-hidden className={cn("h-5 rounded", CHIP_WIDTHS[day % CHIP_WIDTHS.length])} />
+                ) : null}
                 {(info?.events ?? []).slice(0, 3).map((event) => (
                   <button
                     key={event._id}
@@ -303,7 +314,7 @@ export function MonthGrid({
                 ) : null}
                 {info?.birthdays.length ? (
                   <span className="flex items-center gap-1 truncate px-1.5 text-[11px] font-medium text-pink-700 dark:text-pink-300">
-                    <GiftIcon className="size-3 shrink-0" />
+                    <HugeiconsIcon icon={GiftIcon} strokeWidth={2} className="size-3 shrink-0" />
                     {info.birthdays.length === 1
                       ? info.birthdays[0].name
                       : `${info.birthdays.length} birthdays`}
@@ -321,7 +332,7 @@ export function MonthGrid({
                         title={`Schedule a ${festival.name} greeting`}
                         className="flex items-center gap-1 truncate rounded border border-dashed border-primary/50 px-1.5 py-0.5 text-left text-[11px] text-primary hover:bg-primary/5"
                       >
-                        <PlusIcon className="size-3 shrink-0" />
+                        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3 shrink-0" />
                         {festival.name}
                       </button>
                     ))
@@ -342,6 +353,7 @@ export function DayPanel({
   onEvent,
   onNew,
   onFestival,
+  loading = false,
 }: {
   date: string;
   today: string;
@@ -349,6 +361,7 @@ export function DayPanel({
   onEvent: (event: CalendarEvent) => void;
   onNew: () => void;
   onFestival: (festival: Festival) => void;
+  loading?: boolean;
 }) {
   const past = date < today;
   const suggestions = (info?.festivals ?? []).filter((f) => !f.added);
@@ -364,7 +377,20 @@ export function DayPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {empty ? (
+        {loading ? (
+          <div className="flex items-center gap-2.5 rounded-md border border-border p-2.5" aria-hidden>
+            <Skeleton className="size-4 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="flex h-5 items-center">
+                <Skeleton className="h-3.5 w-2/3" />
+              </div>
+              <div className="flex h-4 items-center">
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+            <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+          </div>
+        ) : empty ? (
           <p className="text-sm text-muted-foreground">
             {past ? "Nothing went out on this day." : "Nothing planned yet."}
           </p>
@@ -377,7 +403,7 @@ export function DayPanel({
             onClick={() => onEvent(event)}
             className="flex items-center gap-2.5 rounded-md border border-border p-2.5 text-left transition-colors hover:bg-muted/50"
           >
-            <MegaphoneIcon className="size-4 shrink-0 text-muted-foreground" />
+            <HugeiconsIcon icon={Megaphone01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{event.title}</span>
               <span className="block truncate text-xs text-muted-foreground">
@@ -392,7 +418,7 @@ export function DayPanel({
 
         {info?.birthdays.length ? (
           <div className="flex items-start gap-2.5 rounded-md border border-border p-2.5">
-            <GiftIcon className="mt-0.5 size-4 shrink-0 text-pink-600 dark:text-pink-400" />
+            <HugeiconsIcon icon={GiftIcon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-pink-600 dark:text-pink-400" />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium">
                 {info.birthdays.length === 1
@@ -414,21 +440,21 @@ export function DayPanel({
                 onClick={() => onFestival(festival)}
                 className="flex items-center gap-2.5 rounded-md border border-dashed border-primary/50 p-2.5 text-left transition-colors hover:bg-primary/5"
               >
-                <SparkleIcon className="size-4 shrink-0 text-primary" />
+                <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4 shrink-0 text-primary" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">{festival.name}</span>
                   <span className="block text-xs text-muted-foreground">
                     Festival — schedule a greeting
                   </span>
                 </span>
-                <PlusIcon className="size-4 text-primary" />
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-4 text-primary" />
               </button>
             ))
           : null}
 
         {!past ? (
           <Button variant="outline" size="sm" onClick={onNew} className="mt-1">
-            <PlusIcon /> Schedule on this day
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Schedule on this day
           </Button>
         ) : null}
       </CardContent>
@@ -541,7 +567,7 @@ export function EventDialog({
                     run("remove", "Could not remove it", () => removeEvent({ eventId: saved._id }), "Removed from the calendar")
                   }
                 >
-                  {busy === "remove" ? <Spinner /> : <TrashIcon />} Remove from calendar
+                  {busy === "remove" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Remove from calendar
                 </Button>
               ) : null}
             </DialogFooter>
@@ -634,7 +660,7 @@ export function EventDialog({
                     </p>
                     {!templateReady(template) ? (
                       <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-destructive">
-                        <WarningCircleIcon className="size-3.5 shrink-0" />
+                        <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
                         {templateBlocker(template)} It will fail on the day unless it is
                         approved first.
                       </p>
@@ -659,7 +685,7 @@ export function EventDialog({
                       run("remove", "Could not remove it", () => removeEvent({ eventId: draft.eventId! }), "Removed from the calendar")
                     }
                   >
-                    {busy === "remove" ? <Spinner /> : <TrashIcon />} Remove
+                    {busy === "remove" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Remove
                   </Button>
                 ) : null}
                 {draft.eventId && draft.templateId ? (
@@ -676,7 +702,7 @@ export function EventDialog({
                       run("send", "Could not send it", () => sendNow({ eventId: draft.eventId! }), "Sending now")
                     }
                   >
-                    {busy === "send" ? <Spinner /> : <PaperPlaneTiltIcon />} Send now
+                    {busy === "send" ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send now
                   </ConfirmButton>
                 ) : null}
                 {draft.eventId && saved?.templateId ? (
@@ -712,7 +738,7 @@ export function EventDialog({
                   )
                 }
               >
-                {busy === "save" ? <Spinner /> : <CalendarBlankIcon />}
+                {busy === "save" ? <Spinner /> : <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} />}
                 {draft.templateId ? "Schedule" : "Save draft"}
               </Button>
             </DialogFooter>

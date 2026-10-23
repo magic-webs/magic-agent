@@ -20,7 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { isBuiltIn } from "@/convex/lib/audience";
 import { fail, type Category } from "./shared";
 
@@ -180,7 +181,7 @@ export function AudienceSettingsDialog({
                   aria-label="Remove category"
                   onClick={() => setCategories(categories.filter((_, i) => i !== index))}
                 >
-                  <TrashIcon />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                 </Button>
               </div>
             ))}
@@ -191,7 +192,7 @@ export function AudienceSettingsDialog({
               disabled={categories.length >= 10}
               onClick={() => setCategories([...categories, { key: "", label: "", description: "" }])}
             >
-              <PlusIcon /> Add a category
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a category
             </Button>
           </div>
         </DialogBody>

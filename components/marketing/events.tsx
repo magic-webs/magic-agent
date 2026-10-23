@@ -21,7 +21,6 @@ import {
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
-import { TableSkeleton } from "@/components/skeletons";
 import { TestSendButton } from "@/components/marketing/test-send";
 import {
   AudiencePicker,
@@ -74,21 +73,23 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CalendarCheckIcon,
-  MegaphoneIcon,
-  PaperPlaneTiltIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  SparkleIcon,
-  TrashIcon,
-  UsersThreeIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+  AlertCircleIcon,
+  CalendarCheckIn01Icon,
+  Delete02Icon,
+  Megaphone01Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+  SentIcon,
+  SparklesIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * The Events tab: the business's own events, each with the reminders the
@@ -207,22 +208,11 @@ export function EventsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Events</h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            An announcement, reminders, the day itself and the follow-up after — each written by
-            the marketing desk, sent to the right guests, with replies read as RSVPs.
-          </p>
-        </div>
-        <Button onClick={newCampaign}>
-          <PlusIcon /> New event
-        </Button>
-      </div>
+      <EventsHeader onNew={newCampaign} />
 
       {!eventTemplate ? (
         <Alert>
-          <MegaphoneIcon />
+          <HugeiconsIcon icon={Megaphone01Icon} strokeWidth={2} />
           <AlertTitle>Reminders need an event template</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             <p>
@@ -230,19 +220,19 @@ export function EventsTab({
               line for each in <code>{"{{message}}"}</code>.
             </p>
             <Button size="sm" variant="outline" onClick={onCreateTemplate}>
-              <PlusIcon /> Create the reminder template
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Create the reminder template
             </Button>
           </AlertDescription>
         </Alert>
       ) : null}
 
       {campaigns === undefined ? (
-        <TableSkeleton rows={3} columns={3} />
+        <EventCardsSkeleton />
       ) : campaigns.length === 0 ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <CalendarCheckIcon />
+              <HugeiconsIcon icon={CalendarCheckIn01Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No events yet</EmptyTitle>
             <EmptyDescription>
@@ -251,7 +241,7 @@ export function EventsTab({
             </EmptyDescription>
           </EmptyHeader>
           <Button onClick={newCampaign}>
-            <PlusIcon /> New event
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New event
           </Button>
         </Empty>
       ) : (
@@ -288,6 +278,99 @@ export function EventsTab({
 
       <CampaignDialog draft={draft} setDraft={setDraft} templates={templates} categories={categories} />
     </div>
+  );
+}
+
+function EventsHeader({ onNew }: { onNew?: () => void }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-lg font-semibold">Events</h2>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          An announcement, reminders, the day itself and the follow-up after — each written by
+          the marketing desk, sent to the right guests, with replies read as RSVPs.
+        </p>
+      </div>
+      <Button disabled={!onNew} onClick={onNew}>
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New event
+      </Button>
+    </div>
+  );
+}
+
+export function EventsTabSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      <EventsHeader />
+      <EventCardsSkeleton />
+    </div>
+  );
+}
+
+function EventCardsSkeleton() {
+  return (
+    <>
+      <EventCardSkeleton index={0} />
+      <EventCardSkeleton index={1} />
+    </>
+  );
+}
+
+const TITLE_WIDTHS = ["w-40", "w-52", "w-32"];
+const MESSAGE_WIDTHS = ["w-2/3", "w-1/2", "w-5/6", "w-3/4"];
+
+export function EventCardSkeleton({ index = 0 }: { index?: number }) {
+  return (
+    <Card size="sm" aria-hidden>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex w-12 shrink-0 flex-col items-center gap-1.5 rounded-md border border-border py-1">
+            <Skeleton className="h-2.5 w-6" />
+            <Skeleton className="h-4 w-5" />
+          </div>
+          <div className="flex min-w-0 flex-col">
+            <div className="flex h-5 items-center">
+              <Skeleton className={cn("h-3.5 max-w-full", TITLE_WIDTHS[index % TITLE_WIDTHS.length])} />
+            </div>
+            <div className="flex h-5 items-center">
+              <Skeleton className="h-3.5 w-56 max-w-full" />
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-1.5">
+          <Skeleton className="h-7 w-7 rounded-lg sm:w-20" />
+          <Skeleton className="h-7 w-7 rounded-lg sm:w-16" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+          {DEFAULT_EVENT_TOUCHES.map((offset, row) => (
+            <div key={offset} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex shrink-0 items-center justify-between gap-2 sm:w-36 sm:flex-col sm:items-start sm:gap-0">
+                <div className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-24" />
+                </div>
+                <div className="flex h-4 items-center">
+                  <Skeleton className="h-3 w-28" />
+                </div>
+                <div className="flex h-4 items-center">
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-full" />
+                </div>
+                <div className="flex h-5 items-center">
+                  <Skeleton className={cn("h-3.5", MESSAGE_WIDTHS[(row + index) % MESSAGE_WIDTHS.length])} />
+                </div>
+              </div>
+              <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -338,10 +421,10 @@ export function EventCard({
         </div>
         <div className="flex shrink-0 gap-1.5">
           <Button size="sm" variant="ghost" aria-label="Guests" className="max-sm:px-1.5" onClick={onGuests}>
-            <UsersThreeIcon /> <span className="hidden sm:inline">Guests</span>
+            <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} /> <span className="hidden sm:inline">Guests</span>
           </Button>
           <Button size="sm" variant="outline" aria-label="Edit" className="max-sm:px-1.5" onClick={onEdit}>
-            <PencilSimpleIcon /> <span className="hidden sm:inline">Edit</span>
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> <span className="hidden sm:inline">Edit</span>
           </Button>
         </div>
       </CardHeader>
@@ -356,12 +439,12 @@ export function EventCard({
         ) : null}
         {waiting && !campaign.templateId ? (
           <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-            <WarningCircleIcon className="size-3.5 shrink-0" />
+            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
             No template picked, so the reminders are drafts and will not send.
           </p>
         ) : waiting && template && !templateReady(template) ? (
           <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-            <WarningCircleIcon className="size-3.5 shrink-0" />
+            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
             {templateBlocker(template)}
           </p>
         ) : null}
@@ -743,21 +826,21 @@ export function CampaignDialog({
                 </p>
                 {!MESSAGE_VARIABLE.test(template.body) ? (
                   <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                    <WarningCircleIcon className="size-3.5 shrink-0" />
+                    <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
                     It has no <code>{"{{message}}"}</code>, so every reminder says the same
                     thing.
                   </p>
                 ) : null}
                 {VENUE_VARIABLE.test(template.body) && !draft.venue.trim() ? (
                   <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                    <WarningCircleIcon className="size-3.5 shrink-0" />
+                    <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
                     It uses <code>{"{{venue}}"}</code> — say where the event is, or it
                     cannot send.
                   </p>
                 ) : null}
                 {!templateReady(template) ? (
                   <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                    <WarningCircleIcon className="size-3.5 shrink-0" />
+                    <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
                     {templateBlocker(template)} The reminders cannot send until it is
                     approved.
                   </p>
@@ -778,7 +861,7 @@ export function CampaignDialog({
               confirmLabel="Delete event"
               onConfirm={drop}
             >
-              {busy === "remove" ? <Spinner /> : <TrashIcon />} Delete event
+              {busy === "remove" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Delete event
             </ConfirmButton>
           ) : (
             <span />
@@ -787,7 +870,7 @@ export function CampaignDialog({
             disabled={busy !== null || !audienceValid || !draft.title.trim() || !draft.details.trim()}
             onClick={() => void submit()}
           >
-            {busy === "save" ? <Spinner /> : <CalendarCheckIcon />}
+            {busy === "save" ? <Spinner /> : <HugeiconsIcon icon={CalendarCheckIn01Icon} strokeWidth={2} />}
             {draft.templateId ? "Save and schedule" : "Save as draft"}
           </Button>
         </DialogFooter>
@@ -879,7 +962,7 @@ export function TouchDialog({
                     })
                   }
                 >
-                  {busy === "write" ? <Spinner /> : <SparkleIcon />}
+                  {busy === "write" ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />}
                   {busy === "write" ? "Writing…" : touch.message ? "Rewrite" : "Write it now"}
                 </Button>
               </div>
@@ -932,7 +1015,7 @@ export function TouchDialog({
             </div>
           ) : pending ? (
             <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-              <WarningCircleIcon className="size-3.5 shrink-0" />
+              <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
               The event has no template, so this is a draft and will not send.
             </p>
           ) : null}
@@ -957,7 +1040,7 @@ export function TouchDialog({
                 )
               }
             >
-              {busy === "remove" ? <Spinner /> : <TrashIcon />} Skip this one
+              {busy === "remove" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Skip this one
             </ConfirmButton>
             <div className="flex flex-wrap gap-2">
               <TestSendButton
@@ -990,7 +1073,7 @@ export function TouchDialog({
                     )
                   }
                 >
-                  {busy === "send" ? <Spinner /> : <PaperPlaneTiltIcon />} Send now
+                  {busy === "send" ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send now
                 </ConfirmButton>
 
               ) : null}

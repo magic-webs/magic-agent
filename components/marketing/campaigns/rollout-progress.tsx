@@ -14,7 +14,7 @@ import {
   shortTime,
 } from "@/components/marketing/format";
 import { useHourBucket } from "@/components/use-now";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,41 @@ const DECISION: Record<Doc<"rolloutChecks">["decision"], { label: string; classN
   finish: { label: "Finished", className: APPROVED_TONE },
 };
 
+const FACTS = [
+  ["Number quality", "h-5 w-14"],
+  ["Daily limit", "h-3.5 w-20"],
+  ["Sent in 24 hours", "h-3.5 w-12"],
+  ["Next check", "h-3.5 w-28"],
+];
+
+function ProgressSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-border p-4" aria-hidden>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">Smart rollout</p>
+          <div className="flex h-4 items-center">
+            <Skeleton className="h-3 w-72 max-w-full" />
+          </div>
+        </div>
+        <div className="flex h-4 items-center">
+          <Skeleton className="h-3 w-52" />
+        </div>
+      </div>
+      <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        {FACTS.map(([label, value]) => (
+          <div key={label} className="flex flex-col gap-1">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="flex h-5 items-center">
+              <Skeleton className={value} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 function Chip({ className, children }: { className: string; children: React.ReactNode }) {
   return <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-medium", className)}>{children}</span>;
 }
@@ -33,13 +68,7 @@ function Chip({ className, children }: { className: string; children: React.Reac
 export function RolloutProgress({ eventId }: { eventId: Id<"marketingEvents"> }) {
   const now = useHourBucket();
   const progress = useQuery(api.marketingRollout.progress, { eventId, now });
-  if (progress === undefined) {
-    return (
-      <div className="flex justify-center rounded-lg border border-border p-6">
-        <Spinner />
-      </div>
-    );
-  }
+  if (progress === undefined) return <ProgressSkeleton />;
   if (progress === null) return null;
   const { rollout, waves, checks, health } = progress;
   const sent = rollout.planned - rollout.queued;

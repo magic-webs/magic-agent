@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { CheckIcon, ShieldCheckIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { SecurityCheckIcon, SlidersHorizontalIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 
 const MODES = [
   {
     mode: "smart",
-    icon: ShieldCheckIcon,
+    icon: SecurityCheckIcon,
     title: "Smart campaign",
     badge: "Safest",
     body: "Sends in daily waves to your most engaged contacts first, watches your WhatsApp quality and limit, and pauses itself if anything looks risky.",
@@ -41,7 +42,7 @@ export function CampaignModePicker({ base }: { base: string }) {
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {MODES.map(({ mode, icon: Icon, title, body, points, ...rest }) => (
+        {MODES.map(({ mode, icon, title, body, points, ...rest }) => (
           <Link
             key={mode}
             href={`${base}/new?mode=${mode}`}
@@ -49,7 +50,7 @@ export function CampaignModePicker({ base }: { base: string }) {
           >
             <div className="flex items-center gap-2">
               <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="size-5" />
+                <HugeiconsIcon icon={icon} strokeWidth={2} className="size-5" />
               </span>
               <span className="font-semibold">{title}</span>
               {"badge" in rest ? <Badge className="ml-auto">{rest.badge}</Badge> : null}
@@ -58,7 +59,7 @@ export function CampaignModePicker({ base }: { base: string }) {
             <ul className="flex flex-col gap-1.5 text-sm">
               {points.map((point) => (
                 <li key={point} className="flex items-start gap-2">
-                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-primary" />
                   {point}
                 </li>
               ))}

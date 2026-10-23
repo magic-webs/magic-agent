@@ -39,7 +39,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
-import { DownloadSimpleIcon, UserPlusIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Download01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 
 type Mode = "one" | "list" | "csv";
 
@@ -317,7 +318,7 @@ export function AddContactsDialog({
                   variant="outline"
                   onClick={() => downloadCsv("contacts-sample.csv", sampleContactCsv())}
                 >
-                  <DownloadSimpleIcon /> Sample CSV
+                  <HugeiconsIcon icon={Download01Icon} strokeWidth={2} /> Sample CSV
                 </Button>
               </div>
               {csv ? (
@@ -420,7 +421,7 @@ export function AddContactsDialog({
             onClick={() => void submit()}
             disabled={busy || !consent || rows.length === 0 || birthdayInvalid}
           >
-            {busy ? <Spinner /> : <UserPlusIcon />}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={UserAdd01Icon} strokeWidth={2} />}
             {progress
               ? `Add the remaining ${rows.length - progress.from}`
               : rows.length > 1

@@ -32,19 +32,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
-  ArrowsClockwiseIcon,
+  AlertCircleIcon,
+  ArrowLeft02Icon,
+  Delete02Icon,
   FloppyDiskIcon,
-  PlusIcon,
-  RocketLaunchIcon,
-  ShieldCheckIcon,
-  TrashIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+  PlusSignIcon,
+  RefreshIcon,
+  Rocket01Icon,
+  SecurityCheckIcon,
+} from "@hugeicons/core-free-icons";
 
 type Estimate = FunctionReturnType<typeof api.marketingBroadcasts.estimate>;
 
@@ -74,6 +76,14 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
     <div className="flex justify-between gap-3">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-right font-medium tabular-nums">{children}</dd>
+    </div>
+  );
+}
+
+export function ValueSkeleton({ className }: { className: string }) {
+  return (
+    <div className="flex h-5 items-center justify-end" aria-hidden>
+      <Skeleton className={className} />
     </div>
   );
 }
@@ -172,38 +182,46 @@ export function SmartReview({
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_296px]">
         <div className="flex min-w-0 flex-col gap-4">
           <Panel title="Campaign">
-            {estimate === undefined ? (
-              <Spinner />
-            ) : (
-              <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-                <Row label="Name">{draft.title}</Row>
-                <Row label="Template">{template?.name ?? "—"}</Row>
-                {fills.length > 0 ? (
-                  <div className="flex justify-between gap-3 sm:col-span-2">
-                    <dt className="text-muted-foreground">Blanks</dt>
-                    <dd className="text-right">
-                      {fills.map((fill, index) => `{{${index + 1}}} ${fillLabel(fill)}`).join(" · ")}
-                    </dd>
-                  </div>
-                ) : null}
-                <Row label="Will receive it">
-                  {plural(estimate.reachable, "person", "people")}
-                  {estimate.partial ? "+" : ""}
+            <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              <Row label="Name">{draft.title}</Row>
+              <Row label="Template">{template?.name ?? "—"}</Row>
+              {fills.length > 0 ? (
+                <div className="flex justify-between gap-3 sm:col-span-2">
+                  <dt className="text-muted-foreground">Blanks</dt>
+                  <dd className="text-right">
+                    {fills.map((fill, index) => `{{${index + 1}}} ${fillLabel(fill)}`).join(" · ")}
+                  </dd>
+                </div>
+              ) : null}
+              <Row label="Will receive it">
+                {estimate ? (
+                  <>
+                    {plural(estimate.reachable, "person", "people")}
+                    {estimate.partial ? "+" : ""}
+                  </>
+                ) : (
+                  <ValueSkeleton className="h-3.5 w-20" />
+                )}
+              </Row>
+              <Row label="Left out">
+                {estimate ? (
+                  <>
+                    {estimate.optedOut} unsubscribed · {estimate.overCap} over the limit
+                  </>
+                ) : (
+                  <ValueSkeleton className="h-3.5 w-40" />
+                )}
+              </Row>
+              {estimate && money(estimate.costMicros) ? <Row label="Estimated cost">{money(estimate.costMicros)}</Row> : null}
+              {estimate && estimate.balanceMicros !== null && money(estimate.balanceMicros) ? (
+                <Row label="Wallet">
+                  <span className={short ? "text-destructive" : undefined}>{money(estimate.balanceMicros)}</span>
                 </Row>
-                <Row label="Left out">
-                  {estimate.optedOut} unsubscribed · {estimate.overCap} over the limit
-                </Row>
-                {money(estimate.costMicros) ? <Row label="Estimated cost">{money(estimate.costMicros)}</Row> : null}
-                {estimate.balanceMicros !== null && money(estimate.balanceMicros) ? (
-                  <Row label="Wallet">
-                    <span className={short ? "text-destructive" : undefined}>{money(estimate.balanceMicros)}</span>
-                  </Row>
-                ) : null}
-              </dl>
-            )}
+              ) : null}
+            </dl>
             {blocker ? (
               <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                <WarningCircleIcon className="size-3.5" /> {blocker}
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" /> {blocker}
               </p>
             ) : null}
             {short ? (
@@ -218,13 +236,11 @@ export function SmartReview({
             title="Your WhatsApp number"
             action={
               <Button size="sm" variant="ghost" disabled={checking} onClick={() => void check()}>
-                {checking ? <Spinner /> : <ArrowsClockwiseIcon />} Check again
+                {checking ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Check again
               </Button>
             }
           >
-            {health === undefined ? (
-              <Spinner />
-            ) : health === null ? (
+            {health === null ? (
               <p className="text-sm text-destructive">
                 There is no active WhatsApp channel to send from. Connect one first.
               </p>
@@ -232,27 +248,39 @@ export function SmartReview({
               <>
                 <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                   <Row label="Quality">
-                    <span className={cn("rounded-md px-1.5 py-0.5 text-xs", quality.className)}>{quality.label}</span>
+                    {health ? (
+                      <span className={cn("rounded-md px-1.5 py-0.5 text-xs", quality.className)}>{quality.label}</span>
+                    ) : (
+                      <ValueSkeleton className="h-5 w-14" />
+                    )}
                   </Row>
-                  <Row label="Daily limit">{knownTier ? limitLabel(knownTier) : "Not known"}</Row>
-                  <Row label="Sent in the last 24 hours">{health.used24h.toLocaleString()}</Row>
+                  <Row label="Daily limit">
+                    {health ? (knownTier ? limitLabel(knownTier) : "Not known") : <ValueSkeleton className="h-3.5 w-24" />}
+                  </Row>
+                  <Row label="Sent in the last 24 hours">
+                    {health ? health.used24h.toLocaleString() : <ValueSkeleton className="h-3.5 w-10" />}
+                  </Row>
                   <Row label="Checked">
-                    {health.checkedAt
-                      ? new Date(health.checkedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-                      : "—"}
+                    {health ? (
+                      health.checkedAt
+                        ? new Date(health.checkedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+                        : "—"
+                    ) : (
+                      <ValueSkeleton className="h-3.5 w-16" />
+                    )}
                   </Row>
                 </dl>
-                {health.quality === "RED" ? (
+                {health?.quality === "RED" ? (
                   <p className="text-xs font-medium text-destructive">
                     Quality is red. The campaign will pause before the first wave until it recovers.
                   </p>
-                ) : health.quality === "YELLOW" ? (
+                ) : health?.quality === "YELLOW" ? (
                   <p className="text-xs text-amber-700 dark:text-amber-300">
                     Quality is yellow. The first wave waits 48 hours and goes out at half size.
                   </p>
                 ) : null}
-                {health.alert ? <p className="text-xs text-muted-foreground">Meta: {health.alert}</p> : null}
-                {knownTier ? null : (
+                {health?.alert ? <p className="text-xs text-muted-foreground">Meta: {health.alert}</p> : null}
+                {!health || knownTier ? null : (
                   <div className="flex flex-col gap-1.5">
                     <Label>Your daily limit</Label>
                     <SelectField
@@ -309,7 +337,7 @@ export function SmartReview({
                         aria-label={`Remove wave ${index + 1}`}
                         onClick={() => setPlan({ shares: plan.shares.filter((_, i) => i !== index) })}
                       >
-                        <TrashIcon />
+                        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                       </Button>
                     ) : null}
                   </div>
@@ -320,7 +348,7 @@ export function SmartReview({
                     variant="outline"
                     onClick={() => setPlan({ shares: [...plan.shares, Math.max(1, 100 - total)] })}
                   >
-                    <PlusIcon /> Add wave
+                    <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add wave
                   </Button>
                 ) : null}
               </div>
@@ -366,7 +394,7 @@ export function SmartReview({
               </span>
             </label>
 
-            {reachable === 0 ? (
+            {estimate && reachable === 0 ? (
               <p className="text-sm text-muted-foreground">Nobody matches this audience yet.</p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
@@ -381,7 +409,30 @@ export function SmartReview({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {schedule.waves.map((wave, index) => (
+                    {estimate === undefined ? plan.shares.map((_, index) => (
+                      <TableRow key={index} className="hover:bg-transparent" aria-hidden>
+                        <TableCell>
+                          <Skeleton className="h-3.5 w-3" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex h-5 items-center">
+                            <Skeleton className="h-3.5 w-20" />
+                          </div>
+                          <div className="flex h-4 items-center">
+                            <Skeleton className="h-3 w-12" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="ml-auto h-3.5 w-10" />
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <Skeleton className="ml-auto h-3.5 w-14" />
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {index === 0 ? <Skeleton className="h-3 w-28" /> : null}
+                        </TableCell>
+                      </TableRow>
+                    )) : schedule.waves.map((wave, index) => (
                       <TableRow key={wave.wave}>
                         <TableCell className="font-medium">{wave.wave}</TableCell>
                         <TableCell>
@@ -421,7 +472,7 @@ export function SmartReview({
             ) : null}
             {capped ? (
               <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                <WarningCircleIcon className="mt-0.5 size-3.5 shrink-0" />
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
                 Some waves are over your safe daily limit of{" "}
                 {Number.isFinite(schedule.safeDaily) ? schedule.safeDaily.toLocaleString() : "—"}, so the extra
                 goes out the next day.
@@ -433,7 +484,7 @@ export function SmartReview({
             <ul className="flex flex-col gap-1.5 text-sm">
               {SAFETY_RULES.map((rule) => (
                 <li key={rule} className="flex items-start gap-2">
-                  <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-primary" />
                   {rule}
                 </li>
               ))}
@@ -452,10 +503,10 @@ export function SmartReview({
       </div>
       <div className="sticky -bottom-4 z-20 -mx-4 -mb-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
         <Button variant="outline" onClick={onBack} disabled={busy}>
-          <ArrowLeftIcon /> Back to edit
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> Back to edit
         </Button>
         <Button variant="outline" onClick={() => void onSave(true)} disabled={busy || Boolean(problem)}>
-          <FloppyDiskIcon /> Save as draft
+          <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} /> Save as draft
         </Button>
         <ConfirmButton
           disabled={busy || launchBlocked || Boolean(problem) || reachable === 0 || health === null}
@@ -468,7 +519,7 @@ export function SmartReview({
           confirmLabel="Launch"
           onConfirm={() => onSave(false)}
         >
-          {busy ? <Spinner /> : <RocketLaunchIcon />} Launch smart campaign
+          {busy ? <Spinner /> : <HugeiconsIcon icon={Rocket01Icon} strokeWidth={2} />} Launch smart campaign
         </ConfirmButton>
       </div>
     </div>

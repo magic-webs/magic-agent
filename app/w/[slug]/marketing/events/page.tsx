@@ -8,10 +8,9 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
 import { localDate } from "@/components/marketing/calendar";
-import { EventsTab, TouchDialog } from "@/components/marketing/events";
+import { EventsTab, EventsTabSkeleton, TouchDialog } from "@/components/marketing/events";
 import { EVENT_TEMPLATE_BODY } from "@/components/marketing/format";
 import { TemplateDialog, type TemplateDraft } from "@/components/marketing/template-dialog";
-import { TableSkeleton } from "@/components/skeletons";
 
 export default function MarketingEventsPage() {
   const workspace = useWorkspace();
@@ -35,7 +34,7 @@ export default function MarketingEventsPage() {
     : undefined;
   const openTouch = openCampaign?.touches.find((t) => t._id === touchId);
 
-  if (!loaded) return <TableSkeleton rows={3} columns={3} />;
+  if (!loaded) return <EventsTabSkeleton />;
 
   return (
     <>

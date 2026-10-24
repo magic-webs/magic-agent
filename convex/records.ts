@@ -27,6 +27,7 @@ import {
   makeReference,
   mergeValues,
   referenceAlphabet,
+  serialReference,
   suggestPrefix,
   toHandle,
   wireEventName,
@@ -51,6 +52,8 @@ const recordEvent = v.union(
   v.literal("updated"),
   v.literal("stage_changed")
 );
+
+const referenceStyle = v.union(v.literal("random"), v.literal("serial"));
 
 const bookStatus = v.union(
   v.literal("draft"),
@@ -149,6 +152,34 @@ export async function freshReference(
     if (!clash) return candidate;
   }
   return makeReference(prefix, draw(10));
+}
+
+/**
+ * The next serial and the reference that goes with it. A serial reference is
+ * the bare number, so it repeats across books and is only unique within one.
+ */
+export async function claimReference(
+  ctx: MutationCtx,
+  book: Doc<"recordBooks">
+): Promise<{ reference: string; serialNumber: number | undefined }> {
+  const serialNumber = await claimSerial(ctx, book._id);
+  if (book.referenceStyle === "serial" && serialNumber !== undefined) {
+    const candidate = serialReference(serialNumber);
+    const clash = await ctx.db
+      .query("records")
+      .withIndex("by_workspace_reference", (q) =>
+        q.eq("workspaceId", book.workspaceId).eq("reference", candidate)
+      )
+      .filter((q) => q.eq(q.field("bookId"), book._id))
+      .first();
+    if (!clash) return { reference: candidate, serialNumber };
+  }
+  const reference = await freshReference(
+    ctx,
+    book.workspaceId,
+    book.referencePrefix
+  );
+  return { reference, serialNumber };
 }
 
 /** Undefined until `migrations:recordSerials` has numbered the book's older records. */
@@ -287,6 +318,7 @@ export const createBook = mutation({
     fields: v.optional(v.array(requirementField)),
     stages: v.optional(v.array(v.string())),
     referencePrefix: v.optional(v.string()),
+    referenceStyle: v.optional(referenceStyle),
     allowLookup: v.optional(v.boolean()),
     allowUpdate: v.optional(v.boolean()),
     status: v.optional(bookStatus),
@@ -311,6 +343,7 @@ export async function insertBook(
     fields?: RecordField[];
     stages?: string[];
     referencePrefix?: string;
+    referenceStyle?: Doc<"recordBooks">["referenceStyle"];
     allowLookup?: boolean;
     allowUpdate?: boolean;
     status?: Doc<"recordBooks">["status"];
@@ -348,6 +381,7 @@ export async function insertBook(
     stages: (args.stages ?? []).map((stage) => stage.trim()).filter(Boolean),
     referencePrefix:
       args.referencePrefix?.trim().toUpperCase() || suggestPrefix(name),
+    referenceStyle: args.referenceStyle,
     allowLookup: args.allowLookup ?? true,
     allowUpdate: args.allowUpdate ?? true,
     // Draft, so a half-written book is never handed to a live agent. The
@@ -372,6 +406,7 @@ export const updateBook = mutation({
     fields: v.optional(v.array(requirementField)),
     stages: v.optional(v.array(v.string())),
     referencePrefix: v.optional(v.string()),
+    referenceStyle: v.optional(referenceStyle),
     allowLookup: v.optional(v.boolean()),
     allowUpdate: v.optional(v.boolean()),
     status: v.optional(bookStatus),
@@ -670,13 +705,8 @@ export const createRecord = mutation({
     }
 
     const now = Date.now();
-    const reference = await freshReference(
-      ctx,
-      book.workspaceId,
-      book.referencePrefix
-    );
+    const { reference, serialNumber } = await claimReference(ctx, book);
     const stage = args.stage ?? book.stages[0];
-    const serialNumber = await claimSerial(ctx, args.bookId);
 
     const recordId = await ctx.db.insert("records", {
       workspaceId: book.workspaceId,
@@ -1257,13 +1287,8 @@ export const fileFromTool = internalMutation({
     if (!book) throw new ConvexError("Record book not found");
 
     const now = Date.now();
-    const reference = await freshReference(
-      ctx,
-      book.workspaceId,
-      book.referencePrefix
-    );
+    const { reference, serialNumber } = await claimReference(ctx, book);
     const stage = book.stages[0];
-    const serialNumber = await claimSerial(ctx, args.bookId);
 
     const recordId = await ctx.db.insert("records", {
       workspaceId: book.workspaceId,
@@ -1327,8 +1352,9 @@ export const findForTool = internalQuery({
             .eq("workspaceId", args.workspaceId)
             .eq("reference", args.reference!.trim().toUpperCase())
         )
+        .filter((q) => q.eq(q.field("bookId"), args.bookId))
         .first();
-      return hit && hit.bookId === args.bookId ? [hit] : [];
+      return hit ? [hit] : [];
     }
 
     const term = args.search?.trim();

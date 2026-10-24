@@ -72,19 +72,20 @@ import {
 import { toast } from "@/components/ui/toast";
 import { TableSkeleton } from "@/components/skeletons";
 import { PaymentLinkDialog } from "@/components/payments/payment-link-dialog";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
-  BroadcastIcon,
-  ChatsIcon,
-  CurrencyInrIcon,
-  DownloadSimpleIcon,
-  EyeIcon,
+  ArrowLeft02Icon,
+  BubbleChatIcon,
+  Delete02Icon,
+  Download04Icon,
   FolderOpenIcon,
-  MegaphoneIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+  Megaphone01Icon,
+  PlusSignIcon,
+  Radio02Icon,
+  RupeeIcon,
+  SentIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 type Book = Doc<"recordBooks">;
@@ -94,6 +95,7 @@ type BookDraft = {
   pluralName: string;
   purpose: string;
   referencePrefix: string;
+  referenceStyle: "random" | "serial";
   fields: CollectedField[];
   stages: string[];
   allowLookup: boolean;
@@ -150,7 +152,7 @@ function RecordDetail({
             variant="ghost"
             aria-label={`View ${row.reference}`}
           >
-            <EyeIcon />
+            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />
           </Button>
         }
       />
@@ -172,7 +174,7 @@ function RecordDetail({
             nativeButton={false}
             render={<Link href={`${base}/conversations?c=${row.threadId}`} />}
           >
-            <ChatsIcon /> Open conversation
+            <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Open conversation
           </Button>
         ) : null}
 
@@ -332,7 +334,7 @@ function AddRecordDialog({ book }: { book: Book }) {
       <DialogTrigger
         render={
           <Button variant="outline">
-            <PlusIcon /> Add {book.name.toLowerCase()}
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add {book.name.toLowerCase()}
           </Button>
         }
       />
@@ -657,7 +659,7 @@ function WebhooksTab({ book }: { book: Book }) {
               book={book}
               trigger={
                 <Button variant="outline">
-                  <PlusIcon /> Add destination
+                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add destination
                 </Button>
               }
             />
@@ -759,7 +761,7 @@ function WebhooksTab({ book }: { book: Book }) {
                       {testing === hook._id ? (
                         <Spinner />
                       ) : (
-                        <PaperPlaneTiltIcon />
+                        <HugeiconsIcon icon={SentIcon} strokeWidth={2} />
                       )}
                     </Button>
                     <WebhookDialog
@@ -779,7 +781,7 @@ function WebhooksTab({ book }: { book: Book }) {
                         void removeWebhook({ webhookId: hook._id })
                       }
                     >
-                      <TrashIcon />
+                      <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                     </Button>
                   </div>
                 </div>
@@ -909,6 +911,7 @@ export default function RecordBookPage({
       pluralName: book.pluralName,
       purpose: book.purpose,
       referencePrefix: book.referencePrefix,
+      referenceStyle: book.referenceStyle ?? "random",
       fields: book.fields as CollectedField[],
       stages: book.stages,
       allowLookup: book.allowLookup,
@@ -964,7 +967,7 @@ export default function RecordBookPage({
           nativeButton={false}
           render={<Link href={`${base}/records`} />}
         >
-          <ArrowLeftIcon /> Records
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> Records
         </Button>
 
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1000,7 +1003,7 @@ export default function RecordBookPage({
               nativeButton={false}
               render={<Link href={`${base}/marketing/campaigns/new?book=${book._id}`} />}
             >
-              <MegaphoneIcon /> Send a campaign
+              <HugeiconsIcon icon={Megaphone01Icon} strokeWidth={2} /> Send a campaign
             </Button>
             <ImportRecordsDialog book={book} />
             <AddRecordDialog book={book} />
@@ -1059,10 +1062,10 @@ export default function RecordBookPage({
           </TabsTrigger>
           <TabsTrigger value="setup">What to collect</TabsTrigger>
           <TabsTrigger value="receive">
-            <DownloadSimpleIcon className="size-4" /> Receive from elsewhere
+            <HugeiconsIcon icon={Download04Icon} strokeWidth={2} className="size-4" /> Receive from elsewhere
           </TabsTrigger>
           <TabsTrigger value="webhooks">
-            <BroadcastIcon className="size-4" /> Send elsewhere
+            <HugeiconsIcon icon={Radio02Icon} strokeWidth={2} className="size-4" /> Send elsewhere
           </TabsTrigger>
         </TabsList>
 
@@ -1105,7 +1108,7 @@ export default function RecordBookPage({
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <FolderOpenIcon />
+                  <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>
                   {search || stageFilter
@@ -1181,7 +1184,7 @@ export default function RecordBookPage({
                                 <Link href={`${base}/conversations?c=${row.threadId}`} />
                               }
                             >
-                              <ChatsIcon />
+                              <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} />
                             </Button>
                           ) : null}
                           {paymentsConnected ? (
@@ -1201,7 +1204,7 @@ export default function RecordBookPage({
                                   aria-label={`Send a payment link for ${row.reference}`}
                                   title="Send payment link"
                                 >
-                                  <CurrencyInrIcon />
+                                  <HugeiconsIcon icon={RupeeIcon} strokeWidth={2} />
                                 </Button>
                               }
                             />
@@ -1228,7 +1231,7 @@ export default function RecordBookPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="b-name">Name</Label>
                   <Input
@@ -1263,7 +1266,29 @@ export default function RecordBookPage({
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    References read {draft.referencePrefix || "REC"}-H4K82Q.
+                    {draft.referenceStyle === "serial"
+                      ? "References read 1, 2, 3…"
+                      : `References read ${draft.referencePrefix || "REC"}-H4K82Q.`}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="b-ref-style">Reference type</Label>
+                  <SelectField
+                    id="b-ref-style"
+                    value={draft.referenceStyle}
+                    onValueChange={(next) =>
+                      setDraft({
+                        ...draft,
+                        referenceStyle: next === "serial" ? "serial" : "random",
+                      })
+                    }
+                    options={[
+                      { value: "random", label: "Random code" },
+                      { value: "serial", label: "Serial number" },
+                    ]}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Applies to records filed from now on.
                   </p>
                 </div>
               </div>
@@ -1383,7 +1408,7 @@ export default function RecordBookPage({
                 <AlertDialogTrigger
                   render={
                     <Button variant="ghost" className="text-destructive">
-                      <TrashIcon /> Delete this record type
+                      <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete this record type
                     </Button>
                   }
                 />
@@ -1433,6 +1458,7 @@ export default function RecordBookPage({
                   pluralName: draft.pluralName,
                   purpose: draft.purpose,
                   referencePrefix: draft.referencePrefix,
+                  referenceStyle: draft.referenceStyle,
                   fields: draft.fields.filter((field) => field.key.trim()),
                   stages: draft.stages,
                   allowLookup: draft.allowLookup,

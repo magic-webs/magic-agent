@@ -32,12 +32,13 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  CopyIcon,
+  Copy01Icon,
   FloppyDiskIcon,
-  TargetIcon,
-} from "@phosphor-icons/react";
+  RefreshIcon,
+  Target02Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 function prettyJson(text: string): string {
@@ -104,7 +105,7 @@ function InboundMapping({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-medium">
-            <TargetIcon className="size-4 text-muted-foreground" /> Field mapping
+            <HugeiconsIcon icon={Target02Icon} strokeWidth={2} className="size-4 text-muted-foreground" /> Field mapping
           </p>
           <p className="text-xs text-muted-foreground">
             {capturing
@@ -131,12 +132,12 @@ function InboundMapping({
               disabled={busy}
               onClick={() => void run(() => capture({ bookId: book._id, capture: true }))}
             >
-              <ArrowsClockwiseIcon /> Capture new sample
+              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Capture new sample
             </Button>
           ) : null}
           {paths.length ? (
             <Button size="sm" disabled={busy || !dirty} onClick={() => void saveAll()}>
-              {busy ? <Spinner /> : <FloppyDiskIcon />} Save mapping
+              {busy ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save mapping
             </Button>
           ) : null}
         </div>
@@ -259,7 +260,7 @@ export function InboundWebhookCard({ book }: { book: Doc<"recordBooks"> }) {
                 aria-label="Copy URL"
                 onClick={() => void copyText(settings.url ?? "", "URL")}
               >
-                <CopyIcon />
+                <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
               </Button>
               <Button
                 size="sm"
@@ -267,7 +268,7 @@ export function InboundWebhookCard({ book }: { book: Doc<"recordBooks"> }) {
                 disabled={busy !== null}
                 onClick={() => void run("rotate", () => rotate({ bookId: book._id }))}
               >
-                {busy === "rotate" ? <Spinner /> : <ArrowsClockwiseIcon />} New URL
+                {busy === "rotate" ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} New URL
               </Button>
             </div>
             <InboundMapping

@@ -89,6 +89,10 @@ export function register(server) {
           .string()
           .optional()
           .describe("'MEM' makes references read MEM-H4K82Q. Derived from the name if omitted."),
+        referenceStyle: z
+          .enum(["random", "serial"])
+          .optional()
+          .describe("'random' reads MEM-H4K82Q; 'serial' counts up 1, 2, 3 with no prefix. Default 'random'."),
         allowLookup: z
           .boolean()
           .optional()
@@ -140,6 +144,10 @@ export function register(server) {
           .optional()
           .describe("Replaces the whole list. The first is where a new record starts."),
         referencePrefix: z.string().optional(),
+        referenceStyle: z
+          .enum(["random", "serial"])
+          .optional()
+          .describe("Applies to records filed from now on."),
         allowLookup: z.boolean().optional(),
         allowUpdate: z.boolean().optional(),
         status: z

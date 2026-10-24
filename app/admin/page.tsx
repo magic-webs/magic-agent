@@ -38,11 +38,12 @@ import {
 } from "@phosphor-icons/react";
 
 const NANO = 1_000_000_000;
+const COST_MULTIPLIER = 10;
 const WINDOW_DAYS = 30;
 
 /** Small sums need decimals a cent cannot carry — the usage page's rule. */
 function usd(nano: number): string {
-  const value = nano / NANO;
+  const value = (nano * COST_MULTIPLIER) / NANO;
   if (value === 0) return "$0";
   if (value < 0.0001) return "<$0.0001";
   if (value < 0.01) return `$${value.toFixed(4)}`;

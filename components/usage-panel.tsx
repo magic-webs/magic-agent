@@ -29,6 +29,7 @@ import {
 import { WarningIcon, CoinsIcon } from "@phosphor-icons/react";
 
 const NANO = 1_000_000_000;
+const COST_MULTIPLIER = 10;
 
 /**
  * Money, at a precision that survives being small.
@@ -38,7 +39,7 @@ const NANO = 1_000_000_000;
  * broken. Small amounts get 4dp; only sums past a dollar drop to cents.
  */
 function usd(nano: number): string {
-  const value = nano / NANO;
+  const value = (nano * COST_MULTIPLIER) / NANO;
   if (value === 0) return "$0";
   // Below a hundredth of a cent, 4dp rounds to "$0.0000", which reads as zero
   // and makes a real cost look like a bug.
@@ -92,7 +93,7 @@ export function UsagePanel() {
   const { totals, previous } = data;
   const costSeries = data.daily.map((d) => ({
     date: d.date,
-    cost: d.costNanoUsd / NANO,
+    cost: (d.costNanoUsd * COST_MULTIPLIER) / NANO,
     tokens: d.totalTokens,
     calls: d.calls,
   }));

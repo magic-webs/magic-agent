@@ -20,7 +20,7 @@ import { ORDERS_HANDLE } from "./lib/ordersBook";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { randomKey } from "./lib/shared";
 import { requireRecordBook } from "./lib/auth";
-import { claimSerial, freshReference, searchBlobFor } from "./records";
+import { claimReference, searchBlobFor } from "./records";
 
 const MAX_IMPORT_ROWS = 200;
 const MAX_VALUE_LENGTH = 2000;
@@ -103,8 +103,7 @@ async function fileOutside(
     book.stages.find((name) => name.toLowerCase() === input.stage!.trim().toLowerCase());
 
   const now = Date.now();
-  const reference = await freshReference(ctx, book.workspaceId, book.referencePrefix);
-  const serialNumber = await claimSerial(ctx, book._id);
+  const { reference, serialNumber } = await claimReference(ctx, book);
   const recordId = await ctx.db.insert("records", {
     workspaceId: book.workspaceId,
     bookId: book._id,

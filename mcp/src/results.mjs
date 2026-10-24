@@ -88,6 +88,7 @@ export const recordBookBrief = (book) => ({
   fields: book.fields,
   stages: book.stages,
   referencePrefix: book.referencePrefix,
+  referenceStyle: book.referenceStyle ?? "random",
   filed: book.recordCountExact ? book.recordCount : `${book.recordCount - 1}+`,
   activeDestinations: book.webhookCount,
 });

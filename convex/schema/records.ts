@@ -95,6 +95,7 @@ export const recordsTables = {
     fields: v.array(requirementField),
     stages: v.array(v.string()),
     referencePrefix: v.string(),
+    referenceStyle: v.optional(v.union(v.literal("random"), v.literal("serial"))),
     allowLookup: v.boolean(),
     allowUpdate: v.boolean(),
     status: v.union(

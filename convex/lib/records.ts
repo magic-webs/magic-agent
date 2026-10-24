@@ -197,6 +197,10 @@ export function makeReference(prefix: string, randomChars: string): string {
   return `${clean}-${randomChars}`;
 }
 
+export function serialReference(serial: number): string {
+  return String(serial);
+}
+
 export function referenceAlphabet(): string {
   return REFERENCE_ALPHABET;
 }

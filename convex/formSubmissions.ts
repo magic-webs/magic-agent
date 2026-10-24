@@ -34,8 +34,7 @@ import {
 } from "./lib/apps";
 import { checkValues, type RecordField } from "./lib/records";
 import {
-  claimSerial,
-  freshReference,
+  claimReference,
   insertBook,
   searchBlobFor,
 } from "./records";
@@ -144,12 +143,7 @@ async function fileSubmission(
   ) as typeof candidate;
   const hasPerson = Object.keys(person).length > 0;
 
-  const reference = await freshReference(
-    ctx,
-    book.workspaceId,
-    book.referencePrefix
-  );
-  const serialNumber = await claimSerial(ctx, book._id);
+  const { reference, serialNumber } = await claimReference(ctx, book);
   const recordId = await ctx.db.insert("records", {
     workspaceId: book.workspaceId,
     bookId: book._id,

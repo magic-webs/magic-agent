@@ -38,12 +38,13 @@ import {
 } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
 import { ListSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  BroadcastIcon,
+  ArrowRight02Icon,
   FolderOpenIcon,
-  PlusIcon,
-} from "@phosphor-icons/react";
+  PlusSignIcon,
+  Radio02Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 /**
@@ -233,7 +234,7 @@ function NewBookDialog({ base }: { base: string }) {
       <DialogTrigger
         render={
           <Button>
-            <PlusIcon /> New record
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New record
           </Button>
         }
       />
@@ -369,7 +370,7 @@ export default function RecordsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <FolderOpenIcon />
+              <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>Nothing recorded yet</EmptyTitle>
             <EmptyDescription>
@@ -419,7 +420,7 @@ export default function RecordsPage() {
                     <span>{book.fields.length} details</span>
                     {book.webhookCount > 0 ? (
                       <span className="flex items-center gap-1">
-                        <BroadcastIcon className="size-3.5" />
+                        <HugeiconsIcon icon={Radio02Icon} strokeWidth={2} className="size-3.5" />
                         {book.webhookCount}
                       </span>
                     ) : null}
@@ -436,7 +437,7 @@ export default function RecordsPage() {
                     nativeButton={false}
                     render={<Link href={`${base}/records/${book._id}`} />}
                   >
-                    Open <ArrowRightIcon />
+                    Open <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
                   </Button>
                 </CardContent>
               </Card>

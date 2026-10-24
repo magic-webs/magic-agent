@@ -1180,7 +1180,7 @@ function buildRecordTools(
           properties: {
             reference: {
               type: "string",
-              description: `The reference the customer quoted, such as ${book.referencePrefix}-H4K82Q`,
+              description: `The reference the customer quoted, such as ${book.referenceStyle === "serial" ? "26" : `${book.referencePrefix}-H4K82Q`}`,
             },
             search: {
               type: "string",
@@ -1244,7 +1244,7 @@ function buildRecordTools(
           properties: {
             reference: {
               type: "string",
-              description: `Which one to change, by its reference, e.g. ${book.referencePrefix}-H4K82Q`,
+              description: `Which one to change, by its reference, e.g. ${book.referenceStyle === "serial" ? "26" : `${book.referencePrefix}-H4K82Q`}`,
             },
             ...(book.stages.length > 0
               ? {

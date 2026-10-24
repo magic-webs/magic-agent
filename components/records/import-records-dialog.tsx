@@ -38,7 +38,10 @@ import {
 } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { TrayArrowDownIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  FileImportIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 const BATCH = 200;
@@ -161,7 +164,7 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
       <DialogTrigger
         render={
           <Button variant="outline">
-            <TrayArrowDownIcon /> Import
+            <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} /> Import
           </Button>
         }
       />
@@ -255,7 +258,7 @@ export function ImportRecordsDialog({ book }: { book: Book }) {
             Cancel
           </Button>
           <Button disabled={rows.length === 0 || progress !== null} onClick={run}>
-            {progress !== null ? <Spinner /> : <TrayArrowDownIcon />}
+            {progress !== null ? <Spinner /> : <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />}
             {progress !== null
               ? `Importing ${progress} of ${rows.length}`
               : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}

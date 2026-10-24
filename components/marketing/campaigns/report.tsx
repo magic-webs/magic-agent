@@ -328,6 +328,24 @@ export function CampaignReport({
               <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Send again to {plural(sent - stats.read, "person", "people")} who didn&apos;t read
             </Button>
           ) : null}
+          {campaign?.status === "sent" && stats && stats.failed > 0 ? (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                act(async () => {
+                  const audienceId = await retarget({
+                    eventId,
+                    outcome: "failed",
+                    name: `${campaign.title} — failed`,
+                  });
+                  onReengage(audienceId);
+                }, "Could not start the retry")
+              }
+            >
+              <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Send again to {plural(stats.failed, "person", "people")} it failed for
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={onDuplicate}>
             <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Duplicate
           </Button>

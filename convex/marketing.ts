@@ -9,7 +9,9 @@
 //     -> marketingSend.runEvent pages through the WhatsApp contacts, sending
 //        the approved template to each, forty at a time
 //     -> recordBatch logs every send, and writes the greeting into the
-//        contact's thread so the Chats screen shows what they were sent
+//        contact's thread so the Chats screen shows what they were sent —
+//        or, for somebody with no thread, leaves it in the log until they
+//        reply and the thread opens with it
 //
 // Birthdays are the same path with a different audience: every contact whose
 // `birthday` is today's day and month, once a day, at the hour set. An event's
@@ -31,7 +33,7 @@ import { charge } from "./lib/charge";
 import { normalisePhone } from "./lib/notifications";
 import { templateBlock } from "./lib/wallet";
 import { recordAgentReply } from "./lib/agentStats";
-import { insertConversation, noteMessage } from "./lib/inbox";
+import { noteMessage } from "./lib/inbox";
 import { ensureMarketingDesk } from "./agents";
 import { takesHandoffs } from "./lib/shared";
 import {
@@ -41,7 +43,7 @@ import {
   zonedParts,
   zonedToInstant,
 } from "./lib/marketing";
-import { noteSent } from "./lib/delivery";
+import { linkWamids, noteSent } from "./lib/delivery";
 import {
   bumpStats,
   sentRecently,
@@ -1230,19 +1232,15 @@ export const audiencePage = internalQuery({
 /**
  * The thread a marketing message to this contact is written into: the one
  * their reply would land in — keyed on the agent the sending number points
- * at, as the inbound webhook keys it — found, or opened here.
- *
- * One opened here is `marketingOnly` until they answer: a message sent, not a
- * conversation had, which the follow-up desk and the dashboard leave alone.
+ * at, as the inbound webhook keys it. Somebody without one gets no thread:
+ * the send log holds what they were sent until they answer, and the reply
+ * opens the thread with it (`seedThread`).
  */
 async function marketingThread(
   ctx: MutationCtx,
   args: {
-    workspaceId: Id<"workspaces">;
     contactId: Id<"contacts">;
     entryAgentId?: Id<"agents">;
-    channelId?: Id<"channels">;
-    now: number;
   }
 ): Promise<Doc<"conversations"> | null> {
   if (!args.entryAgentId) {
@@ -1259,29 +1257,12 @@ async function marketingThread(
   }
 
   const entryAgentId = args.entryAgentId;
-  const existing = await ctx.db
+  return await ctx.db
     .query("conversations")
     .withIndex("by_contact_agent", (q) =>
       q.eq("contactId", args.contactId).eq("agentId", entryAgentId)
     )
     .unique();
-  if (existing) return existing;
-
-  const conversationId = await insertConversation(ctx, {
-    workspaceId: args.workspaceId,
-    agentId: entryAgentId,
-    activeAgentId: entryAgentId,
-    handoffCount: 0,
-    contactId: args.contactId,
-    channelId: args.channelId,
-    channelType: "whatsapp",
-    status: "open",
-    messageCount: 0,
-    lastMessageAt: args.now,
-    marketingOnly: true,
-    createdAt: args.now,
-  });
-  return await ctx.db.get("conversations", conversationId);
 }
 
 const HANDOVER_QUIET_MS = 24 * 60 * 60 * 1000;
@@ -1306,11 +1287,20 @@ async function handOverReplies(
   reply: ReplyAgent,
   now: number
 ) {
-  const holder = thread.activeAgentId ?? thread.agentId;
-  if (thread.humanHandling || holder === reply.agent._id) return;
   // Someone who wrote in the last day is mid-conversation with whoever holds the thread.
   const contact = await ctx.db.get("contacts", thread.contactId);
   if ((contact?.lastInboundAt ?? 0) > now - HANDOVER_QUIET_MS) return;
+  await handOver(ctx, thread, reply, now);
+}
+
+async function handOver(
+  ctx: MutationCtx,
+  thread: Doc<"conversations">,
+  reply: ReplyAgent,
+  now: number
+) {
+  const holder = thread.activeAgentId ?? thread.agentId;
+  if (thread.humanHandling || holder === reply.agent._id) return;
   const from = await ctx.db.get("agents", holder);
   await ctx.db.patch("conversations", thread._id, { activeAgentId: reply.agent._id });
   await ctx.db.insert("messages", {
@@ -1324,6 +1314,68 @@ async function handOverReplies(
   });
 }
 
+/** How far back a marketing message still counts as what someone is answering. */
+const SEED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+/** The most of them a new thread opens with. */
+const SEED_LIMIT = 2;
+
+/**
+ * Opens a thread somebody's reply just started with the marketing messages
+ * they were sent and that no thread holds yet, so the inbox shows what they
+ * are answering and the agent reads it in its history. Hands the thread to
+ * the campaign's reply agent when it has one. Returns when the latest went out.
+ */
+export async function seedThread(
+  ctx: MutationCtx,
+  thread: Doc<"conversations">,
+  now: number
+): Promise<number> {
+  const recent = await ctx.db
+    .query("marketingSends")
+    .withIndex("by_contactId_and_createdAt", (q) =>
+      q.eq("contactId", thread.contactId).gte("createdAt", now - SEED_WINDOW_MS)
+    )
+    .order("desc")
+    .take(20);
+  const sends = recent
+    .filter((row) => row.status === "sent" && row.text && !row.messageId)
+    .slice(0, SEED_LIMIT)
+    .reverse();
+  if (sends.length === 0) return 0;
+
+  const shown = new Map<string, ShownTemplate | null>();
+  for (const send of sends) {
+    const name = send.templateName;
+    if (name && !shown.has(name)) shown.set(name, await shownTemplate(ctx, thread.workspaceId, name));
+    const template = name ? shown.get(name) : null;
+    const messageId = await ctx.db.insert("messages", {
+      workspaceId: thread.workspaceId,
+      conversationId: thread._id,
+      role: "assistant",
+      kind: template ? "rich" : "text",
+      text: send.text,
+      ...(template ? { payload: JSON.stringify({ ...template, preview: send.text }) } : {}),
+      agentId: send.agentId,
+      ...(send.delivery ? { delivery: send.delivery, deliveryAt: send.createdAt } : {}),
+      createdAt: send.createdAt,
+    });
+    if (send.wamid) {
+      await linkWamids(
+        ctx,
+        { _id: messageId, workspaceId: thread.workspaceId, conversationId: thread._id },
+        [send.wamid]
+      );
+    }
+    await ctx.db.patch("marketingSends", send._id, { messageId });
+  }
+  await ctx.db.patch("conversations", thread._id, { messageCount: thread.messageCount + sends.length });
+
+  const latest = sends[sends.length - 1];
+  const reply = await replyAgentOf(ctx, thread.workspaceId, latest.eventId);
+  if (reply) await handOver(ctx, thread, reply, latest.createdAt + 1);
+  return latest.createdAt;
+}
+
 /**
  * The approved template as the customer sees it — header, footer and buttons
  * around the body — so the inbox can draw it the way WhatsApp does.
@@ -1334,11 +1386,12 @@ async function shownTemplate(
   metaName: string | undefined
 ): Promise<ShownTemplate | null> {
   if (!metaName) return null;
-  const templates = await ctx.db
+  const template = await ctx.db
     .query("marketingTemplates")
-    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-    .take(200);
-  const template = templates.find((row) => row.metaTemplateName === metaName);
+    .withIndex("by_workspace_and_metaTemplateName", (q) =>
+      q.eq("workspaceId", workspaceId).eq("metaTemplateName", metaName)
+    )
+    .first();
   return template ? templateAsShown(template) : null;
 }
 
@@ -1398,9 +1451,9 @@ async function writeMarketingMessage(
 
 /**
  * Logs a batch of sends and puts each delivered greeting in the contact's
- * conversation — opening one for somebody who has never written — so the
- * inbox shows what they were sent and the agent reads it in history when they
- * reply.
+ * conversation, so the inbox shows what they were sent and the agent reads it
+ * in history when they reply. Somebody with no conversation keeps it in the
+ * log alone until their reply opens one (`seedThread`).
  */
 export const recordBatch = internalMutation({
   args: {
@@ -1455,6 +1508,8 @@ export const recordBatch = internalMutation({
         delivery: result.ok ? "sent" : "failed",
         linkCode: result.ok ? result.linkCode : undefined,
         linkTarget: result.ok ? result.linkTarget : undefined,
+        wamid: result.ok ? result.wamid : undefined,
+        templateName: result.ok ? args.templateName : undefined,
         wave: args.rolloutWave,
         createdAt: now,
       });
@@ -1469,11 +1524,8 @@ export const recordBatch = internalMutation({
       sent++;
 
       const thread = await marketingThread(ctx, {
-        workspaceId: args.workspaceId,
         contactId: result.contactId,
         entryAgentId: args.entryAgentId,
-        channelId: args.channelId,
-        now,
       });
 
       // Charged whether or not there is a thread to write it into: the
@@ -1663,11 +1715,8 @@ export const recordTest = internalMutation({
     const now = Date.now();
     const thread = args.contactId
       ? await marketingThread(ctx, {
-          workspaceId: args.workspaceId,
           contactId: args.contactId,
           entryAgentId: args.entryAgentId,
-          channelId: args.channelId,
-          now,
         })
       : null;
     await charge(ctx, {

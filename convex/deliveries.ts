@@ -4,8 +4,10 @@ import {
 } from "./_generated/server";
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { deliveryStatus } from "./schema";
-import { linkWamids, setDelivery } from "./lib/delivery";
+import { advances, linkWamids, setDelivery } from "./lib/delivery";
+import { noteDelivery } from "./lib/marketingStats";
 import { billingEventFor, refund, settle } from "./lib/charge";
 
 // Receipts and the queue report race each other, so one that finds no message
@@ -26,6 +28,15 @@ async function linkFor(ctx: MutationCtx, id: string) {
     .query("whatsappMessageIds")
     .withIndex("by_wamid", (q) => q.eq("wamid", id))
     .first();
+}
+
+/** A marketing send that went to somebody with no thread, so only the log holds it. */
+async function unthreadedSend(ctx: MutationCtx, id: string, workspaceId: Id<"workspaces">) {
+  const send = await ctx.db
+    .query("marketingSends")
+    .withIndex("by_wamid", (q) => q.eq("wamid", id))
+    .first();
+  return send && !send.messageId && send.workspaceId === workspaceId ? send : null;
 }
 
 /** After the provider accepted (or refused) a reply that was already in the thread. */
@@ -75,9 +86,13 @@ export const applyStatuses = internalMutation({
         else if (status.pricing) await settle(ctx, event, status.pricing);
       }
       const link = await linkFor(ctx, status.wamid);
+      const send = link ? null : await unthreadedSend(ctx, status.wamid, workspaceId);
       // A message can be billed before it is linked, or linked before it is
       // billed, so a receipt that found only one half waits for the other.
-      if (!link || !event) unmatched.push(status);
+      if ((!link && !send) || !event) unmatched.push(status);
+      if (send && advances(send.delivery, status.status)) {
+        await noteDelivery(ctx, send, status.status, Date.now(), status.error);
+      }
       if (!link || link.workspaceId !== workspaceId) continue;
       const message = await ctx.db.get("messages", link.messageId);
       if (message) await setDelivery(ctx, message, status.status, status.error);
@@ -116,6 +131,13 @@ export const resolveQueued = internalMutation({
     }
 
     const link = await linkFor(ctx, args.queueId);
+    const send = link ? null : await unthreadedSend(ctx, args.queueId, workspaceId);
+    if (send) {
+      if (args.wamid) await ctx.db.patch("marketingSends", send._id, { wamid: args.wamid });
+      if (args.failed) {
+        await noteDelivery(ctx, send, "failed", Date.now(), args.error ?? "WhatsApp did not accept the message.");
+      }
+    }
     if (link && link.workspaceId === workspaceId) {
       const message = await ctx.db.get("messages", link.messageId);
       if (message && args.wamid && !(await linkFor(ctx, args.wamid))) {
@@ -127,7 +149,7 @@ export const resolveQueued = internalMutation({
     }
 
     const attempt = (args.attempt ?? 0) + 1;
-    if ((!link || !event) && attempt < MAX_ATTEMPTS) {
+    if (((!link && !send) || !event) && attempt < MAX_ATTEMPTS) {
       await ctx.scheduler.runAfter(RETRY_MS, internal.deliveries.resolveQueued, {
         ...args,
         attempt,

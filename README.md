@@ -575,8 +575,10 @@ on the plan.
 
 The marketing desk sends to every WhatsApp contact on a schedule, always as
 approved templates, because nothing else reaches someone outside the 24-hour
-window. Every message it sends is written into the contact's conversation,
-which is opened for them if they have none, so a reply carries on from it.
+window. Every message it sends is written into the contact's conversation.
+Someone with no conversation gets none opened: the send log keeps what they
+were sent, and their first reply opens the conversation with it, so the reply
+still carries on from it.
 
 - **Templates** (`marketingTemplates.ts`). Saved, submitted to Meta through the
   panel, then checked every 30 minutes until they are approved or rejected.

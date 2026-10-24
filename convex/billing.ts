@@ -81,9 +81,11 @@ async function templateCategoryOf(
   if (template) return billingCategory(template.category);
   const own = await ctx.db
     .query("marketingTemplates")
-    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-    .take(500);
-  return own.find((row) => row.metaTemplateName === name)?.category ?? null;
+    .withIndex("by_workspace_and_metaTemplateName", (q) =>
+      q.eq("workspaceId", workspaceId).eq("metaTemplateName", name)
+    )
+    .first();
+  return own?.category ?? null;
 }
 
 /**

@@ -54,6 +54,7 @@ import { friendlySendError } from "./lib/sendErrors";
 import { sendOnChannel } from "./lib/channelSend";
 import { assignConversation } from "./lib/assignment";
 import { pickHandover } from "./handover";
+import { seedThread } from "./marketing";
 import { memberInWorkspace } from "./team";
 
 // ---------------------------------------------------------------------------
@@ -1114,41 +1115,6 @@ async function quotedMessage(
   return await ctx.db.get("messages", link.messageId);
 }
 
-/** How far back a marketing message still counts as what someone is answering. */
-const SEED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-/** The most of them a new thread opens with. */
-const SEED_LIMIT = 2;
-
-/**
- * The latest marketing messages delivered to a contact, oldest first, for a
- * thread opened by their reply. Only sends that kept their text, which is
- * every one since the log started keeping it.
- */
-async function marketingSeeds(
-  ctx: QueryCtx,
-  contactId: Id<"contacts">,
-  now: number
-): Promise<Array<{ text: string; agentId?: Id<"agents">; createdAt: number }>> {
-  // One row per occasion a contact was sent — a festival, a birthday, a
-  // reminder — so a year of them is a few dozen rows at most.
-  const sends = await ctx.db
-    .query("marketingSends")
-    .withIndex("by_contact_and_key", (q) => q.eq("contactId", contactId))
-    .take(200);
-  return sends
-    .filter(
-      (row) =>
-        row.status === "sent" && row.text && row.createdAt >= now - SEED_WINDOW_MS
-    )
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .slice(-SEED_LIMIT)
-    .map((row) => ({
-      text: row.text!,
-      agentId: row.agentId,
-      createdAt: row.createdAt,
-    }));
-}
-
 // Upserts the contact, gets-or-creates the conversation, records the inbound
 // message and returns the replay history — all in one transaction so
 // concurrent inbound webhooks can't fork a conversation.
@@ -1221,17 +1187,6 @@ export const startTurn = internalMutation({
         : 0;
 
     if (!conversation) {
-      // Somebody writing in for the first time may be answering a greeting or
-      // an event reminder the marketing desk sent them. The desk opens a
-      // thread for every message it sends now, so this only finds sends from
-      // before it did, when the send log was their only record — and the new
-      // thread opens with them, so the inbox shows what they are replying to
-      // and the agent reads it in its history below.
-      const seeds =
-        args.channelType === "whatsapp"
-          ? await marketingSeeds(ctx, contact._id, now)
-          : [];
-
       const conversationId = await insertConversation(ctx, {
         workspaceId: args.workspaceId,
         agentId: args.agentId,
@@ -1243,23 +1198,17 @@ export const startTurn = internalMutation({
         channelId: args.channelId,
         channelType: args.channelType,
         status: "open",
-        messageCount: seeds.length,
+        messageCount: 0,
         lastMessageAt: now,
         createdAt: now,
       });
-      for (const seed of seeds) {
-        await ctx.db.insert("messages", {
-          workspaceId: args.workspaceId,
-          conversationId,
-          role: "assistant",
-          kind: "text",
-          text: seed.text,
-          agentId: seed.agentId,
-          createdAt: seed.createdAt,
-        });
-      }
       conversation = (await ctx.db.get("conversations", conversationId))!;
-      lastActivityAt = Math.max(0, ...seeds.map((seed) => seed.createdAt));
+      // Somebody writing in for the first time may be answering a campaign,
+      // greeting or reminder, which only the send log holds until now.
+      if (args.channelType === "whatsapp") {
+        lastActivityAt = await seedThread(ctx, conversation, now);
+        conversation = (await ctx.db.get("conversations", conversationId))!;
+      }
     }
 
     if (conversation.markedBot) {

@@ -171,6 +171,7 @@ export const marketingTables = {
     updatedAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_and_metaTemplateName", ["workspaceId", "metaTemplateName"])
     .index("by_metaStatus", ["metaStatus"]),
 
   marketingEvents: defineTable({
@@ -263,6 +264,8 @@ export const marketingTables = {
     text: v.optional(v.string()),
     agentId: v.optional(v.id("agents")),
     messageId: v.optional(v.id("messages")),
+    wamid: v.optional(v.string()),
+    templateName: v.optional(v.string()),
     delivery: v.optional(deliveryStatus),
     deliveredAt: v.optional(v.number()),
     readAt: v.optional(v.number()),
@@ -280,6 +283,7 @@ export const marketingTables = {
     .index("by_contactId_and_createdAt", ["contactId", "createdAt"])
     .index("by_key_and_createdAt", ["key", "createdAt"])
     .index("by_messageId", ["messageId"])
+    .index("by_wamid", ["wamid"])
     .index("by_workspace", ["workspaceId"]),
 
   marketingStats: defineTable({

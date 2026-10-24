@@ -176,7 +176,18 @@ export async function noteSendDelivery(
     .query("marketingSends")
     .withIndex("by_messageId", (q) => q.eq("messageId", messageId))
     .first();
-  if (!send || send.status !== "sent") return;
+  if (send) await noteDelivery(ctx, send, delivery, at, error);
+}
+
+/** A receipt for a send no thread holds, or for the message that does. */
+export async function noteDelivery(
+  ctx: MutationCtx,
+  send: Doc<"marketingSends">,
+  delivery: Delivery,
+  at: number,
+  error?: string
+) {
+  if (send.status !== "sent") return;
 
   const patch: Partial<Doc<"marketingSends">> = { delivery };
   const delta: Partial<MarketingCounts> = {};

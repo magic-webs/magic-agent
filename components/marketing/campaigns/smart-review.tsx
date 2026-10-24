@@ -388,6 +388,7 @@ export function SmartReview({
             <WaveFields
               plan={plan}
               onChange={setPlan}
+              limit={limit}
               aside={
                 <div className="flex flex-col gap-1.5">
                   <Label>Send hour ({workspace.timezone})</Label>

@@ -105,19 +105,41 @@ export function validPlan(plan: Pick<RolloutPlan, "shares" | "gapDays">): string
   if (plan.shares.some((share) => !Number.isInteger(share) || share < 1 || share > 100)) {
     return "Each wave needs a whole percentage between 1 and 100.";
   }
-  const total = plan.shares.reduce((sum, share) => sum + share, 0);
-  if (total !== 100) return `The waves add up to ${total}%. Make them 100%.`;
   if (!Number.isInteger(plan.gapDays) || plan.gapDays < 1 || plan.gapDays > 7) {
     return "Leave 1 to 7 days between waves.";
   }
   return null;
 }
 
-export function waveTargets(total: number, shares: number[]): number[] {
+export function waveSizes(shares: number[], limit: number | null): number[] | null {
+  const value = limit ?? ASSUMED_LIMIT;
+  if (!Number.isFinite(value)) return null;
+  return shares.map((share) => Math.max(1, Math.round((value * share) / 100)));
+}
+
+function audienceTargets(total: number, shares: number[]): number[] {
+  const sum = shares.reduce((acc, share) => acc + share, 0);
+  const raw = shares.map((share) => Math.round((total * share) / sum));
+  raw[raw.length - 1] = total - raw.slice(0, -1).reduce((acc, size) => acc + size, 0);
+  return raw;
+}
+
+function limitTargets(total: number, sizes: number[]): number[] {
+  const raw: number[] = [];
+  let left = total;
+  for (let index = 0; left > 0; index++) {
+    const size = Math.min(left, sizes[Math.min(index, sizes.length - 1)]);
+    raw.push(size);
+    left -= size;
+  }
+  return raw;
+}
+
+export function waveTargets(total: number, shares: number[], limit: number | null): number[] {
   if (total <= 0) return [];
-  if (total <= MIN_WAVE || shares.length <= 1) return [total];
-  const raw = shares.map((share) => Math.round((total * share) / 100));
-  raw[raw.length - 1] = total - raw.slice(0, -1).reduce((sum, size) => sum + size, 0);
+  if (total <= MIN_WAVE || shares.length === 0) return [total];
+  const sizes = waveSizes(shares, limit);
+  const raw = sizes ? limitTargets(total, sizes) : audienceTargets(total, shares);
   const targets: number[] = [];
   let carry = 0;
   for (const [index, size] of raw.entries()) {
@@ -157,7 +179,7 @@ export function planWaves(input: {
   startDate: string;
 }): { waves: PlannedWave[]; safeDaily: number; days: number } {
   const daily = safeDaily(input.limit);
-  const targets = waveTargets(input.reachable, input.shares);
+  const targets = waveTargets(input.reachable, input.shares, input.limit);
   const waves: PlannedWave[] = [];
   let day = 0;
   let firstDayRoom = Math.max(0, daily - input.used24h);

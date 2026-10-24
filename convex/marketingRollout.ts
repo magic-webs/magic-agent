@@ -275,7 +275,9 @@ export const addToPool = internalMutation({
       return;
     }
 
-    const targets = waveTargets(planned, rollout.shares);
+    const channel = await sendingChannel(ctx, event.workspaceId);
+    const health = channel ? await healthRow(ctx, channel._id) : null;
+    const targets = waveTargets(planned, rollout.shares, dailyLimit(health?.limitTier ?? rollout.limitTier));
     await ctx.db.patch("marketingEvents", event._id, {
       rollout: {
         ...rollout,

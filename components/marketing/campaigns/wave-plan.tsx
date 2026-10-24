@@ -4,11 +4,13 @@ import { useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
+  ASSUMED_LIMIT,
   GAP_DAYS,
   MAX_WAVES,
   isRecommended,
   recommendedPlan,
   validPlan,
+  waveSizes,
   type WavePlan,
 } from "@/convex/lib/rollout";
 import { fail } from "@/components/marketing/format";
@@ -39,13 +41,15 @@ export function WaveFields({
   plan,
   onChange,
   aside,
+  limit,
 }: {
   plan: WavePlan;
   onChange: (patch: Partial<WavePlan>) => void;
   aside?: ReactNode;
+  limit?: number | null;
 }) {
-  const total = plan.shares.reduce((sum, share) => sum + share, 0);
   const problem = validPlan(plan);
+  const sizes = limit === undefined ? null : waveSizes(plan.shares, limit);
   const setShare = (index: number, value: number) =>
     onChange({ shares: plan.shares.map((share, i) => (i === index ? value : share)) });
 
@@ -67,6 +71,11 @@ export function WaveFields({
                 className="h-7 w-16 text-right tabular-nums"
               />
               <span className="text-xs text-muted-foreground">%</span>
+              {sizes && Number.isFinite(share) ? (
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  ≈ {sizes[index].toLocaleString()}
+                </span>
+              ) : null}
               {plan.shares.length > 1 ? (
                 <Button
                   size="icon-sm"
@@ -83,14 +92,19 @@ export function WaveFields({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onChange({ shares: [...plan.shares, Math.max(1, 100 - total)] })}
+              onClick={() => onChange({ shares: [...plan.shares, plan.shares[plan.shares.length - 1] ?? 10] })}
             >
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add wave
             </Button>
           ) : null}
         </div>
-        <p className={cn("text-xs", total === 100 ? "text-muted-foreground" : "font-medium text-destructive")}>
-          {total === 100 ? "Adds up to 100%." : (problem ?? `Adds up to ${total}%.`)}
+        <p className={cn("text-xs", problem ? "font-medium text-destructive" : "text-muted-foreground")}>
+          {problem ??
+            (limit === Number.POSITIVE_INFINITY
+              ? "Your number has no daily limit, so each wave is a share of everyone it goes to."
+              : `Each wave is a share of your daily limit${
+                  sizes ? ` of ${(limit ?? ASSUMED_LIMIT).toLocaleString()}` : ""
+                }. The last one repeats until everyone is reached.`)}
         </p>
       </div>
 

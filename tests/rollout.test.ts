@@ -69,16 +69,24 @@ describe("limits and quality", () => {
 describe("plan", () => {
   test("valid plans", () => {
     expect(validPlan({ shares: [10, 20, 30, 40], gapDays: 1 })).toBeNull();
-    expect(validPlan({ shares: [10, 20, 30], gapDays: 1 })).toContain("60%");
+    expect(validPlan({ shares: [10, 20, 30], gapDays: 1 })).toBeNull();
+    expect(validPlan({ shares: [10, 120], gapDays: 1 })).not.toBeNull();
     expect(validPlan({ shares: [], gapDays: 1 })).not.toBeNull();
     expect(validPlan({ shares: [50, 50], gapDays: 0 })).not.toBeNull();
   });
 
-  test("targets ramp and fold small waves", () => {
-    expect(waveTargets(2_000, [10, 20, 30, 40])).toEqual([200, 400, 600, 800]);
-    expect(waveTargets(300, [10, 20, 30, 40])).toEqual([90, 90, 120]);
-    expect(waveTargets(40, [10, 20, 30, 40])).toEqual([40]);
-    expect(waveTargets(0, [100])).toEqual([]);
+  test("targets are shares of the daily limit, repeating the last", () => {
+    expect(waveTargets(2_000, [10, 20, 30, 40], 2_000)).toEqual([200, 400, 600, 800]);
+    expect(waveTargets(2_000, [10, 20, 30, 40], 10_000)).toEqual([1_000, 1_000]);
+    expect(waveTargets(2_000, [10, 20, 30, 40], null)).toEqual([100, 200, 300, 400, 400, 400, 200]);
+    expect(waveTargets(300, [10, 20, 30, 40], null)).toEqual([100, 200]);
+    expect(waveTargets(40, [10, 20, 30, 40], null)).toEqual([40]);
+    expect(waveTargets(0, [100], null)).toEqual([]);
+  });
+
+  test("an unlimited number splits the audience by share", () => {
+    expect(waveTargets(2_000, [10, 20, 30, 40], Infinity)).toEqual([200, 400, 600, 800]);
+    expect(waveTargets(300, [10, 20, 30, 40], Infinity)).toEqual([90, 90, 120]);
   });
 
   test("waves follow the gap and stay under the safe limit", () => {
@@ -102,7 +110,7 @@ describe("plan", () => {
   test("a low limit adds extra days", () => {
     const { waves, safeDaily } = planWaves({
       reachable: 1_000,
-      shares: [50, 50],
+      shares: [100],
       gapDays: 1,
       limit: 250,
       used24h: 0,

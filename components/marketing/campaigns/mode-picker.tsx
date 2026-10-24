@@ -81,7 +81,7 @@ export function CampaignModePicker({ base }: { base: string }) {
             badge="Safest"
             body="Sends in daily waves to your most engaged contacts first, watches your WhatsApp quality and limit, and pauses itself if anything looks risky."
             points={[
-              `Starts small and grows: ${plan.shares.join(" → ")}%`,
+              `Starts small and grows: ${plan.shares.join(" → ")}% of your daily limit`,
               "Every wave stays under your daily Meta limit",
               "Holds on yellow quality, stops on red or spam",
               "A report and a notification for every wave",

@@ -80,7 +80,7 @@ export function RolloutProgress({ eventId }: { eventId: Id<"marketingEvents"> })
         <div>
           <p className="text-sm font-semibold">Smart rollout</p>
           <p className="text-xs text-muted-foreground">
-            {rolloutLabel(rollout)} · waves of {rollout.shares.join(" / ")}%,{" "}
+            {rolloutLabel(rollout)} · waves of {rollout.shares.join(" / ")}% of the daily limit,{" "}
             {rollout.gapDays === 1 ? "every day" : `every ${rollout.gapDays} days`}
             {rollout.engagedFirst ? ", most engaged first" : ""}
           </p>

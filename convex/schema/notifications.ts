@@ -27,6 +27,7 @@ export const notificationsTables = {
       v.literal("record_stage_changed"),
       v.literal("order_created"),
       v.literal("escalation"),
+      v.literal("knowledge_gap"),
       v.literal("inbound")
     ),
     bookId: v.optional(v.id("recordBooks")),

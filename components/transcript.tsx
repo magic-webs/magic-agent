@@ -38,6 +38,8 @@ import {
   ArrowsSplitIcon,
   ClipboardTextIcon,
   UserIcon,
+  ThumbsDownIcon,
+  CheckCircleIcon,
 } from "@phosphor-icons/react";
 
 function timeOf(createdAt: number): string {
@@ -226,6 +228,7 @@ export function TranscriptView({
   perspective = "customer",
   agents,
   onPick,
+  onMarkWrong,
 }: {
   /** `undefined` while the query is in flight. */
   messages: Doc<"messages">[] | undefined;
@@ -254,6 +257,8 @@ export function TranscriptView({
   agents?: TranscriptAgent[];
   /** Answers a tapped button or list row as the customer. Playground only. */
   onPick?: (text: string) => void;
+  /** Flags an agent's reply as wrong, or opens the fix for one already flagged. */
+  onMarkWrong?: (message: Doc<"messages">) => void;
 }) {
   const visible = (messages ?? []).filter((message) =>
     message.kind === "tool" ? showTools : true
@@ -395,6 +400,8 @@ export function TranscriptView({
     const showLatency = Boolean(message.latencyMs) && (!mine || showTools);
     const teamMark = Boolean(message.sentByHuman) && !sender?.first;
     const showFooter = !mine || showLatency || teamMark;
+    const markable =
+      Boolean(onMarkWrong) && !isCustomer && !message.sentByHuman && message.kind === "text";
 
     return (
       <MessageScrollerItem key={message._id} messageId={message._id}>
@@ -420,7 +427,7 @@ export function TranscriptView({
               <div className="w-8 shrink-0" aria-hidden />
             )
           ) : null}
-          <MessageContent>
+          <MessageContent className={markable ? "group/msg" : undefined}>
             {attributed && sender?.first ? (
               <MessageHeader>
                 {message.sentByHuman ? "Your team" : agent?.botName}
@@ -495,6 +502,30 @@ export function TranscriptView({
                 {message.reaction}
                 {message.teamReaction}
               </span>
+            ) : null}
+            {markable ? (
+              <div className={cn("-mt-1.5 flex items-center gap-1", mine ? "self-end" : "self-start")}>
+                {message.review === "wrong" ? (
+                  <Badge variant="destructive">Marked wrong</Badge>
+                ) : message.review === "corrected" ? (
+                  <Badge variant="secondary">
+                    <CheckCircleIcon /> Corrected
+                  </Badge>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className={cn(
+                    "text-muted-foreground",
+                    !message.review &&
+                      "opacity-0 group-hover/msg:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                  )}
+                  onClick={() => onMarkWrong?.(message)}
+                >
+                  <ThumbsDownIcon />
+                  {message.review ? "Review" : "Mark as wrong"}
+                </Button>
+              </div>
             ) : null}
             {showFooter ? (
               <MessageFooter>

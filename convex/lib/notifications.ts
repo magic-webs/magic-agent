@@ -26,6 +26,7 @@ export type NotificationEvent =
   | "record_stage_changed"
   | "order_created"
   | "escalation"
+  | "knowledge_gap"
   | "inbound";
 
 export type NotificationChannel = "whatsapp" | "email";
@@ -139,6 +140,22 @@ export const NOTIFICATION_EVENTS: EventInfo[] = [
       { path: "summary", label: "Summary" },
       { path: "agent", label: "Agent" },
       { path: "assignedTo", label: "Assigned to" },
+      ...CONTACT,
+      ...COMMON,
+    ],
+    customerPhone: "{{contact.whatsapp | contact.phone}}",
+    customerEmail: "{{contact.email}}",
+  },
+  {
+    value: "knowledge_gap",
+    label: "Knowledge gap",
+    hint: "An agent could not answer a question from the knowledge base.",
+    source: "platform",
+    variables: [
+      { path: "question", label: "Question" },
+      { path: "customerMessage", label: "Customer's message" },
+      { path: "askCount", label: "Times asked" },
+      { path: "agent", label: "Agent" },
       ...CONTACT,
       ...COMMON,
     ],
@@ -880,6 +897,16 @@ export function sampleData(
       reason: "The customer asked for a person.",
       department: "sales",
       summary: "Wants a quote for a bulk order.",
+      agent: "Front desk",
+      contact: { ...contact, phone: person.phone },
+    };
+  }
+
+  if (event === "knowledge_gap") {
+    return {
+      question: "Do you deliver on Sundays?",
+      customerMessage: "hi can u deliver this sunday?",
+      askCount: 1,
       agent: "Front desk",
       contact: { ...contact, phone: person.phone },
     };

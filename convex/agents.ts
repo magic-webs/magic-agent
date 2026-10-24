@@ -15,6 +15,8 @@ import {
   ROUTER_DEFAULTS,
   ROUTER_TOOLS,
   RICH_TOOL_NAMES,
+  KNOWLEDGE_GAP_TOOL,
+  logsKnowledgeGaps,
   DEFAULT_CHAT_MODEL,
   slugify,
   takesHandoffs,
@@ -855,6 +857,7 @@ export const previewPrompt = query({
     if (agent.kind === "router" && !toolNames.includes("transfer_to_agent")) {
       toolNames.unshift("transfer_to_agent");
     }
+    if (logsKnowledgeGaps(agent)) toolNames.push(KNOWLEDGE_GAP_TOOL);
 
     // The books this agent files into, and the tools they each contribute.
     // Resolved the same way the engine resolves them, so the preview keeps its

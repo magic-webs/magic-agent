@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
 import { TranscriptView, type TranscriptAgent } from "@/components/transcript";
+import { FixAnswerDialog } from "@/components/knowledge/fix-answer-dialog";
 import { ManualReply } from "@/components/manual-reply";
 import { AssignMenu } from "@/components/assign-menu";
 import { ContactAvatar } from "@/components/contact-avatar";
@@ -363,6 +364,8 @@ export function ConversationDetail({
   const setHumanHandling = useMutation(api.conversations.setHumanHandling);
   const removeConversation = useMutation(api.conversations.remove);
   const setBot = useMutation(api.conversations.setBot);
+  const markWrong = useMutation(api.knowledgeGaps.markWrong);
+  const [fixingGap, setFixingGap] = useState<Id<"knowledgeGaps"> | null>(null);
   // Off by default: the trace is for working out why an agent said something,
   // and most people opening a thread are here to read what it said.
   const [showTools, setShowTools] = useState(false);
@@ -703,6 +706,17 @@ export function ConversationDetail({
           showTools={showTools}
           perspective="team"
           agents={threadAgents}
+          onMarkWrong={async (message) => {
+            try {
+              setFixingGap(await markWrong({ messageId: message._id }));
+            } catch (error) {
+              toast.add({
+                title: "Could not mark it as wrong",
+                description: friendlyError(error),
+                type: "error",
+              });
+            }
+          }}
           emptyState={
             <p className="text-sm text-muted-foreground">
               This conversation has no messages yet.
@@ -724,6 +738,11 @@ export function ConversationDetail({
           humanHandling={conversation.humanHandling ?? false}
           agentName={holderName}
           contactLabel={label}
+        />
+        <FixAnswerDialog
+          workspaceId={workspaceId}
+          gapId={fixingGap}
+          onClose={() => setFixingGap(null)}
         />
       </div>
 

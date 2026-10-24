@@ -148,6 +148,16 @@ export const RICH_TOOL_NAMES = [
   "send_contact_card",
 ] as const;
 
+export const KNOWLEDGE_GAP_TOOL = "log_unanswered_question";
+
+/** Not a toggle: any agent that answers from the knowledge base reports what it could not find there. */
+export function logsKnowledgeGaps(agent: {
+  knowledgeEnabled: boolean;
+  builtinTools: string[];
+}): boolean {
+  return agent.knowledgeEnabled || agent.builtinTools.includes("search_knowledge");
+}
+
 export const DEFAULT_BUILTIN_TOOLS: BuiltinToolKey[] = [
   "search_knowledge",
   "search_products",

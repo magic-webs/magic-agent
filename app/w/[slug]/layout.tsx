@@ -236,12 +236,15 @@ function NavSection({
   items,
   base,
   pathname,
+  badges,
 }: {
   label: string;
   icon: IconSvgElement;
   items: NavItem[];
   base: string;
   pathname: string;
+  /** Counts keyed by an item's href, shown on that row. */
+  badges: Record<string, string | null>;
 }) {
   const [manual, setManual] = useState<{ path: string; open: boolean } | null>(
     null
@@ -270,6 +273,9 @@ function NavSection({
         >
           <HugeiconsIcon icon={icon} strokeWidth={2} />
           <span>{label}</span>
+          {!open && items.some((item) => badges[item.href]) ? (
+            <span className="ml-auto size-2 shrink-0 rounded-full bg-destructive" />
+          ) : null}
           <HugeiconsIcon
             icon={ArrowRight01Icon}
             strokeWidth={2}
@@ -280,6 +286,7 @@ function NavSection({
           <SidebarMenuSub>
             {items.map((item) => {
               const href = `${base}${item.href}`;
+              const badge = badges[item.href];
               return (
                 <SidebarMenuSubItem key={item.href}>
                   <SidebarMenuSubButton
@@ -290,6 +297,11 @@ function NavSection({
                         so the icon needs no class of its own. */}
                     <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                     <span>{item.label}</span>
+                    {badge ? (
+                      <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-destructive/10 px-1 text-xs font-medium text-destructive tabular-nums">
+                        {badge}
+                      </span>
+                    ) : null}
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
               );
@@ -334,6 +346,10 @@ export default function WorkspaceLayout({
   // the sidebar is on every page.
   const escalated = useQuery(
     api.conversations.escalatedCount,
+    workspace ? { workspaceId: workspace._id } : "skip"
+  );
+  const openGaps = useQuery(
+    api.knowledgeGaps.openCount,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
 
@@ -515,6 +531,13 @@ export default function WorkspaceLayout({
                         items={section.items}
                         base={base}
                         pathname={pathname}
+                        badges={{
+                          "/knowledge": openGaps
+                            ? openGaps > 99
+                              ? "99+"
+                              : String(openGaps)
+                            : null,
+                        }}
                       />
                     );
                   })}

@@ -92,6 +92,16 @@ function present(event: string, data: unknown): Presentation {
     };
   }
 
+  if (event === "knowledge_gap") {
+    return {
+      title: "Unanswered question",
+      body: text("question") ?? "An agent could not answer a question.",
+      channelId: CHANNELS.default,
+      sound: "default",
+      priority: "default",
+    };
+  }
+
   if (event === "conversation_assigned") {
     const contact = (row.contact as { name?: string } | undefined)?.name;
     return {

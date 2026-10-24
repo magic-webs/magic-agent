@@ -30,6 +30,8 @@ import {
   DEFAULT_MESSAGES_PER_SESSION,
   MAX_HANDOFFS_PER_TURN,
   MAX_WIDGET_MESSAGE_CHARS,
+  KNOWLEDGE_GAP_TOOL,
+  logsKnowledgeGaps,
   randomKey,
   readableError,
   truncate,
@@ -109,6 +111,10 @@ type TurnContext = {
     company?: string;
     attributes: Array<{ key: string; value: string }>;
   };
+  /** The customer's message this turn answers, kept on a logged knowledge gap. */
+  message: string;
+  /** Every knowledge source retrieved this turn, stored on the reply. */
+  knowledgeSourceIds: Id<"knowledgeSources">[];
   trace: ToolTrace[];
   pendingTransfer: PendingTransfer | null;
   /**
@@ -182,7 +188,7 @@ async function retrieveKnowledge(
     channelType?: Doc<"channels">["type"];
     conversationId?: Id<"conversations">;
   }
-): Promise<Array<{ text: string; sourceTitle: string }>> {
+): Promise<Passage[]> {
   const { embedding, usage } = await embed({
     model: aiGateway().embedding(EMBEDDING_MODEL),
     value: opts.queryText,
@@ -219,11 +225,86 @@ async function retrieveKnowledge(
   });
 }
 
-function formatKnowledge(
-  passages: Array<{ text: string; sourceTitle: string }>
-): string {
+// Close enough to count as the same question asked again. Questions arrive
+// already rewritten as short FAQ lines, so paraphrases land well above this.
+const GAP_MATCH_SCORE = 0.8;
+
+async function logKnowledgeGap(
+  ctx: ActionCtx,
+  turn: TurnContext,
+  question: string
+): Promise<void> {
+  const { workspace, agent } = turn;
+  const { embedding, usage } = await embed({
+    model: aiGateway().embedding(EMBEDDING_MODEL),
+    value: question,
+  });
+  await ctx.runMutation(internal.usage.record, {
+    workspaceId: workspace._id,
+    agentId: agent._id,
+    conversationId: turn.conversationId,
+    channelType: turn.channelType,
+    source: "retrieval",
+    model: EMBEDDING_MODEL,
+    kind: "embedding",
+    inputTokens: usage?.tokens ?? 0,
+    outputTokens: 0,
+  });
+
+  const [closest] = await ctx.vectorSearch("knowledgeGaps", "by_embedding", {
+    vector: embedding,
+    limit: 1,
+    filter: (q) => q.eq("workspaceId", workspace._id),
+  });
+
+  const { askCount, outcome } = await ctx.runMutation(internal.knowledgeGaps.record, {
+    workspaceId: workspace._id,
+    agentId: agent._id,
+    conversationId: turn.conversationId,
+    question,
+    customerMessage: truncate(turn.message, 1000),
+    embedding,
+    matchId: closest && closest._score >= GAP_MATCH_SCORE ? closest._id : undefined,
+  });
+
+  if (outcome === "new" || outcome === "reopened") {
+    await ctx.runAction(internal.webhooks.deliver, {
+      workspaceId: workspace._id,
+      event: "knowledge_gap",
+      data: {
+        question,
+        customerMessage: turn.message,
+        askCount,
+        agent: agent.botName,
+        conversationId: turn.conversationId,
+        contact: turn.contact,
+      },
+    });
+  }
+}
+
+type Passage = {
+  text: string;
+  sourceTitle: string;
+  sourceId: Id<"knowledgeSources">;
+  correction: boolean;
+};
+
+function noteSources(turn: TurnContext, passages: Passage[]) {
+  for (const p of passages) {
+    if (!turn.knowledgeSourceIds.includes(p.sourceId)) {
+      turn.knowledgeSourceIds.push(p.sourceId);
+    }
+  }
+}
+
+function formatKnowledge(passages: Passage[]): string {
   return passages
-    .map((p, idx) => `[${idx + 1}] From "${p.sourceTitle}":\n${p.text}`)
+    .map((p, idx) =>
+      p.correction
+        ? `[${idx + 1}] Team correction, "${p.sourceTitle}" (overrides any other extract that disagrees):\n${p.text}`
+        : `[${idx + 1}] From "${p.sourceTitle}":\n${p.text}`
+    )
     .join("\n\n---\n\n");
 }
 
@@ -254,7 +335,7 @@ function buildBuiltinTools(
   if (enabled.has("search_knowledge")) {
     registry.search_knowledge = tool({
       description:
-        "Search the company knowledge base for policies, specifications, guidelines and FAQs. Use it instead of guessing whenever the answer would be documented.",
+        "Search the company knowledge base for policies, specifications, guidelines and FAQs. Use it instead of guessing whenever the answer would be documented. A passage marked teamCorrection overrides any other passage that disagrees with it.",
       inputSchema: z.object({
         query: z
           .string()
@@ -270,10 +351,11 @@ function buildBuiltinTools(
           channelType: turn.channelType,
           conversationId: turn.conversationId,
         });
+        noteSources(turn, passages);
         if (passages.length === 0) {
           return {
             found: false,
-            note: "Nothing in the knowledge base matched. Say you will check with the team rather than inventing an answer.",
+            note: `Nothing in the knowledge base matched. Call ${KNOWLEDGE_GAP_TOOL}, then say you will check with the team rather than inventing an answer.`,
           };
         }
         return {
@@ -281,7 +363,30 @@ function buildBuiltinTools(
           passages: passages.map((p) => ({
             source: p.sourceTitle,
             text: truncate(p.text, 1200),
+            ...(p.correction ? { teamCorrection: true } : {}),
           })),
+        };
+      }),
+    });
+  }
+
+  if (logsKnowledgeGaps(agent)) {
+    registry[KNOWLEDGE_GAP_TOOL] = tool({
+      description:
+        "Report a question about the company that the knowledge base, the catalogue and your other tools could not answer, so the team can add the answer. Call it before telling the customer you will check with the team. Not for out-of-scope requests, small talk, or details only the customer can give.",
+      inputSchema: z.object({
+        question: z
+          .string()
+          .describe(
+            "The question as a short, general FAQ question with no personal details, e.g. 'Do you deliver on Sundays?'"
+          ),
+      }),
+      execute: traced(trace, KNOWLEDGE_GAP_TOOL, async ({ question }) => {
+        await logKnowledgeGap(ctx, turn, question);
+        return {
+          ok: true,
+          message:
+            "Noted for the team. Tell the customer you will check and get back to them. Do not guess the answer.",
         };
       }),
     });
@@ -2167,6 +2272,8 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
         company: session.contact.company ?? undefined,
         attributes: session.contact.attributes,
       },
+      message,
+      knowledgeSourceIds: [],
       trace: [],
       pendingTransfer: null,
       askedThisTurn: false,
@@ -2246,6 +2353,7 @@ ${message}`
             channelType: turn.channelType,
             conversationId: turn.conversationId,
           });
+          noteSources(turn, passages);
           knowledgeContext = formatKnowledge(passages);
         } catch (error) {
           console.error("[engine] knowledge retrieval failed", error);
@@ -2437,6 +2545,7 @@ ${message}`
       errorText: generationError,
       latencyMs: Date.now() - startedAt,
       toolCalls: turn.trace,
+      knowledgeSourceIds: turn.knowledgeSourceIds,
       chargeAi: !!args.channelId && !generationError && (!!replyText || askedItself),
     });
 

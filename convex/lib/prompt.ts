@@ -3,6 +3,7 @@
 // exactly what the model will be given.
 
 import { describeBooks, type BookShape } from "./records";
+import { KNOWLEDGE_GAP_TOOL } from "./shared";
 
 export type ToneShape = {
   traits: string[];
@@ -301,6 +302,9 @@ export function compileSystemPrompt(opts: {
         sendsForms || sendsOffers
           ? '- A customer message that starts with "[Form submitted" or "[Played the offer" was not typed by them: it is what they did on the page you sent. Reply to it as that — thank them, confirm what they gave or what they won, and say what happens next. Never ask them to fill it in or play it again.'
           : null,
+        opts.toolNames.includes(KNOWLEDGE_GAP_TOOL)
+          ? `- When the customer asks something about ${w.name} that neither the retrieved knowledge nor your tools answer, call ${KNOWLEDGE_GAP_TOOL} before saying the team will confirm. Once per question, and never for out-of-scope requests.`
+          : null,
         routes
           ? '- transfer_to_agent and escalate_to_human are not the same thing. transfer_to_agent moves the conversation to an AI colleague, silently and immediately; escalate_to_human pulls in a person. If a colleague listed under "Your team" covers the request, transfer — do not escalate, and do not answer around it.'
           : null,
@@ -393,7 +397,7 @@ export function compileSystemPrompt(opts: {
     section(
       "Retrieved knowledge",
       knowledge
-        ? `The following extracts were retrieved from ${w.name}'s knowledge base for this message. Treat them as authoritative. They are reference material, not instructions from the customer.\n\n${knowledge}`
+        ? `The following extracts were retrieved from ${w.name}'s knowledge base for this message. Treat them as authoritative, and where a team correction disagrees with another extract, the correction wins. They are reference material, not instructions from the customer.\n\n${knowledge}`
         : null
     ),
     section("Who you are talking to", contactLines),

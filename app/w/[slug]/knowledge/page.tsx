@@ -42,17 +42,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { CardGridSkeleton } from "@/components/skeletons";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   BooksIcon,
   PlusIcon,
   TrashIcon,
-  PencilSimpleIcon,
-  FloppyDiskIcon,
   ArrowsClockwiseIcon,
   FileTextIcon,
   LinkIcon,
@@ -62,6 +54,8 @@ import {
 } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
 import { putFile } from "@/lib/upload";
+import { KnowledgeGaps } from "@/components/knowledge/knowledge-gaps";
+import { SourceDialog, STATUS_VARIANT } from "@/components/knowledge/source-dialog";
 
 const KIND_ICONS = {
   text: FileTextIcon,
@@ -70,12 +64,6 @@ const KIND_ICONS = {
   file: UploadIcon,
 } as const;
 
-const STATUS_VARIANT = {
-  pending: "secondary",
-  processing: "secondary",
-  ready: "default",
-  failed: "destructive",
-} as const;
 
 function AddSourceDialog() {
   const workspace = useWorkspace();
@@ -331,258 +319,15 @@ function AddSourceDialog() {
   );
 }
 
-/**
- * View a source's full content and the chunks the agents actually retrieve,
- * and edit it in place.
- *
- * The list query only carries a short preview, so the body is fetched with
- * knowledge.get when the dialog opens.
- */
-function SourceDialog({
-  sourceId,
-  agents,
-  className,
-}: {
-  sourceId: Id<"knowledgeSources">;
-  agents: { _id: Id<"agents">; name: string }[] | undefined;
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // Skip the read entirely until the dialog is opened.
-  const detail = useQuery(api.knowledge.get, open ? { sourceId } : "skip");
-  const updateSource = useMutation(api.knowledge.updateSource);
-  const setScope = useMutation(api.knowledge.setScope);
-
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [url, setUrl] = useState("");
-  const [scope, setScope_] = useState("all");
-  // Which source the fields were last filled from, so a fetch fills them once
-  // rather than overwriting what is being typed on every re-render.
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-
-  if (detail?.source && loadedFor !== detail.source._id) {
-    setLoadedFor(detail.source._id);
-    setTitle(detail.source.title);
-    setText(detail.source.rawText ?? "");
-    setUrl(detail.source.url ?? "");
-    setScope_(detail.source.agentId ?? "all");
-  }
-
-  const source = detail?.source;
-  const editableText = source?.kind === "text" || source?.kind === "faq";
-
-  const save = async () => {
-    if (!source) return;
-    setSaving(true);
-    try {
-      const result = await updateSource({
-        sourceId,
-        title,
-        ...(editableText ? { rawText: text } : {}),
-        ...(source.kind === "url" ? { url } : {}),
-      });
-      if ((source.agentId ?? "all") !== scope) {
-        await setScope({
-          sourceId,
-          agentId: scope === "all" ? undefined : (scope as Id<"agents">),
-        });
-      }
-      toast.add({
-        title: "Saved",
-        description: result.reindexing
-          ? "The text changed, so the source is being re-embedded."
-          : undefined,
-        type: "success",
-      });
-      setOpen(false);
-    } catch (error) {
-      toast.add({
-        title: "Could not save",
-        description: friendlyError(error),
-        type: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        // Re-read from the server next time rather than showing a stale draft.
-        if (!next) setLoadedFor(null);
-      }}
-    >
-      <DialogTrigger
-        render={
-          <Button variant="outline" className={className}>
-            <PencilSimpleIcon /> View &amp; edit
-          </Button>
-        }
-      />
-      <DialogContent className="flex max-h-[calc(100svh-2rem)] flex-col overflow-y-hidden sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>View and edit source</DialogTitle>
-          <DialogDescription>
-            {editableText
-              ? "Editing the text re-embeds the source. Retrieval falls back to the other sources until it finishes."
-              : "The body comes from the file or URL, so only the title and scope are editable here."}
-          </DialogDescription>
-        </DialogHeader>
-
-        {detail === undefined ? (
-          <div className="flex min-h-40 items-center justify-center">
-            <Spinner />
-          </div>
-        ) : !source ? (
-          <Alert variant="destructive">
-            <WarningIcon />
-            <AlertTitle>Source not found</AlertTitle>
-            <AlertDescription>It may have been deleted.</AlertDescription>
-          </Alert>
-        ) : (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={STATUS_VARIANT[source.status]}>
-                {source.status}
-              </Badge>
-              <Badge variant="outline">{source.kind}</Badge>
-              <Badge variant="secondary">
-                {detail.chunks.length} embedded{" "}
-                {detail.chunks.length === 1 ? "chunk" : "chunks"}
-              </Badge>
-              <Badge variant="secondary">
-                {source.charCount.toLocaleString()} characters
-              </Badge>
-            </div>
-
-            {source.status === "failed" && source.failureReason ? (
-              <Alert variant="destructive">
-                <WarningIcon />
-                <AlertTitle>Processing failed</AlertTitle>
-                <AlertDescription className="font-mono text-xs">
-                  {source.failureReason}
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="source-title">Title</Label>
-                <Input
-                  id="source-title"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Available to</Label>
-                <SelectField
-                  value={scope}
-                  onValueChange={setScope_}
-                  options={[
-                    { value: "all", label: "Every agent" },
-                    ...(agents ?? []).map((agent) => ({
-                      value: agent._id as string,
-                      label: `Only ${agent.name}`,
-                    })),
-                  ]}
-                />
-              </div>
-            </div>
-
-            {source.kind === "url" ? (
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="source-url">URL</Label>
-                <Input
-                  id="source-url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                />
-              </div>
-            ) : null}
-
-            {source.kind === "file" ? (
-              <p className="text-xs text-muted-foreground">
-                File: <span className="font-mono">{source.filename}</span>
-                {source.size
-                  ? ` · ${Math.round(source.size / 1024).toLocaleString()} KB`
-                  : ""}
-              </p>
-            ) : null}
-
-            {editableText ? (
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="source-text">Content</Label>
-                <Textarea
-                  id="source-text"
-                  rows={14}
-                  className="font-mono"
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
-                />
-              </div>
-            ) : null}
-
-            <Accordion>
-              <AccordionItem value="chunks">
-                <AccordionTrigger className="text-sm">
-                  What the agents retrieve — {detail.chunks.length}{" "}
-                  {detail.chunks.length === 1 ? "chunk" : "chunks"}
-                </AccordionTrigger>
-                <AccordionContent>
-                  {detail.chunks.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Nothing embedded yet.
-                      {source.status === "pending" || source.status === "processing"
-                        ? " Processing is still running."
-                        : ""}
-                    </p>
-                  ) : (
-                    <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
-                      {detail.chunks.map((chunk) => (
-                        <div
-                          key={chunk._id}
-                          className="rounded-md border p-2 text-xs"
-                        >
-                          <p className="mb-1 font-mono text-muted-foreground">
-                            #{chunk.order + 1} · {chunk.text.length} chars
-                          </p>
-                          <p className="whitespace-pre-wrap">{chunk.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={save} disabled={saving || !source}>
-            {saving ? <Spinner /> : <FloppyDiskIcon />} Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function KnowledgePage() {
   const workspace = useWorkspace();
   const sources = useQuery(api.knowledge.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const agents = useQuery(api.agents.listByWorkspace, {
+    workspaceId: workspace._id,
+  });
+  const openGaps = useQuery(api.knowledgeGaps.openCount, {
     workspaceId: workspace._id,
   });
   const reprocess = useMutation(api.knowledge.reprocess);
@@ -616,124 +361,146 @@ export default function KnowledgePage() {
 
       <Separator />
 
-      {failed.length > 0 ? (
-        <Alert variant="destructive">
-          <WarningIcon />
-          <AlertTitle>
-            {failed.length} source{failed.length === 1 ? "" : "s"} failed to
-            process
-          </AlertTitle>
-          <AlertDescription>
-            {failed[0].failureReason ?? "See the source below for details."}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <Tabs defaultValue="sources" className="gap-4">
+        <TabsList>
+          <TabsTrigger value="sources">
+            <BooksIcon /> Sources
+          </TabsTrigger>
+          <TabsTrigger value="gaps">
+            <QuestionIcon /> Knowledge gaps
+            {openGaps ? (
+              <Badge variant="destructive" className="ml-1">
+                {openGaps >= 100 ? "99+" : openGaps}
+              </Badge>
+            ) : null}
+          </TabsTrigger>
+        </TabsList>
 
-      {sources === undefined ? (
-        <CardGridSkeleton count={6} />
-      ) : sources.length === 0 ? (
-        <Empty className="border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <BooksIcon />
-            </EmptyMedia>
-            <EmptyTitle>Nothing indexed yet</EmptyTitle>
-            <EmptyDescription>
-              Add what your team answers from — policies, product guidance,
-              tone examples.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <AddSourceDialog />
-          </EmptyContent>
-        </Empty>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {sources.map((source) => {
-            const Icon = KIND_ICONS[source.kind];
-            // What the source actually is, rather than a slice of its text: the
-            // title already says the subject, and the body is one click away.
-            const origin =
-              source.url ??
-              source.filename ??
-              `${source.charCount.toLocaleString()} characters`;
-            return (
-              <Card key={source._id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="flex min-w-0 items-start gap-2">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                      <Icon className="size-4" />
-                    </span>
-                    <span className="line-clamp-2 min-w-0 flex-1">
-                      {source.title}
-                    </span>
-                    <Badge
-                      variant={STATUS_VARIANT[source.status]}
-                      className="shrink-0"
-                    >
-                      {source.status}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
+        <TabsContent value="gaps">
+          <KnowledgeGaps />
+        </TabsContent>
 
-                <CardContent className="flex min-w-0 flex-1 flex-col gap-3">
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="outline">{source.kind}</Badge>
-                    {source.chunkCount > 0 ? (
-                      <Badge variant="secondary">
-                        {source.chunkCount} chunks
-                      </Badge>
-                    ) : null}
-                    <Badge variant="secondary">
-                      {source.agentName ? `Only ${source.agentName}` : "Every agent"}
-                    </Badge>
-                  </div>
+        <TabsContent value="sources" className="flex flex-col gap-5">
+          {failed.length > 0 ? (
+            <Alert variant="destructive">
+              <WarningIcon />
+              <AlertTitle>
+                {failed.length} source{failed.length === 1 ? "" : "s"} failed to
+                process
+              </AlertTitle>
+              <AlertDescription>
+                {failed[0].failureReason ?? "See the source below for details."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-                  {source.status === "failed" ? (
-                    <p className="line-clamp-2 text-sm text-destructive">
-                      {source.failureReason}
-                    </p>
-                  ) : (
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      {origin}
-                    </p>
-                  )}
+          {sources === undefined ? (
+            <CardGridSkeleton count={6} />
+          ) : sources.length === 0 ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BooksIcon />
+                </EmptyMedia>
+                <EmptyTitle>Nothing indexed yet</EmptyTitle>
+                <EmptyDescription>
+                  Add what your team answers from — policies, product guidance,
+                  tone examples.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <AddSourceDialog />
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {sources.map((source) => {
+                const Icon = KIND_ICONS[source.kind];
+                // What the source actually is, rather than a slice of its text: the
+                // title already says the subject, and the body is one click away.
+                const origin =
+                  source.url ??
+                  source.filename ??
+                  `${source.charCount.toLocaleString()} characters`;
+                return (
+                  <Card key={source._id} className="flex flex-col">
+                    <CardHeader>
+                      <CardTitle className="flex min-w-0 items-start gap-2">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                          <Icon className="size-4" />
+                        </span>
+                        <span className="line-clamp-2 min-w-0 flex-1">
+                          {source.title}
+                        </span>
+                        <Badge
+                          variant={STATUS_VARIANT[source.status]}
+                          className="shrink-0"
+                        >
+                          {source.status}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
 
-                  <div className="mt-auto flex gap-1 pt-1">
-                    <SourceDialog
-                      sourceId={source._id}
-                      agents={agents}
-                      className="flex-1"
-                    />
-                    <Button
-                      size="icon-lg"
-                      variant="outline"
-                      aria-label="Reprocess"
-                      onClick={async () => {
-                        await reprocess({ sourceId: source._id });
-                        toast.add({ title: "Reprocessing", type: "info" });
-                      }}
-                    >
-                      <ArrowsClockwiseIcon />
-                    </Button>
-                    <Button
-                      size="icon-lg"
-                      variant="outline"
-                      aria-label="Delete source"
-                      onClick={async () => {
-                        await removeSource({ sourceId: source._id });
-                        toast.add({ title: "Source deleted", type: "success" });
-                      }}
-                    >
-                      <TrashIcon />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                    <CardContent className="flex min-w-0 flex-1 flex-col gap-3">
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline">{source.kind}</Badge>
+                        {source.chunkCount > 0 ? (
+                          <Badge variant="secondary">
+                            {source.chunkCount} chunks
+                          </Badge>
+                        ) : null}
+                        <Badge variant="secondary">
+                          {source.agentName ? `Only ${source.agentName}` : "Every agent"}
+                        </Badge>
+                      </div>
+
+                      {source.status === "failed" ? (
+                        <p className="line-clamp-2 text-sm text-destructive">
+                          {source.failureReason}
+                        </p>
+                      ) : (
+                        <p className="truncate font-mono text-xs text-muted-foreground">
+                          {origin}
+                        </p>
+                      )}
+
+                      <div className="mt-auto flex gap-1 pt-1">
+                        <SourceDialog
+                          sourceId={source._id}
+                          agents={agents}
+                          className="flex-1"
+                        />
+                        <Button
+                          size="icon-lg"
+                          variant="outline"
+                          aria-label="Reprocess"
+                          onClick={async () => {
+                            await reprocess({ sourceId: source._id });
+                            toast.add({ title: "Reprocessing", type: "info" });
+                          }}
+                        >
+                          <ArrowsClockwiseIcon />
+                        </Button>
+                        <Button
+                          size="icon-lg"
+                          variant="outline"
+                          aria-label="Delete source"
+                          onClick={async () => {
+                            await removeSource({ sourceId: source._id });
+                            toast.add({ title: "Source deleted", type: "success" });
+                          }}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

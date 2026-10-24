@@ -2,9 +2,11 @@ import { ConvexError, v } from "convex/values";
 import {
   query,
   internalQuery,
+  type MutationCtx,
 } from "./_generated/server";
 import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireKnowledgeSource, requireWorkspace } from "./lib/auth";
 import { deleteFile, requireOwnKey, uploadUrlFor } from "./lib/files";
 
@@ -89,30 +91,42 @@ export const addSource = mutation({
     }
     requireOwnKey(args.fileKey, "knowledge", args.workspaceId);
 
-    const now = Date.now();
-    const sourceId = await ctx.db.insert("knowledgeSources", {
-      workspaceId: args.workspaceId,
-      agentId: args.agentId,
+    return await queueSource(ctx, {
+      ...args,
       title: args.title.trim() || args.filename || args.url || "Untitled source",
-      kind: args.kind,
-      rawText: args.rawText,
-      url: args.url,
-      fileKey: args.fileKey,
-      filename: args.filename,
-      mimeType: args.mimeType,
-      size: args.size,
       tags: args.tags ?? [],
-      chunkCount: 0,
-      charCount: args.rawText?.length ?? 0,
-      status: "pending",
-      createdAt: now,
-      updatedAt: now,
     });
-
-    await ctx.scheduler.runAfter(0, internal.ingest.processSource, { sourceId });
-    return sourceId;
   },
 });
+
+/** Keeps the marker on a reply marked wrong in step with its gap. */
+export async function setMessageReview(
+  ctx: MutationCtx,
+  messageId: Id<"messages"> | undefined,
+  review: "wrong" | "corrected" | undefined
+) {
+  if (!messageId) return;
+  if (!(await ctx.db.get("messages", messageId))) return;
+  await ctx.db.patch(messageId, { review });
+}
+
+export async function queueSource(
+  ctx: MutationCtx,
+  fields: Pick<Doc<"knowledgeSources">, "workspaceId" | "agentId" | "title" | "kind" | "tags"> &
+    Partial<Pick<Doc<"knowledgeSources">, "rawText" | "url" | "fileKey" | "filename" | "mimeType" | "size">>
+) {
+  const now = Date.now();
+  const sourceId = await ctx.db.insert("knowledgeSources", {
+    ...fields,
+    chunkCount: 0,
+    charCount: fields.rawText?.length ?? 0,
+    status: "pending",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await ctx.scheduler.runAfter(0, internal.ingest.processSource, { sourceId });
+  return sourceId;
+}
 
 export const generateUploadUrl = mutation({
   args: { workspaceId: v.id("workspaces") },
@@ -248,6 +262,19 @@ export const remove = mutation({
     for (const chunk of chunks) await ctx.db.delete(chunk._id);
     await deleteFile(ctx, source.fileKey, source.storageId);
     await ctx.db.delete(args.sourceId);
+
+    const gaps = await ctx.db
+      .query("knowledgeGaps")
+      .withIndex("by_source", (q) => q.eq("sourceId", args.sourceId))
+      .collect();
+    for (const gap of gaps) {
+      await ctx.db.patch(gap._id, {
+        status: "open",
+        sourceId: undefined,
+        resolvedAt: undefined,
+      });
+      await setMessageReview(ctx, gap.messageId, "wrong");
+    }
     return { success: true };
   },
 });
@@ -360,14 +387,32 @@ export const markFailed = internalMutation({
   },
 });
 
+export const CORRECTION_TAG = "correction";
+
 // Hydrates vector-search hits. Vector search only returns ids and scores.
 export const hydrateChunks = internalQuery({
   args: { chunkIds: v.array(v.id("knowledgeChunks")) },
   handler: async (ctx, args) => {
-    const out: Array<{ text: string; sourceTitle: string }> = [];
+    const out: Array<{
+      text: string;
+      sourceTitle: string;
+      sourceId: Id<"knowledgeSources">;
+      correction: boolean;
+    }> = [];
+    const sources = new Map<string, Doc<"knowledgeSources"> | null>();
     for (const id of args.chunkIds) {
       const chunk = await ctx.db.get("knowledgeChunks", id);
-      if (chunk) out.push({ text: chunk.text, sourceTitle: chunk.sourceTitle });
+      if (!chunk) continue;
+      if (!sources.has(chunk.sourceId)) {
+        sources.set(chunk.sourceId, await ctx.db.get("knowledgeSources", chunk.sourceId));
+      }
+      const source = sources.get(chunk.sourceId);
+      out.push({
+        text: chunk.text,
+        sourceTitle: chunk.sourceTitle,
+        sourceId: chunk.sourceId,
+        correction: Boolean(source?.tags.includes(CORRECTION_TAG)),
+      });
     }
     return out;
   },

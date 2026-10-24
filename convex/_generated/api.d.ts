@@ -41,6 +41,7 @@ import type * as instagramAi from "../instagramAi.js";
 import type * as instagramAutomation from "../instagramAutomation.js";
 import type * as integrations from "../integrations.js";
 import type * as knowledge from "../knowledge.js";
+import type * as knowledgeGaps from "../knowledgeGaps.js";
 import type * as leads from "../leads.js";
 import type * as lib_account from "../lib/account.js";
 import type * as lib_activity from "../lib/activity.js";
@@ -207,6 +208,7 @@ declare const fullApi: ApiFromModules<{
   instagramAutomation: typeof instagramAutomation;
   integrations: typeof integrations;
   knowledge: typeof knowledge;
+  knowledgeGaps: typeof knowledgeGaps;
   leads: typeof leads;
   "lib/account": typeof lib_account;
   "lib/activity": typeof lib_activity;

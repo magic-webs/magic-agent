@@ -2,7 +2,7 @@
  * Notifications — alerts sent on WhatsApp and email when something happens.
  *
  * An *alert* listens for one event — a record filed, updated or moving stage,
- * an order, an escalation, or another system posting to the alert's own URL —
+ * an order, an escalation, a knowledge gap, or another system posting to the alert's own URL —
  * and sends one template to a list of recipients. WhatsApp alerts send an
  * approved template synced from the panel (nothing else reaches someone
  * outside the 24-hour window); email alerts send a template written here,
@@ -30,6 +30,7 @@ const EVENTS = [
   "record_updated",
   "record_stage_changed",
   "escalation",
+  "knowledge_gap",
   "inbound",
 ];
 
@@ -42,7 +43,7 @@ const alertArg = z.string().describe("Alert name or id");
 const eventArg = z
   .enum(EVENTS)
   .describe(
-    "record_filed / record_updated / record_stage_changed: a record book event — an order taken is record_filed on the Orders book. escalation: an agent handed a conversation to a person. inbound: another system POSTs to the alert's own URL."
+    "record_filed / record_updated / record_stage_changed: a record book event — an order taken is record_filed on the Orders book. escalation: an agent handed a conversation to a person. knowledge_gap: an agent could not answer a question from the knowledge base. inbound: another system POSTs to the alert's own URL."
   );
 
 const paramsArg = z

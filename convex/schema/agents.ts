@@ -162,6 +162,40 @@ export const agentsTables = {
       filterFields: ["scopeKey"],
     }),
 
+  knowledgeGaps: defineTable({
+    workspaceId: v.id("workspaces"),
+    agentId: v.optional(v.id("agents")),
+    // Absent on rows from before wrong answers existed, which are all unanswered.
+    kind: v.optional(v.union(v.literal("unanswered"), v.literal("wrong_answer"))),
+    question: v.string(),
+    customerMessage: v.optional(v.string()),
+    askCount: v.number(),
+    firstAskedAt: v.number(),
+    lastAskedAt: v.number(),
+    conversationIds: v.array(v.id("conversations")),
+    status: v.union(
+      v.literal("open"),
+      v.literal("answered"),
+      v.literal("dismissed")
+    ),
+    sourceId: v.optional(v.id("knowledgeSources")),
+    resolvedAt: v.optional(v.number()),
+    messageId: v.optional(v.id("messages")),
+    wrongReply: v.optional(v.string()),
+    usedSourceIds: v.optional(v.array(v.id("knowledgeSources"))),
+    note: v.optional(v.string()),
+    // Only unanswered questions are embedded, so a wrong answer never absorbs one.
+    embedding: v.optional(v.array(v.float64())),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_status", ["workspaceId", "status", "lastAskedAt"])
+    .index("by_source", ["sourceId"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+      filterFields: ["workspaceId"],
+    }),
+
   aiModels: defineTable({
     modelId: v.string(),
     label: v.string(),

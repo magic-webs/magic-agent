@@ -169,11 +169,13 @@ export const progress = query({
     const launches = checks.filter((check) => check.decision === "launch").reverse();
     const waves = [];
     for (const launch of launches) {
+      // A check is logged under the wave before it, so a launch starts the next one.
+      const wave = launch.wave + 1;
       waves.push({
-        wave: launch.wave,
+        wave,
         at: launch.at,
         size: launch.size ?? 0,
-        stats: await statsFor(ctx, waveKey(eventKey(event._id), launch.wave)),
+        stats: await statsFor(ctx, waveKey(eventKey(event._id), wave)),
       });
     }
     const channel = await sendingChannel(ctx, event.workspaceId);

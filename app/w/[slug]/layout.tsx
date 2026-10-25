@@ -80,7 +80,6 @@ import {
   Shield01Icon,
   BubbleChatIcon,
   Activity01Icon,
-  CustomerSupportIcon,
 } from "@hugeicons/core-free-icons";
 
 type NavItem = {
@@ -209,7 +208,6 @@ const NAV: Array<{
   // to give it to, and it is not a setting — it changes what the agents can
   // do. Settings itself lives in the profile menu.
   { label: "Integrations", icon: ConnectIcon, href: "/integrations" },
-  { label: "Support", icon: CustomerSupportIcon, href: "/support" },
 ];
 
 /** Whether `pathname` is the row's page, or — unless `exact` — one below it. */
@@ -499,13 +497,12 @@ export default function WorkspaceLayout({
                         (!sharesPage ||
                           (section.view ?? null) ===
                             (currentView === "escalations" ? currentView : null));
-                      const count =
-                        section.view === "escalations"
-                          ? escalated
-                          : section.href === "/support"
-                            ? supportUnread
-                            : 0;
-                      const badge = count ? (count > 99 ? "99+" : String(count)) : null;
+                      const badge =
+                        section.view === "escalations" && escalated
+                          ? escalated > 99
+                            ? "99+"
+                            : String(escalated)
+                          : null;
                       return (
                         <SidebarMenuItem key={section.label}>
                           <SidebarMenuButton
@@ -563,6 +560,8 @@ export default function WorkspaceLayout({
             <SidebarUser
               settingsHref={`${base}/settings`}
               billingHref={`${base}/billing`}
+              supportHref={`${base}/support`}
+              supportUnread={supportUnread ?? 0}
             />
           </SidebarFooter>
         </Sidebar>

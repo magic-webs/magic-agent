@@ -107,7 +107,8 @@ async function requesterOf(ctx: Ctx, principal: Principal, workspaceId: Id<"work
       email: owner?.email || workspace?.supportEmail,
     };
   }
-  throw new ConvexError("Raise a ticket from the workspace it is about.");
+  const admin = await ctx.db.get("admins", principal.adminId);
+  return { key, name: admin?.name?.trim() || admin?.email || principal.label, email: admin?.email };
 }
 
 function clientSees(principal: Principal, ticket: Ticket): boolean {

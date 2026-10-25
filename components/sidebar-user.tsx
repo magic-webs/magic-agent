@@ -35,6 +35,7 @@ import {
   Settings01Icon,
   Sun03Icon,
   Tick02Icon,
+  Alert02Icon,
   CustomerSupportIcon,
   UnfoldMoreIcon,
   Wallet01Icon,
@@ -68,9 +69,13 @@ export function SidebarUser({
   billingHref,
   settingsLabel = "Workspace settings",
   showPlatformLink = true,
+  supportHref,
+  supportUnread = 0,
 }: {
   settingsHref: string;
   billingHref?: string;
+  supportHref?: string;
+  supportUnread?: number;
   /** The platform console names its own settings; a workspace names theirs. */
   settingsLabel?: string;
   /** Off inside /admin, where "All workspaces" would point at the page you
@@ -110,11 +115,16 @@ export function SidebarUser({
               />
             }
           >
-            <Avatar className="size-8 shrink-0 rounded-lg">
-              <AvatarFallback className="rounded-lg text-xs font-medium">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            <span className="relative shrink-0">
+              <Avatar className="size-8 rounded-lg">
+                <AvatarFallback className="rounded-lg text-xs font-medium">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {supportUnread ? (
+                <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-sidebar" />
+              ) : null}
+            </span>
             <div className="grid flex-1 text-left leading-tight">
               <span className="truncate text-sm font-medium">{label}</span>
               {email ? (
@@ -199,17 +209,26 @@ export function SidebarUser({
                 Billing
               </DropdownMenuItem>
             ) : null}
-            {currentSlug && !session.isStaff ? (
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href={`/w/${currentSlug}/support/new?from=${encodeURIComponent(pathname)}`}
-                  />
-                }
-              >
-                <HugeiconsIcon icon={CustomerSupportIcon} strokeWidth={2} />
-                Report a problem
-              </DropdownMenuItem>
+            {supportHref ? (
+              <>
+                <DropdownMenuItem render={<Link href={supportHref} />}>
+                  <HugeiconsIcon icon={CustomerSupportIcon} strokeWidth={2} />
+                  Support
+                  {supportUnread ? (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-md bg-destructive/10 px-1 text-xs font-medium text-destructive tabular-nums">
+                      {supportUnread > 99 ? "99+" : supportUnread}
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  render={
+                    <Link href={`${supportHref}/new?from=${encodeURIComponent(pathname)}`} />
+                  }
+                >
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
+                  Report a problem
+                </DropdownMenuItem>
+              </>
             ) : null}
             {session.isStaff && showPlatformLink ? (
               <DropdownMenuItem render={<Link href="/admin/workspaces" />}>

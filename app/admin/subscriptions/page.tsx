@@ -77,15 +77,16 @@ import {
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowSquareOutIcon,
-  ArrowsClockwiseIcon,
+  Alert02Icon,
+  CancelCircleIcon,
   CreditCardIcon,
-  MagnifyingGlassIcon,
+  LinkSquare02Icon,
+  RefreshIcon,
+  Search01Icon,
   SlidersHorizontalIcon,
-  WarningIcon,
-  XCircleIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 
 type Overview = FunctionReturnType<typeof api.subscriptions.adminAccounts>;
 type AccountRow = Overview["accounts"][number];
@@ -964,7 +965,7 @@ function SubscriptionSection({
           disabled={refreshing}
           onClick={doRefresh}
         >
-          {refreshing ? <Spinner /> : <ArrowsClockwiseIcon />} Refresh from
+          {refreshing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Refresh from
           Razorpay
         </Button>
         {endable ? (
@@ -972,7 +973,7 @@ function SubscriptionSection({
             <AlertDialogTrigger
               render={
                 <Button size="sm" variant="destructive" disabled={cancelling}>
-                  {cancelling ? <Spinner /> : <XCircleIcon />} End now
+                  {cancelling ? <Spinner /> : <HugeiconsIcon icon={CancelCircleIcon} strokeWidth={2} />} End now
                 </Button>
               }
             />
@@ -1008,7 +1009,7 @@ function SubscriptionSection({
             <AlertDialogTrigger
               render={
                 <Button size="sm" variant="destructive" disabled={cancelling}>
-                  {cancelling ? <Spinner /> : <XCircleIcon />} Cancel
+                  {cancelling ? <Spinner /> : <HugeiconsIcon icon={CancelCircleIcon} strokeWidth={2} />} Cancel
                   subscription
                 </Button>
               }
@@ -1227,7 +1228,7 @@ function ManageBody({
           nativeButton={false}
           render={<Link href={`/w/${account.slug}/billing`} />}
         >
-          <ArrowSquareOutIcon /> Open its billing page
+          <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} /> Open its billing page
         </Button>
         <DialogClose render={<Button variant="outline" />}>Done</DialogClose>
       </DialogFooter>
@@ -1340,7 +1341,7 @@ export default function AdminSubscriptionsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <CreditCardIcon />
+              <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>Billing is off</EmptyTitle>
             <EmptyDescription>
@@ -1413,7 +1414,7 @@ export default function AdminSubscriptionsPage() {
                 </CardDescription>
               </div>
               <div className="relative w-full sm:w-64">
-                <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   placeholder="Find an account"
@@ -1559,7 +1560,7 @@ export default function AdminSubscriptionsPage() {
                               aria-label={`Manage ${row.name}`}
                               onClick={() => openManage(row)}
                             >
-                              <SlidersHorizontalIcon />
+                              <HugeiconsIcon icon={SlidersHorizontalIcon} strokeWidth={2} />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1593,7 +1594,7 @@ export default function AdminSubscriptionsPage() {
               ) : (
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <WarningIcon /> That account is gone
+                    <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} /> That account is gone
                   </DialogTitle>
                   <DialogDescription>
                     It was deleted while this was open.

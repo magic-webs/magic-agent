@@ -32,7 +32,11 @@ import {
 import { TableSkeleton } from "@/components/skeletons";
 import { WorkspaceAccessDialog } from "@/components/workspace-access";
 import { TwoFactorCard } from "@/components/two-factor-card";
-import { KeyIcon, UserIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Key01Icon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
 
 function relative(timestamp: number | null): string {
   if (!timestamp) return "never";
@@ -88,7 +92,7 @@ export default function AdminAccessPage() {
         <Card className="shrink-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserIcon className="size-4" /> Workspace sign-ins
+              <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-4" /> Workspace sign-ins
             </CardTitle>
             <CardDescription>
               A company signs in with its workspace ID and the password you issue.
@@ -101,7 +105,7 @@ export default function AdminAccessPage() {
               <Empty className="border border-dashed">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <KeyIcon />
+                    <HugeiconsIcon icon={Key01Icon} strokeWidth={2} />
                   </EmptyMedia>
                   <EmptyTitle>No workspaces yet</EmptyTitle>
                   <EmptyDescription>
@@ -173,7 +177,7 @@ export default function AdminAccessPage() {
                               slug={workspace.slug}
                               trigger={
                                 <Button size="sm" variant="outline">
-                                  <KeyIcon /> Manage
+                                  <HugeiconsIcon icon={Key01Icon} strokeWidth={2} /> Manage
                                 </Button>
                               }
                             />

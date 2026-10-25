@@ -63,18 +63,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  Alert02Icon,
+  ArrowLeft02Icon,
+  BubbleChatIcon,
+  Delete02Icon,
   FloppyDiskIcon,
-  ChatsIcon,
-  TrashIcon,
-  ArrowLeftIcon,
-  WrenchIcon,
-  SignpostIcon,
-  WarningIcon,
-  PlugsConnectedIcon,
   FolderOpenIcon,
-  CurrencyInrIcon,
-} from "@phosphor-icons/react";
+  PlugSocketIcon,
+  RupeeIcon,
+  SignpostIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 import { PAYMENT_TOOLS } from "@/convex/lib/payments";
 import { friendlyError } from "@/lib/errors";
 
@@ -385,7 +386,7 @@ export default function AgentConfigPage({
             nativeButton={false}
             render={<Link href={`${base}/agents`} />}
           >
-            <ArrowLeftIcon />
+            <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} />
           </Button>
           <div className="flex min-w-0 flex-col">
             {/* The title is the switcher. A separate "change agent" control
@@ -459,10 +460,10 @@ export default function AgentConfigPage({
             {/* The label is the first thing to give up on a phone: the icon
                 carries it, the aria-label keeps the button named, and the
                 header stops wrapping onto a third line. */}
-            <ChatsIcon /> <span className="hidden sm:inline">Test in chat</span>
+            <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> <span className="hidden sm:inline">Test in chat</span>
           </Button>
           <Button onClick={save} disabled={saving} aria-label="Save">
-            {saving ? <Spinner /> : <FloppyDiskIcon />}{" "}
+            {saving ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />}{" "}
             <span className="hidden sm:inline">Save</span>
           </Button>
         </div>
@@ -597,7 +598,7 @@ export default function AgentConfigPage({
             {isRouter ? (
               <>
                 <Alert>
-                  <SignpostIcon />
+                  <HugeiconsIcon icon={SignpostIcon} strokeWidth={2} />
                   <AlertTitle>This is the front desk</AlertTitle>
                   <AlertDescription>
                     It answers first on every channel pointed at it, then hands
@@ -700,7 +701,7 @@ export default function AgentConfigPage({
 
                     {draft.status !== "active" ? (
                       <Alert>
-                        <WarningIcon />
+                        <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                         <AlertTitle>Draft and paused agents get no traffic</AlertTitle>
                         <AlertDescription>
                           Only active agents appear in the front desk&apos;s
@@ -1073,7 +1074,7 @@ export default function AgentConfigPage({
                       nativeButton={false}
                       render={<Link href={`${base}/records`} />}
                     >
-                      <FolderOpenIcon /> Set up memberships, appointments,
+                      <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} /> Set up memberships, appointments,
                       bookings…
                     </Button>
                   </div>
@@ -1142,7 +1143,7 @@ export default function AgentConfigPage({
                       nativeButton={false}
                       render={<Link href={`${base}/integrations`} />}
                     >
-                      <PlugsConnectedIcon /> Connect Magic Forms, Magic Reward
+                      <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} /> Connect Magic Forms, Magic Reward
                       or Google
                     </Button>
                   </div>
@@ -1151,7 +1152,7 @@ export default function AgentConfigPage({
                     {paymentsConnected ? (
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                          <CurrencyInrIcon weight="bold" className="size-5" />
+                          <HugeiconsIcon icon={RupeeIcon} strokeWidth={2} className="size-5" />
                           <p className="text-sm font-medium">Razorpay</p>
                         </div>
                         <ItemGroup className="gap-2">
@@ -1289,7 +1290,7 @@ export default function AgentConfigPage({
                       nativeButton={false}
                       render={<Link href={`${base}/tools`} />}
                     >
-                      <WrenchIcon /> Create one from a task description
+                      <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} /> Create one from a task description
                     </Button>
                   </div>
                 ) : (
@@ -1410,7 +1411,7 @@ export default function AgentConfigPage({
                     <AlertDialogTrigger
                       render={
                         <Button variant="destructive">
-                          <TrashIcon /> Delete this agent
+                          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete this agent
                         </Button>
                       }
                     />

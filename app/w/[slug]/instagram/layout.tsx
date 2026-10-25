@@ -26,7 +26,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { InstagramLogoIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AlertCircleIcon,
+  InstagramIcon,
+} from "@hugeicons/core-free-icons";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -73,7 +77,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
         <Empty className="max-w-md border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <InstagramLogoIcon />
+              <HugeiconsIcon icon={InstagramIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>Connect Instagram first</EmptyTitle>
             <EmptyDescription>
@@ -120,7 +124,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
             <span
               className={`flex size-10 items-center justify-center rounded-full text-white ${INSTAGRAM_GRADIENT}`}
             >
-              <InstagramLogoIcon className="size-5" />
+              <HugeiconsIcon icon={InstagramIcon} strokeWidth={2} className="size-5" />
             </span>
           )}
           <div className="min-w-0 flex-1">
@@ -149,7 +153,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
 
         {!channel.canManageComments ? (
           <Alert>
-            <WarningCircleIcon />
+            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
             <AlertTitle>Reconnect to turn on comment automation</AlertTitle>
             <AlertDescription>
               <p>
@@ -163,7 +167,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
                 disabled={reconnecting}
                 onClick={reconnect}
               >
-                {reconnecting ? <Spinner /> : <InstagramLogoIcon />} Reconnect Instagram
+                {reconnecting ? <Spinner /> : <HugeiconsIcon icon={InstagramIcon} strokeWidth={2} />} Reconnect Instagram
               </Button>
             </AlertDescription>
           </Alert>
@@ -171,7 +175,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
 
         {channel.status === "error" && channel.lastError ? (
           <Alert variant="destructive">
-            <WarningCircleIcon />
+            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
             <AlertTitle>Instagram needs attention</AlertTitle>
             <AlertDescription>{channel.lastError}</AlertDescription>
           </Alert>

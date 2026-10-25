@@ -45,17 +45,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  ArrowCounterClockwiseIcon,
-  ArrowsClockwiseIcon,
-  ChatCircleDotsIcon,
-  ImageIcon,
-  MagnifyingGlassIcon,
-  PencilSimpleIcon,
-  RobotIcon,
-  TagIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+  BubbleChatIcon,
+  Image01Icon,
+  PencilEdit02Icon,
+  RefreshIcon,
+  RoboticIcon,
+  Search01Icon,
+  Tag01Icon,
+  Undo02Icon,
+} from "@hugeicons/core-free-icons";
+
 import { friendlyError } from "@/lib/errors";
 
 type Catalogue = NonNullable<
@@ -67,27 +68,27 @@ const ROLES: Array<{
   role: ModelRole;
   title: string;
   description: string;
-  icon: Icon;
+  icon: IconSvgElement;
 }> = [
   {
     role: "chat",
     title: "Chat",
     description:
       "What agents reply with. A workspace's agents run on the models offered here.",
-    icon: ChatCircleDotsIcon,
+    icon: BubbleChatIcon,
   },
   {
     role: "embedding",
     title: "Embedding",
     description:
       "Turns knowledge sources and customer questions into vectors for retrieval.",
-    icon: MagnifyingGlassIcon,
+    icon: Search01Icon,
   },
   {
     role: "classification",
     title: "Classification",
     description: "Sorts and scores guests and imported contacts.",
-    icon: TagIcon,
+    icon: Tag01Icon,
   },
 ];
 
@@ -337,7 +338,7 @@ function ModelRow({
             aria-label={`Edit ${model.modelId}`}
             onClick={() => onEdit(model)}
           >
-            <PencilSimpleIcon />
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
           </Button>
           {model.customised ? (
             <AlertDialog>
@@ -348,7 +349,7 @@ function ModelRow({
                     variant="ghost"
                     aria-label={`Reset ${model.modelId}`}
                   >
-                    <ArrowCounterClockwiseIcon />
+                    <HugeiconsIcon icon={Undo02Icon} strokeWidth={2} />
                   </Button>
                 }
               />
@@ -397,7 +398,7 @@ function ImageProcessingCard() {
     <Card className="shrink-0">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ImageIcon className="size-4 text-muted-foreground" />
+          <HugeiconsIcon icon={Image01Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
           WhatsApp image processing
         </CardTitle>
         <CardDescription>
@@ -527,7 +528,7 @@ export default function AdminModelsPage() {
                   disabled={moving}
                   aria-label="Move every agent to the default model"
                 >
-                  {moving ? <Spinner /> : <RobotIcon />}{" "}
+                  {moving ? <Spinner /> : <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} />}{" "}
                   <span className="hidden sm:inline">
                     Move all agents to default
                   </span>
@@ -563,7 +564,7 @@ export default function AdminModelsPage() {
             onClick={runReprice}
             aria-label="Reprice past usage"
           >
-            {repricing ? <Spinner /> : <ArrowsClockwiseIcon />}{" "}
+            {repricing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />}{" "}
             <span className="hidden sm:inline">Reprice past usage</span>
           </Button>
         </div>
@@ -583,7 +584,7 @@ export default function AdminModelsPage() {
             <Card key={role} className="shrink-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <RoleIcon className="size-4 text-muted-foreground" />
+                  <HugeiconsIcon icon={RoleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
                   {title}
                 </CardTitle>
                 <CardDescription>{description}</CardDescription>

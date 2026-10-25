@@ -59,20 +59,21 @@ import { CardGridSkeleton, TableSkeleton } from "@/components/skeletons";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  BellIcon,
-  ClockCounterClockwiseIcon,
-  EnvelopeSimpleIcon,
-  GearIcon,
-  MagnifyingGlassIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-  TrashIcon,
-  WarningCircleIcon,
-  WebhooksLogoIcon,
-  WhatsappLogoIcon,
-} from "@phosphor-icons/react";
+  AlertCircleIcon,
+  Delete02Icon,
+  Mail01Icon,
+  Notification01Icon,
+  PlusSignIcon,
+  RefreshIcon,
+  Search01Icon,
+  SentIcon,
+  Settings01Icon,
+  WebhookIcon,
+  WhatsappIcon,
+  WorkHistoryIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * Notifications — WhatsApp and email alerts for what happens in the workspace.
@@ -196,7 +197,7 @@ function SendersDialog({
         <DialogBody>
           <section className="flex flex-col gap-3">
             <h3 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              <WhatsappLogoIcon className="size-3.5" /> WhatsApp
+              <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-3.5" /> WhatsApp
             </h3>
             {overview.channels.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -246,7 +247,7 @@ function SendersDialog({
 
           <section className="flex flex-col gap-3">
             <h3 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              <EnvelopeSimpleIcon className="size-3.5" /> Email
+              <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-3.5" /> Email
             </h3>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
@@ -296,7 +297,7 @@ function SendersDialog({
                 disabled={busy !== null || !testTo.trim()}
                 onClick={() => void test()}
               >
-                {busy === "test" ? <Spinner /> : <PaperPlaneTiltIcon />} Send
+                {busy === "test" ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send
               </Button>
             </div>
             {testResult ? (
@@ -411,7 +412,7 @@ function TemplateDialog({
 
           {template.unsupported ? (
             <Alert variant="destructive">
-              <WarningCircleIcon />
+              <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
               <AlertDescription>{template.unsupported}</AlertDescription>
             </Alert>
           ) : null}
@@ -465,10 +466,10 @@ function TemplateDialog({
           {template.sendable ? (
             <>
               <Button variant="outline" onClick={onUse}>
-                <BellIcon /> Use in an alert
+                <HugeiconsIcon icon={Notification01Icon} strokeWidth={2} /> Use in an alert
               </Button>
               <Button disabled={busy || !to.trim()} onClick={() => void submit()}>
-                {busy ? <Spinner /> : <PaperPlaneTiltIcon />} Send
+                {busy ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send
               </Button>
             </>
           ) : (
@@ -729,7 +730,7 @@ function EmailDialog({
                         disabled={busy !== null || !to.trim()}
                         onClick={() => void trySend()}
                       >
-                        {busy === "send" ? <Spinner /> : <PaperPlaneTiltIcon />} Send
+                        {busy === "send" ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send
                       </Button>
                       {result ? (
                         <p
@@ -752,7 +753,7 @@ function EmailDialog({
         <DialogFooter className="sm:justify-between">
           {template ? (
             <Button variant="ghost" disabled={busy !== null} onClick={() => void destroy()}>
-              {busy === "delete" ? <Spinner /> : <TrashIcon />} Delete
+              {busy === "delete" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Delete
             </Button>
           ) : (
             <span />
@@ -808,7 +809,7 @@ function LogDialog({ log, onClose }: { log: NotificationLog; onClose: () => void
         </dl>
         {log.error ? (
           <Alert variant="destructive">
-            <WarningCircleIcon />
+            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
             <AlertTitle>Why it did not send</AlertTitle>
             <AlertDescription className="break-words">{log.error}</AlertDescription>
           </Alert>
@@ -867,16 +868,16 @@ function RuleCard({ rule, onOpen }: { rule: Rule; onOpen: () => void }) {
       <div className="flex items-start gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           {rule.channel === "whatsapp" ? (
-            <WhatsappLogoIcon className="size-5" />
+            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-5" />
           ) : (
-            <EnvelopeSimpleIcon className="size-5" />
+            <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-5" />
           )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{rule.name}</span>
           <span className="block truncate text-xs text-muted-foreground">
             {rule.event === "inbound" ? (
-              <WebhooksLogoIcon className="mr-1 inline size-3.5 align-[-2px]" />
+              <HugeiconsIcon icon={WebhookIcon} strokeWidth={2} className="mr-1 inline size-3.5 align-[-2px]" />
             ) : null}
             {rule.eventLabel}
             {where}
@@ -997,10 +998,10 @@ export default function NotificationsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={!overview} onClick={() => setSendersOpen(true)}>
-            <GearIcon /> Senders
+            <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} /> Senders
           </Button>
           <Button disabled={!overview} onClick={() => openRule(null)}>
-            <PlusIcon /> New alert
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New alert
           </Button>
         </div>
       </header>
@@ -1012,7 +1013,7 @@ export default function NotificationsPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           {[
             {
-              icon: <WhatsappLogoIcon className="size-5" />,
+              icon: <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-5" />,
               title: "WhatsApp",
               ready: Boolean(overview.sender),
               detail: overview.sender
@@ -1020,7 +1021,7 @@ export default function NotificationsPage() {
                 : "No live number — connect one under Channels.",
             },
             {
-              icon: <EnvelopeSimpleIcon className="size-5" />,
+              icon: <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-5" />,
               title: "Email",
               ready: overview.emailReady,
               detail: overview.emailReady
@@ -1063,7 +1064,7 @@ export default function NotificationsPage() {
       <Tabs value={tab} onValueChange={(next) => setTab(String(next))}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="alerts">
-            <BellIcon /> Alerts
+            <HugeiconsIcon icon={Notification01Icon} strokeWidth={2} /> Alerts
             {rules?.length ? (
               <Badge variant="outline" className="ml-1">
                 {activeRules}/{rules.length}
@@ -1071,13 +1072,13 @@ export default function NotificationsPage() {
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="whatsapp">
-            <WhatsappLogoIcon /> WhatsApp templates
+            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} /> WhatsApp templates
           </TabsTrigger>
           <TabsTrigger value="email">
-            <EnvelopeSimpleIcon /> Email templates
+            <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} /> Email templates
           </TabsTrigger>
           <TabsTrigger value="activity">
-            <ClockCounterClockwiseIcon /> Activity
+            <HugeiconsIcon icon={WorkHistoryIcon} strokeWidth={2} /> Activity
           </TabsTrigger>
         </TabsList>
 
@@ -1085,7 +1086,7 @@ export default function NotificationsPage() {
         <TabsContent value="alerts" className="flex flex-col gap-4 pt-4">
           {failingRules > 0 ? (
             <Alert variant="destructive">
-              <WarningCircleIcon />
+              <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
               <AlertTitle>
                 {failingRules === 1 ? "1 alert" : `${failingRules} alerts`} did not send last time
               </AlertTitle>
@@ -1101,7 +1102,7 @@ export default function NotificationsPage() {
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <BellIcon />
+                  <HugeiconsIcon icon={Notification01Icon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>No alerts yet</EmptyTitle>
                 <EmptyDescription>
@@ -1111,7 +1112,7 @@ export default function NotificationsPage() {
                 </EmptyDescription>
               </EmptyHeader>
               <Button onClick={() => openRule(null)}>
-                <PlusIcon /> New alert
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New alert
               </Button>
             </Empty>
           ) : (
@@ -1129,7 +1130,7 @@ export default function NotificationsPage() {
             <CardGridSkeleton count={3} />
           ) : !overview.sender ? (
             <Alert>
-              <WarningCircleIcon />
+              <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
               <AlertTitle>Connect WhatsApp first</AlertTitle>
               <AlertDescription>
                 Templates are synced from the business account of the sending number. Add one
@@ -1157,13 +1158,13 @@ export default function NotificationsPage() {
                   </p>
                 </div>
                 <Button variant="outline" disabled={syncing} onClick={() => void sync()}>
-                  {syncing ? <Spinner /> : <ArrowsClockwiseIcon />} Sync templates
+                  {syncing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Sync templates
                 </Button>
               </div>
 
               {overview.settings.templatesSyncError ? (
                 <Alert variant="destructive">
-                  <WarningCircleIcon />
+                  <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                   <AlertTitle>The last sync failed</AlertTitle>
                   <AlertDescription className="break-words">
                     {overview.settings.templatesSyncError}
@@ -1174,7 +1175,7 @@ export default function NotificationsPage() {
               {templates && templates.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="relative w-full sm:w-72">
-                    <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       value={search}
                       placeholder="Search templates"
@@ -1202,7 +1203,7 @@ export default function NotificationsPage() {
                 <Empty className="border border-dashed">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <WhatsappLogoIcon />
+                      <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} />
                     </EmptyMedia>
                     <EmptyTitle>No templates here yet</EmptyTitle>
                     <EmptyDescription>
@@ -1211,7 +1212,7 @@ export default function NotificationsPage() {
                     </EmptyDescription>
                   </EmptyHeader>
                   <Button disabled={syncing} onClick={() => void sync()}>
-                    {syncing ? <Spinner /> : <ArrowsClockwiseIcon />} Sync templates
+                    {syncing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Sync templates
                   </Button>
                 </Empty>
               ) : filteredTemplates.length === 0 ? (
@@ -1263,7 +1264,7 @@ export default function NotificationsPage() {
         <TabsContent value="email" className="flex flex-col gap-4 pt-4">
           {overview && !overview.emailReady ? (
             <Alert>
-              <EnvelopeSimpleIcon />
+              <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} />
               <AlertTitle>Email sending is not available right now</AlertTitle>
               <AlertDescription>
                 Emails can be written now and will send once it is back. Contact support.
@@ -1273,7 +1274,7 @@ export default function NotificationsPage() {
 
           <div>
             <Button variant="outline" onClick={() => setEmail({ key: Date.now(), template: null })}>
-              <PlusIcon /> New email
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New email
             </Button>
           </div>
 
@@ -1283,7 +1284,7 @@ export default function NotificationsPage() {
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <EnvelopeSimpleIcon />
+                  <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>No emails yet</EmptyTitle>
                 <EmptyDescription>
@@ -1343,7 +1344,7 @@ export default function NotificationsPage() {
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <PaperPlaneTiltIcon />
+                  <HugeiconsIcon icon={SentIcon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>{logs.length === 0 ? "Nothing sent yet" : "Nothing here"}</EmptyTitle>
                 <EmptyDescription>
@@ -1375,9 +1376,9 @@ export default function NotificationsPage() {
                       <TableCell className="font-medium">
                         <span className="flex items-center gap-2">
                           {item.channel === "whatsapp" ? (
-                            <WhatsappLogoIcon className="size-4 shrink-0 text-muted-foreground" />
+                            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
                           ) : (
-                            <EnvelopeSimpleIcon className="size-4 shrink-0 text-muted-foreground" />
+                            <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
                           )}
                           <span className="truncate">{item.to || "Nobody"}</span>
                         </span>

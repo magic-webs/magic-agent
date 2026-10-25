@@ -34,18 +34,21 @@ import {
   useMessageScroller,
 } from "@/components/ui/message-scroller";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  ArrowRightIcon,
-  PaperPlaneRightIcon,
-  UserIcon,
-  WarningCircleIcon,
-  WarningIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+
 // The same agent icon the console's sidebar carries, so the chat a customer
 // sees and the Agents page a workspace edits are one product.
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Robot01Icon } from "@hugeicons/core-free-icons";
+import {
+  HugeiconsIcon,
+} from "@hugeicons/react";
+import {
+  Alert02Icon,
+  AlertCircleIcon,
+  ArrowRight02Icon,
+  Cancel01Icon,
+  Robot01Icon,
+  SentIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
 import { toast } from "@/components/ui/toast";
 import {
   MetaSpacer,
@@ -474,7 +477,7 @@ function WidgetShell({
             className="shrink-0 text-primary-foreground hover:bg-primary-foreground/20"
             onClick={closePanel}
           >
-            <XIcon />
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
           </Button>
         ) : null}
       </header>
@@ -526,7 +529,7 @@ export default function WidgetPage({
     return theme(
       <div className="flex h-svh w-full items-center justify-center bg-background p-4">
         <Alert variant="destructive" className="max-w-sm">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Chat unavailable</AlertTitle>
           <AlertDescription>
             This chat widget has been removed or switched off.
@@ -690,7 +693,7 @@ function RegisterForm({
               Name
             </Label>
             <div className="relative">
-              <UserIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="widget-name"
                 autoComplete="name"
@@ -737,7 +740,7 @@ function RegisterForm({
             ) : (
               <>
                 Start chat
-                <ArrowRightIcon weight="bold" />
+                <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
               </>
             )}
           </Button>
@@ -940,7 +943,7 @@ function ChatIntake({
               {submitting ? (
                 <Spinner />
               ) : (
-                <PaperPlaneRightIcon weight="fill" className="size-5" />
+                <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
               )}
             </button>
           </form>
@@ -1165,7 +1168,7 @@ function Composer({
           disabled={!value.trim()}
           className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-xs transition-[opacity,transform] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60"
         >
-          <PaperPlaneRightIcon weight="fill" className="size-5" />
+          <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
         </button>
       </form>
       <PoweredBy className="pt-1" />
@@ -1373,7 +1376,7 @@ function WidgetChat({
                             className="flex items-center gap-1 text-[0.6875rem] font-medium text-destructive hover:underline"
                             onClick={() => retry(item)}
                           >
-                            <WarningCircleIcon weight="fill" className="size-3.5" />
+                            <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" />
                             Not sent · Tap to retry
                           </button>
                         ) : null

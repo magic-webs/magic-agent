@@ -57,26 +57,27 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  TrashIcon,
-  ArrowLeftIcon,
-  EnvelopeIcon,
-  PhoneIcon,
-  BuildingsIcon,
-  UserIcon,
-  RobotIcon,
-  ClockIcon,
-  DotsThreeIcon,
-  DeviceMobileIcon,
-  CheckIcon,
-  CheckCircleIcon,
-  ArrowsSplitIcon,
-  NotepadIcon,
+  ArrowLeft01Icon,
+  ArrowLeft02Icon,
+  ArrowRight01Icon,
+  Building03Icon,
+  Call02Icon,
+  CheckmarkCircle02Icon,
+  Clock01Icon,
+  Delete02Icon,
+  GitForkIcon,
+  Mail01Icon,
+  MoreHorizontalIcon,
+  Note01Icon,
   PauseIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  ProhibitIcon,
-} from "@phosphor-icons/react";
+  RoboticIcon,
+  SmartPhone01Icon,
+  Tick02Icon,
+  UnavailableIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * One thread, read and answered — the transcript, the facts about it and the
@@ -514,13 +515,11 @@ export function ConversationDetail({
           onClick={toggleDetails}
         >
           {detailsOpen ? (
-            <CaretRightIcon weight="bold" className="size-3.5" />
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
           ) : (
-            <CaretLeftIcon
-              weight="bold"
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2}
               className="size-3.5"
-              data-slot={tabUsed ? undefined : "details-nudge"}
-            />
+              data-slot={tabUsed ? undefined : "details-nudge"} />
           )}
         </button>
 
@@ -534,7 +533,7 @@ export function ConversationDetail({
             className="-ml-1 shrink-0 lg:hidden"
             onClick={onBack}
           >
-            <ArrowLeftIcon />
+            <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} />
           </Button>
 
           <ContactAvatar
@@ -556,7 +555,7 @@ export function ConversationDetail({
                   ordinary case, which is the agent answering. */}
               {conversation.humanHandling ? (
                 <Badge variant="outline" className="gap-1">
-                  <UserIcon className="size-3" />
+                  <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-3" />
                   {/* Short on a phone, where the full sentence runs under the
                       buttons beside it. */}
                   <span className="max-sm:hidden">You have this thread</span>
@@ -571,7 +570,7 @@ export function ConversationDetail({
               ) : null}
               {conversation.markedBot ? (
                 <Badge variant="destructive" className="gap-1">
-                  <ProhibitIcon className="size-3" />
+                  <HugeiconsIcon icon={UnavailableIcon} strokeWidth={2} className="size-3" />
                   Bot · blocked
                 </Badge>
               ) : null}
@@ -592,7 +591,7 @@ export function ConversationDetail({
                 {channel ? <span>· via {channel.name}</span> : null}
               </span>
               <span className="flex items-center gap-1">
-                <ClockIcon className="size-3.5 shrink-0" />
+                <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
                 Last activity {relative(conversation.lastMessageAt)}
               </span>
               {hasReplyWindow(conversation.channelType) ? (
@@ -618,7 +617,7 @@ export function ConversationDetail({
                 disabled={resolving}
                 onClick={() => void resolve()}
               >
-                {resolving ? <Spinner /> : <CheckCircleIcon />}
+                {resolving ? <Spinner /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />}
                 <span className="max-sm:hidden">Resolve</span>
               </Button>
             ) : null}
@@ -634,7 +633,7 @@ export function ConversationDetail({
                   />
                 }
               >
-                <DotsThreeIcon />
+                <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 {/* The label has to sit inside a group: DropdownMenuLabel is
@@ -651,11 +650,10 @@ export function ConversationDetail({
                         });
                       }}
                     >
-                      <CheckIcon
+                      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2}
                         className={cn(
                           conversation.status !== option.value && "invisible"
-                        )}
-                      />
+                        )} />
                       <span className="capitalize">{option.label}</span>
                     </DropdownMenuItem>
                   ))}
@@ -663,11 +661,11 @@ export function ConversationDetail({
                 <DropdownMenuSeparator />
                 {conversation.humanHandling ? (
                   <DropdownMenuItem onClick={() => void resume()}>
-                    <RobotIcon /> Resume agent now
+                    <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> Resume agent now
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem onClick={() => void toggleBot()}>
-                  <ProhibitIcon />
+                  <HugeiconsIcon icon={UnavailableIcon} strokeWidth={2} />
                   {conversation.markedBot ? "Unmark as bot" : "Mark as bot"}
                 </DropdownMenuItem>
                 {onDesk ? null : (
@@ -675,7 +673,7 @@ export function ConversationDetail({
                     variant="destructive"
                     onClick={() => setConfirmingDelete(true)}
                   >
-                    <TrashIcon /> Delete conversation
+                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete conversation
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -1023,14 +1021,14 @@ function ThreadDetails({
 
       <DetailSection title="Contact">
         <dl className="flex flex-col gap-1.5 text-xs">
-          <Fact term={<PhoneIcon className="size-3.5" />}>
+          <Fact term={<HugeiconsIcon icon={Call02Icon} strokeWidth={2} className="size-3.5" />}>
             {contact?.phone ? (
               <span className="font-mono">{contact.phone}</span>
             ) : (
               <span className="text-muted-foreground">—</span>
             )}
           </Fact>
-          <Fact term={<EnvelopeIcon className="size-3.5" />}>
+          <Fact term={<HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-3.5" />}>
             {contact?.email ? (
               <span className="font-mono break-all">{contact.email}</span>
             ) : (
@@ -1038,12 +1036,12 @@ function ThreadDetails({
             )}
           </Fact>
           {contact?.company ? (
-            <Fact term={<BuildingsIcon className="size-3.5" />}>
+            <Fact term={<HugeiconsIcon icon={Building03Icon} strokeWidth={2} className="size-3.5" />}>
               {contact.company}
             </Fact>
           ) : null}
           {contact?.externalId && contact.externalId !== contact.phone ? (
-            <Fact term={<DeviceMobileIcon className="size-3.5" />}>
+            <Fact term={<HugeiconsIcon icon={SmartPhone01Icon} strokeWidth={2} className="size-3.5" />}>
               <span className="font-mono break-all opacity-70">
                 {contact.externalId}
               </span>
@@ -1089,7 +1087,7 @@ function ThreadDetails({
         {pauseEnd ? (
           <div className="flex flex-col gap-2">
             <p className="flex items-center gap-1.5 text-xs">
-              <PauseIcon className="size-3.5 shrink-0 text-amber-600" />
+              <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-3.5 shrink-0 text-amber-600" />
               <span>
                 {holderName} is paused ·{" "}
                 <HandbackCountdown
@@ -1107,12 +1105,12 @@ function ThreadDetails({
               , unless somebody replies by hand first.
             </p>
             <Button size="sm" variant="outline" className="self-start" onClick={onResume}>
-              <RobotIcon /> Resume now
+              <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> Resume now
             </Button>
           </div>
         ) : (
           <p className="flex items-center gap-1.5 text-xs">
-            <RobotIcon className="size-3.5 shrink-0 text-primary" />
+            <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} className="size-3.5 shrink-0 text-primary" />
             {holderName} is answering
           </p>
         )}
@@ -1175,7 +1173,7 @@ function ThreadDetails({
           {conversation.handoffCount ? (
             <Fact term="Handovers">
               <span className="flex items-center gap-1">
-                <ArrowsSplitIcon className="size-3" />
+                <HugeiconsIcon icon={GitForkIcon} strokeWidth={2} className="size-3" />
                 {conversation.handoffCount}
               </span>
             </Fact>
@@ -1244,7 +1242,7 @@ function ContactNotes({
       {dirty ? (
         <div className="flex gap-2">
           <Button size="sm" disabled={saving} onClick={() => void save()}>
-            {saving ? <Spinner /> : <NotepadIcon />} Save note
+            {saving ? <Spinner /> : <HugeiconsIcon icon={Note01Icon} strokeWidth={2} />} Save note
           </Button>
           <Button
             size="sm"

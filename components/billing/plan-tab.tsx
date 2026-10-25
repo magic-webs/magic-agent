@@ -74,18 +74,19 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowClockwiseIcon,
-  ArrowRightIcon,
+  Alert02Icon,
+  ArrowRight02Icon,
   FloppyDiskIcon,
-  MinusIcon,
-  PlusIcon,
-  ReceiptIcon,
-  RobotIcon,
+  Invoice01Icon,
+  MinusSignIcon,
+  PlusSignIcon,
+  RoboticIcon,
+  RotateClockwiseIcon,
+  UserGroupIcon,
   UserIcon,
-  UsersThreeIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 
 type Overview = FunctionReturnType<typeof api.subscriptions.overview>;
 type Enabled = Extract<Overview, { enabled: true }>;
@@ -153,7 +154,7 @@ export function PlanTab() {
       <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <ReceiptIcon />
+            <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
           </EmptyMedia>
           <EmptyTitle>
             Plans aren&apos;t switched on for this platform yet
@@ -181,7 +182,7 @@ export function PlanTab() {
 
       {data.account.mode === "manual" ? (
         <Alert>
-          <ReceiptIcon />
+          <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
           <AlertTitle>Your plan is billed by arrangement</AlertTitle>
           <AlertDescription>
             It is invoiced to you directly rather than through Razorpay, so it
@@ -191,7 +192,7 @@ export function PlanTab() {
         </Alert>
       ) : !data.isOwner ? (
         <Alert>
-          <ReceiptIcon />
+          <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
           <AlertTitle>
             Only the account&apos;s own login can change the plan
           </AlertTitle>
@@ -411,7 +412,7 @@ function StatusCard({ data, now }: { data: Enabled; now: number }) {
 
         {pending ? (
           <Alert>
-            <ArrowClockwiseIcon />
+            <HugeiconsIcon icon={RotateClockwiseIcon} strokeWidth={2} />
             <AlertTitle>A checkout hasn&apos;t been authorised yet</AlertTitle>
             <AlertDescription>
               {pendingPlan ? `The ${pendingPlan.name} plan` : "A plan"}
@@ -476,7 +477,7 @@ function StatusCard({ data, now }: { data: Enabled; now: number }) {
               disabled={busy !== null}
               onClick={checkAgain}
             >
-              {busy === "refresh" ? <Spinner /> : <ArrowClockwiseIcon />} Check
+              {busy === "refresh" ? <Spinner /> : <HugeiconsIcon icon={RotateClockwiseIcon} strokeWidth={2} />} Check
               again
             </Button>
           ) : null}
@@ -536,7 +537,7 @@ function SeatsCard({ data }: { data: Enabled }) {
   const rows = seats
     ? [
         {
-          icon: RobotIcon,
+          icon: RoboticIcon,
           label: "Custom agents live",
           used: used.ai,
           of: seats.ai.included,
@@ -550,7 +551,7 @@ function SeatsCard({ data }: { data: Enabled }) {
           noun: "included",
         },
         {
-          icon: UsersThreeIcon,
+          icon: UserGroupIcon,
           label: "Extra agents in use",
           used: seats.extra.used,
           of: seats.extra.bought,
@@ -569,7 +570,7 @@ function SeatsCard({ data }: { data: Enabled }) {
           <>
             {seats.over > 0 ? (
               <Alert variant="destructive">
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>
                   You&apos;re over your plan by {agents(seats.over)}
                 </AlertTitle>
@@ -598,7 +599,7 @@ function SeatsCard({ data }: { data: Enabled }) {
                   <li key={row.label} className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="flex min-w-0 items-center gap-2">
-                        <Icon className="size-4 shrink-0 text-muted-foreground" />
+                        <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
                         <span className="truncate">{row.label}</span>
                       </span>
                       <span className="shrink-0 tabular-nums">
@@ -644,7 +645,7 @@ function SeatsCard({ data }: { data: Enabled }) {
           nativeButton={false}
           render={<Link href={`${base}/agents`} />}
         >
-          Agents <ArrowRightIcon />
+          Agents <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
         </Button>
         <Button
           variant="outline"
@@ -652,7 +653,7 @@ function SeatsCard({ data }: { data: Enabled }) {
           nativeButton={false}
           render={<Link href={`${base}/team`} />}
         >
-          Team <ArrowRightIcon />
+          Team <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
         </Button>
       </CardFooter>
     </Card>
@@ -871,7 +872,7 @@ function PlanPicker({ data }: { data: Enabled }) {
           <div className="flex min-w-0 flex-col gap-3 self-start rounded-lg border p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <Label htmlFor="extra-agents" className="flex items-center gap-2">
-                <UsersThreeIcon className="size-4 text-muted-foreground" />
+                <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
                 Extra agents
               </Label>
               <p className="text-sm text-muted-foreground">
@@ -892,7 +893,7 @@ function PlanPicker({ data }: { data: Enabled }) {
                 disabled={extras <= 0 || busy}
                 onClick={() => setClamped(extras - 1)}
               >
-                <MinusIcon />
+                <HugeiconsIcon icon={MinusSignIcon} strokeWidth={2} />
               </Button>
               <Input
                 id="extra-agents"
@@ -913,7 +914,7 @@ function PlanPicker({ data }: { data: Enabled }) {
                 disabled={extras >= MAX_EXTRA_AGENTS || busy}
                 onClick={() => setClamped(extras + 1)}
               >
-                <PlusIcon />
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
               </Button>
             </div>
             {needed > 0 ? (
@@ -924,7 +925,7 @@ function PlanPicker({ data }: { data: Enabled }) {
             ) : null}
             {stranded > 0 ? (
               <Alert variant="destructive">
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>
                   {stranded === 1
                     ? "1 agent that is live now won't fit"
@@ -1153,7 +1154,7 @@ function BillingDetails({
         // the account's, and saving them as they are is a real change.
         <CardFooter className="justify-end">
           <Button disabled={busy || gstinInvalid} onClick={save}>
-            {busy ? <Spinner /> : <FloppyDiskIcon />} Save details
+            {busy ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save details
           </Button>
         </CardFooter>
       ) : null}
@@ -1210,7 +1211,7 @@ function PaymentHistory() {
           <Empty className="border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <ReceiptIcon />
+                <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
               </EmptyMedia>
               <EmptyTitle>No payments yet</EmptyTitle>
             </EmptyHeader>

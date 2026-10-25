@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
 import { putFile, type UploadTarget } from "@/lib/upload";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  FileIcon,
-  FilePdfIcon,
-  PaperclipIcon,
-  TrashIcon,
-  UploadSimpleIcon,
-} from "@phosphor-icons/react";
+  Attachment01Icon,
+  Delete02Icon,
+  File01Icon,
+  Pdf01Icon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
 
 export const MAX_PRODUCT_FILES = 10;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -85,9 +86,9 @@ export function FileGlyph({
   className?: string;
 }) {
   return filename.toLowerCase().endsWith(".pdf") ? (
-    <FilePdfIcon className={className ?? "size-4 shrink-0 text-red-600"} />
+    <HugeiconsIcon icon={Pdf01Icon} strokeWidth={2} className={className ?? "size-4 shrink-0 text-red-600"} />
   ) : (
-    <FileIcon className={className ?? "size-4 shrink-0 text-muted-foreground"} />
+    <HugeiconsIcon icon={File01Icon} strokeWidth={2} className={className ?? "size-4 shrink-0 text-muted-foreground"} />
   );
 }
 
@@ -134,7 +135,7 @@ export function ProductFilesEditor({
       <div className="flex items-end justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <Label>
-            <PaperclipIcon /> Files
+            <HugeiconsIcon icon={Attachment01Icon} strokeWidth={2} /> Files
           </Label>
           <p className="text-xs text-muted-foreground">
             {description ??
@@ -148,7 +149,7 @@ export function ProductFilesEditor({
           disabled={value.length >= MAX_PRODUCT_FILES}
           onClick={() => input.current?.click()}
         >
-          <UploadSimpleIcon /> Add file
+          <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} /> Add file
         </Button>
         <input
           ref={input}
@@ -196,7 +197,7 @@ export function ProductFilesEditor({
                   onChange(value.filter((_, position) => position !== index))
                 }
               >
-                <TrashIcon />
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
               </Button>
             </li>
           ))}

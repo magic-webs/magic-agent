@@ -28,13 +28,14 @@ import {
 import { toast } from "@/components/ui/toast";
 import { stepHref } from "@/lib/onboarding";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  CardsIcon,
-  PlusIcon,
-  SlidersIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight02Icon,
+  Layers01Icon,
+  PlusSignIcon,
+  SlidersVerticalIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * Step 3 — the agents.
@@ -339,7 +340,7 @@ function AgentRow({
 
       {unrouted ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle className="font-normal">
             No “hand over to me when…” line, so the front desk will never send
             this agent a conversation.
@@ -372,7 +373,7 @@ function AgentRow({
           nativeButton={false}
           render={<Link href={`/w/${slug}/agents/${agent._id}`} />}
         >
-          <SlidersIcon /> Full settings
+          <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Full settings
         </Button>
       </div>
     </div>
@@ -537,10 +538,10 @@ export function AgentsStep() {
           ) : (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => setAdding("template")}>
-                <CardsIcon /> Start from a template
+                <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} /> Start from a template
               </Button>
               <Button variant="ghost" onClick={() => setAdding("form")}>
-                <PlusIcon /> Write your own
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Write your own
               </Button>
             </div>
           )}
@@ -549,7 +550,7 @@ export function AgentsStep() {
 
       {specialists.length > 0 && !anyLive ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle className="font-normal">
             Every agent is still a draft, and a draft receives no traffic — take
             the one that should start answering live.
@@ -559,7 +560,7 @@ export function AgentsStep() {
 
       <div>
         <Button onClick={() => router.push(stepHref(workspace.slug, "knowledge"))}>
-          Continue <ArrowRightIcon />
+          Continue <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
         </Button>
       </div>
     </div>

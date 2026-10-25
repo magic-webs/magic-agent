@@ -12,7 +12,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SparkleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { SparklesIcon } from "@hugeicons/core-free-icons";
+
 import { CATEGORIES, CHANNELS, type Category } from "./shared";
 import { TEMPLATES, type NotificationTemplate } from "./templates";
 
@@ -58,7 +60,7 @@ export function TemplateGallery({
             className="flex flex-col justify-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <span className="flex items-center gap-2 text-sm font-medium">
-              <SparkleIcon className="size-4 text-primary" /> Write with AI
+              <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4 text-primary" /> Write with AI
             </span>
             <span className="text-xs text-muted-foreground">
               Describe the news in a line or two and get the push, email and SMS written for you.
@@ -78,7 +80,7 @@ export function TemplateGallery({
                 </div>
                 <div className="flex shrink-0 gap-1 text-muted-foreground">
                   {CHANNELS.filter((channel) => template.channels[channel.value]).map((channel) => (
-                    <channel.icon key={channel.value} className="size-3.5" aria-label={channel.label} />
+                    <HugeiconsIcon icon={channel.icon} strokeWidth={2} key={channel.value} className="size-3.5" aria-label={channel.label} />
                   ))}
                 </div>
               </div>

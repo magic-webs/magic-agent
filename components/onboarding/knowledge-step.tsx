@@ -23,13 +23,14 @@ import {
 import { toast } from "@/components/ui/toast";
 import { stepHref } from "@/lib/onboarding";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  GlobeIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  ArrowRight02Icon,
+  Cancel01Icon,
+  Globe02Icon,
+  PlusSignIcon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * Step 4 — the knowledge base.
@@ -174,9 +175,9 @@ export function KnowledgeStep() {
               >
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                   {source.kind === "url" ? (
-                    <GlobeIcon className="size-4" />
+                    <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} className="size-4" />
                   ) : (
-                    <MagnifyingGlassIcon className="size-4" />
+                    <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -203,7 +204,7 @@ export function KnowledgeStep() {
                   aria-label={`Remove ${source.title}`}
                   onClick={() => void drop(source._id, source.title)}
                 >
-                  <XIcon />
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
                 </Button>
               </div>
             );
@@ -286,7 +287,7 @@ export function KnowledgeStep() {
               className="self-start"
               onClick={() => setAdding(true)}
             >
-              <PlusIcon /> Add a source
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a source
             </Button>
           )}
         </CardContent>
@@ -305,7 +306,7 @@ export function KnowledgeStep() {
 
       <div>
         <Button onClick={() => router.push(stepHref(workspace.slug, "catalogue"))}>
-          Continue <ArrowRightIcon />
+          Continue <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
         </Button>
       </div>
     </div>

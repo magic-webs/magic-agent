@@ -9,7 +9,12 @@ import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { CheckCircleIcon, ImageIcon, VideoIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  CheckmarkCircle02Icon,
+  Image01Icon,
+  Video01Icon,
+} from "@hugeicons/core-free-icons";
 
 type Picked = { id: string; caption?: string; thumbnailUrl?: string; permalink?: string };
 
@@ -104,14 +109,12 @@ export function PostPicker({
               <img src={post.thumbnailUrl} alt="" className="size-full object-cover" />
             ) : (
               <span className="flex size-full items-center justify-center text-muted-foreground">
-                {post.mediaType === "VIDEO" ? <VideoIcon /> : <ImageIcon />}
+                {post.mediaType === "VIDEO" ? <HugeiconsIcon icon={Video01Icon} strokeWidth={2} /> : <HugeiconsIcon icon={Image01Icon} strokeWidth={2} />}
               </span>
             )}
             {on ? (
-              <CheckCircleIcon
-                weight="fill"
-                className="absolute top-1 right-1 size-5 rounded-full bg-background text-primary"
-              />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+                className="absolute top-1 right-1 size-5 rounded-full bg-background text-primary" />
             ) : null}
           </button>
         );

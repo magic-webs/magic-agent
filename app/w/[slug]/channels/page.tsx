@@ -69,21 +69,22 @@ import {
   type ChannelKind,
 } from "@/components/channel-mark";
 import { CardGridSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  WhatsappLogoIcon,
-  PlusIcon,
-  CopyIcon,
-  WarningIcon,
-  InfoIcon,
-  GlobeIcon,
-  ChatCircleIcon,
-  UsersIcon,
-  DotsThreeIcon,
-  ArrowsDownUpIcon,
-  GearIcon,
-  RowsIcon,
-  SquaresFourIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowDataTransferVerticalIcon,
+  Comment01Icon,
+  Copy01Icon,
+  DashboardSquare01Icon,
+  Globe02Icon,
+  InformationCircleIcon,
+  Menu01Icon,
+  MoreHorizontalIcon,
+  PlusSignIcon,
+  Settings01Icon,
+  UserMultipleIcon,
+  WhatsappIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -117,7 +118,7 @@ function CopyButton({
       aria-label={`Copy ${label}`}
       onClick={() => void copyText(value, label)}
     >
-      <CopyIcon />
+      <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
     </Button>
   );
 }
@@ -150,7 +151,7 @@ function CopyField({
           className="self-center bg-background"
           onClick={() => void copyText(value, label)}
         >
-          <CopyIcon /> Copy
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy
         </Button>
       </div>
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
@@ -535,7 +536,7 @@ function ChannelDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />}{" "}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}{" "}
             {channelId ? "Save changes" : "Create channel"}
           </Button>
         </DialogFooter>
@@ -756,7 +757,7 @@ function ProviderChannelDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />}{" "}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}{" "}
             {channelId ? "Save changes" : "Create channel"}
           </Button>
         </DialogFooter>
@@ -955,7 +956,7 @@ function WebChannelDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />}{" "}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}{" "}
             {channelId ? "Save changes" : "Create widget"}
           </Button>
         </DialogFooter>
@@ -1196,7 +1197,7 @@ function ChannelMenu({
         <DropdownMenuTrigger
           render={
             <Button size="icon-lg" variant="ghost" aria-label="Channel actions">
-              <DotsThreeIcon weight="bold" />
+              <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
             </Button>
           }
         />
@@ -1525,7 +1526,7 @@ function ChannelSetup({
     <>
       {channel.lastError ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Last delivery problem</AlertTitle>
           <AlertDescription className="font-mono text-xs">
             {channel.lastError}
@@ -1609,7 +1610,7 @@ function ChannelSetup({
         {isWeb ? (
           <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium">
-              <InfoIcon className="size-4 text-muted-foreground" />
+              <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
               What your visitors see
             </p>
             <p className="text-xs text-muted-foreground">
@@ -1627,7 +1628,7 @@ function ChannelSetup({
                   variant="outline"
                   className="mt-1 self-start bg-background"
                 >
-                  <GearIcon /> View customisation options
+                  <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} /> View customisation options
                 </Button>
               }
             >
@@ -1718,7 +1719,7 @@ function TelegramSetup({
     <>
       {channel.lastError ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Last delivery problem</AlertTitle>
           <AlertDescription className="font-mono text-xs">
             {channel.lastError}
@@ -1756,7 +1757,7 @@ function TelegramSetup({
 
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
           <p className="flex items-center gap-1.5 text-sm font-medium">
-            <InfoIcon className="size-4 text-muted-foreground" />
+            <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
             Nothing to set up
           </p>
           <p className="text-xs text-muted-foreground">
@@ -1800,7 +1801,7 @@ function InstagramSetup({
     <>
       {channel.lastError ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Last delivery problem</AlertTitle>
           <AlertDescription className="font-mono text-xs">
             {channel.lastError}
@@ -1873,7 +1874,7 @@ function InstagramSetup({
 
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
           <p className="flex items-center gap-1.5 text-sm font-medium">
-            <InfoIcon className="size-4 text-muted-foreground" />
+            <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
             No messages arriving?
           </p>
           <p className="text-xs text-muted-foreground">
@@ -1956,12 +1957,12 @@ function ChannelCard({
 
           <div className="flex flex-wrap items-center gap-2">
             <StatTile
-              icon={<ChatCircleIcon className="size-4" />}
+              icon={<HugeiconsIcon icon={Comment01Icon} strokeWidth={2} className="size-4" />}
               value={channel.messageCount}
               label="Messages"
             />
             <StatTile
-              icon={<UsersIcon className="size-4" />}
+              icon={<HugeiconsIcon icon={UserMultipleIcon} strokeWidth={2} className="size-4" />}
               value={channel.contactCount}
               label={isWeb ? "Visitors" : "Customers"}
             />
@@ -2042,14 +2043,14 @@ function ChannelTile({
         </p>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <ChatCircleIcon className="size-4" />
+            <HugeiconsIcon icon={Comment01Icon} strokeWidth={2} className="size-4" />
             <span className="font-semibold text-foreground tabular-nums">
               {channel.messageCount}
             </span>{" "}
             messages
           </span>
           <span className="flex items-center gap-1.5">
-            <UsersIcon className="size-4" />
+            <HugeiconsIcon icon={UserMultipleIcon} strokeWidth={2} className="size-4" />
             <span className="font-semibold text-foreground tabular-nums">
               {channel.contactCount}
             </span>{" "}
@@ -2061,7 +2062,7 @@ function ChannelTile({
             className="flex items-center gap-1.5 truncate text-xs text-destructive"
             title={channel.lastError}
           >
-            <WarningIcon className="size-3.5 shrink-0" />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3.5 shrink-0" />
             {channel.lastError}
           </p>
         ) : null}
@@ -2071,7 +2072,7 @@ function ChannelTile({
             <DialogTrigger
               render={
                 <Button size="sm" variant="outline">
-                  <GearIcon />{" "}
+                  <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />{" "}
                   {isWeb ? "Embed & QR" : isInstagram ? "Account & QR" : "Setup & QR"}
                 </Button>
               }
@@ -2111,7 +2112,7 @@ function ConnectButtons() {
       <ChannelDialog
         trigger={
           <Button variant="outline">
-            <WhatsappLogoIcon /> Connect WhatsApp
+            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} /> Connect WhatsApp
           </Button>
         }
       />
@@ -2135,7 +2136,7 @@ function ConnectButtons() {
       <WebChannelDialog
         trigger={
           <Button>
-            <GlobeIcon /> Create Web Widget
+            <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} /> Create Web Widget
           </Button>
         }
       />
@@ -2269,7 +2270,7 @@ export default function ChannelsPage() {
                 className={view === "grid" ? "bg-primary/10 text-primary" : undefined}
                 onClick={() => setView("grid")}
               >
-                <SquaresFourIcon />
+                <HugeiconsIcon icon={DashboardSquare01Icon} strokeWidth={2} />
               </Button>
               <Button
                 size="icon-sm"
@@ -2280,7 +2281,7 @@ export default function ChannelsPage() {
                 className={view === "cards" ? "bg-primary/10 text-primary" : undefined}
                 onClick={() => setView("cards")}
               >
-                <RowsIcon />
+                <HugeiconsIcon icon={Menu01Icon} strokeWidth={2} />
               </Button>
             </div>
 
@@ -2288,7 +2289,7 @@ export default function ChannelsPage() {
               <DropdownMenuTrigger
                 render={
                   <Button variant="outline" size="sm">
-                    <ArrowsDownUpIcon />
+                    <HugeiconsIcon icon={ArrowDataTransferVerticalIcon} strokeWidth={2} />
                     {SORTS.find((option) => option.value === sort)?.label}
                   </Button>
                 }
@@ -2317,7 +2318,7 @@ export default function ChannelsPage() {
 
       {!hasAgents ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Create an agent first</AlertTitle>
           <AlertDescription>
             A channel routes messages to one agent, so there has to be one to
@@ -2337,7 +2338,7 @@ export default function ChannelsPage() {
           <Empty className="border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <WhatsappLogoIcon />
+                <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} />
               </EmptyMedia>
               <EmptyTitle>No channels connected</EmptyTitle>
               <EmptyDescription>

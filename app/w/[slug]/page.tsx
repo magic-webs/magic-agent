@@ -35,15 +35,16 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CaretRightIcon,
-  ChatsIcon,
-  CheckCircleIcon,
+  Alert02Icon,
+  ArrowRight01Icon,
+  BubbleChatIcon,
+  CheckmarkCircle02Icon,
   CircleIcon,
-  RobotIcon,
-  WarningIcon,
-  WrenchIcon,
-} from "@phosphor-icons/react";
+  RoboticIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 
 const RANGES = [
   { value: "7", label: "Last 7 days" },
@@ -120,7 +121,7 @@ export default function WorkspaceOverviewPage() {
           fits on one line, and the link is the part that matters. */}
       {!workspace.description ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>
             Agents answer better with a company description —{" "}
             <Link href={`${base}/onboarding/profile`} className="underline">
@@ -244,12 +245,10 @@ export default function WorkspaceOverviewPage() {
                         className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/60"
                       >
                         {step.ready ? (
-                          <CheckCircleIcon
-                            weight="fill"
-                            className="size-4.5 shrink-0 text-primary"
-                          />
+                          <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+                            className="size-4.5 shrink-0 text-primary" />
                         ) : (
-                          <CircleIcon className="size-4.5 shrink-0 text-muted-foreground/50" />
+                          <HugeiconsIcon icon={CircleIcon} strokeWidth={2} className="size-4.5 shrink-0 text-muted-foreground/50" />
                         )}
                         <span
                           className={cn(
@@ -262,7 +261,7 @@ export default function WorkspaceOverviewPage() {
                         <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
                           {progressLoading ? "" : `${step.percent}%`}
                         </span>
-                        <CaretRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
                       </Link>
                     </li>
                   ))}
@@ -298,7 +297,7 @@ export default function WorkspaceOverviewPage() {
                       nativeButton={false}
                       render={<Link href={`${base}/agents`} />}
                     >
-                      <RobotIcon /> Create the first agent
+                      <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> Create the first agent
                     </Button>
                   </div>
                 ) : (
@@ -306,7 +305,7 @@ export default function WorkspaceOverviewPage() {
                     {agents.slice(0, 5).map((agent) => (
                       <Item key={agent._id} variant="outline">
                         <ItemMedia variant="icon">
-                          <RobotIcon />
+                          <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} />
                         </ItemMedia>
                         <ItemContent className="min-w-0">
                           <ItemTitle className="flex min-w-0 items-center gap-2">
@@ -335,7 +334,7 @@ export default function WorkspaceOverviewPage() {
                               <Link href={`${base}/agents/${agent._id}/test`} />
                             }
                           >
-                            <ChatsIcon />
+                            <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} />
                           </Button>
                           <Button
                             size="icon-lg"
@@ -347,7 +346,7 @@ export default function WorkspaceOverviewPage() {
                               <Link href={`${base}/agents/${agent._id}`} />
                             }
                           >
-                            <WrenchIcon />
+                            <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} />
                           </Button>
                         </div>
                       </Item>

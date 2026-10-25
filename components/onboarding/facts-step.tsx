@@ -19,7 +19,13 @@ import {
 import { toast } from "@/components/ui/toast";
 import { stepHref, SUGGESTED_FACTS } from "@/lib/onboarding";
 import { friendlyError } from "@/lib/errors";
-import { FloppyDiskIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Cancel01Icon,
+  FloppyDiskIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
+
 
 /**
  * Step 2 — company facts.
@@ -146,7 +152,7 @@ export function FactsStep() {
                     )
                   }
                 >
-                  <XIcon />
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
                 </Button>
               </div>
 
@@ -173,7 +179,7 @@ export function FactsStep() {
             className="self-start"
             onClick={() => add()}
           >
-            <PlusIcon /> Add a fact
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a fact
           </Button>
         </CardContent>
       </Card>
@@ -196,7 +202,7 @@ export function FactsStep() {
                   variant="outline"
                   onClick={() => add(suggestion)}
                 >
-                  <PlusIcon /> {suggestion}
+                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> {suggestion}
                 </Button>
               ))}
             </div>
@@ -206,7 +212,7 @@ export function FactsStep() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => void save("continue")} disabled={saving}>
-          <FloppyDiskIcon /> {saving ? "Saving…" : "Save and continue"}
+          <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} /> {saving ? "Saving…" : "Save and continue"}
         </Button>
         <Button variant="outline" onClick={() => void save()} disabled={saving}>
           Save and stay

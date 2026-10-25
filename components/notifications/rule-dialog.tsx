@@ -29,19 +29,20 @@ import {
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
 import { formatDistanceToNow } from "date-fns";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  CopyIcon,
-  EnvelopeSimpleIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-  TrashIcon,
+  AlertCircleIcon,
+  Cancel01Icon,
+  Copy01Icon,
+  Delete02Icon,
+  Mail01Icon,
+  PlusSignIcon,
+  RefreshIcon,
+  SentIcon,
   UserIcon,
-  UsersIcon,
-  WarningCircleIcon,
-  WhatsappLogoIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  UserMultipleIcon,
+  WhatsappIcon,
+} from "@hugeicons/core-free-icons";
 import {
   copyText,
   fail,
@@ -441,7 +442,7 @@ export function RuleDialog({
 
             {isRecord && overview.books.length === 0 ? (
               <Alert>
-                <WarningCircleIcon />
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                 <AlertDescription>
                   This workspace has no record books yet.{" "}
                   <Link className="underline" href={`/w/${workspace.slug}/records`}>
@@ -453,7 +454,7 @@ export function RuleDialog({
             ) : null}
             {initial?.bookId && !initial.bookName && bookId === initial.bookId ? (
               <Alert variant="destructive">
-                <WarningCircleIcon />
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                 <AlertDescription>
                   The book this alert listened to was deleted. Pick another.
                 </AlertDescription>
@@ -476,7 +477,7 @@ export function RuleDialog({
                       aria-label="Copy URL"
                       onClick={() => void copyText(saved.inboundUrl ?? "", "URL")}
                     >
-                      <CopyIcon />
+                      <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                     </Button>
                     <Button
                       size="sm"
@@ -484,7 +485,7 @@ export function RuleDialog({
                       disabled={busy !== null}
                       onClick={() => void rotate()}
                     >
-                      {busy === "rotate" ? <Spinner /> : <ArrowsClockwiseIcon />} New URL
+                      {busy === "rotate" ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} New URL
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -514,7 +515,7 @@ export function RuleDialog({
                         disabled={busy !== null}
                         onClick={() => void capture(false)}
                       >
-                        {busy === "capture" ? <Spinner /> : <XIcon />} Cancel
+                        {busy === "capture" ? <Spinner /> : <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />} Cancel
                       </Button>
                     ) : saved.sampleAt ? (
                       <Button
@@ -523,7 +524,7 @@ export function RuleDialog({
                         disabled={busy !== null}
                         onClick={() => void capture(true)}
                       >
-                        {busy === "capture" ? <Spinner /> : <PlusIcon />} Capture new sample
+                        {busy === "capture" ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Capture new sample
                       </Button>
                     ) : null}
                   </div>
@@ -553,10 +554,10 @@ export function RuleDialog({
                 className="rounded-lg border p-0.5"
               >
                 <ToggleGroupItem value="whatsapp" aria-label="WhatsApp">
-                  <WhatsappLogoIcon /> WhatsApp
+                  <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} /> WhatsApp
                 </ToggleGroupItem>
                 <ToggleGroupItem value="email" aria-label="Email">
-                  <EnvelopeSimpleIcon /> Email
+                  <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} /> Email
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
@@ -564,7 +565,7 @@ export function RuleDialog({
             {channel === "whatsapp" ? (
               !overview.sender ? (
                 <Alert variant="destructive">
-                  <WarningCircleIcon />
+                  <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                   <AlertDescription>
                     No live WhatsApp number.{" "}
                     <Link className="underline" href={`/w/${workspace.slug}/channels`}>
@@ -575,7 +576,7 @@ export function RuleDialog({
                 </Alert>
               ) : templates.length === 0 ? (
                 <Alert>
-                  <WhatsappLogoIcon />
+                  <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} />
                   <AlertDescription>
                     No templates synced yet. Sync them on the WhatsApp templates tab, then
                     pick one here.
@@ -619,7 +620,7 @@ export function RuleDialog({
 
                   {selectedKey && !template ? (
                     <Alert variant="destructive">
-                      <WarningCircleIcon />
+                      <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                       <AlertDescription>
                         The template this alert sent is no longer on the panel. Pick another,
                         or sync again.
@@ -628,7 +629,7 @@ export function RuleDialog({
                   ) : null}
                   {template && !template.sendable ? (
                     <Alert variant="destructive">
-                      <WarningCircleIcon />
+                      <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                       <AlertDescription>
                         {template.unsupported ??
                           `“${template.name}” is ${template.status.toLowerCase()} and will not send until Meta approves it.`}
@@ -686,14 +687,14 @@ export function RuleDialog({
               )
             ) : !overview.emailReady ? (
               <Alert variant="destructive">
-                <WarningCircleIcon />
+                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
                 <AlertDescription>
                   Email sending is not available right now. Contact support.
                 </AlertDescription>
               </Alert>
             ) : emailTemplates.length === 0 ? (
               <Alert>
-                <EnvelopeSimpleIcon />
+                <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} />
                 <AlertDescription>
                   Write an email on the Email templates tab first, then pick it here.
                 </AlertDescription>
@@ -766,9 +767,9 @@ export function RuleDialog({
                     className="flex items-center gap-2.5 rounded-md border border-border px-3 py-2"
                   >
                     {channel === "whatsapp" ? (
-                      <WhatsappLogoIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
                     ) : (
-                      <EnvelopeSimpleIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
                     )}
                     <span className="min-w-0 flex-1 truncate text-sm">{describe(entry)}</span>
                     {entry === customer ? (
@@ -784,7 +785,7 @@ export function RuleDialog({
                         setRecipients((list) => list.filter((item) => item !== entry))
                       }
                     >
-                      <XIcon />
+                      <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
                     </Button>
                   </li>
                 ))}
@@ -802,7 +803,7 @@ export function RuleDialog({
                     className="border-dashed"
                     onClick={() => addRecipient(customer)}
                   >
-                    <UserIcon /> The customer
+                    <HugeiconsIcon icon={UserIcon} strokeWidth={2} /> The customer
                   </Button>
                 ) : null}
                 {teammates.map((member) => {
@@ -815,7 +816,7 @@ export function RuleDialog({
                       className="border-dashed"
                       onClick={() => addRecipient(address)}
                     >
-                      <UsersIcon /> {member.name}
+                      <HugeiconsIcon icon={UserMultipleIcon} strokeWidth={2} /> {member.name}
                     </Button>
                   );
                 })}
@@ -844,7 +845,7 @@ export function RuleDialog({
                 disabled={!recipientDraft.trim()}
                 onClick={() => addRecipient(recipientDraft)}
               >
-                <PlusIcon /> Add
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add
               </Button>
             </div>
             {channel === "whatsapp" ? (
@@ -880,7 +881,7 @@ export function RuleDialog({
                     disabled={busy !== null || !testTo.trim()}
                     onClick={() => void test()}
                   >
-                    {busy === "test" ? <Spinner /> : <PaperPlaneTiltIcon />} Send test
+                    {busy === "test" ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send test
                   </Button>
                 </div>
                 {testResult ? (
@@ -902,7 +903,7 @@ export function RuleDialog({
         <DialogFooter className="sm:justify-between">
           {ruleId ? (
             <Button variant="ghost" disabled={busy !== null} onClick={() => void remove()}>
-              {busy === "delete" ? <Spinner /> : <TrashIcon />} Delete
+              {busy === "delete" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Delete
             </Button>
           ) : (
             <span />

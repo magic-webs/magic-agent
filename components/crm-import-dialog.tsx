@@ -22,7 +22,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { friendlyError } from "@/lib/errors";
-import { TrayArrowDownIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { FileImportIcon } from "@hugeicons/core-free-icons";
 
 const STATUS_LABEL = {
   running: "Importing…",
@@ -89,7 +90,7 @@ export function CrmImportDialog() {
       <DialogTrigger
         render={
           <Button variant="outline">
-            {running ? <Spinner /> : <TrayArrowDownIcon />} Import from CRM
+            {running ? <Spinner /> : <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />} Import from CRM
           </Button>
         }
       />
@@ -168,7 +169,7 @@ export function CrmImportDialog() {
               disabled={!chosenChannel || !baseUrl.trim() || !apiKey.trim() || busy}
               onClick={() => void submit()}
             >
-              {busy ? <Spinner /> : <TrayArrowDownIcon />} {job ? "Import again" : "Start import"}
+              {busy ? <Spinner /> : <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />} {job ? "Import again" : "Start import"}
             </Button>
           )}
         </DialogFooter>

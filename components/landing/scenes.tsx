@@ -1,20 +1,21 @@
 "use client";
 
 import { useRef } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowUpIcon,
+  ArrowLeft01Icon,
+  ArrowUp02Icon,
   BatteryFullIcon,
-  CameraIcon,
-  CaretLeftIcon,
-  CellSignalFullIcon,
-  CheckIcon,
-  ChecksIcon,
-  LightningIcon,
-  MicrophoneIcon,
-  PlusIcon,
-  StorefrontIcon,
-  WifiHighIcon,
-} from "@phosphor-icons/react";
+  Camera01Icon,
+  FlashIcon,
+  Mic01Icon,
+  PlusSignIcon,
+  SignalFull02Icon,
+  Store01Icon,
+  Tick02Icon,
+  TickDouble02Icon,
+  Wifi01Icon,
+} from "@hugeicons/core-free-icons";
 import { ChannelMark } from "@/components/channel-mark";
 import { countUp, useScene, type Select } from "@/components/landing/use-scene";
 import { cn } from "@/lib/utils";
@@ -90,7 +91,7 @@ function Stamp({ time, read = false }: { time: string; read?: boolean }) {
   return (
     <span className="mt-0.5 flex items-center justify-end gap-0.5 text-[10px] text-(--ink-muted)">
       {time}
-      {read ? <ChecksIcon weight="bold" className="size-3.5 text-sky-500" /> : null}
+      {read ? <HugeiconsIcon icon={TickDouble02Icon} strokeWidth={2} className="size-3.5 text-sky-500" /> : null}
     </span>
   );
 }
@@ -152,15 +153,15 @@ export function ChatScene() {
             <div className="flex h-11 items-end justify-between px-6 pb-1 text-[12px] font-semibold">
               9:41
               <span className="flex items-center gap-1">
-                <CellSignalFullIcon weight="fill" className="size-3.5" />
-                <WifiHighIcon weight="bold" className="size-3.5" />
-                <BatteryFullIcon weight="fill" className="size-4.5" />
+                <HugeiconsIcon icon={SignalFull02Icon} strokeWidth={2} className="size-3.5" />
+                <HugeiconsIcon icon={Wifi01Icon} strokeWidth={2} className="size-3.5" />
+                <HugeiconsIcon icon={BatteryFullIcon} strokeWidth={2} className="size-4.5" />
               </span>
             </div>
             <div className="flex items-center gap-2 border-b border-(--line) px-2 pt-1 pb-2">
-              <CaretLeftIcon weight="bold" className="size-4.5 text-(--ok)" />
+              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4.5 text-(--ok)" />
               <span className="flex size-8 items-center justify-center rounded-full bg-(--ok-soft) text-(--ok)">
-                <StorefrontIcon weight="fill" className="size-4" />
+                <HugeiconsIcon icon={Store01Icon} strokeWidth={2} className="size-4" />
               </span>
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="text-[13px] font-semibold">Crumb &amp; Co. Bakery</p>
@@ -197,10 +198,10 @@ export function ChatScene() {
           </div>
 
           <div className="flex items-center gap-2 bg-(--surface) px-3 pt-2 text-(--ink-muted)">
-            <PlusIcon className="size-4.5" />
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-4.5" />
             <span className="flex-1 rounded-full border border-(--line) px-3 py-1.5 text-[12px]">Message</span>
-            <CameraIcon className="size-4.5" />
-            <MicrophoneIcon className="size-4.5" />
+            <HugeiconsIcon icon={Camera01Icon} strokeWidth={2} className="size-4.5" />
+            <HugeiconsIcon icon={Mic01Icon} strokeWidth={2} className="size-4.5" />
           </div>
           <div className="flex justify-center bg-(--surface) pt-3 pb-2">
             <span className="h-1 w-24 rounded-full bg-(--ink)" />
@@ -212,7 +213,7 @@ export function ChatScene() {
         data-foot
         className="flex items-center gap-1.5 rounded-full border border-(--line) bg-(--surface) px-4 py-2 text-xs text-(--ink-muted) shadow-sm"
       >
-        <LightningIcon weight="fill" className="size-3.5 text-amber-500" />
+        <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3.5 text-amber-500" />
         Answered in 4 seconds, from your own price list
       </div>
     </div>
@@ -308,7 +309,7 @@ export function EnquiryScene() {
                 data-check
                 className="flex size-5 shrink-0 items-center justify-center rounded-full bg-(--ok) text-white"
               >
-                <CheckIcon weight="bold" className="size-3" />
+                <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3" />
               </span>
             </li>
           ))}
@@ -398,7 +399,7 @@ export function InsightScene() {
             data-pill
             className="flex items-center gap-0.5 rounded-full bg-(--ok-soft) px-2 py-0.5 text-xs font-bold text-(--ok)"
           >
-            <ArrowUpIcon weight="bold" className="size-3" />
+            <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} className="size-3" />
             38%
           </span>
         </div>

@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { PlusIcon, XIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Cancel01Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
+
 
 // ---------------------------------------------------------------------------
 // A list of short strings — used for rules, guardrails, tone traits, tags.
@@ -57,7 +62,7 @@ export function StringListEditor({
                 aria-label={`Remove ${item}`}
                 onClick={() => onChange(value.filter((_, i) => i !== index))}
               >
-                <XIcon />
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
               </Button>
             </li>
           ))}
@@ -77,7 +82,7 @@ export function StringListEditor({
           }}
         />
         <Button type="button" variant="outline" onClick={add}>
-          <PlusIcon /> Add
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add
         </Button>
       </div>
     </div>
@@ -124,7 +129,7 @@ export function ChipListEditor({
               className="opacity-60 hover:opacity-100"
               onClick={() => onChange(value.filter((v) => v !== item))}
             >
-              <XIcon className="size-3" />
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
             </button>
           </Badge>
         ))}
@@ -154,7 +159,7 @@ export function ChipListEditor({
             setDraft("");
           }}
         >
-          <PlusIcon />
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
         </Button>
       </div>
 
@@ -235,7 +240,7 @@ export function KeyValueEditor({
             aria-label="Remove row"
             onClick={() => onChange(value.filter((_, i) => i !== index))}
           >
-            <XIcon />
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
           </Button>
         </div>
       ))}
@@ -247,7 +252,7 @@ export function KeyValueEditor({
         className="self-start"
         onClick={() => onChange([...value, { key: "", value: "" }])}
       >
-        <PlusIcon /> Add row
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add row
       </Button>
     </div>
   );

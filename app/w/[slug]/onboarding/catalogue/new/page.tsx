@@ -21,12 +21,13 @@ import {
 } from "@/components/ui/card";
 import { swatchDot, SAMPLE_PACKS, type Sample } from "@/lib/catalogue-samples";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
-  FilePlusIcon,
-  SparkleIcon,
-  TagIcon,
-} from "@phosphor-icons/react";
+  ArrowLeft02Icon,
+  FileAddIcon,
+  SparklesIcon,
+  Tag01Icon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * Add a product or a service.
@@ -142,7 +143,7 @@ function SampleCard({
       <Separator />
 
       <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-        <SparkleIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
+        <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-primary" />
         <span className="min-w-0 flex-1">{sample.demonstrates}</span>
       </p>
 
@@ -171,7 +172,7 @@ function BlankCard({ onPick }: { onPick: () => void }) {
         "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       )}
     >
-      <FilePlusIcon className="size-5 text-muted-foreground" />
+      <HugeiconsIcon icon={FileAddIcon} strokeWidth={2} className="size-5 text-muted-foreground" />
       <p className="text-sm font-medium">Start from blank</p>
       <p className="text-xs text-muted-foreground">
         The same fields, none of them filled in
@@ -214,7 +215,7 @@ export default function NewCataloguePage() {
           nativeButton={false}
           render={<Link href={back} />}
         >
-          <ArrowLeftIcon /> Catalogue
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> Catalogue
         </Button>
 
         {/* Top-aligned, so the action does not float against the middle of a
@@ -232,7 +233,7 @@ export default function NewCataloguePage() {
           </div>
           {draft ? (
             <Button variant="outline" size="sm" onClick={() => setDraft(null)}>
-              <SparkleIcon /> Back to the examples
+              <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> Back to the examples
             </Button>
           ) : null}
         </div>
@@ -269,7 +270,7 @@ export default function NewCataloguePage() {
                   variant={candidate.id === pack ? "secondary" : "outline"}
                   onClick={() => setPack(candidate.id)}
                 >
-                  <TagIcon /> {candidate.label}
+                  <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} /> {candidate.label}
                 </Button>
               ))}
               <p className="ml-1 text-sm text-muted-foreground">

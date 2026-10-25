@@ -40,11 +40,12 @@ import {
 } from "@/convex/lib/payments";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CurrencyInrIcon,
-  DotsThreeIcon,
-  PlusIcon,
-} from "@phosphor-icons/react";
+  MoreHorizontalIcon,
+  PlusSignIcon,
+  RupeeIcon,
+} from "@hugeicons/core-free-icons";
 
 type PaymentLinkRow = FunctionReturnType<typeof api.payments.listLinks>[number];
 
@@ -114,7 +115,7 @@ export default function PaymentsPage() {
           <PaymentLinkDialog
             trigger={
               <Button>
-                <PlusIcon /> New payment link
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New payment link
               </Button>
             }
           />
@@ -129,7 +130,7 @@ export default function PaymentsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <CurrencyInrIcon />
+              <HugeiconsIcon icon={RupeeIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>Razorpay isn&apos;t connected</EmptyTitle>
             <EmptyDescription>
@@ -282,7 +283,7 @@ function LinkRow({ link, base }: { link: PaymentLinkRow; base: string }) {
               <Button size="icon-sm" variant="ghost" aria-label="Actions" disabled={busy} />
             }
           >
-            {busy ? <Spinner /> : <DotsThreeIcon weight="bold" />}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => void copy()}>Copy link</DropdownMenuItem>

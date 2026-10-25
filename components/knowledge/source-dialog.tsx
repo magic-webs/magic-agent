@@ -28,12 +28,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CursorTextIcon,
+  Alert02Icon,
   FloppyDiskIcon,
-  PencilSimpleIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  PencilEdit02Icon,
+  TextIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -259,7 +260,7 @@ export function SourceDialog({
             variant="outline"
             className={cn(needsUpdate && "border-destructive/50 text-destructive", className)}
           >
-            <PencilSimpleIcon /> {label}
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> {label}
           </Button>
         }
       />
@@ -279,7 +280,7 @@ export function SourceDialog({
           </div>
         ) : !source ? (
           <Alert variant="destructive">
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>Source not found</AlertTitle>
             <AlertDescription>It may have been deleted.</AlertDescription>
           </Alert>
@@ -301,7 +302,7 @@ export function SourceDialog({
 
             {source.status === "failed" && source.failureReason ? (
               <Alert variant="destructive">
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>Processing failed</AlertTitle>
                 <AlertDescription className="font-mono text-xs">
                   {source.failureReason}
@@ -311,7 +312,7 @@ export function SourceDialog({
 
             {flagged.length > 0 ? (
               <Alert variant="destructive">
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>
                   {flagged.length === 1
                     ? "This passage gave a wrong answer"
@@ -344,7 +345,7 @@ export function SourceDialog({
                           className="mt-1.5"
                           onClick={() => selectPassage(passage.text)}
                         >
-                          <CursorTextIcon /> Select in text
+                          <HugeiconsIcon icon={TextIcon} strokeWidth={2} /> Select in text
                         </Button>
                       ) : null}
                     </div>
@@ -465,7 +466,7 @@ export function SourceDialog({
             Cancel
           </Button>
           <Button onClick={save} disabled={saving || !source}>
-            {saving ? <Spinner /> : <FloppyDiskIcon />} Save
+            {saving ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
           </Button>
         </DialogFooter>
       </DialogContent>

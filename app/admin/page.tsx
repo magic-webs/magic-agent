@@ -30,12 +30,13 @@ import {
 } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  BuildingsIcon,
-  CheckCircleIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight02Icon,
+  Building03Icon,
+  CheckmarkCircle02Icon,
+} from "@hugeicons/core-free-icons";
 
 const NANO = 1_000_000_000;
 const COST_MULTIPLIER = 10;
@@ -89,7 +90,7 @@ export default function AdminOverviewPage() {
         nativeButton={false}
         render={<Link href="/admin/workspaces" />}
       >
-        <BuildingsIcon /> Workspaces
+        <HugeiconsIcon icon={Building03Icon} strokeWidth={2} /> Workspaces
       </Button>
     </header>
   );
@@ -109,7 +110,7 @@ export default function AdminOverviewPage() {
         <Empty className="max-w-md border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <BuildingsIcon />
+              <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>Nothing running yet</EmptyTitle>
             <EmptyDescription>
@@ -123,7 +124,7 @@ export default function AdminOverviewPage() {
               nativeButton={false}
               render={<Link href="/admin/workspaces" />}
             >
-              Go to workspaces <ArrowRightIcon />
+              Go to workspaces <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
             </Button>
           </EmptyContent>
         </Empty>
@@ -191,7 +192,7 @@ export default function AdminOverviewPage() {
           figures rather than as a footnote under them. */}
       {usage.unpricedModels.length > 0 ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>
             {usage.unpricedModels.length} model
             {usage.unpricedModels.length === 1 ? " has" : "s have"} recorded
@@ -215,7 +216,7 @@ export default function AdminOverviewPage() {
               nativeButton={false}
               render={<Link href="/admin/models" />}
             >
-              Set prices <ArrowRightIcon />
+              Set prices <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
             </Button>
           </AlertDescription>
         </Alert>
@@ -329,7 +330,7 @@ export default function AdminOverviewPage() {
           <CardContent className="flex flex-col gap-2">
             {attention.length === 0 ? (
               <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                <CheckCircleIcon className="size-4" />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />
                 Every workspace is active and has a password.
               </div>
             ) : (
@@ -428,7 +429,7 @@ export default function AdminOverviewPage() {
           <CardContent className="flex flex-wrap gap-2">
             {quiet.length === 0 ? (
               <span className="flex items-center gap-2 py-1 text-sm text-muted-foreground">
-                <CheckCircleIcon className="size-4" />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />
                 Every active workspace has used the platform this month.
               </span>
             ) : (

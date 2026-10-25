@@ -26,7 +26,13 @@ import {
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
-import { FloppyDiskIcon, PlusIcon, RobotIcon, TrashIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Delete02Icon,
+  FloppyDiskIcon,
+  PlusSignIcon,
+  RoboticIcon,
+} from "@hugeicons/core-free-icons";
 
 type MenuData = NonNullable<FunctionReturnType<typeof api.welcomeMenu.get>>;
 
@@ -145,7 +151,7 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
             {draft.enabled ? "On" : "Off"}
           </label>
           <Button onClick={() => void save()} disabled={saving}>
-            {saving ? <Spinner /> : <FloppyDiskIcon />} Save
+            {saving ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
           </Button>
         </div>
       </CardHeader>
@@ -216,7 +222,7 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
                     editOptions((current) => current.filter((_, at) => at !== index))
                   }
                 >
-                  <TrashIcon />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                 </Button>
               </div>
             ))}
@@ -233,7 +239,7 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
                 disabled={options.length >= WELCOME_LIMITS.options}
                 onClick={() => editOptions((current) => [...current, { title: "" }])}
               >
-                <PlusIcon /> Add button
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add button
               </Button>
               {draft.custom && data.agentOptions.length > 0 ? (
                 <Button
@@ -241,7 +247,7 @@ function WelcomeMenuForm({ data }: { data: MenuData }) {
                   size="sm"
                   onClick={() => set({ custom: false, options: data.agentOptions })}
                 >
-                  <RobotIcon /> Follow my agents
+                  <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> Follow my agents
                 </Button>
               ) : null}
             </div>

@@ -8,14 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { putFile, type UploadTarget } from "@/lib/upload";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ImageIcon,
-  UploadSimpleIcon,
-  LinkSimpleIcon,
-  TrashIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-} from "@phosphor-icons/react";
+  ArrowLeft02Icon,
+  ArrowRight02Icon,
+  Delete02Icon,
+  Image01Icon,
+  Link02Icon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
+
 
 export const MAX_PRODUCT_IMAGES = 8;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -211,7 +213,7 @@ export function ProductImagesEditor({
 
       {value.length === 0 ? (
         <div className="flex flex-col items-center gap-1 rounded-md border border-dashed p-5 text-center">
-          <ImageIcon className="size-5 text-muted-foreground" />
+          <HugeiconsIcon icon={Image01Icon} strokeWidth={2} className="size-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No images yet</p>
         </div>
       ) : (
@@ -246,7 +248,7 @@ export function ProductImagesEditor({
                     disabled={index === 0}
                     onClick={() => move(index, index - 1)}
                   >
-                    <ArrowLeftIcon />
+                    <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} />
                   </Button>
                   <Button
                     size="icon"
@@ -255,7 +257,7 @@ export function ProductImagesEditor({
                     disabled={index === value.length - 1}
                     onClick={() => move(index, index + 1)}
                   >
-                    <ArrowRightIcon />
+                    <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
                   </Button>
                 </div>
                 <Button
@@ -264,7 +266,7 @@ export function ProductImagesEditor({
                   aria-label="Remove image"
                   onClick={() => removeAt(index)}
                 >
-                  <TrashIcon />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                 </Button>
               </div>
 
@@ -298,7 +300,7 @@ export function ProductImagesEditor({
           disabled={room <= 0}
           onClick={() => fileRef.current?.click()}
         >
-          <UploadSimpleIcon /> Upload
+          <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} /> Upload
         </Button>
         <div className="flex min-w-52 flex-1 gap-1">
           <Input
@@ -319,7 +321,7 @@ export function ProductImagesEditor({
             disabled={room <= 0 || !url.trim()}
             onClick={addUrl}
           >
-            <LinkSimpleIcon />
+            <HugeiconsIcon icon={Link02Icon} strokeWidth={2} />
           </Button>
         </div>
       </div>
@@ -346,7 +348,7 @@ export function ProductThumbnail({
         }
         aria-hidden="true"
       >
-        <ImageIcon className="size-4" />
+        <HugeiconsIcon icon={Image01Icon} strokeWidth={2} className="size-4" />
       </div>
     );
   }

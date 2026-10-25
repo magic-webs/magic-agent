@@ -26,13 +26,14 @@ import {
 import { TypingBubble } from "@/components/typing-bubble";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  PaperPlaneRightIcon,
-  ArrowLeftIcon,
-  ArrowsClockwiseIcon,
-  WarningIcon,
-  SlidersIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowLeft02Icon,
+  RefreshIcon,
+  SentIcon,
+  SlidersVerticalIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 // One browser session == one contact, so the playground behaves like a real
@@ -167,7 +168,7 @@ export default function AgentTestPage({
             nativeButton={false}
             render={<Link href={`${base}/agents`} />}
           >
-            <ArrowLeftIcon />
+            <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} />
           </Button>
           <div className="min-w-0">
             <h1 className="truncate text-sm font-medium">
@@ -208,7 +209,7 @@ export default function AgentTestPage({
               toast.add({ title: "Conversation cleared", type: "success" });
             }}
           >
-            <ArrowsClockwiseIcon /> Reset
+            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Reset
           </Button>
           <Button
             size="lg"
@@ -216,7 +217,7 @@ export default function AgentTestPage({
             nativeButton={false}
             render={<Link href={`${base}/agents/${agentId}`} />}
           >
-            <SlidersIcon /> Configure
+            <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Configure
           </Button>
         </div>
       </header>
@@ -224,7 +225,7 @@ export default function AgentTestPage({
       {agent.status === "paused" ? (
         <div className="shrink-0 px-4 pt-3">
           <Alert variant="destructive">
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>This agent is paused</AlertTitle>
             <AlertDescription>
               A paused agent refuses every turn. Set it to Draft or Active on the
@@ -237,7 +238,7 @@ export default function AgentTestPage({
       {lastError ? (
         <div className="shrink-0 px-4 pt-3">
           <Alert variant="destructive">
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>Last turn reported an error</AlertTitle>
             <AlertDescription className="font-mono text-xs">
               {lastError}
@@ -322,7 +323,7 @@ export default function AgentTestPage({
             disabled={sending || !input.trim() || !sessionId}
             onClick={() => void send()}
           >
-            {sending ? <Spinner /> : <PaperPlaneRightIcon />}
+            {sending ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />}
           </Button>
         </div>
         <p className="mx-auto mt-1.5 w-full max-w-3xl text-xs text-muted-foreground">

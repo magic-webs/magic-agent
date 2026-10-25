@@ -26,16 +26,17 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
-  CheckIcon,
+  ArrowLeft02Icon,
+  Delete02Icon,
   FloppyDiskIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  RobotIcon,
-  TagIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+  PencilEdit02Icon,
+  PlusSignIcon,
+  RoboticIcon,
+  Tag01Icon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -153,7 +154,7 @@ export function LeadTagsSubmenu({
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
-        <TagIcon /> Tags
+        <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} /> Tags
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="max-h-72 w-52 overflow-y-auto">
         {tags.length === 0 ? (
@@ -211,7 +212,7 @@ function TagList({
                 <TagChip tag={tag} />
                 {tag.description ? (
                   <Badge variant="outline" title="The follow-up desk applies this tag">
-                    <RobotIcon /> desk
+                    <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> desk
                   </Badge>
                 ) : null}
                 <Badge variant="ghost" className="tabular-nums">
@@ -229,7 +230,7 @@ function TagList({
                 aria-label={`Edit ${tag.name}`}
                 onClick={() => onEdit(tag)}
               >
-                <PencilSimpleIcon />
+                <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
               </Button>
               <Button
                 size="icon-lg"
@@ -254,7 +255,7 @@ function TagList({
                   }
                 }}
               >
-                <TrashIcon />
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
               </Button>
             </div>
           </div>
@@ -263,7 +264,7 @@ function TagList({
 
       <SheetFooter className="border-t p-4">
         <Button size="lg" onClick={() => onEdit("new")}>
-          <PlusIcon /> Add tag
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add tag
         </Button>
       </SheetFooter>
     </>
@@ -311,7 +312,7 @@ function TagForm({
     <>
       <SheetHeader className="gap-2 border-b p-4 pr-14">
         <Button variant="ghost" size="sm" className="-ml-2 w-fit" onClick={onDone}>
-          <ArrowLeftIcon /> All tags
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All tags
         </Button>
         <SheetTitle>{tag ? `Edit ${tag.name}` : "Add a tag"}</SheetTitle>
       </SheetHeader>
@@ -342,7 +343,7 @@ function TagForm({
                   color === option && "ring-2 ring-ring"
                 )}
               >
-                {color === option ? <CheckIcon className="size-3.5 text-white" /> : null}
+                {color === option ? <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5 text-white" /> : null}
               </button>
             ))}
           </div>
@@ -371,7 +372,7 @@ function TagForm({
           Cancel
         </Button>
         <Button onClick={save} disabled={busy || !name.trim()}>
-          {busy ? <Spinner /> : <FloppyDiskIcon />} Save
+          {busy ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
         </Button>
       </SheetFooter>
     </>

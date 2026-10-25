@@ -5,7 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SelectField } from "@/components/select-field";
-import { PlusIcon, XIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Cancel01Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * One question an agent has to get an answer to.
@@ -110,7 +114,7 @@ export function FieldListEditor({
               aria-label="Remove field"
               onClick={() => onChange(value.filter((_, i) => i !== index))}
             >
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
             </Button>
           </div>
 
@@ -163,7 +167,7 @@ export function FieldListEditor({
           ])
         }
       >
-        <PlusIcon /> {addLabel}
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> {addLabel}
       </Button>
     </div>
   );

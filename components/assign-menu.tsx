@@ -17,7 +17,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { useSession } from "@/components/use-session";
-import { CheckIcon, UserCircleIcon, UserMinusIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Tick02Icon,
+  UserCircleIcon,
+  UserRemove01Icon,
+} from "@hugeicons/core-free-icons";
+
 
 export function AssignMenu({
   conversationId,
@@ -64,7 +70,7 @@ export function AssignMenu({
           />
         }
       >
-        <UserCircleIcon />
+        <HugeiconsIcon icon={UserCircleIcon} strokeWidth={2} />
         <span className="truncate max-sm:hidden">
           {assignee ? (assignee._id === me ? "You" : assignee.name) : "Assign"}
         </span>
@@ -74,7 +80,7 @@ export function AssignMenu({
           <DropdownMenuLabel>Assign to</DropdownMenuLabel>
           {ordered.map((member) => (
             <DropdownMenuItem key={member._id} onClick={() => void pick(member._id)}>
-              <CheckIcon className={cn(member._id !== assignedMemberId && "invisible")} />
+              <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className={cn(member._id !== assignedMemberId && "invisible")} />
               <span className="min-w-0 flex-1 truncate">
                 {member.name}
                 {member._id === me ? " (you)" : ""}
@@ -92,7 +98,7 @@ export function AssignMenu({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => void pick(null)}>
-              <UserMinusIcon /> Unassign
+              <HugeiconsIcon icon={UserRemove01Icon} strokeWidth={2} /> Unassign
             </DropdownMenuItem>
           </>
         ) : null}

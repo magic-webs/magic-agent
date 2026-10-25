@@ -12,18 +12,19 @@ import {
   type Step,
   type StepId,
 } from "@/lib/onboarding";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  BooksIcon,
-  CheckCircleIcon,
+  Book02Icon,
+  CheckmarkCircle02Icon,
   CircleIcon,
-  FunnelIcon,
-  InfoIcon,
-  NotePencilIcon,
+  FilterIcon,
+  InformationCircleIcon,
+  NoteEditIcon,
   PackageIcon,
-  RobotIcon,
-  StorefrontIcon,
-  type Icon as PhosphorIcon,
-} from "@phosphor-icons/react";
+  RoboticIcon,
+  Store01Icon,
+} from "@hugeicons/core-free-icons";
+
 
 /**
  * A glyph per step.
@@ -32,13 +33,13 @@ import {
  * business importing React. The rail, the hub and the step heading all draw
  * from this one map so a step looks the same wherever it is named.
  */
-export const STEP_ICONS: Record<StepId, PhosphorIcon> = {
-  profile: StorefrontIcon,
-  facts: NotePencilIcon,
-  agents: RobotIcon,
-  knowledge: BooksIcon,
+export const STEP_ICONS: Record<StepId, IconSvgElement> = {
+  profile: Store01Icon,
+  facts: NoteEditIcon,
+  agents: RoboticIcon,
+  knowledge: Book02Icon,
   catalogue: PackageIcon,
-  stages: FunnelIcon,
+  stages: FilterIcon,
 };
 
 /**
@@ -157,12 +158,10 @@ export function Checklist({
       {checks.map((check) => (
         <li key={check.label} className="flex items-center gap-2.5">
           {check.done ? (
-            <CheckCircleIcon
-              weight="fill"
-              className="size-4.5 shrink-0 text-primary"
-            />
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+              className="size-4.5 shrink-0 text-primary" />
           ) : (
-            <CircleIcon className="size-4.5 shrink-0 text-muted-foreground/50" />
+            <HugeiconsIcon icon={CircleIcon} strokeWidth={2} className="size-4.5 shrink-0 text-muted-foreground/50" />
           )}
           <span
             className={cn(
@@ -223,7 +222,7 @@ export function StepRail({
               )}
             >
               {step.ready ? (
-                <CheckCircleIcon weight="fill" className="size-4" />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />
               ) : (
                 step.index
               )}
@@ -265,7 +264,7 @@ export function StepHeader({ step }: { step: Step }) {
             : "bg-muted text-muted-foreground"
         )}
       >
-        <Glyph className="size-6" />
+        <HugeiconsIcon icon={Glyph} strokeWidth={2} className="size-6" />
       </span>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -275,7 +274,7 @@ export function StepHeader({ step }: { step: Step }) {
           </span>
           {step.ready ? (
             <Badge variant="secondary" className="gap-1">
-              <CheckCircleIcon weight="fill" className="size-3" /> Ready
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3" /> Ready
             </Badge>
           ) : (
             <Badge variant="outline">{step.percent}% filled</Badge>
@@ -301,7 +300,7 @@ export function WhyCard({ children }: { children: React.ReactNode }) {
   return (
     <Card className="border-primary/25 bg-primary/5">
       <CardContent className="flex items-start gap-3">
-        <InfoIcon weight="fill" className="mt-0.5 size-4.5 shrink-0 text-primary" />
+        <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="mt-0.5 size-4.5 shrink-0 text-primary" />
         <p className="text-sm leading-relaxed">{children}</p>
       </CardContent>
     </Card>
@@ -325,7 +324,7 @@ export function ChecklistCard({ step }: { step: Step }) {
         <Checklist checks={step.checks} />
         {step.ready ? (
           <p className="flex items-center gap-1.5 text-xs text-primary">
-            <CheckCircleIcon weight="fill" className="size-3.5" />
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3.5" />
             Everything this step needs is in place.
           </p>
         ) : (

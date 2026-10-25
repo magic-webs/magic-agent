@@ -26,7 +26,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-import { FloppyDiskIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { FloppyDiskIcon } from "@hugeicons/core-free-icons";
+
 import { friendlyError } from "@/lib/errors";
 
 export default function CompanyProfilePage() {
@@ -116,7 +118,7 @@ export default function CompanyProfilePage() {
           </p>
         </div>
         <Button onClick={save} disabled={saving}>
-          {saving ? <Spinner /> : <FloppyDiskIcon />} Save
+          {saving ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
         </Button>
       </header>
 

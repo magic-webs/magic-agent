@@ -47,33 +47,33 @@ import { useHourBucket } from "@/components/use-now";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  CardsThreeIcon,
-  ChatCircleIcon,
-  ChatsIcon,
-  CheckCircleIcon,
-  ClipboardTextIcon,
-  ClockIcon,
-  DotsThreeIcon,
-  FileTextIcon,
-  FunnelIcon,
-  HandshakeIcon,
+  Agreement01Icon,
+  Alert02Icon,
+  ArrowRight02Icon,
+  Award01Icon,
+  BubbleChatIcon,
+  Cancel01Icon,
+  CancelCircleIcon,
+  CheckmarkCircle02Icon,
+  ClipboardIcon,
+  Clock01Icon,
+  Comment01Icon,
+  File02Icon,
+  FilterIcon,
   KanbanIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  ProhibitIcon,
+  LayoutGridIcon,
+  LayoutTable01Icon,
+  MoreHorizontalIcon,
+  PlusSignIcon,
+  Search01Icon,
   SignpostIcon,
-  SparkleIcon,
-  TableIcon,
-  TagIcon,
-  TrophyIcon,
+  SparklesIcon,
+  Tag01Icon,
+  UnavailableIcon,
   UserIcon,
-  WarningIcon,
-  XCircleIcon,
-  XIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 import { formatDistanceToNow } from "date-fns";
 import {
   CHANNEL_LABEL,
@@ -112,7 +112,7 @@ type Group = {
   hint: string;
   outcome: LeadStage["outcome"];
   tone: Tone;
-  icon: Icon;
+  icon: IconSvgElement;
   rows: Lead[];
 };
 
@@ -158,11 +158,11 @@ function blurbFor(outcome: LeadStage["outcome"]): string {
 
 /** Likewise the glyph: by outcome where there is one, else by position. */
 const OPEN_ICONS = [
-  SparkleIcon,
-  TrophyIcon,
-  ClipboardTextIcon,
-  FileTextIcon,
-  HandshakeIcon,
+  SparklesIcon,
+  Award01Icon,
+  ClipboardIcon,
+  File02Icon,
+  Agreement01Icon,
 ] as const;
 
 // Tailwind reads whole class names out of the source, so every tint is spelled
@@ -284,12 +284,12 @@ type View = "kanban" | "cards" | "list";
 
 const VIEWS = [
   { value: "kanban", label: "Kanban", icon: KanbanIcon },
-  { value: "cards", label: "Cards", icon: CardsThreeIcon },
-  { value: "list", label: "List", icon: TableIcon },
+  { value: "cards", label: "Cards", icon: LayoutGridIcon },
+  { value: "list", label: "List", icon: LayoutTable01Icon },
 ] as const satisfies ReadonlyArray<{
   value: View;
   label: string;
-  icon: Icon;
+  icon: IconSvgElement;
 }>;
 
 // ---------------------------------------------------------------------------
@@ -326,7 +326,7 @@ function LeadMenu({ lead, base }: { lead: Lead; base: string }) {
           />
         }
       >
-        <DotsThreeIcon />
+        <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
@@ -334,7 +334,7 @@ function LeadMenu({ lead, base }: { lead: Lead; base: string }) {
             <Link href={`${base}/conversations?c=${lead.conversationId}`} />
           }
         >
-          <ChatsIcon /> Open conversation
+          <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Open conversation
         </DropdownMenuItem>
         <LeadTagsSubmenu
           conversationId={lead.conversationId}
@@ -356,7 +356,7 @@ function LeadMenu({ lead, base }: { lead: Lead; base: string }) {
               }
             }}
           >
-            <ProhibitIcon /> Unfile
+            <HugeiconsIcon icon={UnavailableIcon} strokeWidth={2} /> Unfile
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -451,11 +451,11 @@ function LeadCard({
 
       <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <ChatCircleIcon className="size-3.5" /> {lead.messageCount} messages
+          <HugeiconsIcon icon={Comment01Icon} strokeWidth={2} className="size-3.5" /> {lead.messageCount} messages
         </span>
         {lead.handledBy ? (
           <span className="flex min-w-0 items-center gap-1">
-            <UserIcon className="size-3.5 shrink-0" />
+            <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-3.5 shrink-0" />
             <span className="truncate">{lead.handledBy}</span>
           </span>
         ) : null}
@@ -601,7 +601,7 @@ function KanbanBoard({
                   tone.tile
                 )}
               >
-                <group.icon className="size-4" />
+                <HugeiconsIcon icon={group.icon} strokeWidth={2} className="size-4" />
               </span>
               <h2
                 className={cn(
@@ -813,7 +813,7 @@ function StatChip({
   selected,
   onSelect,
 }: {
-  icon: Icon;
+  icon: IconSvgElement;
   tone: Tone;
   label: string;
   blurb: string;
@@ -841,7 +841,7 @@ function StatChip({
           TONES[tone].tile
         )}
       >
-        <Glyph className="size-4" />
+        <HugeiconsIcon icon={Glyph} strokeWidth={2} className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm leading-tight font-semibold">
@@ -971,8 +971,8 @@ export default function LeadsPage() {
         icon: open
           ? OPEN_ICONS[at % OPEN_ICONS.length]
           : s.outcome === "won"
-            ? CheckCircleIcon
-            : XCircleIcon,
+            ? CheckmarkCircle02Icon
+            : CancelCircleIcon,
         rows: byStage.get(s._id) ?? [],
       };
     });
@@ -984,7 +984,7 @@ export default function LeadsPage() {
       hint: "The desk reads a conversation an hour after it goes quiet.",
       outcome: "open",
       tone: "slate",
-      icon: ClockIcon,
+      icon: Clock01Icon,
       rows: unfiled,
     });
 
@@ -1052,7 +1052,7 @@ export default function LeadsPage() {
                   title={`${option.label} view`}
                   aria-label={`${option.label} view`}
                 >
-                  <option.icon className="size-4" />
+                  <HugeiconsIcon icon={option.icon} strokeWidth={2} className="size-4" />
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -1062,10 +1062,10 @@ export default function LeadsPage() {
               variant="outline"
               onClick={() => setStagesOpen(true)}
             >
-              <SignpostIcon /> Manage stages
+              <HugeiconsIcon icon={SignpostIcon} strokeWidth={2} /> Manage stages
             </Button>
             <Button size="lg" variant="outline" onClick={() => setTagsOpen(true)}>
-              <TagIcon /> Manage tags
+              <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} /> Manage tags
             </Button>
           </div>
         </header>
@@ -1093,7 +1093,7 @@ export default function LeadsPage() {
         {!loading && rows.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             <StatChip
-              icon={FunnelIcon}
+              icon={FilterIcon}
               tone="slate"
               label="All"
               blurb="All leads"
@@ -1123,7 +1123,7 @@ export default function LeadsPage() {
             its own dimension, with an aria-label for anyone who cannot see it. */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full max-w-xs min-w-56">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               placeholder="Search leads…"
@@ -1171,7 +1171,7 @@ export default function LeadsPage() {
 
           {narrowed ? (
             <Button variant="ghost" onClick={clear}>
-              <XIcon /> Clear
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Clear
             </Button>
           ) : null}
 
@@ -1184,7 +1184,7 @@ export default function LeadsPage() {
 
         {!desk && agents !== undefined ? (
           <Alert>
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>No follow-up desk yet</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-2">
               <span>
@@ -1198,7 +1198,7 @@ export default function LeadsPage() {
                   toast.add({ title: "Follow-up desk created", type: "success" });
                 }}
               >
-                <PlusIcon /> Create the follow-up desk
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Create the follow-up desk
               </Button>
             </AlertDescription>
           </Alert>
@@ -1210,7 +1210,7 @@ export default function LeadsPage() {
           <Empty className="border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <FunnelIcon />
+                <HugeiconsIcon icon={FilterIcon} strokeWidth={2} />
               </EmptyMedia>
               <EmptyTitle>
                 {narrowed ? "No leads match" : "No leads yet"}
@@ -1224,7 +1224,7 @@ export default function LeadsPage() {
             <EmptyContent>
               {narrowed ? (
                 <Button variant="outline" onClick={clear}>
-                  <XIcon /> Clear filters
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Clear filters
                 </Button>
               ) : (
                 <Button
@@ -1233,7 +1233,7 @@ export default function LeadsPage() {
                   nativeButton={false}
                   render={<Link href={`${base}/conversations`} />}
                 >
-                  <ChatsIcon /> Open conversations
+                  <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Open conversations
                 </Button>
               )}
             </EmptyContent>
@@ -1266,7 +1266,7 @@ export default function LeadsPage() {
                         tone.tile
                       )}
                     >
-                      <group.icon className="size-4" />
+                      <HugeiconsIcon icon={group.icon} strokeWidth={2} className="size-4" />
                     </span>
                     <h2
                       className={cn(
@@ -1287,7 +1287,7 @@ export default function LeadsPage() {
                         className="ml-auto text-muted-foreground"
                         onClick={() => setStage(group.key)}
                       >
-                        View all <ArrowRightIcon />
+                        View all <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
                       </Button>
                     ) : null}
                   </header>

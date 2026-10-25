@@ -43,12 +43,14 @@ import {
   type VariantOption,
 } from "@/lib/catalogue-samples";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CheckCircleIcon,
-  PaletteIcon,
-  PlusIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
+  PaintBoardIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
+
 import { catalogueKind } from "@/convex/lib/catalogue";
 
 /**
@@ -306,7 +308,7 @@ function VariantEditor({
             onChange({ label: "Colour", options: VARIANT_PALETTE.slice(0, 2) })
           }
         >
-          <PaletteIcon /> Add variants
+          <HugeiconsIcon icon={PaintBoardIcon} strokeWidth={2} /> Add variants
         </Button>
       </div>
     );
@@ -349,7 +351,7 @@ function VariantEditor({
           onClick={() => onChange(null)}
           aria-label="Remove variants"
         >
-          <XIcon /> Remove
+          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Remove
         </Button>
       </div>
 
@@ -390,7 +392,7 @@ function VariantEditor({
                 })
               }
             >
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
             </Button>
           </div>
         ))}
@@ -447,7 +449,7 @@ function VariantEditor({
             setCustom("");
           }}
         >
-          <PlusIcon /> Add
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add
         </Button>
       </div>
 
@@ -515,7 +517,7 @@ function RequirementEditor({
               aria-label={`Remove ${field.label || "question"}`}
               onClick={() => onChange(value.filter((_, i) => i !== index))}
             >
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
             </Button>
           </div>
 
@@ -566,7 +568,7 @@ function RequirementEditor({
           ])
         }
       >
-        <PlusIcon /> Add a question
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a question
       </Button>
     </div>
   );
@@ -723,13 +725,12 @@ export function ProductForm({
                       : "border-transparent bg-muted/40 ring-1 ring-border hover:bg-muted"
                   )}
                 >
-                  <CheckCircleIcon
-                    weight={picked ? "fill" : "regular"}
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon}
+                    strokeWidth={picked ? 2.5 : 2}
                     className={cn(
                       "mt-0.5 size-5 shrink-0",
                       picked ? "text-primary" : "text-muted-foreground/40"
-                    )}
-                  />
+                    )} />
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {kind === "product" ? "A product" : "A service"}
@@ -882,7 +883,7 @@ export function ProductForm({
         <CardContent className="flex flex-col gap-3">
           {consequences.question ? (
             <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <CheckCircleIcon weight="fill" className="size-4 shrink-0 text-primary" />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 shrink-0 text-primary" />
               <p className="text-sm">
                 <span className="font-medium">{consequences.question.label}</span>{" "}
                 is added automatically from your variants —{" "}
@@ -923,7 +924,7 @@ export function ProductForm({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => void save("done")} disabled={!ready || saving}>
-          {saving ? <Spinner /> : <CheckCircleIcon />}
+          {saving ? <Spinner /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />}
           {saving ? "Saving…" : editing ? "Save changes" : "Save and go back"}
         </Button>
         {editing ? (
@@ -940,7 +941,7 @@ export function ProductForm({
             onClick={() => void save("again")}
             disabled={!ready || saving}
           >
-            <PlusIcon /> Save and add another
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Save and add another
           </Button>
         )}
         {!ready && !priceBroken ? (

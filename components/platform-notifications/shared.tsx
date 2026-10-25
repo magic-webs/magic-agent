@@ -1,13 +1,15 @@
 "use client";
 
 import type { Doc } from "@/convex/_generated/dataModel";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  ChatTextIcon,
-  DeviceMobileIcon,
-  EnvelopeSimpleIcon,
-} from "@phosphor-icons/react";
+  Mail01Icon,
+  Message02Icon,
+  SmartPhone01Icon,
+} from "@hugeicons/core-free-icons";
+
 
 export type Broadcast = Doc<"platformBroadcasts"> & { imageUrl: string | null };
 export type Category = Doc<"platformBroadcasts">["category"];
@@ -25,10 +27,10 @@ export const CATEGORIES: { value: Category; label: string; hint: string }[] = [
 export const categoryLabel = (category: Category) =>
   CATEGORIES.find((item) => item.value === category)?.label ?? category;
 
-export const CHANNELS: { value: Channel; label: string; icon: typeof DeviceMobileIcon }[] = [
-  { value: "push", label: "App push", icon: DeviceMobileIcon },
-  { value: "email", label: "Email", icon: EnvelopeSimpleIcon },
-  { value: "sms", label: "SMS", icon: ChatTextIcon },
+export const CHANNELS: { value: Channel; label: string; icon: typeof SmartPhone01Icon }[] = [
+  { value: "push", label: "App push", icon: SmartPhone01Icon },
+  { value: "email", label: "Email", icon: Mail01Icon },
+  { value: "sms", label: "SMS", icon: Message02Icon },
 ];
 
 export const STAGES: { value: NonNullable<Audience["stages"]>[number]; label: string }[] = [
@@ -62,7 +64,7 @@ export function ChannelIcons({ channels }: { channels: Broadcast["channels"] }) 
   return (
     <div className="flex items-center gap-1.5 text-muted-foreground">
       {CHANNELS.filter((channel) => channels[channel.value]).map((channel) => (
-        <channel.icon key={channel.value} className="size-4" aria-label={channel.label} />
+        <HugeiconsIcon icon={channel.icon} strokeWidth={2} key={channel.value} className="size-4" aria-label={channel.label} />
       ))}
     </div>
   );

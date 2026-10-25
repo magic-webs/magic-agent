@@ -33,12 +33,13 @@ import {
 } from "@/components/ui/input-otp";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CopyIcon,
-  DownloadSimpleIcon,
-  ShieldCheckIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  Copy01Icon,
+  Download01Icon,
+  SecurityCheckIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 async function copy(value: string, what: string) {
@@ -132,7 +133,7 @@ export function TwoFactorCard({ className }: { className?: string }) {
     <Card className={className}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldCheckIcon className="size-4" /> Two-factor authentication
+          <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} className="size-4" /> Two-factor authentication
         </CardTitle>
         <CardDescription>
           Ask for a code from an authenticator app — Google Authenticator,
@@ -186,7 +187,7 @@ export function TwoFactorCard({ className }: { className?: string }) {
               disabled={starting}
               onClick={() => void startSetup()}
             >
-              {starting ? <Spinner /> : <ShieldCheckIcon />} Set up an
+              {starting ? <Spinner /> : <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />} Set up an
               authenticator app
             </Button>
           </>
@@ -274,10 +275,10 @@ function SetupDialog({
                 variant="outline"
                 onClick={() => void copy(recoveryCodes.join("\n"), "Recovery codes")}
               >
-                <CopyIcon /> Copy
+                <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy
               </Button>
               <Button variant="outline" onClick={download}>
-                <DownloadSimpleIcon /> Download
+                <HugeiconsIcon icon={Download01Icon} strokeWidth={2} /> Download
               </Button>
             </div>
             <DialogFooter>
@@ -296,7 +297,7 @@ function SetupDialog({
 
             {error ? (
               <Alert variant="destructive">
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>Not turned on yet</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -331,7 +332,7 @@ function SetupDialog({
                     aria-label="Copy key"
                     onClick={() => void copy(secret.secret, "Key")}
                   >
-                    <CopyIcon />
+                    <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                   </Button>
                 </div>
               </div>
@@ -355,7 +356,7 @@ function SetupDialog({
                 onClick={() => void submit()}
                 disabled={busy || code.length !== 6}
               >
-                {busy ? <Spinner /> : <ShieldCheckIcon />} Turn on
+                {busy ? <Spinner /> : <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />} Turn on
               </Button>
             </DialogFooter>
           </>
@@ -401,7 +402,7 @@ function DisableDialog({ onClose }: { onClose: () => void }) {
 
         {error ? (
           <Alert variant="destructive">
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>Still on</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>

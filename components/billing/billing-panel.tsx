@@ -41,11 +41,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  PencilSimpleIcon,
-  ReceiptIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  Invoice01Icon,
+  PencilEdit02Icon,
+} from "@hugeicons/core-free-icons";
 
 const PAGE = 25;
 
@@ -154,7 +155,7 @@ export function BillingPanel({ days }: { days: number }) {
         )}
         trigger={
           <Button size="sm" variant="outline">
-            <PencilSimpleIcon /> Edit markup
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit markup
           </Button>
         }
       />
@@ -164,7 +165,7 @@ export function BillingPanel({ days }: { days: number }) {
     <div className="flex min-w-0 flex-col gap-5">
       {!data.prices ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>No rates are set for this account yet</AlertTitle>
           <AlertDescription>
             Messages are still counted, at zero, so nothing is lost — they are
@@ -175,7 +176,7 @@ export function BillingPanel({ days }: { days: number }) {
 
       {data.truncated ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Showing a partial window</AlertTitle>
           <AlertDescription>
             This period holds more messages than one read covers, so the totals
@@ -186,7 +187,7 @@ export function BillingPanel({ days }: { days: number }) {
 
       {data.otherCurrencies.length > 0 ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>
             Some of this period was billed in another currency
           </AlertTitle>
@@ -379,7 +380,7 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
           <Empty className="border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <ReceiptIcon />
+                <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
               </EmptyMedia>
               <EmptyTitle>
                 {filter === "all"

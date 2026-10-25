@@ -32,15 +32,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  DotsThreeIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  TrashIcon,
-  TreeStructureIcon,
-} from "@phosphor-icons/react";
+  ArrowDown02Icon,
+  ArrowUp02Icon,
+  Delete02Icon,
+  HierarchyIcon,
+  MoreHorizontalIcon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
+
 
 type Rule = FunctionReturnType<typeof api.handover.list>[number];
 type Department = "sales" | "support" | "accounts" | "other";
@@ -88,7 +90,7 @@ export function HandoverRulesButton({ workspaceId }: { workspaceId: Id<"workspac
   return (
     <Dialog>
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
-        <TreeStructureIcon /> Handover rules
+        <HugeiconsIcon icon={HierarchyIcon} strokeWidth={2} /> Handover rules
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <HandoverRules workspaceId={workspaceId} />
@@ -177,11 +179,11 @@ function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
                       />
                     }
                   >
-                    <DotsThreeIcon />
+                    <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-44">
                     <DropdownMenuItem onClick={() => setEditing(rule)}>
-                      <PencilSimpleIcon /> Edit
+                      <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={index === 0}
@@ -189,7 +191,7 @@ function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
                         void run(() => move({ ruleId: rule._id, direction: "up" }), "Could not move")
                       }
                     >
-                      <ArrowUpIcon /> Move up
+                      <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} /> Move up
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={index === rules.length - 1}
@@ -197,7 +199,7 @@ function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
                         void run(() => move({ ruleId: rule._id, direction: "down" }), "Could not move")
                       }
                     >
-                      <ArrowDownIcon /> Move down
+                      <HugeiconsIcon icon={ArrowDown02Icon} strokeWidth={2} /> Move down
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -206,7 +208,7 @@ function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
                         void run(() => remove({ ruleId: rule._id }), "Could not delete")
                       }
                     >
-                      <TrashIcon /> Delete
+                      <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -217,7 +219,7 @@ function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
       </div>
       <DialogFooter>
         <Button onClick={() => setEditing("new")}>
-          <PlusIcon /> Add rule
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add rule
         </Button>
       </DialogFooter>
 

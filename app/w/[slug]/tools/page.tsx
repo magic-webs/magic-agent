@@ -44,18 +44,19 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { ListSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  WrenchIcon,
-  PlusIcon,
-  SparkleIcon,
-  TrashIcon,
-  PencilSimpleIcon,
-  GlobeIcon,
-  DatabaseIcon,
-  InfoIcon,
-  XIcon,
-  PlugsConnectedIcon,
-} from "@phosphor-icons/react";
+  Cancel01Icon,
+  Database01Icon,
+  Delete02Icon,
+  Globe02Icon,
+  InformationCircleIcon,
+  PencilEdit02Icon,
+  PlugSocketIcon,
+  PlusSignIcon,
+  SparklesIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 import { findIntegration } from "@/convex/lib/integrations";
 import { friendlyError } from "@/lib/errors";
 
@@ -138,7 +139,7 @@ function ParametersEditor({
               className="ml-auto"
               onClick={() => onChange(value.filter((_, i) => i !== index))}
             >
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
             </Button>
           </div>
           <Input
@@ -176,7 +177,7 @@ function ParametersEditor({
           ])
         }
       >
-        <PlusIcon /> Add parameter
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add parameter
       </Button>
     </div>
   );
@@ -249,7 +250,7 @@ function DraftToolDialog() {
       <DialogTrigger
         render={
           <Button>
-            <SparkleIcon /> Create from a task
+            <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> Create from a task
           </Button>
         }
       />
@@ -330,7 +331,7 @@ function DraftToolDialog() {
 
           {result ? (
             <Alert>
-              <InfoIcon />
+              <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} />
               <AlertTitle>
                 <span className="font-mono">{result.name}</span> ·{" "}
                 {result.kind} · {result.status}
@@ -345,7 +346,7 @@ function DraftToolDialog() {
             Close
           </Button>
           <Button onClick={run} disabled={busy}>
-            {busy ? <Spinner /> : <SparkleIcon />} Design the tool
+            {busy ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} Design the tool
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -731,7 +732,7 @@ function ToolDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />}{" "}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}{" "}
             {tool ? "Save changes" : "Create tool"}
           </Button>
         </DialogFooter>
@@ -766,7 +767,7 @@ export default function ToolsPage() {
           <ToolDialog
             trigger={
               <Button variant="outline">
-                <PlusIcon /> Manual
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Manual
               </Button>
             }
           />
@@ -782,7 +783,7 @@ export default function ToolsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <WrenchIcon />
+              <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No custom tools yet</EmptyTitle>
             <EmptyDescription>
@@ -800,7 +801,7 @@ export default function ToolsPage() {
           {tools.map((tool) => (
             <Item key={tool._id} variant="outline">
               <ItemMedia variant="icon">
-                {tool.kind === "http" ? <GlobeIcon /> : <DatabaseIcon />}
+                {tool.kind === "http" ? <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} /> : <HugeiconsIcon icon={Database01Icon} strokeWidth={2} />}
               </ItemMedia>
               <ItemContent>
                 <ItemTitle className="flex flex-wrap items-center gap-2">
@@ -822,7 +823,7 @@ export default function ToolsPage() {
                   <Badge variant="outline">{tool.kind}</Badge>
                   {tool.origin === "ai_drafted" ? (
                     <Badge variant="secondary">
-                      <SparkleIcon /> AI drafted
+                      <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> AI drafted
                     </Badge>
                   ) : null}
                   {tool.agentName ? (
@@ -830,7 +831,7 @@ export default function ToolsPage() {
                   ) : null}
                   {findIntegration(tool.integration ?? "") ? (
                     <Badge variant="secondary">
-                      <PlugsConnectedIcon />{" "}
+                      <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} />{" "}
                       {findIntegration(tool.integration ?? "")?.name}
                     </Badge>
                   ) : null}
@@ -905,7 +906,7 @@ export default function ToolsPage() {
                       variant="ghost"
                       aria-label={`Edit ${tool.name}`}
                     >
-                      <PencilSimpleIcon />
+                      <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
                     </Button>
                   }
                 />
@@ -918,7 +919,7 @@ export default function ToolsPage() {
                     toast.add({ title: "Tool deleted", type: "success" });
                   }}
                 >
-                  <TrashIcon />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                 </Button>
               </div>
             </Item>

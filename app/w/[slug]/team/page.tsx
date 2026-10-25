@@ -67,21 +67,22 @@ import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
 import { putFile } from "@/lib/upload";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  ArrowsClockwiseIcon,
-  ChatTeardropTextIcon,
-  CopyIcon,
-  DotsThreeIcon,
-  KeyIcon,
-  LockSimpleIcon,
-  PlusIcon,
-  ProhibitIcon,
-  RobotIcon,
-  UploadSimpleIcon,
-  UsersThreeIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight02Icon,
+  Copy01Icon,
+  Key01Icon,
+  Message01Icon,
+  MoreHorizontalIcon,
+  PlusSignIcon,
+  RefreshIcon,
+  RoboticIcon,
+  SquareLock01Icon,
+  UnavailableIcon,
+  Upload01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * The team — the AI agents and the human agents, on one page.
@@ -266,7 +267,7 @@ function PosterCard({
   const countClass = cn("flex items-center gap-1.5 text-[13px]", tone.body);
   const count = (
     <>
-      <ChatTeardropTextIcon weight="fill" aria-hidden className="size-4 shrink-0" />
+      <HugeiconsIcon icon={Message01Icon} strokeWidth={2} aria-hidden className="size-4 shrink-0" />
       {countLabel(messages)} msg{messages === 1 ? "" : "s"}
     </>
   );
@@ -413,7 +414,7 @@ function PosterCard({
             )}
           >
             {action.label}
-            <ArrowRightIcon weight="bold" className="size-4" />
+            <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} className="size-4" />
           </Link>
         ) : null}
       </div>
@@ -566,7 +567,7 @@ function MemberDialog({
                 className="w-fit"
                 onClick={() => fileRef.current?.click()}
               >
-                <UploadSimpleIcon /> {preview ? "Change photo" : "Upload photo"}
+                <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} /> {preview ? "Change photo" : "Upload photo"}
               </Button>
               <Input
                 value={photoUrl}
@@ -730,7 +731,7 @@ function IssuedLoginDialog({
                     aria-label={`Copy ${label.toLowerCase()}`}
                     onClick={() => void copy(value, label)}
                   >
-                    <CopyIcon />
+                    <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                   </Button>
                 </div>
               </div>
@@ -749,7 +750,7 @@ function IssuedLoginDialog({
                 )
               }
             >
-              <CopyIcon /> Copy all sign-in details
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy all sign-in details
             </Button>
 
             {issued.email ? null : (
@@ -760,7 +761,7 @@ function IssuedLoginDialog({
             )}
 
             <Alert>
-              <WarningIcon />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
               <AlertTitle>It opens the whole dashboard</AlertTitle>
               <AlertDescription>
                 {issued.name} can use everything in this workspace — the inbox,
@@ -825,7 +826,7 @@ function MemberMenu({
               className="text-current hover:bg-current/10 hover:text-current!"
               aria-label={`Options for ${member.name}`}
             >
-              <DotsThreeIcon />
+              <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
             </Button>
           }
         />
@@ -857,18 +858,18 @@ function MemberMenu({
                 {login ? (
                   <>
                     <DropdownMenuItem onClick={() => setConfirmingLogin("reset")}>
-                      <ArrowsClockwiseIcon /> Reset password
+                      <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Reset password
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
                       onClick={() => setConfirmingLogin("revoke")}
                     >
-                      <ProhibitIcon /> Revoke login
+                      <HugeiconsIcon icon={UnavailableIcon} strokeWidth={2} /> Revoke login
                     </DropdownMenuItem>
                   </>
                 ) : (
                   <DropdownMenuItem onClick={() => void issue()}>
-                    <KeyIcon /> Generate login
+                    <HugeiconsIcon icon={Key01Icon} strokeWidth={2} /> Generate login
                   </DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
@@ -1019,7 +1020,7 @@ function SeatsDialog({
                     {option.body}
                   </p>
                 </div>
-                <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
             ) : (
               <div key={option.title} className="rounded-xl border p-4">
@@ -1078,7 +1079,7 @@ export default function TeamPage() {
     now,
   });
   const locked = Boolean(seats && !seats.room);
-  const AddIcon = locked ? LockSimpleIcon : PlusIcon;
+  const AddIcon = locked ? SquareLock01Icon : PlusSignIcon;
   const loginByMember = new Map(
     (logins ?? []).map((login) => [login.memberId, login])
   );
@@ -1112,10 +1113,10 @@ export default function TeamPage() {
         {loading ? null : (
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
-              <RobotIcon /> {bots.length} AI
+              <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> {bots.length} AI
             </Badge>
             <Badge variant="secondary">
-              <UsersThreeIcon />{" "}
+              <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />{" "}
               {seats
                 ? `${seats.used} of ${seats.capacity} human`
                 : `${people.length} human`}
@@ -1125,7 +1126,7 @@ export default function TeamPage() {
               seats={seats}
               trigger={
                 <Button size="sm" variant="outline">
-                  <AddIcon /> Add a human agent
+                  <HugeiconsIcon icon={AddIcon} strokeWidth={2} /> Add a human agent
                 </Button>
               }
             />
@@ -1141,7 +1142,7 @@ export default function TeamPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <UsersThreeIcon />
+              <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>Nobody here yet</EmptyTitle>
             <EmptyDescription>
@@ -1162,7 +1163,7 @@ export default function TeamPage() {
               seats={seats}
               trigger={
                 <Button size="lg" variant="outline">
-                  <AddIcon /> Add a human agent
+                  <HugeiconsIcon icon={AddIcon} strokeWidth={2} /> Add a human agent
                 </Button>
               }
             />
@@ -1240,7 +1241,7 @@ export default function TeamPage() {
                 type="button"
                 className="flex h-[26rem] w-72 shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[28px] border border-dashed text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
               >
-                <AddIcon className="size-6" />
+                <HugeiconsIcon icon={AddIcon} strokeWidth={2} className="size-6" />
                 <span className="text-sm font-medium">Add a human agent</span>
                 {locked ? (
                   <span className="text-xs">

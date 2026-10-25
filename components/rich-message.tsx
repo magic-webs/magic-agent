@@ -14,24 +14,25 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowBendUpLeftIcon,
-  ArrowSquareOutIcon,
-  ChatCircleTextIcon,
-  DownloadSimpleIcon,
-  EnvelopeIcon,
-  FileTextIcon,
-  ListBulletsIcon,
-  MapPinIcon,
-  MicrophoneIcon,
-  PaperPlaneRightIcon,
+  ArrowTurnBackwardIcon,
+  Call02Icon,
+  Cancel01Icon,
+  Download01Icon,
+  File02Icon,
+  LeftToRightListBulletIcon,
+  LinkSquare02Icon,
+  Location01Icon,
+  Mail01Icon,
+  Message01Icon,
+  Mic01Icon,
   PauseIcon,
-  PhoneIcon,
   PlayIcon,
-  StorefrontIcon,
+  SentIcon,
+  Store01Icon,
   UserIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 
 /**
  * Renders the rich half of a message the way WhatsApp draws it — reply buttons
@@ -232,7 +233,7 @@ function ImageViewer({
           className="rounded-full p-2 text-white/90 hover:bg-white/10"
           onClick={onClose}
         >
-          <XIcon className="size-5" />
+          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-5" />
         </button>
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element -- any host */}
@@ -340,7 +341,7 @@ function VoiceNote({ url }: { url: string }) {
   return (
     <div className="flex w-64 max-w-full items-center gap-2.5 py-0.5">
       <div className="relative grid size-11 shrink-0 place-items-center rounded-full bg-[var(--chat-action,var(--primary))]/15 text-[var(--chat-action,var(--primary))]">
-        <MicrophoneIcon weight="fill" className="size-5" />
+        <HugeiconsIcon icon={Mic01Icon} strokeWidth={2} className="size-5" />
       </div>
       <button
         type="button"
@@ -349,9 +350,9 @@ function VoiceNote({ url }: { url: string }) {
         className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"
       >
         {playing ? (
-          <PauseIcon weight="fill" className="size-6" />
+          <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-6" />
         ) : (
-          <PlayIcon weight="fill" className="size-6" />
+          <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-6" />
         )}
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-1 pt-2">
@@ -411,7 +412,7 @@ function DocumentTile({ url, filename }: { url: string | null; filename?: string
   const tile = (
     <>
       <span className="relative shrink-0">
-        <FileTextIcon weight="fill" className="size-9 text-muted-foreground/40" />
+        <HugeiconsIcon icon={File02Icon} strokeWidth={2} className="size-9 text-muted-foreground/40" />
         <span
           className={cn(
             "absolute bottom-1 left-1/2 -translate-x-1/2 rounded-[3px] px-0.5 text-[0.5rem] leading-tight font-bold text-white",
@@ -426,7 +427,7 @@ function DocumentTile({ url, filename }: { url: string | null; filename?: string
         <span className="block text-[0.6875rem] text-muted-foreground">{ext}</span>
       </span>
       {url ? (
-        <DownloadSimpleIcon className="size-5 shrink-0 text-muted-foreground" />
+        <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
       ) : null}
     </>
   );
@@ -445,7 +446,7 @@ function MapPreview({ latitude, longitude }: { latitude: number; longitude: numb
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 85) {
     return (
       <div className="grid h-36 place-items-center bg-foreground/5">
-        <MapPinIcon weight="fill" className="size-8 text-red-500" />
+        <HugeiconsIcon icon={Location01Icon} strokeWidth={2} className="size-8 text-red-500" />
       </div>
     );
   }
@@ -483,10 +484,8 @@ function MapPreview({ latitude, longitude }: { latitude: number; longitude: numb
           ))
         )}
       </div>
-      <MapPinIcon
-        weight="fill"
-        className="absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-full text-red-500 drop-shadow-md"
-      />
+      <HugeiconsIcon icon={Location01Icon} strokeWidth={2}
+        className="absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-full text-red-500 drop-shadow-md" />
       <span className="absolute right-1 bottom-0.5 rounded-sm bg-white/70 px-1 text-[0.5rem] text-black/70">
         © OpenStreetMap
       </span>
@@ -545,7 +544,7 @@ function SheetFrame({
             aria-label="Close"
             className="absolute top-1.5 left-3 rounded-full p-1.5 text-muted-foreground hover:bg-muted"
           >
-            <XIcon className="size-5" />
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-5" />
           </DrawerClose>
           <DrawerTitle className="truncate text-base font-semibold">{title}</DrawerTitle>
         </div>
@@ -632,7 +631,7 @@ function ListSheet({
             onPick(row.title);
           }}
         >
-          <PaperPlaneRightIcon weight="fill" className="size-6" />
+          <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-6" />
         </button>
       ) : null}
     </SheetFrame>
@@ -819,11 +818,11 @@ export function RichMessage({
                   key={`${button.text}-${index}`}
                   icon={
                     button.type === "url" ? (
-                      <ArrowSquareOutIcon weight="bold" />
+                      <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} />
                     ) : button.type === "phone" ? (
-                      <PhoneIcon weight="bold" />
+                      <HugeiconsIcon icon={Call02Icon} strokeWidth={2} />
                     ) : (
-                      <ArrowBendUpLeftIcon weight="bold" />
+                      <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} />
                     )
                   }
                   label={button.text}
@@ -897,7 +896,7 @@ export function RichMessage({
             {message.buttons.map((button) => (
               <Action
                 key={button.id}
-                icon={<ArrowBendUpLeftIcon weight="bold" />}
+                icon={<HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} />}
                 label={button.title}
                 onClick={pick(button.title)}
                 disabled={!live}
@@ -916,7 +915,7 @@ export function RichMessage({
           <MetaStamp meta={meta} />
           <Actions>
             <Action
-              icon={<ListBulletsIcon weight="bold" />}
+              icon={<HugeiconsIcon icon={LeftToRightListBulletIcon} strokeWidth={2} />}
               label={message.buttonText}
               onClick={() => setSheet(true)}
             />
@@ -939,7 +938,7 @@ export function RichMessage({
           <MetaStamp meta={meta} />
           <Actions>
             <Action
-              icon={<ArrowSquareOutIcon weight="bold" />}
+              icon={<HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} />}
               label={message.displayText}
               href={message.url}
             />
@@ -987,7 +986,7 @@ export function RichMessage({
               <div key={`${contact.formattedName}-${index}`} className="flex flex-col">
                 <div className="flex items-center gap-3 py-1">
                   <span className="grid size-11 shrink-0 place-items-center rounded-full bg-muted-foreground/20 text-muted-foreground">
-                    <UserIcon weight="fill" className="size-6" />
+                    <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-6" />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{contact.formattedName}</span>
@@ -1007,16 +1006,16 @@ export function RichMessage({
                   <div className="-mx-3 mt-0.5 flex [&>*+*]:border-l">
                     {digits ? (
                       <a href={`https://wa.me/${digits}`} target="_blank" rel="noopener noreferrer" className={cn(action, "hover:bg-foreground/5")}>
-                        <ChatCircleTextIcon weight="bold" className="size-4" /> Message
+                        <HugeiconsIcon icon={Message01Icon} strokeWidth={2} className="size-4" /> Message
                       </a>
                     ) : null}
                     {phone ? (
                       <a href={`tel:${phone.phone}`} className={cn(action, "hover:bg-foreground/5")}>
-                        <PhoneIcon weight="bold" className="size-4" /> Call
+                        <HugeiconsIcon icon={Call02Icon} strokeWidth={2} className="size-4" /> Call
                       </a>
                     ) : email ? (
                       <a href={`mailto:${email.email}`} className={cn(action, "hover:bg-foreground/5")}>
-                        <EnvelopeIcon weight="bold" className="size-4" /> Email
+                        <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4" /> Email
                       </a>
                     ) : null}
                   </div>
@@ -1034,7 +1033,7 @@ export function RichMessage({
           <MetaStamp meta={meta} />
           <Actions>
             <Action
-              icon={<MapPinIcon weight="bold" />}
+              icon={<HugeiconsIcon icon={Location01Icon} strokeWidth={2} />}
               label="Send location"
               disabled={!live}
               onClick={() => live && shareLocation(live)}
@@ -1050,7 +1049,7 @@ export function RichMessage({
           <MetaStamp meta={meta} />
           <Actions>
             <Action
-              icon={<MapPinIcon weight="bold" />}
+              icon={<HugeiconsIcon icon={Location01Icon} strokeWidth={2} />}
               label="Send address"
               disabled={!live}
               onClick={() => setSheet(true)}
@@ -1075,7 +1074,7 @@ export function RichMessage({
           <Foot text={message.footer} />
           <MetaStamp meta={meta} />
           <Actions>
-            <Action icon={<FileTextIcon weight="bold" />} label={message.flowCta} disabled />
+            <Action icon={<HugeiconsIcon icon={File02Icon} strokeWidth={2} />} label={message.flowCta} disabled />
           </Actions>
           {live ? (
             <p className="pt-1.5 text-center text-[0.6875rem] text-muted-foreground">
@@ -1114,7 +1113,7 @@ export function RichMessage({
                     onClick={pick(cardData.quickReplyPayload)}
                     className={cn(action, live ? "cursor-pointer hover:bg-foreground/5" : "cursor-default")}
                   >
-                    <ArrowBendUpLeftIcon weight="bold" className="size-4" />
+                    <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} className="size-4" />
                     <span className="truncate">{cardData.quickReplyPayload}</span>
                   </button>
                 ) : null}
@@ -1135,7 +1134,7 @@ export function RichMessage({
           <MetaStamp meta={meta} />
           <Actions>
             <Action
-              icon={<StorefrontIcon weight="bold" />}
+              icon={<HugeiconsIcon icon={Store01Icon} strokeWidth={2} />}
               label={message.kind === "product" ? "View item" : "View catalogue"}
               disabled
             />

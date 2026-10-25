@@ -55,13 +55,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  KeyIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  TrashIcon,
-  UsersThreeIcon,
-} from "@phosphor-icons/react";
+  Delete02Icon,
+  Key01Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 
 type TeamRow = {
   _id: Id<"admins">;
@@ -175,11 +176,11 @@ function MemberDialog({
         render={
           member ? (
             <Button size="sm" variant="outline">
-              <PencilSimpleIcon /> Edit
+              <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
             </Button>
           ) : (
             <Button>
-              <PlusIcon /> Add team member
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add team member
             </Button>
           )
         }
@@ -268,7 +269,7 @@ function MemberDialog({
             Cancel
           </Button>
           <Button disabled={busy || invalid} onClick={() => void submit()}>
-            {busy ? <Spinner /> : member ? <PencilSimpleIcon /> : <PlusIcon />}
+            {busy ? <Spinner /> : member ? <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}
             {member ? "Save" : "Add team member"}
           </Button>
         </DialogFooter>
@@ -315,7 +316,7 @@ function ResetPasswordDialog({ member }: { member: TeamRow }) {
       <DialogTrigger
         render={
           <Button size="sm" variant="ghost">
-            <KeyIcon /> Password
+            <HugeiconsIcon icon={Key01Icon} strokeWidth={2} /> Password
           </Button>
         }
       />
@@ -338,7 +339,7 @@ function ResetPasswordDialog({ member }: { member: TeamRow }) {
             Cancel
           </Button>
           <Button disabled={busy || password.length < 12} onClick={() => void submit()}>
-            {busy ? <Spinner /> : <KeyIcon />} Reset password
+            {busy ? <Spinner /> : <HugeiconsIcon icon={Key01Icon} strokeWidth={2} />} Reset password
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -367,7 +368,7 @@ function RemoveButton({ member }: { member: TeamRow }) {
       <AlertDialogTrigger
         render={
           <Button size="sm" variant="ghost">
-            <TrashIcon /> Remove
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Remove
           </Button>
         }
       />
@@ -426,7 +427,7 @@ export default function AdminTeamPage() {
       <Card className="shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <UsersThreeIcon className="size-4" /> Team members
+            <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4" /> Team members
           </CardTitle>
           <CardDescription>
             Changes to a role or its workspaces apply on their next request.

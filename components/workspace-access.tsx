@@ -34,14 +34,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  KeyIcon,
-  CopyIcon,
-  ProhibitIcon,
-  CheckCircleIcon,
-  WarningIcon,
-  ArrowsClockwiseIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  CheckmarkCircle02Icon,
+  Copy01Icon,
+  Key01Icon,
+  RefreshIcon,
+  UnavailableIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 function relative(timestamp: number | null): string {
@@ -105,7 +106,7 @@ function IssuedPasswordDialog({
                   aria-label="Copy workspace ID"
                   onClick={() => void copy(issued.slug, "Workspace ID")}
                 >
-                  <CopyIcon />
+                  <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                 </Button>
               </div>
             </div>
@@ -126,7 +127,7 @@ function IssuedPasswordDialog({
                   aria-label="Copy password"
                   onClick={() => void copy(issued.password, "Password")}
                 >
-                  <CopyIcon />
+                  <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                 </Button>
               </div>
             </div>
@@ -142,11 +143,11 @@ function IssuedPasswordDialog({
                 )
               }
             >
-              <CopyIcon /> Copy all sign-in details
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy all sign-in details
             </Button>
 
             <Alert>
-              <WarningIcon />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
               <AlertTitle>Send it over a channel you trust</AlertTitle>
               <AlertDescription>
                 Anyone with these two values can open this workspace. The
@@ -305,7 +306,7 @@ export function WorkspaceAccessCard({
               <AlertDialogTrigger
                 render={
                   <Button disabled={busy}>
-                    {busy ? <Spinner /> : <KeyIcon />}
+                    {busy ? <Spinner /> : <HugeiconsIcon icon={Key01Icon} strokeWidth={2} />}
                     {access.hasPassword
                       ? "Generate a new password"
                       : "Generate password"}
@@ -351,7 +352,7 @@ export function WorkspaceAccessCard({
                   disabled={busy}
                   onClick={() => void runSetStatus("revoked")}
                 >
-                  <ProhibitIcon /> Revoke access
+                  <HugeiconsIcon icon={UnavailableIcon} strokeWidth={2} /> Revoke access
                 </Button>
               ) : (
                 <Button
@@ -359,7 +360,7 @@ export function WorkspaceAccessCard({
                   disabled={busy}
                   onClick={() => void runSetStatus("active")}
                 >
-                  <CheckCircleIcon /> Restore access
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} /> Restore access
                 </Button>
               )
             ) : null}
@@ -382,7 +383,7 @@ export function WorkspaceAccessCard({
 
             {access.mustChangePassword ? (
               <Alert>
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>Still using the issued password</AlertTitle>
                 <AlertDescription>
                   Set your own password so the person who issued it can no
@@ -447,7 +448,7 @@ export function WorkspaceAccessCard({
               }
               onClick={() => void runChangePassword()}
             >
-              {busy ? <Spinner /> : <ArrowsClockwiseIcon />} Change password
+              {busy ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Change password
             </Button>
           </div>
         </>
@@ -485,7 +486,7 @@ export function WorkspaceAccessDialog({
         render={
           trigger ?? (
             <Button size="lg" variant="ghost">
-              <KeyIcon /> Access
+              <HugeiconsIcon icon={Key01Icon} strokeWidth={2} /> Access
             </Button>
           )
         }

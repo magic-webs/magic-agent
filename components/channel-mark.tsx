@@ -1,6 +1,7 @@
 "use client";
 
-import { GlobeIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Globe02Icon } from "@hugeicons/core-free-icons";
 import {
   InstagramLogo,
   RcsLogo,
@@ -46,7 +47,7 @@ export function ChannelGlyph({
     case "telegram":
       return <TelegramLogo className={className} />;
     default:
-      return <GlobeIcon weight="bold" className={cn("size-4 shrink-0", className)} />;
+      return <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} className={cn("size-4 shrink-0", className)} />;
   }
 }
 

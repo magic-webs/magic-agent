@@ -33,15 +33,16 @@ import {
   type ChannelKind,
 } from "@/components/channel-mark";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  BooksIcon,
-  FunnelIcon,
-  PlusIcon,
-  RobotIcon,
+  Alert02Icon,
+  Book02Icon,
+  FilterIcon,
+  PlusSignIcon,
+  RoboticIcon,
   SignpostIcon,
-  WarningIcon,
-  WrenchIcon,
-} from "@phosphor-icons/react";
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 
 // ---------------------------------------------------------------------------
 // Nodes
@@ -99,11 +100,11 @@ const STATUS_DOT: Record<AgentStatus, string> = {
 
 const KIND: Record<
   AgentKind,
-  { label: string; icon: typeof RobotIcon }
+  { label: string; icon: typeof RoboticIcon }
 > = {
   router: { label: "Front desk", icon: SignpostIcon },
-  specialist: { label: "Specialist", icon: RobotIcon },
-  follow_up: { label: "Follow-up desk", icon: FunnelIcon },
+  specialist: { label: "Specialist", icon: RoboticIcon },
+  follow_up: { label: "Follow-up desk", icon: FilterIcon },
 };
 
 // Handles exist only so edges have somewhere to attach. Drawn, they read as
@@ -193,7 +194,7 @@ function PlaceholderNode({ data }: NodeProps<Node<PlaceholderData>>) {
   return (
     <div className="flex w-60 cursor-pointer items-center gap-3 rounded-2xl border border-dashed bg-card/60 p-3 text-left transition-colors hover:border-primary/60 hover:bg-card">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-        <PlusIcon className="size-5" />
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{data.label}</p>
@@ -285,7 +286,7 @@ function AgentNode({ data }: NodeProps<Node<AgentData>>) {
                 : "bg-muted text-muted-foreground"
             )}
           >
-            <KindIcon className="size-3" />
+            <HugeiconsIcon icon={KindIcon} strokeWidth={2} className="size-3" />
             {kind.label}
           </span>
           {data.status !== "active" ? (
@@ -312,7 +313,7 @@ function AgentNode({ data }: NodeProps<Node<AgentData>>) {
             </p>
           ) : (
             <p className="flex items-start gap-1 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
-              <WarningIcon weight="fill" className="mt-px size-3 shrink-0" />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-px size-3 shrink-0" />
               No routing note — the front desk has almost nothing to route on.
             </p>
           )
@@ -333,14 +334,14 @@ function AgentNode({ data }: NodeProps<Node<AgentData>>) {
                 : "Does not read the knowledge base"
             }
           >
-            <BooksIcon className="size-3" />
+            <HugeiconsIcon icon={Book02Icon} strokeWidth={2} className="size-3" />
             Knowledge
           </span>
           <span
             className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 tabular-nums"
             title={`${data.config.tools} built-in tools`}
           >
-            <WrenchIcon className="size-3" />
+            <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} className="size-3" />
             {data.config.tools}
           </span>
         </div>

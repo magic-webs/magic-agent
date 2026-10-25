@@ -26,7 +26,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { WarningIcon, CoinsIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Alert02Icon,
+  Coins01Icon,
+} from "@hugeicons/core-free-icons";
 
 const NANO = 1_000_000_000;
 const COST_MULTIPLIER = 10;
@@ -125,7 +129,7 @@ export function UsagePanel() {
 
       {data.unpricedModels.length > 0 ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>
             {data.unpricedModels.length} model
             {data.unpricedModels.length === 1 ? "" : "s"} not in the price table
@@ -147,7 +151,7 @@ export function UsagePanel() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <CoinsIcon />
+              <HugeiconsIcon icon={Coins01Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No model calls in this period</EmptyTitle>
             <EmptyDescription>

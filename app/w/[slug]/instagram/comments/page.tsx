@@ -28,7 +28,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PencilSimpleIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Delete02Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 
 type Editing = { ruleId?: Id<"instagramRules">; initial?: RuleDraft } | null;
 
@@ -51,7 +56,7 @@ export default function InstagramCommentsPage() {
           </p>
         </div>
         <Button onClick={() => setEditing({})}>
-          <PlusIcon /> New rule
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New rule
         </Button>
       </header>
 
@@ -176,13 +181,13 @@ function RuleCard({ rule, onEdit }: { rule: InstagramRule; onEdit: () => void })
         {rule.oncePerUser ? <Badge variant="secondary">Once per person</Badge> : null}
         <span className="ml-auto flex gap-1">
           <Button size="sm" variant="ghost" onClick={onEdit}>
-            <PencilSimpleIcon /> Edit
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
           </Button>
           <AlertDialog>
             <AlertDialogTrigger
               render={
                 <Button size="sm" variant="ghost" aria-label="Delete rule">
-                  <TrashIcon />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                 </Button>
               }
             />

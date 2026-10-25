@@ -77,16 +77,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ClockIcon,
+  Alert02Icon,
+  Clock01Icon,
   CreditCardIcon,
+  Delete02Icon,
+  FlashIcon,
   FloppyDiskIcon,
-  LightningIcon,
   QrCodeIcon,
-  TrashIcon,
-  WalletIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Wallet01Icon,
+} from "@hugeicons/core-free-icons";
 
 type Summary = NonNullable<FunctionReturnType<typeof api.wallet.summary>>;
 
@@ -164,7 +165,7 @@ export function WalletTab() {
       <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <WalletIcon />
+            <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} />
           </EmptyMedia>
           <EmptyTitle>The wallet isn&apos;t switched on yet</EmptyTitle>
         </EmptyHeader>
@@ -251,7 +252,7 @@ function BalanceCard({ data, now }: { data: Summary; now: number }) {
 
         {data.lowBalance ? (
           <Alert variant={balance <= 0 ? "destructive" : "default"}>
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>
               {balance <= 0 ? "Your wallet has run out" : "Your balance is low"}
             </AlertTitle>
@@ -266,7 +267,7 @@ function BalanceCard({ data, now }: { data: Summary; now: number }) {
 
         {data.inFlight ? (
           <Alert>
-            <ClockIcon />
+            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} />
             <AlertTitle>An auto-recharge is on its way</AlertTitle>
             <AlertDescription>
               An auto-recharge of {money(data.inFlight.totalMicros)} was
@@ -278,7 +279,7 @@ function BalanceCard({ data, now }: { data: Summary; now: number }) {
 
         {otherCurrency ? (
           <Alert>
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>Your message rates are in {otherCurrency}</AlertTitle>
             <AlertDescription>
               The wallet is in {data.currency}, so messages are not being taken
@@ -431,7 +432,7 @@ function TopUpCard({ data }: { data: Summary }) {
           disabled={busy || !payable || value === null || tooSmall || tooLarge}
           onClick={topUp}
         >
-          {busy ? <Spinner /> : <WalletIcon />}
+          {busy ? <Spinner /> : <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} />}
           {value !== null && !tooSmall && !tooLarge
             ? `Pay ${money(amounts.totalMicros)}`
             : "Pay"}
@@ -629,7 +630,7 @@ function AutoRechargeCard({ data }: { data: Summary }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <LightningIcon className="size-4 text-muted-foreground" />
+          <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
           Auto-recharge
           <Badge variant="secondary" className={standing.tone}>
             {standing.label}
@@ -757,7 +758,7 @@ function AutoRechargeCard({ data }: { data: Summary }) {
 
             {autoRecharge.lastError ? (
               <Alert variant="destructive">
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>
                   The last auto-recharge didn&apos;t go through
                 </AlertTitle>
@@ -778,7 +779,7 @@ function AutoRechargeCard({ data }: { data: Summary }) {
           <div className="flex flex-col gap-3">
             {!data.profileReady ? (
               <Alert>
-                <WarningIcon />
+                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                 <AlertTitle>
                   Add a billing email and phone number first
                 </AlertTitle>
@@ -818,9 +819,9 @@ function AutoRechargeCard({ data }: { data: Summary }) {
                     {busy === option ? (
                       <Spinner />
                     ) : option === "upi" ? (
-                      <QrCodeIcon />
+                      <HugeiconsIcon icon={QrCodeIcon} strokeWidth={2} />
                     ) : (
-                      <CreditCardIcon />
+                      <HugeiconsIcon icon={CreditCardIcon} strokeWidth={2} />
                     )}
                     {option === "upi"
                       ? "Set up with UPI Autopay"
@@ -841,7 +842,7 @@ function AutoRechargeCard({ data }: { data: Summary }) {
               disabled={busy !== null}
               onClick={() => setConfirmingRemove(true)}
             >
-              <TrashIcon /> Remove
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Remove
             </Button>
           ) : null}
           <Button
@@ -849,7 +850,7 @@ function AutoRechargeCard({ data }: { data: Summary }) {
             disabled={busy !== null || !dirty || !inputsValid || overMandate}
             onClick={save}
           >
-            {busy === "save" ? <Spinner /> : <FloppyDiskIcon />}
+            {busy === "save" ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />}
             {hasMandate ? "Save" : "Save the line"}
           </Button>
         </CardFooter>
@@ -928,7 +929,7 @@ function WalletHistory() {
           <Empty className="border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <WalletIcon />
+                <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} />
               </EmptyMedia>
               <EmptyTitle>Nothing has gone into the wallet yet</EmptyTitle>
             </EmptyHeader>

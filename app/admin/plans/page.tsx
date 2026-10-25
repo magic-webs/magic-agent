@@ -66,15 +66,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CaretLeftIcon,
-  CaretRightIcon,
-  EyeSlashIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  PowerIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  Delete02Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+  PowerServiceIcon,
+  ViewOffSlashIcon,
+} from "@hugeicons/core-free-icons";
 
 type Catalogue = FunctionReturnType<typeof api.plans.adminCatalogue>;
 type PlanRow = Catalogue["plans"][number];
@@ -193,7 +194,7 @@ function EnableBilling() {
     <Empty className="border border-dashed">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <PowerIcon />
+          <HugeiconsIcon icon={PowerServiceIcon} strokeWidth={2} />
         </EmptyMedia>
         <EmptyTitle>Billing is off</EmptyTitle>
         <EmptyDescription>
@@ -207,7 +208,7 @@ function EnableBilling() {
       {modifies ? (
         <EmptyContent>
           <Button disabled={busy} onClick={() => void run()}>
-            {busy ? <Spinner /> : <PowerIcon />} Switch billing on
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PowerServiceIcon} strokeWidth={2} />} Switch billing on
           </Button>
         </EmptyContent>
       ) : null}
@@ -908,7 +909,7 @@ function PlanCard({
           {plan.highlighted ? <Badge>Most popular</Badge> : null}
           {plan.status === "hidden" ? (
             <Badge variant="secondary">
-              <EyeSlashIcon /> Hidden
+              <HugeiconsIcon icon={ViewOffSlashIcon} strokeWidth={2} /> Hidden
             </Badge>
           ) : null}
           {isTrialPlan ? <Badge variant="outline">Trial plan</Badge> : null}
@@ -955,7 +956,7 @@ function PlanCard({
             disabled={first || moving}
             onClick={() => onMove(-1)}
           >
-            <CaretLeftIcon />
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
           </Button>
           <Button
             size="icon-sm"
@@ -965,7 +966,7 @@ function PlanCard({
             disabled={last || moving}
             onClick={() => onMove(1)}
           >
-            <CaretRightIcon />
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
           </Button>
           <Button
             size="icon-sm"
@@ -974,7 +975,7 @@ function PlanCard({
             aria-label={`Edit ${plan.name}`}
             onClick={onEdit}
           >
-            <PencilSimpleIcon />
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger
@@ -985,7 +986,7 @@ function PlanCard({
                   title="Delete"
                   aria-label={`Delete ${plan.name}`}
                 >
-                  <TrashIcon />
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                 </Button>
               }
             />
@@ -1155,7 +1156,7 @@ export default function AdminPlansPage() {
               </div>
               {modifies ? (
                 <Button onClick={() => openPlan(null)}>
-                  <PlusIcon /> New plan
+                  <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New plan
                 </Button>
               ) : null}
             </div>

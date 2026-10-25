@@ -6,12 +6,13 @@ import { useInstagram } from "@/components/instagram/context";
 import { ActivityList } from "@/components/instagram/activity-list";
 import { StatTile } from "@/components/dashboard-charts";
 import { Button } from "@/components/ui/button";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  ChatsCircleIcon,
-  ShieldCheckIcon,
-  ChatCircleTextIcon,
-} from "@phosphor-icons/react";
+  ArrowRight02Icon,
+  Comment01Icon,
+  Message01Icon,
+  SecurityCheckIcon,
+} from "@hugeicons/core-free-icons";
 
 export default function InstagramOverviewPage() {
   const workspace = useWorkspace();
@@ -22,19 +23,19 @@ export default function InstagramOverviewPage() {
   const shortcuts = [
     {
       href: `${base}/comments`,
-      icon: ChatsCircleIcon,
+      icon: Comment01Icon,
       title: "Comment rules",
       body: "Reply under a comment and send a DM when someone comments a keyword.",
     },
     {
       href: `${base}/moderation`,
-      icon: ShieldCheckIcon,
+      icon: SecurityCheckIcon,
       title: "Moderation",
       body: "Hide or delete spam, links and abuse before anyone sees them.",
     },
     {
       href: `${base}/messages`,
-      icon: ChatCircleTextIcon,
+      icon: Message01Icon,
       title: "DM tools",
       body: "Thank people who mention you in a story, and set ice breaker questions.",
     },
@@ -62,10 +63,10 @@ export default function InstagramOverviewPage() {
             href={item.href}
             className="group flex flex-col gap-2 rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
           >
-            <item.icon className="size-5 text-muted-foreground" />
+            <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-5 text-muted-foreground" />
             <p className="flex items-center gap-1 text-sm font-medium">
               {item.title}
-              <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+              <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} className="size-3.5 transition-transform group-hover:translate-x-0.5" />
             </p>
             <p className="text-xs text-muted-foreground">{item.body}</p>
           </Link>

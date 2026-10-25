@@ -19,7 +19,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { DevicesIcon, LockKeyIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ComputerPhoneSyncIcon,
+  SquareLock02Icon,
+} from "@hugeicons/core-free-icons";
 import type { SessionEndReason } from "@/lib/session";
 
 /**
@@ -90,7 +94,7 @@ function SessionEnded({ reason }: { reason: SessionEndReason | null }) {
       <Empty className="max-w-md border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            {replaced ? <DevicesIcon /> : <LockKeyIcon />}
+            {replaced ? <HugeiconsIcon icon={ComputerPhoneSyncIcon} strokeWidth={2} /> : <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} />}
           </EmptyMedia>
           <EmptyTitle>
             {replaced ? "Signed in on another device" : "Your session has ended"}

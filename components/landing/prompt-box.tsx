@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowUp02Icon } from "@hugeicons/core-free-icons";
 import { ChannelMark } from "@/components/channel-mark";
 
 const EXAMPLES = [
@@ -85,7 +86,7 @@ export function PromptBox() {
             aria-label="Create this agent"
             className="flex size-10 items-center justify-center rounded-full bg-(--ink) text-(--paper) transition-transform hover:-translate-y-0.5"
           >
-            <ArrowUpIcon weight="bold" className="size-4.5" />
+            <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} className="size-4.5" />
           </Link>
         </span>
       </label>

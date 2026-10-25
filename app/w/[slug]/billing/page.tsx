@@ -6,7 +6,12 @@ import { PlanTab } from "@/components/billing/plan-tab";
 import { WalletTab } from "@/components/billing/wallet-tab";
 import { SelectField } from "@/components/select-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChartBarIcon, ReceiptIcon, WalletIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ChartColumnIcon,
+  Invoice01Icon,
+  Wallet01Icon,
+} from "@hugeicons/core-free-icons";
 
 const TABS = ["plan", "wallet", "usage"] as const;
 type Tab = (typeof TABS)[number];
@@ -58,13 +63,13 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="plan">
-              <ReceiptIcon /> Plan
+              <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} /> Plan
             </TabsTrigger>
             <TabsTrigger value="wallet">
-              <WalletIcon /> Wallet
+              <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} /> Wallet
             </TabsTrigger>
             <TabsTrigger value="usage">
-              <ChartBarIcon /> Message usage
+              <HugeiconsIcon icon={ChartColumnIcon} strokeWidth={2} /> Message usage
             </TabsTrigger>
           </TabsList>
           {tab === "usage" ? (

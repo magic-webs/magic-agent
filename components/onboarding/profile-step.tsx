@@ -19,7 +19,9 @@ import {
   TimezonePicker,
 } from "@/components/regional-pickers";
 import { COMMON_TIMEZONES, timezoneCity } from "@/convex/lib/regional";
-import { FloppyDiskIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { FloppyDiskIcon } from "@hugeicons/core-free-icons";
+
 
 /**
  * Step 1 — the company profile.
@@ -353,7 +355,7 @@ export function ProfileStep() {
           onClick={() => void save("continue")}
           disabled={saving || !form.name.trim()}
         >
-          <FloppyDiskIcon /> {saving ? "Saving…" : "Save and continue"}
+          <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} /> {saving ? "Saving…" : "Save and continue"}
         </Button>
         <Button
           variant="outline"

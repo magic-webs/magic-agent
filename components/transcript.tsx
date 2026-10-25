@@ -32,15 +32,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  WrenchIcon,
-  CaretRightIcon,
-  ArrowsSplitIcon,
-  ClipboardTextIcon,
-  UserIcon,
+  ArrowRight01Icon,
+  CheckmarkCircle02Icon,
+  ClipboardIcon,
+  GitForkIcon,
   ThumbsDownIcon,
-  CheckCircleIcon,
-} from "@phosphor-icons/react";
+  UserIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 
 function timeOf(createdAt: number): string {
   return new Date(createdAt).toLocaleTimeString(undefined, {
@@ -99,8 +100,8 @@ export function ToolTrace({ message }: { message: Doc<"messages"> }) {
           <Button variant="ghost" size="lg" className="text-muted-foreground">
             {/* The trigger is this Button, so `data-panel-open` lands on the
                 group/button element the icon sits inside. */}
-            <CaretRightIcon className="transition-transform group-data-panel-open/button:rotate-90" />
-            <WrenchIcon />
+            <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="transition-transform group-data-panel-open/button:rotate-90" />
+            <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} />
             <span className="font-mono">{message.toolName}</span>
             <Badge
               variant={message.toolOk ? "secondary" : "destructive"}
@@ -151,7 +152,7 @@ function HandoffMarker({ message }: { message: Doc<"messages"> }) {
   return (
     <div className="flex flex-col items-center gap-1 py-1">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <ArrowsSplitIcon className="size-3.5" />
+        <HugeiconsIcon icon={GitForkIcon} strokeWidth={2} className="size-3.5" />
         <span>{message.text}</span>
       </div>
       {summary ? (
@@ -187,7 +188,7 @@ function NoteMarker({ message }: { message: Doc<"messages"> }) {
       title="Internal note — not sent to the customer"
       className="mx-auto flex w-full max-w-2xl gap-2 rounded-lg border border-amber-300/70 bg-amber-50/95 px-3 py-2 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10"
     >
-      <ClipboardTextIcon className="mt-0.5 size-3.5 shrink-0 text-amber-700 dark:text-amber-300" />
+      <HugeiconsIcon icon={ClipboardIcon} strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-amber-700 dark:text-amber-300" />
       <p className="min-w-0 flex-1 text-xs leading-relaxed whitespace-pre-wrap text-amber-950/90 dark:text-amber-100/80">
         {message.text}
       </p>
@@ -411,7 +412,7 @@ export function TranscriptView({
               <MessageAvatar className="bg-transparent">
                 {message.sentByHuman || !agent ? (
                   <span className="flex size-7 items-center justify-center rounded-full border bg-muted">
-                    <UserIcon className="size-3.5" />
+                    <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-3.5" />
                   </span>
                 ) : (
                   <AgentAvatar
@@ -509,7 +510,7 @@ export function TranscriptView({
                   <Badge variant="destructive">Marked wrong</Badge>
                 ) : message.review === "corrected" ? (
                   <Badge variant="secondary">
-                    <CheckCircleIcon /> Corrected
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} /> Corrected
                   </Badge>
                 ) : null}
                 <Button
@@ -522,7 +523,7 @@ export function TranscriptView({
                   )}
                   onClick={() => onMarkWrong?.(message)}
                 >
-                  <ThumbsDownIcon />
+                  <HugeiconsIcon icon={ThumbsDownIcon} strokeWidth={2} />
                   {message.review ? "Review" : "Mark as wrong"}
                 </Button>
               </div>
@@ -534,7 +535,7 @@ export function TranscriptView({
                     ones still need marking as a person's. */}
                 {teamMark ? (
                   <span className="flex items-center gap-1">
-                    <UserIcon className="size-3" />
+                    <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-3" />
                     Your team{!mine || showLatency ? " ·" : ""}
                   </span>
                 ) : null}

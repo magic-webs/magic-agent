@@ -51,7 +51,7 @@ import {
   Building06Icon,
   ChartUpIcon,
   ConnectIcon,
-  DashboardSpeed02Icon,
+  Analytics02Icon,
   Folder01Icon,
   FolderLibraryIcon,
   FunnelIcon,
@@ -65,7 +65,7 @@ import {
   CalendarCheckIn01Icon,
   Calendar03Icon,
   MessageMultiple01Icon,
-  Notification03Icon,
+  BellRingIcon,
   Package01Icon,
   ReceiptIcon,
   Robot01Icon,
@@ -129,7 +129,7 @@ const NAV: Array<{
   view?: string;
   items?: NavItem[];
 }> = [
-  { label: "Dashboard", icon: DashboardSpeed02Icon, href: "" },
+  { label: "Dashboard", icon: Analytics02Icon, href: "" },
   // A row of its own rather than a child of Build: it is the whole roster,
   // agents and people on one page, and "who answers for us" is a question you
   // should not have to open a section to ask. Build keeps the agent editors.
@@ -203,7 +203,7 @@ const NAV: Array<{
   // Beside Marketing: both send WhatsApp templates to customers, but these go
   // out when something happens — a record filed, an order, a webhook — rather
   // than on a date, and email goes the same way.
-  { label: "Notifications", icon: Notification03Icon, href: "/notifications" },
+  { label: "Notifications", icon: BellRingIcon, href: "/notifications" },
   // Connecting Sheets or a calendar is something you do once you have agents
   // to give it to, and it is not a setting — it changes what the agents can
   // do. Settings itself lives in the profile menu.

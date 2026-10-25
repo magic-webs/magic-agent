@@ -41,17 +41,18 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { CardGridSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  BooksIcon,
-  PlusIcon,
-  TrashIcon,
-  ArrowsClockwiseIcon,
-  FileTextIcon,
-  LinkIcon,
-  QuestionIcon,
-  UploadIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  Book02Icon,
+  Delete02Icon,
+  File02Icon,
+  HelpCircleIcon,
+  Link01Icon,
+  PlusSignIcon,
+  RefreshIcon,
+  Upload04Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { putFile } from "@/lib/upload";
@@ -59,10 +60,10 @@ import { KnowledgeGaps } from "@/components/knowledge/knowledge-gaps";
 import { SourceDialog, STATUS_VARIANT } from "@/components/knowledge/source-dialog";
 
 const KIND_ICONS = {
-  text: FileTextIcon,
-  faq: QuestionIcon,
-  url: LinkIcon,
-  file: UploadIcon,
+  text: File02Icon,
+  faq: HelpCircleIcon,
+  url: Link01Icon,
+  file: Upload04Icon,
 } as const;
 
 
@@ -194,7 +195,7 @@ function AddSourceDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button><PlusIcon /> Add source</Button>} />
+      <DialogTrigger render={<Button><HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add source</Button>} />
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Add a knowledge source</DialogTitle>
@@ -235,16 +236,16 @@ function AddSourceDialog() {
         <Tabs defaultValue="text">
           <TabsList className="w-full">
             <TabsTrigger value="text">
-              <FileTextIcon /> Paste text
+              <HugeiconsIcon icon={File02Icon} strokeWidth={2} /> Paste text
             </TabsTrigger>
             <TabsTrigger value="faq">
-              <QuestionIcon /> FAQ
+              <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} /> FAQ
             </TabsTrigger>
             <TabsTrigger value="url">
-              <LinkIcon /> URL
+              <HugeiconsIcon icon={Link01Icon} strokeWidth={2} /> URL
             </TabsTrigger>
             <TabsTrigger value="file">
-              <UploadIcon /> File
+              <HugeiconsIcon icon={Upload04Icon} strokeWidth={2} /> File
             </TabsTrigger>
           </TabsList>
 
@@ -256,7 +257,7 @@ function AddSourceDialog() {
               onChange={(event) => setText(event.target.value)}
             />
             <Button onClick={() => submitText("text")} disabled={busy}>
-              {busy ? <Spinner /> : <PlusIcon />} Add and embed
+              {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Add and embed
             </Button>
           </TabsContent>
 
@@ -273,7 +274,7 @@ function AddSourceDialog() {
               Separate each Q/A pair with a blank line so they chunk cleanly.
             </p>
             <Button onClick={() => submitText("faq")} disabled={busy}>
-              {busy ? <Spinner /> : <PlusIcon />} Add and embed
+              {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Add and embed
             </Button>
           </TabsContent>
 
@@ -288,7 +289,7 @@ function AddSourceDialog() {
               &ldquo;Reprocess&rdquo; later to pick up changes.
             </p>
             <Button onClick={submitUrl} disabled={busy}>
-              {busy ? <Spinner /> : <LinkIcon />} Fetch and embed
+              {busy ? <Spinner /> : <HugeiconsIcon icon={Link01Icon} strokeWidth={2} />} Fetch and embed
             </Button>
           </TabsContent>
 
@@ -305,7 +306,7 @@ function AddSourceDialog() {
               instead.
             </p>
             <Button onClick={submitFile} disabled={busy}>
-              {busy ? <Spinner /> : <UploadIcon />} Upload and embed
+              {busy ? <Spinner /> : <HugeiconsIcon icon={Upload04Icon} strokeWidth={2} />} Upload and embed
             </Button>
           </TabsContent>
         </Tabs>
@@ -370,7 +371,7 @@ export default function KnowledgePage() {
       <Tabs defaultValue="sources" className="gap-4">
         <TabsList>
           <TabsTrigger value="sources">
-            <BooksIcon /> Sources
+            <HugeiconsIcon icon={Book02Icon} strokeWidth={2} /> Sources
             {needsUpdate.length ? (
               <Badge variant="destructive" className="ml-1">
                 {needsUpdate.length}
@@ -378,7 +379,7 @@ export default function KnowledgePage() {
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="gaps">
-            <QuestionIcon /> Knowledge gaps
+            <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} /> Knowledge gaps
             {openGaps ? (
               <Badge variant="destructive" className="ml-1">
                 {openGaps >= 100 ? "99+" : openGaps}
@@ -394,7 +395,7 @@ export default function KnowledgePage() {
         <TabsContent value="sources" className="flex flex-col gap-5">
           {needsUpdate.length > 0 ? (
             <Alert variant="destructive">
-              <WarningIcon />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
               <AlertTitle>
                 {needsUpdate.length} source{needsUpdate.length === 1 ? "" : "s"} need
                 {needsUpdate.length === 1 ? "s" : ""} updating
@@ -408,7 +409,7 @@ export default function KnowledgePage() {
 
           {failed.length > 0 ? (
             <Alert variant="destructive">
-              <WarningIcon />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
               <AlertTitle>
                 {failed.length} source{failed.length === 1 ? "" : "s"} failed to
                 process
@@ -425,7 +426,7 @@ export default function KnowledgePage() {
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <BooksIcon />
+                  <HugeiconsIcon icon={Book02Icon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>Nothing indexed yet</EmptyTitle>
                 <EmptyDescription>
@@ -458,7 +459,7 @@ export default function KnowledgePage() {
                     <CardHeader>
                       <CardTitle className="flex min-w-0 items-start gap-2">
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                          <Icon className="size-4" />
+                          <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-4" />
                         </span>
                         <span className="line-clamp-2 min-w-0 flex-1">
                           {source.title}
@@ -487,7 +488,7 @@ export default function KnowledgePage() {
 
                       {source.wrongAnswerGapIds.length > 0 ? (
                         <p className="flex items-center gap-1.5 text-sm text-destructive">
-                          <WarningIcon className="size-4 shrink-0" />
+                          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4 shrink-0" />
                           {source.wrongAnswerGapIds.length} wrong{" "}
                           {source.wrongAnswerGapIds.length === 1 ? "answer" : "answers"} came
                           from this source
@@ -532,7 +533,7 @@ export default function KnowledgePage() {
                             });
                           }}
                         >
-                          <ArrowsClockwiseIcon />
+                          <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
                         </Button>
                         <Button
                           size="icon-lg"
@@ -543,7 +544,7 @@ export default function KnowledgePage() {
                             toast.add({ title: "Source deleted", type: "success" });
                           }}
                         >
-                          <TrashIcon />
+                          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                         </Button>
                       </div>
                     </CardContent>

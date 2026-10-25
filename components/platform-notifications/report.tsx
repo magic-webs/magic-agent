@@ -22,7 +22,12 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
-import { CopyIcon, StopIcon, WarningIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Alert02Icon,
+  Copy01Icon,
+  StopIcon,
+} from "@hugeicons/core-free-icons";
 import {
   CHANNELS,
   PushPreview,
@@ -164,7 +169,7 @@ export function Report({ broadcast }: { broadcast: Broadcast }) {
                   )
                 }
               >
-                {busy === "stop" ? <Spinner /> : <StopIcon />} Stop
+                {busy === "stop" ? <Spinner /> : <HugeiconsIcon icon={StopIcon} strokeWidth={2} />} Stop
               </Button>
             ) : null}
             <Button
@@ -181,7 +186,7 @@ export function Report({ broadcast }: { broadcast: Broadcast }) {
                 )
               }
             >
-              <CopyIcon /> Duplicate
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Duplicate
             </Button>
           </div>
         ) : null}
@@ -189,7 +194,7 @@ export function Report({ broadcast }: { broadcast: Broadcast }) {
 
       {broadcast.status === "failed" && broadcast.error ? (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          <WarningIcon className="mt-0.5 size-4 shrink-0" />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0" />
           <span>Sending stopped: {broadcast.error}</span>
         </div>
       ) : null}
@@ -210,7 +215,7 @@ export function Report({ broadcast }: { broadcast: Broadcast }) {
             <Card key={channel.value} size="sm">
               <CardHeader>
                 <CardDescription className="flex items-center gap-1.5">
-                  <channel.icon className="size-4" /> {channel.label}
+                  <HugeiconsIcon icon={channel.icon} strokeWidth={2} className="size-4" /> {channel.label}
                   {channel.value === "push" ? " devices" : ""}
                 </CardDescription>
                 <CardTitle className="text-2xl tabular-nums">{stats.sent} sent</CardTitle>

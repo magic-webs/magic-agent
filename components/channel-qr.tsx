@@ -2,7 +2,8 @@
 
 import QRCode from "react-qr-code";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { WarningIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
 
 /**
  * A scannable code for testing a channel from a phone.
@@ -34,7 +35,7 @@ export function ChannelQr({
   if (!url) {
     return (
       <Alert variant="destructive">
-        <WarningIcon />
+        <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
         <AlertTitle>No code yet</AlertTitle>
         <AlertDescription>{unavailable}</AlertDescription>
       </Alert>

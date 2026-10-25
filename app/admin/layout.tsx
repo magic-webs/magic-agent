@@ -41,10 +41,10 @@ import {
   Building03Icon,
   Coins01Icon,
   CreditCardIcon,
-  DashboardSpeed02Icon,
+  Analytics02Icon,
   Invoice01Icon,
   Key01Icon,
-  Notification03Icon,
+  BellRingIcon,
   PlugSocketIcon,
   SecurityLockIcon,
   Tag01Icon,
@@ -77,7 +77,7 @@ const NAV: Array<{
   scope?: AdminScope;
   everyone?: boolean;
 }> = [
-  { href: "", label: "Overview", icon: DashboardSpeed02Icon, scope: "overview" },
+  { href: "", label: "Overview", icon: Analytics02Icon, scope: "overview" },
   { href: "/workspaces", label: "Workspaces", icon: Building03Icon, scope: "workspaces" },
   { href: "/activity", label: "Activity", icon: Activity01Icon, scope: "activity" },
   { href: "/mcp", label: "MCP connector", icon: PlugSocketIcon, scope: "mcp" },
@@ -87,7 +87,7 @@ const NAV: Array<{
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCardIcon, scope: "subscriptions" },
   { href: "/billing", label: "Message billing", icon: Invoice01Icon, scope: "billing" },
   { href: "/users", label: "Users", icon: UserAccountIcon, scope: "users" },
-  { href: "/notifications", label: "Notifications", icon: Notification03Icon, scope: "notifications" },
+  { href: "/notifications", label: "Notifications", icon: BellRingIcon, scope: "notifications" },
   { href: "/team", label: "Team", icon: UserGroupIcon },
   { href: "/roles", label: "Roles", icon: SecurityLockIcon },
   { href: "/access", label: "Access", icon: Key01Icon, everyone: true },

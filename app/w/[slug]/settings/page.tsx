@@ -48,20 +48,22 @@ import {
 import { toast } from "@/components/ui/toast";
 import { THEMES } from "@/components/workspace-theme";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  ComputerIcon,
+  Delete02Icon,
   FloppyDiskIcon,
-  TrashIcon,
-  PaperPlaneTiltIcon,
-  ArrowsClockwiseIcon,
-  SunIcon,
-  MoonIcon,
-  DesktopIcon,
-} from "@phosphor-icons/react";
+  Moon02Icon,
+  RefreshIcon,
+  SentIcon,
+  Sun03Icon,
+} from "@hugeicons/core-free-icons";
+
 import { setAppearance, useAppearance } from "@/components/appearance";
 import { APPEARANCES } from "@/lib/appearance";
 import { friendlyError } from "@/lib/errors";
 
-const APPEARANCE_ICONS = { light: SunIcon, dark: MoonIcon, system: DesktopIcon };
+const APPEARANCE_ICONS = { light: Sun03Icon, dark: Moon02Icon, system: ComputerIcon };
 
 /**
  * Light, dark or the device's setting. Unlike everything else on this page it
@@ -98,7 +100,7 @@ function AppearanceCard() {
                     : "border-border hover:border-foreground/20"
                 )}
               >
-                <Icon className="size-5" weight={selected ? "fill" : "regular"} />
+                <HugeiconsIcon icon={Icon} strokeWidth={selected ? 2.5 : 2} className="size-5" />
                 {option.label}
               </button>
             );
@@ -188,7 +190,7 @@ export default function WorkspaceSettingsPage() {
           </p>
         </div>
         <Button onClick={save} disabled={saving}>
-          {saving ? <Spinner /> : <FloppyDiskIcon />} Save
+          {saving ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
         </Button>
       </header>
 
@@ -303,7 +305,7 @@ export default function WorkspaceSettingsPage() {
                       }
                     }}
                   >
-                    {testing ? <Spinner /> : <PaperPlaneTiltIcon />} Send test event
+                    {testing ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send test event
                   </Button>
                   <Button
                     variant="ghost"
@@ -318,7 +320,7 @@ export default function WorkspaceSettingsPage() {
                       });
                     }}
                   >
-                    <ArrowsClockwiseIcon /> Rotate signing secret
+                    <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} /> Rotate signing secret
                   </Button>
                 </div>
 
@@ -522,7 +524,7 @@ function DeleteWorkspace() {
       <AlertDialogTrigger
         render={
           <Button variant="destructive">
-            <TrashIcon /> Delete this workspace
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete this workspace
           </Button>
         }
       />

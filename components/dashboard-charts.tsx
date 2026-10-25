@@ -26,7 +26,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
-import { ChartLineIcon, TableIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ChartLineData01Icon,
+  LayoutTable01Icon,
+} from "@hugeicons/core-free-icons";
 
 // ---------------------------------------------------------------------------
 // Palette.
@@ -68,7 +72,7 @@ function NoData({ label }: { label: string }) {
     <Empty className="min-h-40 border border-dashed">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <ChartLineIcon />
+          <HugeiconsIcon icon={ChartLineData01Icon} strokeWidth={2} />
         </EmptyMedia>
         <EmptyTitle>Nothing to plot yet</EmptyTitle>
         <EmptyDescription>{label}</EmptyDescription>
@@ -300,14 +304,14 @@ export function ActivityChart({
             variant={view === "chart" ? "secondary" : "ghost"}
             onClick={() => setView("chart")}
           >
-            <ChartLineIcon /> Chart
+            <HugeiconsIcon icon={ChartLineData01Icon} strokeWidth={2} /> Chart
           </Button>
           <Button
             size="lg"
             variant={view === "table" ? "secondary" : "ghost"}
             onClick={() => setView("table")}
           >
-            <TableIcon /> Values
+            <HugeiconsIcon icon={LayoutTable01Icon} strokeWidth={2} /> Values
           </Button>
         </div>
       </div>

@@ -1,4 +1,8 @@
-import { AppleLogoIcon, GooglePlayLogoIcon } from "@phosphor-icons/react/dist/ssr";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AppleIcon,
+  PlayStoreIcon,
+} from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 
 const PLAY_URL = "https://play.google.com/store/apps/details?id=ai.magicagent.app";
@@ -15,14 +19,14 @@ export function StoreBadges({ className }: { className?: string }) {
         rel="noreferrer"
         className={cn(BADGE, "transition-transform duration-300 hover:-translate-y-0.5")}
       >
-        <GooglePlayLogoIcon weight="fill" className="size-6" />
+        <HugeiconsIcon icon={PlayStoreIcon} strokeWidth={2} className="size-6" />
         <span className="flex flex-col leading-none">
           <span className="text-[10px] tracking-wide text-white/70 uppercase">Get it on</span>
           <span className="mt-1 text-[17px] font-medium">Google Play</span>
         </span>
       </a>
       <span aria-disabled="true" className={cn(BADGE, "cursor-default opacity-60")}>
-        <AppleLogoIcon weight="fill" className="size-6" />
+        <HugeiconsIcon icon={AppleIcon} strokeWidth={2} className="size-6" />
         <span className="flex flex-col leading-none">
           <span className="text-[10px] tracking-wide text-white/70 uppercase">Coming soon on the</span>
           <span className="mt-1 text-[17px] font-medium">App Store</span>

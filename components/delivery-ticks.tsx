@@ -1,11 +1,12 @@
 "use client";
 
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CheckIcon,
-  ChecksIcon,
-  ClockIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+  AlertCircleIcon,
+  Clock01Icon,
+  Tick02Icon,
+  TickDouble02Icon,
+} from "@hugeicons/core-free-icons";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 
@@ -34,33 +35,29 @@ export function DeliveryTicks({
   const base = cn("size-3 shrink-0", className);
 
   if (status === "pending") {
-    return <ClockIcon aria-label={label} className={cn(base, "opacity-60")} />;
+    return <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} aria-label={label} className={cn(base, "opacity-60")} />;
   }
   if (status === "failed") {
     return (
       <span title={title} className="inline-flex">
-        <WarningCircleIcon
+        <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2}
           aria-label={title}
-          weight="fill"
-          className={cn(base, "text-destructive")}
-        />
+          className={cn(base, "text-destructive")} />
       </span>
     );
   }
   if (status === "delivered" || status === "read") {
     return (
       <span title={title} className="inline-flex">
-        <ChecksIcon
+        <HugeiconsIcon icon={TickDouble02Icon} strokeWidth={2}
           aria-label={label}
-          weight="bold"
-          className={cn(base, status === "read" ? "text-[#53bdeb]" : "opacity-60")}
-        />
+          className={cn(base, status === "read" ? "text-[#53bdeb]" : "opacity-60")} />
       </span>
     );
   }
   return (
     <span title={title} className="inline-flex">
-      <CheckIcon aria-label={label} weight="bold" className={cn(base, "opacity-60")} />
+      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} aria-label={label} className={cn(base, "opacity-60")} />
     </span>
   );
 }

@@ -49,15 +49,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
-  ArrowSquareOutIcon,
-  ArrowsClockwiseIcon,
-  BookOpenIcon,
-  ChatCircleIcon,
-  DotsThreeIcon,
-  EyeIcon,
-} from "@phosphor-icons/react";
+  ArrowLeft02Icon,
+  BookOpen01Icon,
+  Comment01Icon,
+  LinkSquare02Icon,
+  MoreHorizontalIcon,
+  RefreshIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 /**
@@ -176,7 +177,7 @@ export function FormSubmissions({ base }: { base: string }) {
                     href={`${base}/records/${form.book._id}`}
                     className="mt-1 inline-flex max-w-full items-center gap-1 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
                   >
-                    <BookOpenIcon className="size-3.5 shrink-0" />
+                    <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
                     <span className="truncate">
                       Saving to {form.book.pluralName}
                       {form.book.status !== "active" ? " (paused)" : ""}
@@ -191,7 +192,7 @@ export function FormSubmissions({ base }: { base: string }) {
                 aria-label={`View ${form.title} submissions`}
                 onClick={() => setBrowsing(form.key)}
               >
-                <EyeIcon />
+                <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />
               </Button>
 
               {form.book ? (
@@ -205,7 +206,7 @@ export function FormSubmissions({ base }: { base: string }) {
                       />
                     }
                   >
-                    <DotsThreeIcon weight="bold" />
+                    <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
@@ -346,7 +347,7 @@ function SubmissionsDialog({
                 onClick={() => void syncNow()}
                 disabled={syncing}
               >
-                {syncing ? <Spinner /> : <ArrowsClockwiseIcon />}
+                {syncing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />}
                 Sync from Magic Forms
               </Button>
             </div>
@@ -380,17 +381,16 @@ function SubmissionsDialog({
                         </p>
                       </div>
                       {row.conversationId ? (
-                        <ChatCircleIcon
+                        <HugeiconsIcon icon={Comment01Icon} strokeWidth={2}
                           className="size-4 shrink-0 text-muted-foreground"
-                          aria-label="Came from a conversation"
-                        />
+                          aria-label="Came from a conversation" />
                       ) : null}
                       {row.record ? (
                         <Badge variant="outline" className="shrink-0 font-mono">
                           {row.record.reference}
                         </Badge>
                       ) : null}
-                      <EyeIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
                     </button>
                   ))}
                 </div>
@@ -448,7 +448,7 @@ function SubmissionDetail({
     <>
       <DialogBody className="pb-1">
         <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
-          <ArrowLeftIcon /> All submissions
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All submissions
         </Button>
         {row.answers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -480,7 +480,7 @@ function SubmissionDetail({
             nativeButton={false}
             render={<a href={row.viewUrl} target="_blank" rel="noreferrer" />}
           >
-            Open in Magic Forms <ArrowSquareOutIcon />
+            Open in Magic Forms <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} />
           </Button>
         ) : null}
         {row.conversationId ? (
@@ -489,7 +489,7 @@ function SubmissionDetail({
             nativeButton={false}
             render={<Link href={`${base}/conversations?c=${row.conversationId}`} />}
           >
-            <ChatCircleIcon /> Conversation
+            <HugeiconsIcon icon={Comment01Icon} strokeWidth={2} /> Conversation
           </Button>
         ) : null}
         {row.record ? (
@@ -497,15 +497,15 @@ function SubmissionDetail({
             nativeButton={false}
             render={<Link href={`${base}/records/${row.record.bookId}`} />}
           >
-            <BookOpenIcon /> Filed as {row.record.reference}
+            <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} /> Filed as {row.record.reference}
           </Button>
         ) : row.book ? (
           <Button onClick={() => void file()} disabled={filing}>
-            {filing ? <Spinner /> : <BookOpenIcon />} Save to record book
+            {filing ? <Spinner /> : <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} />} Save to record book
           </Button>
         ) : form ? (
           <Button onClick={() => onSave(form)}>
-            <BookOpenIcon /> Save form to a record book
+            <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} /> Save form to a record book
           </Button>
         ) : null}
       </DialogFooter>
@@ -606,7 +606,7 @@ function SaveToBookDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? <Spinner /> : <BookOpenIcon />}
+              {busy ? <Spinner /> : <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={2} />}
               Create record book
             </Button>
           </DialogFooter>

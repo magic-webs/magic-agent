@@ -17,7 +17,11 @@ import { CatalogueStep } from "@/components/onboarding/catalogue-step";
 import { StagesStep } from "@/components/onboarding/stages-step";
 import { Button } from "@/components/ui/button";
 import { nextStepId, stepHref, type StepId } from "@/lib/onboarding";
-import { ArrowLeftIcon, ArrowRightIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowLeft02Icon,
+  ArrowRight02Icon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * One step of the setup, frame and all.
@@ -80,7 +84,7 @@ export function StepScreen({ stepId }: { stepId: StepId }) {
             nativeButton={false}
             render={<Link href={hub} />}
           >
-            <ArrowLeftIcon /> All steps
+            <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All steps
           </Button>
           <StepRail
             slug={workspace.slug}
@@ -99,7 +103,7 @@ export function StepScreen({ stepId }: { stepId: StepId }) {
             nativeButton={false}
             render={<Link href={hub} />}
           >
-            <ArrowLeftIcon /> All steps
+            <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All steps
           </Button>
         </div>
 
@@ -124,7 +128,7 @@ export function StepScreen({ stepId }: { stepId: StepId }) {
                 nativeButton={false}
                 render={<Link href={stepHref(workspace.slug, after)} />}
               >
-                Skip to {progress.byId[after].title} <ArrowRightIcon />
+                Skip to {progress.byId[after].title} <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
               </Button>
             ) : null}
           </aside>

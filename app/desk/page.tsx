@@ -25,12 +25,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  MagnifyingGlassIcon,
-  SignOutIcon,
+  DashboardSquare01Icon,
+  Logout01Icon,
+  Search01Icon,
   SirenIcon,
-  SquaresFourIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
+
 
 /**
  * The escalations desk — a human agent's focused view of the inbox. Their
@@ -125,7 +127,7 @@ export default function DeskPage() {
             nativeButton={false}
             render={<Link href={`/w/${me.workspace.slug}`} />}
           >
-            <SquaresFourIcon />
+            <HugeiconsIcon icon={DashboardSquare01Icon} strokeWidth={2} />
           </Button>
           <Button
             size="icon-sm"
@@ -134,7 +136,7 @@ export default function DeskPage() {
             title="Sign out"
             onClick={() => void signOut()}
           >
-            <SignOutIcon />
+            <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} />
           </Button>
         </div>
       </header>
@@ -184,7 +186,7 @@ export default function DeskPage() {
           </div>
 
           <div className="relative shrink-0 px-3 pb-2">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               placeholder="Search contact or message…"
@@ -204,7 +206,7 @@ export default function DeskPage() {
                 <Empty className="border border-dashed">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <SirenIcon />
+                      <HugeiconsIcon icon={SirenIcon} strokeWidth={2} />
                     </EmptyMedia>
                     <EmptyTitle>
                       {source.length > 0

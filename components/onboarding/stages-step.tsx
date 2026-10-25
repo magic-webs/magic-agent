@@ -21,13 +21,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CheckCircleIcon,
-  PlusIcon,
-  SparkleIcon,
-  WarningIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
+  PlusSignIcon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
+
 import { friendlyError } from "@/lib/errors";
 
 /**
@@ -214,7 +216,7 @@ function StageRow({
         disabled={busy}
         onClick={() => void drop()}
       >
-        <XIcon />
+        <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
       </Button>
     </div>
   );
@@ -308,7 +310,7 @@ export function StagesStep() {
           </CardHeader>
           <CardContent>
             <Button onClick={() => void seed()} disabled={busy}>
-              {busy ? <Spinner /> : <SparkleIcon />}
+              {busy ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />}
               {busy ? "Setting up…" : "Use the standard pipeline"}
             </Button>
           </CardContent>
@@ -377,7 +379,7 @@ export function StagesStep() {
               className="self-start"
               onClick={() => setAdding(true)}
             >
-              <PlusIcon /> Add a stage
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a stage
             </Button>
           )}
         </CardContent>
@@ -385,7 +387,7 @@ export function StagesStep() {
 
       {stages.length > 0 && !closable ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle className="font-normal">
             Without a won stage and a lost stage nothing ever leaves the
             pipeline — customers who have already bought keep being chased.
@@ -395,7 +397,7 @@ export function StagesStep() {
 
       <div>
         <Button onClick={() => router.push(`/w/${workspace.slug}/onboarding`)}>
-          <CheckCircleIcon /> Finish setup
+          <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} /> Finish setup
         </Button>
       </div>
     </div>

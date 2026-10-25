@@ -50,14 +50,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  MagnifyingGlassIcon,
-  PencilSimpleIcon,
-  SparkleIcon,
-  TableIcon,
-  WarningIcon,
-  TrayArrowDownIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  FileImportIcon,
+  LayoutTable01Icon,
+  PencilEdit02Icon,
+  Search01Icon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 
 type Spend = Array<{
   currency: string;
@@ -192,7 +193,7 @@ export default function AdminBillingPage() {
         <>
           {data.truncated ? (
             <Alert variant="destructive">
-              <WarningIcon />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
               <AlertTitle>Showing a partial window</AlertTitle>
               <AlertDescription>
                 The read cap was reached, so these totals are a floor. Narrow
@@ -241,7 +242,7 @@ export default function AdminBillingPage() {
                           variant="outline"
                           aria-label="Every market"
                         >
-                          <TableIcon />
+                          <HugeiconsIcon icon={LayoutTable01Icon} strokeWidth={2} />
                         </Button>
                       }
                     />
@@ -251,7 +252,7 @@ export default function AdminBillingPage() {
                       defaultCurrency={currency}
                       trigger={
                         <Button size="sm" variant="outline">
-                          <TrayArrowDownIcon /> Import
+                          <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} /> Import
                         </Button>
                       }
                     />
@@ -303,7 +304,7 @@ export default function AdminBillingPage() {
                   sample={india}
                   trigger={
                     <Button size="sm" variant="outline">
-                      <PencilSimpleIcon />
+                      <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
                       {data.defaultMarkups ? "Edit" : "Set markup"}
                     </Button>
                   }
@@ -376,7 +377,7 @@ export default function AdminBillingPage() {
                     currency={currency}
                     trigger={
                       <Button size="sm" variant="outline">
-                        <PencilSimpleIcon /> Edit
+                        <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
                       </Button>
                     }
                   />
@@ -483,7 +484,7 @@ export default function AdminBillingPage() {
                 </CardDescription>
               </div>
               <div className="relative w-full sm:w-64">
-                <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   placeholder="Find an account"
@@ -636,7 +637,7 @@ export default function AdminBillingPage() {
                                   variant="ghost"
                                   aria-label={`Edit markup for ${row.name}`}
                                 >
-                                  <PencilSimpleIcon />
+                                  <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
                                 </Button>
                               }
                             />
@@ -654,7 +655,7 @@ export default function AdminBillingPage() {
                                     variant="ghost"
                                     aria-label={`Edit AI prices for ${row.name}`}
                                   >
-                                    <SparkleIcon />
+                                    <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />
                                   </Button>
                                 }
                               />

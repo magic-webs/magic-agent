@@ -32,15 +32,16 @@ import {
 } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
 import { CardGridSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowCounterClockwiseIcon,
-  ChatsIcon,
-  CheckCircleIcon,
-  PlusIcon,
-  QuestionIcon,
-  WrenchIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  BubbleChatIcon,
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
+  HelpCircleIcon,
+  PlusSignIcon,
+  Undo02Icon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { FixAnswerDialog } from "@/components/knowledge/fix-answer-dialog";
 
@@ -200,7 +201,7 @@ function AnswerGapDialog({
             Cancel
           </Button>
           <Button onClick={save} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />} Add to knowledge base
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Add to knowledge base
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -269,7 +270,7 @@ export function KnowledgeGaps() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <QuestionIcon />
+              <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>{EMPTY_COPY[status].title}</EmptyTitle>
             <EmptyDescription>{EMPTY_COPY[status].description}</EmptyDescription>
@@ -322,7 +323,7 @@ export function KnowledgeGaps() {
 
                 {gap.status === "answered" && gap.sourceTitle ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CheckCircleIcon className="size-4 shrink-0" />
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 shrink-0" />
                     <span className="truncate">Answered in &ldquo;{gap.sourceTitle}&rdquo;</span>
                   </p>
                 ) : null}
@@ -335,7 +336,7 @@ export function KnowledgeGaps() {
                         href={`${base}/conversations?c=${conversationId}`}
                         className="inline-flex items-center gap-1 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                       >
-                        <ChatsIcon className="size-3.5" />
+                        <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} className="size-3.5" />
                         Conversation {index + 1}
                       </Link>
                     ))}
@@ -347,18 +348,18 @@ export function KnowledgeGaps() {
                     <>
                       {gap.kind === "wrong_answer" ? (
                         <Button className="flex-1" onClick={() => setFixing(gap._id)}>
-                          <WrenchIcon /> Fix
+                          <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} /> Fix
                         </Button>
                       ) : (
                         <Button className="flex-1" onClick={() => setAnswering(gap)}>
-                          <PlusIcon /> Add answer
+                          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add answer
                         </Button>
                       )}
                       <Button
                         variant="outline"
                         onClick={() => run(() => dismiss({ gapId: gap._id }), "Dismissed")}
                       >
-                        <XIcon /> Dismiss
+                        <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Dismiss
                       </Button>
                     </>
                   ) : (
@@ -367,7 +368,7 @@ export function KnowledgeGaps() {
                       className="flex-1"
                       onClick={() => run(() => reopen({ gapId: gap._id }), "Moved back to open")}
                     >
-                      <ArrowCounterClockwiseIcon /> Reopen
+                      <HugeiconsIcon icon={Undo02Icon} strokeWidth={2} /> Reopen
                     </Button>
                   )}
                 </div>

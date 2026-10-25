@@ -87,22 +87,22 @@ import {
 } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
 import { TableSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
+  Alert02Icon,
+  BookOpen02Icon,
+  CheckmarkCircle02Icon,
+  Delete02Icon,
+  Download01Icon,
+  FileImportIcon,
+  Folder01Icon,
   PackageIcon,
-  PlusIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  SparkleIcon,
-  DownloadSimpleIcon,
-  WarningIcon,
-  CheckCircleIcon,
-  PencilSimpleIcon,
-  WrenchIcon,
-  BookOpenTextIcon,
-  FolderIcon,
-  type Icon,
-  TrayArrowDownIcon,
-} from "@phosphor-icons/react";
+  PencilEdit02Icon,
+  PlusSignIcon,
+  Search01Icon,
+  SparklesIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 
 type CatalogueProduct = FunctionReturnType<
   typeof api.products.listByWorkspace
@@ -114,7 +114,7 @@ const KINDS: Record<
     label: string;
     plural: string;
     noun: string;
-    icon: Icon;
+    icon: IconSvgElement;
     name: string;
     category: string;
     unit?: string;
@@ -133,7 +133,7 @@ const KINDS: Record<
     label: "Service",
     plural: "Services",
     noun: "a service",
-    icon: WrenchIcon,
+    icon: Wrench01Icon,
     name: "Service name",
     category: "Category",
     unit: "What the price is per",
@@ -142,7 +142,7 @@ const KINDS: Record<
     label: "Brochure",
     plural: "Brochures",
     noun: "a brochure",
-    icon: BookOpenTextIcon,
+    icon: BookOpen02Icon,
     name: "Brochure name",
     category: "Category",
   },
@@ -150,7 +150,7 @@ const KINDS: Record<
     label: "Other",
     plural: "Other",
     noun: "a document",
-    icon: FolderIcon,
+    icon: Folder01Icon,
     name: "Document name",
     category: "Category",
   },
@@ -338,7 +338,7 @@ function ProductDialog({
               const KindIcon = KINDS[kind].icon;
               return (
                 <ToggleGroupItem key={kind} value={kind} className="flex-1">
-                  <KindIcon /> {KINDS[kind].label}
+                  <HugeiconsIcon icon={KindIcon} strokeWidth={2} /> {KINDS[kind].label}
                 </ToggleGroupItem>
               );
             })}
@@ -493,7 +493,7 @@ function ProductDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy ? <Spinner /> : <PlusIcon />}{" "}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}{" "}
             {product ? "Save changes" : `Add ${meta.label.toLowerCase()}`}
           </Button>
         </DialogFooter>
@@ -595,7 +595,7 @@ function ImportDialog() {
       <DialogTrigger
         render={
           <Button variant="outline">
-            <TrayArrowDownIcon /> Import
+            <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} /> Import
           </Button>
         }
       />
@@ -612,10 +612,10 @@ function ImportDialog() {
           <Tabs defaultValue="draft">
             <TabsList className="w-full">
               <TabsTrigger value="draft">
-                <SparkleIcon /> Draft with AI
+                <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> Draft with AI
               </TabsTrigger>
               <TabsTrigger value="csv">
-                <TrayArrowDownIcon /> Import CSV
+                <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} /> Import CSV
               </TabsTrigger>
             </TabsList>
 
@@ -627,7 +627,7 @@ function ImportDialog() {
                 onChange={(event) => setBrief(event.target.value)}
               />
               <Button onClick={runDraft} disabled={busy}>
-                {busy ? <Spinner /> : <SparkleIcon />} Draft the catalogue
+                {busy ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} Draft the catalogue
               </Button>
             </TabsContent>
 
@@ -642,7 +642,7 @@ function ImportDialog() {
                   }}
                 />
                 <Button variant="outline" onClick={downloadSample}>
-                  <DownloadSimpleIcon /> Sample CSV
+                  <HugeiconsIcon icon={Download01Icon} strokeWidth={2} /> Sample CSV
                 </Button>
               </div>
 
@@ -691,7 +691,7 @@ function ImportDialog() {
                 <>
                   {parsed.issues.length > 0 ? (
                     <Alert variant="destructive">
-                      <WarningIcon />
+                      <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                       <AlertTitle>
                         {parsed.issues.length}{" "}
                         {parsed.issues.length === 1 ? "problem" : "problems"} in{" "}
@@ -704,7 +704,7 @@ function ImportDialog() {
                     </Alert>
                   ) : (
                     <Alert>
-                      <CheckCircleIcon />
+                      <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
                       <AlertTitle>
                         {parsed.products.length}{" "}
                         {parsed.products.length === 1 ? "product" : "products"},{" "}
@@ -813,7 +813,7 @@ function ImportDialog() {
               ) : null}
 
               <Button onClick={runImport} disabled={busy || blocked}>
-                {busy ? <Spinner /> : <TrayArrowDownIcon />}{" "}
+                {busy ? <Spinner /> : <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />}{" "}
                 {parsed &&
                 parsed.issues.length === 0 &&
                 parsed.products.length > 0
@@ -899,7 +899,7 @@ export default function ProductsPage() {
       defaultKind={addKind}
       trigger={
         <Button>
-          <PlusIcon /> Add {KINDS[addKind].label.toLowerCase()}
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add {KINDS[addKind].label.toLowerCase()}
         </Button>
       }
     />
@@ -940,7 +940,7 @@ export default function ProductsPage() {
             const KindIcon = KINDS[kind].icon;
             return (
               <TabsTrigger key={kind} value={kind}>
-                <KindIcon /> {KINDS[kind].plural}
+                <HugeiconsIcon icon={KindIcon} strokeWidth={2} /> {KINDS[kind].plural}
                 <TabCount value={counts?.[kind]} />
               </TabsTrigger>
             );
@@ -950,7 +950,7 @@ export default function ProductsPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-52">
-          <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             placeholder="Search the catalogue…"
@@ -978,7 +978,7 @@ export default function ProductsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <PackageIcon />
+              <HugeiconsIcon icon={PackageIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>
               {search
@@ -1081,7 +1081,7 @@ export default function ProductsPage() {
                             variant="ghost"
                             aria-label={`Edit ${product.name}`}
                           >
-                            <PencilSimpleIcon />
+                            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
                           </Button>
                         }
                       />
@@ -1099,7 +1099,7 @@ export default function ProductsPage() {
                           });
                         }}
                       >
-                        <TrashIcon />
+                        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                       </Button>
                     </div>
                   </TableCell>

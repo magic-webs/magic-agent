@@ -23,12 +23,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { SourceDialog } from "@/components/knowledge/source-dialog";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CheckCircleIcon,
+  Alert02Icon,
+  CheckmarkCircle02Icon,
   FloppyDiskIcon,
-  PaperPlaneRightIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  SentIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 /**
@@ -188,7 +189,7 @@ export function FixAnswerDialog({
 
             {fixed ? (
               <Alert>
-                <CheckCircleIcon />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
                 <AlertTitle>Fixed</AlertTitle>
                 <AlertDescription>
                   {gap.sourceTitle
@@ -295,7 +296,7 @@ export function FixAnswerDialog({
                     source, agents follow the correction.
                   </p>
                   <Button onClick={saveCorrection} disabled={busy} className="self-start">
-                    {busy ? <Spinner /> : <FloppyDiskIcon />} Save correction
+                    {busy ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save correction
                   </Button>
                 </section>
               </>
@@ -322,12 +323,12 @@ export function FixAnswerDialog({
                       disabled={sending || !correction.trim()}
                       className="self-start"
                     >
-                      {sending ? <Spinner /> : <PaperPlaneRightIcon />} Send to customer
+                      {sending ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />} Send to customer
                     </Button>
                   </>
                 ) : (
                   <Alert>
-                    <WarningIcon />
+                    <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                     <AlertTitle>Outside the 24-hour window</AlertTitle>
                     <AlertDescription>
                       The customer last wrote more than 24 hours ago, so a

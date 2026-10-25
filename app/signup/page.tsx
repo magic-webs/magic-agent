@@ -29,13 +29,14 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  ShieldCheckIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight02Icon,
+  SecurityCheckIcon,
+  ViewIcon,
+  ViewOffSlashIcon,
+} from "@hugeicons/core-free-icons";
 
 type Reply = {
   step?: "verify";
@@ -171,7 +172,7 @@ function SignUpForm() {
             <CardContent className="flex flex-col gap-3">
               {error ? (
                 <Alert variant="destructive">
-                  <WarningIcon />
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                   <AlertTitle>Could not verify</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -201,7 +202,7 @@ function SignUpForm() {
               </div>
 
               <Button onClick={() => verify()} disabled={busy || code.length !== 6}>
-                {busy ? <Spinner /> : <ShieldCheckIcon />} Create my workspace
+                {busy ? <Spinner /> : <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />} Create my workspace
               </Button>
 
               <div className="flex items-center justify-between gap-2 text-xs">
@@ -239,7 +240,7 @@ function SignUpForm() {
             <CardContent className="flex flex-col gap-3">
               {error ? (
                 <Alert variant="destructive">
-                  <WarningIcon />
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                   <AlertTitle>Could not sign up</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -289,7 +290,7 @@ function SignUpForm() {
                       aria-pressed={showPassword}
                       onClick={() => setShowPassword((value) => !value)}
                     >
-                      {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                      {showPassword ? <HugeiconsIcon icon={ViewOffSlashIcon} strokeWidth={2} /> : <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />}
                     </InputGroupButton>
                   </InputGroupAddon>
                 </InputGroup>
@@ -307,7 +308,7 @@ function SignUpForm() {
               ) : null}
 
               <Button onClick={start} disabled={busy || !ready}>
-                {busy ? <Spinner /> : <ArrowRightIcon />} Continue
+                {busy ? <Spinner /> : <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />} Continue
               </Button>
 
               <p className="text-xs text-muted-foreground">

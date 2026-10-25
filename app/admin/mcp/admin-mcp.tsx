@@ -34,19 +34,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  CaretRightIcon,
-  CheckIcon,
-  CopyIcon,
-  EyeIcon,
-  MagnifyingGlassIcon,
-  PlugsConnectedIcon,
-  PlusIcon,
-  ShieldWarningIcon,
-  TrashIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight01Icon,
+  Copy01Icon,
+  Delete02Icon,
+  PlugSocketIcon,
+  PlusSignIcon,
+  RefreshIcon,
+  Search01Icon,
+  Shield01Icon,
+  Tick02Icon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { useHourBucket } from "@/components/use-now";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,7 @@ function CopyButton({
       aria-label={`Copy the ${what}`}
       onClick={() => void run()}
     >
-      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} /> : <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />}
       {label ? (copied ? "Copied" : label) : null}
     </Button>
   );
@@ -129,7 +130,7 @@ function FreshUrl({ fresh, onDismiss }: { fresh: Fresh; onDismiss: () => void })
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
       <div className="flex items-start gap-2">
-        <WarningIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+        <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="text-sm">
           <p className="font-medium">
             Copy the URL for “{fresh.name}” now. It is not shown again.
@@ -193,13 +194,13 @@ function ConnectorRow({
       {modifies ? (
       <div className="flex shrink-0 gap-1 pl-5 sm:pl-0">
         <Button size="sm" variant="outline" disabled={busy} onClick={onRotate}>
-          {busy ? <Spinner /> : <ArrowsClockwiseIcon />} Rotate
+          {busy ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Rotate
         </Button>
         <AlertDialog>
           <AlertDialogTrigger
             render={
               <Button size="sm" variant="ghost" disabled={busy}>
-                <TrashIcon /> Revoke
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Revoke
               </Button>
             }
           />
@@ -296,7 +297,7 @@ function ConnectorsCard({
     <Card className="shrink-0">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <PlugsConnectedIcon className="size-4 text-muted-foreground" />
+          <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
           Your connectors
           {connectors?.length ? (
             <Badge variant="secondary">{connectors.length}</Badge>
@@ -328,7 +329,7 @@ function ConnectorsCard({
               onChange={(event) => setName(event.target.value)}
             />
             <Button type="submit" disabled={adding || !name.trim()}>
-              {adding ? <Spinner /> : <PlusIcon />} Add
+              {adding ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Add
             </Button>
           </div>
         </form>
@@ -343,7 +344,7 @@ function ConnectorsCard({
           </div>
         ) : connectors.length === 0 ? (
           <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed p-6 text-center">
-            <PlugsConnectedIcon className="size-6 text-muted-foreground" />
+            <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} className="size-6 text-muted-foreground" />
             <p className="text-sm font-medium">No connectors yet</p>
             <p className="text-xs text-muted-foreground">
               Add one for each assistant you want to give access to.
@@ -485,7 +486,7 @@ function ToolsCard({ groups }: { groups: McpToolGroup[] }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="relative max-w-sm">
-          <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             placeholder="Search tools"
@@ -505,7 +506,7 @@ function ToolsCard({ groups }: { groups: McpToolGroup[] }) {
                 className="group/tools"
               >
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
-                  <CaretRightIcon className="size-3.5 text-muted-foreground transition-transform group-open/tools:rotate-90" />
+                  <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5 text-muted-foreground transition-transform group-open/tools:rotate-90" />
                   {group.title}
                   {group.admin ? (
                     <Badge variant="destructive">Administrator only</Badge>
@@ -520,16 +521,14 @@ function ToolsCard({ groups }: { groups: McpToolGroup[] }) {
                       <div className="flex shrink-0 items-center gap-1.5 sm:w-64">
                         <code className="font-mono text-xs break-all">{tool.name}</code>
                         {tool.readOnly ? (
-                          <EyeIcon
+                          <HugeiconsIcon icon={ViewIcon} strokeWidth={2}
                             className="size-3.5 shrink-0 text-muted-foreground"
-                            aria-label="Read-only"
-                          />
+                            aria-label="Read-only" />
                         ) : null}
                         {tool.destructive ? (
-                          <ShieldWarningIcon
+                          <HugeiconsIcon icon={Shield01Icon} strokeWidth={2}
                             className="size-3.5 shrink-0 text-destructive"
-                            aria-label="Destructive"
-                          />
+                            aria-label="Destructive" />
                         ) : null}
                       </div>
                       <div className="min-w-0 text-xs">
@@ -548,10 +547,10 @@ function ToolsCard({ groups }: { groups: McpToolGroup[] }) {
 
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <EyeIcon className="size-3.5" /> Read-only
+            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-3.5" /> Read-only
           </span>
           <span className="flex items-center gap-1">
-            <ShieldWarningIcon className="size-3.5 text-destructive" /> Destructive
+            <HugeiconsIcon icon={Shield01Icon} strokeWidth={2} className="size-3.5 text-destructive" /> Destructive
           </span>
           <span>
             Workspace-level destructive tools need an explicit slug, and{" "}

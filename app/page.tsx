@@ -22,7 +22,11 @@ import { StoreBadges } from "@/components/landing/store-badges";
 import { SpecularButton } from "@/components/landing/specular-button";
 import { loadPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react/dist/ssr";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowRight02Icon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 
 export const revalidate = 600;
 
@@ -148,7 +152,7 @@ export default async function LandingPage() {
                   {points.map((point) => (
                     <li key={point} className="flex items-center gap-2.5">
                       <span className="flex size-5 items-center justify-center rounded-full bg-(--ok-soft) text-(--ok)">
-                        <CheckIcon weight="bold" className="size-3" />
+                        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3" />
                       </span>
                       {point}
                     </li>
@@ -195,7 +199,7 @@ export default async function LandingPage() {
             className="group inline-flex items-center gap-2 text-[15px] font-medium hover:underline"
           >
             Compare every plan
-            <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
+            <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} className="size-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
         <Reveal className="mt-14" distance={32}>
@@ -210,7 +214,7 @@ export default async function LandingPage() {
         <div data-fade>
           <SpecularButton href="/signup" size="md" radius={999} tintOpacity={0.08} blur={12} lineColor="#10b981" autoAnimate className="group">
             Get started
-            <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
+            <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} className="size-4 transition-transform group-hover:translate-x-0.5" />
           </SpecularButton>
         </div>
         <div data-fade>

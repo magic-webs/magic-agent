@@ -27,7 +27,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
-import { CaretDownIcon, PencilSimpleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowDown01Icon,
+  PencilEdit02Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -122,7 +126,7 @@ export function WorkspaceStagePicker({
           }
         >
           <WorkspaceStageBadge stage={stage} label={label} />
-          <CaretDownIcon className="size-3 text-muted-foreground" />
+          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-auto min-w-48">
           <DropdownMenuRadioGroup
@@ -151,7 +155,7 @@ export function WorkspaceStagePicker({
               setCustomOpen(true);
             }}
           >
-            <PencilSimpleIcon /> Custom stage…
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Custom stage…
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

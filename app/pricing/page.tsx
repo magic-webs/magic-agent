@@ -10,7 +10,11 @@ import { StoreBadges } from "@/components/landing/store-badges";
 import { SpecularButton } from "@/components/landing/specular-button";
 import { loadPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { ArrowRightIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowRight02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 
 export const revalidate = 600;
 
@@ -129,7 +133,7 @@ export default async function PricingPage() {
             <details key={question} className="group border-b border-(--line)">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-6 font-display text-[clamp(1.125rem,2vw,1.375rem)] font-medium tracking-tight [&::-webkit-details-marker]:hidden">
                 {question}
-                <PlusIcon className="size-5 shrink-0 text-(--ink-muted) transition-transform duration-300 group-open:rotate-45" />
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-5 shrink-0 text-(--ink-muted) transition-transform duration-300 group-open:rotate-45" />
               </summary>
               <p className="max-w-[720px] pb-7 text-[17px] leading-relaxed text-(--ink-muted)">{answer}</p>
             </details>
@@ -150,7 +154,7 @@ export default async function PricingPage() {
         <div data-fade>
           <SpecularButton href="/signup" size="md" radius={999} tintOpacity={0.08} blur={12} lineColor="#10b981" autoAnimate className="group">
             Start free trial
-            <ArrowRightIcon weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
+            <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} className="size-4 transition-transform group-hover:translate-x-0.5" />
           </SpecularButton>
         </div>
         <div data-fade>

@@ -14,7 +14,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Delete02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 
 const MAX_ICE_BREAKERS = 4;
 
@@ -163,7 +167,7 @@ function IceBreakersCard({
               aria-label="Remove question"
               onClick={() => setQuestions((current) => current.filter((_, at) => at !== index))}
             >
-              <TrashIcon />
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
             </Button>
           </div>
         ))}
@@ -174,7 +178,7 @@ function IceBreakersCard({
             className="self-start"
             onClick={() => setQuestions((current) => [...current, ""])}
           >
-            <PlusIcon /> Add question
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add question
           </Button>
         ) : null}
       </div>

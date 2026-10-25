@@ -21,15 +21,17 @@ import {
 import { toast } from "@/components/ui/toast";
 import { stepHref } from "@/lib/onboarding";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  ImagesIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  QuestionIcon,
-  SparkleIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  ArrowRight02Icon,
+  Cancel01Icon,
+  HelpCircleIcon,
+  Image02Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
+
 import {
   catalogueKind,
   isOrderable,
@@ -127,7 +129,7 @@ export function CatalogueStep() {
           </CardHeader>
           <CardContent>
             <Button nativeButton={false} render={<Link href={addHref} />}>
-              <SparkleIcon /> Add your first entry
+              <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> Add your first entry
             </Button>
           </CardContent>
         </Card>
@@ -214,11 +216,11 @@ export function CatalogueStep() {
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <ImagesIcon className="size-3.5" />
+                      <HugeiconsIcon icon={Image02Icon} strokeWidth={2} className="size-3.5" />
                       {pictures} picture{pictures === 1 ? "" : "s"}
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <QuestionIcon className="size-3.5" />
+                      <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} className="size-3.5" />
                       {questions} question{questions === 1 ? "" : "s"} before an
                       order
                     </span>
@@ -234,7 +236,7 @@ export function CatalogueStep() {
                       <Link href={`${base}/${product._id}`} />
                     }
                   >
-                    <PencilSimpleIcon /> Edit
+                    <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
                   </Button>
                   <Button
                     size="icon-lg"
@@ -242,7 +244,7 @@ export function CatalogueStep() {
                     aria-label={`Remove ${product.name}`}
                     onClick={() => void drop(product._id, product.name)}
                   >
-                    <XIcon />
+                    <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
                   </Button>
                 </div>
               </div>
@@ -255,7 +257,7 @@ export function CatalogueStep() {
             nativeButton={false}
             render={<Link href={addHref} />}
           >
-            <PlusIcon /> Add a product or service
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add a product or service
           </Button>
         </CardContent>
       </Card>
@@ -274,7 +276,7 @@ export function CatalogueStep() {
 
       <div>
         <Button onClick={() => router.push(stepHref(workspace.slug, "stages"))}>
-          Continue <ArrowRightIcon />
+          Continue <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
         </Button>
       </div>
     </div>

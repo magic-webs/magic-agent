@@ -42,17 +42,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { putFile } from "@/lib/upload";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  CalendarBlankIcon,
+  Calendar03Icon,
+  Cancel01Icon,
+  DashboardSquare01Icon,
+  Delete02Icon,
   FloppyDiskIcon,
-  ImageIcon,
-  PaperPlaneTiltIcon,
-  SparkleIcon,
-  SquaresFourIcon,
-  TestTubeIcon,
-  TrashIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  Image01Icon,
+  SentIcon,
+  SparklesIcon,
+  TestTube01Icon,
+} from "@hugeicons/core-free-icons";
+
 import {
   CATEGORIES,
   CHANNELS,
@@ -312,14 +314,14 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                   )
                 }
               >
-                <TrashIcon /> Delete
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete
               </Button>
             ) : null}
             <Button variant="outline" disabled={busy !== null} onClick={() => setGalleryOpen(true)}>
-              <SquaresFourIcon /> Templates
+              <HugeiconsIcon icon={DashboardSquare01Icon} strokeWidth={2} /> Templates
             </Button>
             <Button variant="outline" disabled={busy !== null} onClick={() => setAiOpen(true)}>
-              <SparkleIcon /> Draft with AI
+              <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> Draft with AI
             </Button>
             <Button
               variant="outline"
@@ -335,20 +337,20 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                 )
               }
             >
-              {busy === "save" ? <Spinner /> : <FloppyDiskIcon />} Save draft
+              {busy === "save" ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save draft
             </Button>
             <Button
               variant="outline"
               disabled={busy !== null || !form.title.trim() || !form.body.trim()}
               onClick={() => setTestOpen(true)}
             >
-              <TestTubeIcon /> Send test
+              <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} /> Send test
             </Button>
             <Button variant="outline" disabled={busy !== null || !ready} onClick={() => setScheduleOpen(true)}>
-              <CalendarBlankIcon /> {scheduled ? "Reschedule" : "Schedule"}
+              <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} /> {scheduled ? "Reschedule" : "Schedule"}
             </Button>
             <Button disabled={busy !== null || !ready} onClick={() => setConfirmOpen(true)}>
-              <PaperPlaneTiltIcon /> Send now
+              <HugeiconsIcon icon={SentIcon} strokeWidth={2} /> Send now
             </Button>
           </div>
         )}
@@ -383,7 +385,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                 )
               }
             >
-              <XIcon /> Unschedule
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Unschedule
             </Button>
           )}
         </div>
@@ -462,7 +464,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                       variant="ghost"
                       onClick={() => set({ imageKey: undefined, imageUrl: undefined })}
                     >
-                      <TrashIcon /> Remove
+                      <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Remove
                     </Button>
                   </div>
                 ) : (
@@ -472,7 +474,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                     disabled={busy === "upload"}
                     onClick={() => imageInput.current?.click()}
                   >
-                    {busy === "upload" ? <Spinner /> : <ImageIcon />} Add image
+                    {busy === "upload" ? <Spinner /> : <HugeiconsIcon icon={Image01Icon} strokeWidth={2} />} Add image
                   </Button>
                 )}
                 <p className="text-xs text-muted-foreground">Shown in the email. PNG, JPG, WebP or GIF up to 2 MB.</p>
@@ -513,7 +515,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                 return (
                   <div key={channel.value} className="flex flex-col gap-3 rounded-lg border p-3">
                     <label className="flex cursor-pointer items-center gap-3">
-                      <channel.icon className="size-5 text-muted-foreground" />
+                      <HugeiconsIcon icon={channel.icon} strokeWidth={2} className="size-5 text-muted-foreground" />
                       <span className="flex-1 text-sm font-medium">{channel.label}</span>
                       {available ? null : <Badge variant="outline">Not configured</Badge>}
                       <Switch
@@ -731,7 +733,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                   <TabsList className="w-full">
                     {previews.map((channel) => (
                       <TabsTrigger key={channel.value} value={channel.value}>
-                        <channel.icon /> {channel.label}
+                        <HugeiconsIcon icon={channel.icon} strokeWidth={2} /> {channel.label}
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -821,7 +823,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                 )
               }
             >
-              {busy === "test" ? <Spinner /> : <TestTubeIcon />} Send test
+              {busy === "test" ? <Spinner /> : <HugeiconsIcon icon={TestTube01Icon} strokeWidth={2} />} Send test
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -859,7 +861,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                 )
               }
             >
-              {busy === "schedule" ? <Spinner /> : <CalendarBlankIcon />} Schedule
+              {busy === "schedule" ? <Spinner /> : <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} />} Schedule
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -897,7 +899,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
                     )
                   }
                 >
-                  <PaperPlaneTiltIcon /> Send now
+                  <HugeiconsIcon icon={SentIcon} strokeWidth={2} /> Send now
                 </Button>
               }
             />

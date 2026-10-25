@@ -1,29 +1,31 @@
 "use client";
 
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
-  BriefcaseIcon,
-  CalendarCheckIcon,
-  LifebuoyIcon,
+  Briefcase01Icon,
+  CalendarCheckIn01Icon,
+  CustomerSupportIcon,
   PackageIcon,
-  RobotIcon,
-  ShoppingBagIcon,
-  TargetIcon,
-} from "@phosphor-icons/react";
+  RoboticIcon,
+  ShoppingBag01Icon,
+  Target02Icon,
+} from "@hugeicons/core-free-icons";
+
 import { AGENT_TEMPLATES } from "@/convex/lib/agentTemplates";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  sales: ShoppingBagIcon,
-  lead_qualifier: TargetIcon,
-  support: LifebuoyIcon,
+const ICONS: Record<string, IconSvgElement> = {
+  sales: ShoppingBag01Icon,
+  lead_qualifier: Target02Icon,
+  support: CustomerSupportIcon,
   after_sales: PackageIcon,
-  bookings: CalendarCheckIcon,
-  careers: BriefcaseIcon,
+  bookings: CalendarCheckIn01Icon,
+  careers: Briefcase01Icon,
 };
 
 const OPENERS: Record<string, string> = {
@@ -134,7 +136,7 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
             className="flex w-max gap-4 px-[max(var(--gutter),calc((100vw-1200px)/2+var(--gutter)))] will-change-transform"
           >
             {AGENT_TEMPLATES.map((template) => {
-              const Icon = ICONS[template.key] ?? RobotIcon;
+              const Icon = ICONS[template.key] ?? RoboticIcon;
               const [face, tint] = FACES[template.key] ?? ["female-2", "#d3efec"];
               return (
                 <article
@@ -145,7 +147,7 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
                   <div className="stage-mesh relative h-44 overflow-hidden max-[600px]:h-40">
                     <div className="bg-dots absolute inset-0" />
                     <span className="absolute top-5 right-5 flex size-10 items-center justify-center rounded-xl bg-(--surface)/85 text-(--ink) backdrop-blur">
-                      <Icon className="size-5" />
+                      <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-5" />
                     </span>
                     <span
                       className="absolute bottom-0 left-5 aspect-[4/5] w-[72px] overflow-hidden rounded-t-[14px] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.45)] transition-transform duration-500 group-hover:-translate-y-1"

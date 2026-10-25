@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { CheckIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { isIndian } from "@/convex/lib/currency";
 import type { CurrencyPricing, PublicPlan, PublicPricing } from "@/convex/lib/plans";
 import { currencySymbol, moneyIn } from "@/components/billing/plan-bits";
@@ -161,7 +162,7 @@ function PlanCard({ plan, offer }: { plan: PublicPlan; offer: CurrencyPricing })
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">
             <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-(--ok-soft) text-(--ok)">
-              <CheckIcon weight="bold" className="size-3" />
+              <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3" />
             </span>
             {feature}
           </li>
@@ -231,7 +232,7 @@ function CompareTable({ offer, trialDays }: { offer: CurrencyPricing; trialDays:
 function Tick() {
   return (
     <span className="flex size-5 items-center justify-center rounded-full bg-(--ok-soft) text-(--ok)">
-      <CheckIcon weight="bold" className="size-3" aria-label="Included" />
+      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3" aria-label="Included" />
     </span>
   );
 }

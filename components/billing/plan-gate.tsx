@@ -19,7 +19,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
-import { LockKeyIcon, WalletIcon, WarningIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Alert02Icon,
+  SquareLock02Icon,
+  Wallet01Icon,
+} from "@hugeicons/core-free-icons";
 
 /** How close a trial's end has to be before the dashboard mentions it. */
 const TRIAL_NOTICE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -66,7 +71,7 @@ export function PlanGate({
         <Empty className="max-w-md border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <LockKeyIcon />
+              <HugeiconsIcon icon={SquareLock02Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>{access.reason}</EmptyTitle>
             <EmptyDescription>
@@ -101,9 +106,9 @@ export function PlanGate({
           )}
         >
           {banner.wallet ? (
-            <WalletIcon className="size-4 shrink-0" />
+            <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} className="size-4 shrink-0" />
           ) : (
-            <WarningIcon className="size-4 shrink-0" />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4 shrink-0" />
           )}
           <span className="min-w-0 flex-1">{banner.text}</span>
           {onBilling ? null : (

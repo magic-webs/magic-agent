@@ -54,13 +54,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  KeyIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  TrashIcon,
+  Delete02Icon,
+  Key01Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
   UserCircleIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 
 type UserRow = {
   _id: Id<"users">;
@@ -143,11 +144,11 @@ function UserDialog({
         render={
           user ? (
             <Button size="sm" variant="outline">
-              <PencilSimpleIcon /> Edit
+              <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
             </Button>
           ) : (
             <Button>
-              <PlusIcon /> Add user
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add user
             </Button>
           )
         }
@@ -216,7 +217,7 @@ function UserDialog({
             Cancel
           </Button>
           <Button disabled={busy || invalid} onClick={() => void submit()}>
-            {busy ? <Spinner /> : user ? <PencilSimpleIcon /> : <PlusIcon />}
+            {busy ? <Spinner /> : user ? <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}
             {user ? "Save" : "Add user"}
           </Button>
         </DialogFooter>
@@ -263,7 +264,7 @@ function ResetPasswordDialog({ user }: { user: UserRow }) {
       <DialogTrigger
         render={
           <Button size="sm" variant="ghost">
-            <KeyIcon /> Password
+            <HugeiconsIcon icon={Key01Icon} strokeWidth={2} /> Password
           </Button>
         }
       />
@@ -286,7 +287,7 @@ function ResetPasswordDialog({ user }: { user: UserRow }) {
             Cancel
           </Button>
           <Button disabled={busy || password.length < 12} onClick={() => void submit()}>
-            {busy ? <Spinner /> : <KeyIcon />} Reset password
+            {busy ? <Spinner /> : <HugeiconsIcon icon={Key01Icon} strokeWidth={2} />} Reset password
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -315,7 +316,7 @@ function RemoveButton({ user }: { user: UserRow }) {
       <AlertDialogTrigger
         render={
           <Button size="sm" variant="ghost">
-            <TrashIcon /> Remove
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Remove
           </Button>
         }
       />
@@ -372,7 +373,7 @@ export default function AdminUsersPage() {
       <Card className="shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <UserCircleIcon className="size-4" /> Users
+            <HugeiconsIcon icon={UserCircleIcon} strokeWidth={2} className="size-4" /> Users
           </CardTitle>
           <CardDescription>
             Changes to a user&apos;s workspaces apply on their next request.

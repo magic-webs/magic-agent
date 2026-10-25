@@ -33,12 +33,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
+  Alert02Icon,
+  ArrowLeft02Icon,
+  Delete02Icon,
   PackageIcon,
-  TrashIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
+
 import { friendlyError } from "@/lib/errors";
 import { catalogueKind } from "@/convex/lib/catalogue";
 
@@ -82,7 +84,7 @@ export default function EditProductPage({
         <Empty className="max-w-md border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <WarningIcon />
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>That entry is gone</EmptyTitle>
             <EmptyDescription>
@@ -124,7 +126,7 @@ export default function EditProductPage({
           nativeButton={false}
           render={<Link href={back} />}
         >
-          <ArrowLeftIcon /> Catalogue
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> Catalogue
         </Button>
 
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
@@ -141,7 +143,7 @@ export default function EditProductPage({
               ) : null}
             </div>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-              <PackageIcon className="size-4" />
+              <HugeiconsIcon icon={PackageIcon} strokeWidth={2} className="size-4" />
               {product.category}
               <span aria-hidden="true">·</span>
               {product.requirementFields?.length ?? 0} question
@@ -157,7 +159,7 @@ export default function EditProductPage({
             <AlertDialogTrigger
               render={
                 <Button variant="destructive" size="sm" disabled={removing}>
-                  <TrashIcon /> Remove
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Remove
                 </Button>
               }
             />

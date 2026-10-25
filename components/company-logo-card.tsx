@@ -19,7 +19,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-import { LinkIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Delete02Icon,
+  Link01Icon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 import { putFile } from "@/lib/upload";
 
@@ -144,7 +149,7 @@ export function CompanyLogoCard() {
                 disabled={busy !== null}
                 onClick={() => fileRef.current?.click()}
               >
-                {busy === "upload" ? <Spinner /> : <UploadSimpleIcon />}
+                {busy === "upload" ? <Spinner /> : <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />}
                 {current ? "Replace logo" : "Upload logo"}
               </Button>
               {current ? (
@@ -153,7 +158,7 @@ export function CompanyLogoCard() {
                   disabled={busy !== null}
                   onClick={() => void remove()}
                 >
-                  {busy === "remove" ? <Spinner /> : <TrashIcon />} Remove
+                  {busy === "remove" ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />} Remove
                 </Button>
               ) : null}
             </div>
@@ -176,7 +181,7 @@ export function CompanyLogoCard() {
                 disabled={busy !== null || !link.trim()}
                 onClick={() => void applyLink()}
               >
-                {busy === "link" ? <Spinner /> : <LinkIcon />} Use link
+                {busy === "link" ? <Spinner /> : <HugeiconsIcon icon={Link01Icon} strokeWidth={2} />} Use link
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">

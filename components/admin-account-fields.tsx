@@ -7,7 +7,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
-import { CopyIcon, KeyIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Copy01Icon,
+  Key01Icon,
+} from "@hugeicons/core-free-icons";
+
 import { friendlyError } from "@/lib/errors";
 
 export type WorkspaceOption = { _id: Id<"workspaces">; name: string; slug: string };
@@ -67,7 +72,7 @@ export function PasswordField({
           onChange={(event) => onChange(event.target.value)}
         />
         <Button variant="outline" size="lg" onClick={() => onChange(randomPassword())}>
-          <KeyIcon /> Generate
+          <HugeiconsIcon icon={Key01Icon} strokeWidth={2} /> Generate
         </Button>
         <Button
           size="icon-lg"
@@ -76,7 +81,7 @@ export function PasswordField({
           disabled={!value}
           onClick={() => void copy(value, "Password")}
         >
-          <CopyIcon />
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
         </Button>
       </div>
       {email !== undefined ? (
@@ -90,7 +95,7 @@ export function PasswordField({
             )
           }
         >
-          <CopyIcon /> Copy all sign-in details
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy all sign-in details
         </Button>
       ) : null}
       <p className="text-xs text-muted-foreground">

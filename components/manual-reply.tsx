@@ -24,13 +24,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  PaperPlaneRightIcon,
+  Alert02Icon,
+  FlashIcon,
   PauseIcon,
-  LightningIcon,
-  SmileyIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  SentIcon,
+  SmileIcon,
+} from "@hugeicons/core-free-icons";
 import { WindowClock } from "@/components/window-clock";
 import { friendlyError } from "@/lib/errors";
 
@@ -139,7 +140,7 @@ function ProductInsert({ onPick }: { onPick: (line: string) => void }) {
             aria-label="Insert a product"
             title="Insert a product from the catalogue"
           >
-            <LightningIcon />
+            <HugeiconsIcon icon={FlashIcon} strokeWidth={2} />
           </Button>
         }
       />
@@ -341,7 +342,7 @@ export function ManualReply({
           }
         >
           {neverWritten ? (
-            <WarningIcon className="size-3.5 shrink-0" />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3.5 shrink-0" />
           ) : (
             <WindowClock lastInboundAt={lastInboundAt} size={16} />
           )}
@@ -381,7 +382,7 @@ export function ManualReply({
                     className="text-muted-foreground"
                     aria-label="Insert an emoji"
                   >
-                    <SmileyIcon />
+                    <HugeiconsIcon icon={SmileIcon} strokeWidth={2} />
                   </Button>
                 }
               />
@@ -440,7 +441,7 @@ export function ManualReply({
           disabled={sending || !text.trim()}
           onClick={() => void submit()}
         >
-          {sending ? <Spinner /> : <PaperPlaneRightIcon weight="fill" />}
+          {sending ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />}
         </Button>
       </div>
 
@@ -485,7 +486,7 @@ export function ManualReply({
           className="ml-auto flex shrink-0 items-center gap-1.5"
           title={`${agentName} stops answering ${contactLabel} for this long after each reply you send. Resume it early from the thread menu.`}
         >
-          <PauseIcon className="size-3.5 shrink-0" />
+          <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-3.5 shrink-0" />
           {humanHandling ? "Each reply pauses" : "Replying pauses"} {agentName}{" "}
           for
           <SelectField

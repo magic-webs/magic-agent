@@ -18,7 +18,9 @@ import { SelectField } from "@/components/select-field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { SparkleIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { SparklesIcon } from "@hugeicons/core-free-icons";
+
 import { CATEGORIES, type Category, type Channel } from "./shared";
 
 export type AiDraft = {
@@ -81,7 +83,7 @@ export function AiDraftDialog({
       <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <SparkleIcon className="size-4" /> Draft with AI
+            <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} className="size-4" /> Draft with AI
           </DialogTitle>
           <DialogDescription>
             Say what the notification is about. AI writes the push, email
@@ -150,7 +152,7 @@ export function AiDraftDialog({
             Cancel
           </Button>
           <Button disabled={busy || brief.trim().length < 5} onClick={() => void write()}>
-            {busy ? <Spinner /> : <SparkleIcon />} {busy ? "Writing…" : "Write draft"}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} {busy ? "Writing…" : "Write draft"}
           </Button>
         </DialogFooter>
       </DialogContent>

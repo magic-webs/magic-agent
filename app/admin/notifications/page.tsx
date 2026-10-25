@@ -18,7 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BellRingingIcon, PlusIcon, WarningIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Alert02Icon,
+  NotificationSquareIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import {
   ChannelIcons,
   StatusBadge,
@@ -68,14 +73,14 @@ export default function AdminNotificationsPage() {
         </div>
         {modifies ? (
           <Button nativeButton={false} render={<Link href="/admin/notifications/new" />}>
-            <PlusIcon /> New notification
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New notification
           </Button>
         ) : null}
       </header>
 
       {missing.length ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
-          <WarningIcon className="mt-0.5 size-4 shrink-0 text-amber-600" />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <span>
             Not configured on the deployment: {missing.join(" and ")}. Those channels stay off
             until the environment variables are set.
@@ -86,7 +91,7 @@ export default function AdminNotificationsPage() {
       <Card className="shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BellRingingIcon className="size-4" /> Sent and scheduled
+            <HugeiconsIcon icon={NotificationSquareIcon} strokeWidth={2} className="size-4" /> Sent and scheduled
           </CardTitle>
           <CardDescription>Open one to edit a draft or see how a send went.</CardDescription>
         </CardHeader>

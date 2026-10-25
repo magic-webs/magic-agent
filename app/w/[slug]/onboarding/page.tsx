@@ -14,12 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { STEP_COUNT, stepHref, type Step } from "@/lib/onboarding";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowRightIcon,
-  CaretRightIcon,
-  CheckCircleIcon,
-  CircleDashedIcon,
-} from "@phosphor-icons/react";
+  ArrowRight01Icon,
+  ArrowRight02Icon,
+  CheckmarkCircle02Icon,
+  DashedLineCircleIcon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * The setup hub.
@@ -63,7 +64,7 @@ function StepCard({
               : "bg-muted text-muted-foreground group-hover:text-foreground"
           )}
         >
-          <Glyph className="size-5" />
+          <HugeiconsIcon icon={Glyph} strokeWidth={2} className="size-5" />
         </span>
 
         <div className="min-w-0 flex-1">
@@ -73,10 +74,8 @@ function StepCard({
             </span>
             <p className="truncate text-sm font-medium">{step.title}</p>
             {step.ready ? (
-              <CheckCircleIcon
-                weight="fill"
-                className="size-4 shrink-0 text-primary"
-              />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+                className="size-4 shrink-0 text-primary" />
             ) : null}
           </div>
           <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
@@ -93,7 +92,7 @@ function StepCard({
           >
             {loading ? "—" : `${step.percent}%`}
           </span>
-          <CaretRightIcon className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </div>
       </div>
 
@@ -106,15 +105,13 @@ function StepCard({
           "Checking…"
         ) : step.next ? (
           <>
-            <CircleDashedIcon className="size-3.5 shrink-0" />
+            <HugeiconsIcon icon={DashedLineCircleIcon} strokeWidth={2} className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">Next: {step.next}</span>
           </>
         ) : (
           <>
-            <CheckCircleIcon
-              weight="fill"
-              className="size-3.5 shrink-0 text-primary"
-            />
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+              className="size-3.5 shrink-0 text-primary" />
             <span className="text-primary">Nothing left in this step</span>
           </>
         )}
@@ -194,7 +191,7 @@ export default function OnboardingHubPage() {
 
             {complete ? (
               <Badge variant="secondary" className="gap-1.5">
-                <CheckCircleIcon weight="fill" className="size-3.5" />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3.5" />
                 All six steps ready
               </Badge>
             ) : (
@@ -206,7 +203,7 @@ export default function OnboardingHubPage() {
                   {percent === 0
                     ? "Start with the basics"
                     : `Continue: ${resume.title}`}
-                  <ArrowRightIcon />
+                  <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
                 </Button>
                 {/* Six dots, one per step, as a legend for the dial: it says at
                     a glance which parts of the journey are done without having

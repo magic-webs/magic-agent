@@ -26,13 +26,14 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Logo } from "@/components/logo";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ShieldCheckIcon,
-  WarningIcon,
-  ArrowRightIcon,
-  DevicesIcon,
-  SignOutIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight02Icon,
+  ComputerPhoneSyncIcon,
+  Logout01Icon,
+  SecurityCheckIcon,
+} from "@hugeicons/core-free-icons";
 
 type ActiveSession = { device: string | null; lastUsedAt: number };
 
@@ -183,7 +184,7 @@ function LoginForm() {
             <CardContent className="flex flex-col gap-3">
               {error ? (
                 <Alert variant="destructive">
-                  <WarningIcon />
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                   <AlertTitle>Could not finish setup</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -232,7 +233,7 @@ function LoginForm() {
                 />
               </div>
               <Button onClick={() => void go(true)} disabled={busy}>
-                {busy ? <Spinner /> : <ShieldCheckIcon />} Create account
+                {busy ? <Spinner /> : <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />} Create account
               </Button>
             </CardContent>
           </>
@@ -249,7 +250,7 @@ function LoginForm() {
             <CardContent className="flex flex-col gap-3">
               {error ? (
                 <Alert variant="destructive">
-                  <WarningIcon />
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                   <AlertTitle>Could not verify</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -303,7 +304,7 @@ function LoginForm() {
                 onClick={() => submitCode()}
                 disabled={busy || !code.trim()}
               >
-                {busy ? <Spinner /> : <ShieldCheckIcon />} Verify
+                {busy ? <Spinner /> : <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} />} Verify
               </Button>
 
               <div className="flex items-center justify-between gap-2 text-xs">
@@ -340,14 +341,14 @@ function LoginForm() {
             <CardContent className="flex flex-col gap-3">
               {error ? (
                 <Alert variant="destructive">
-                  <WarningIcon />
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                   <AlertTitle>Could not sign in</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               ) : null}
 
               <div className="flex items-center gap-3 rounded-lg border bg-muted/40 p-3">
-                <DevicesIcon className="size-5 shrink-0 text-muted-foreground" />
+                <HugeiconsIcon icon={ComputerPhoneSyncIcon} strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {pending.activeSession.device ?? "Another device"}
@@ -367,7 +368,7 @@ function LoginForm() {
                 onClick={() => void run({ mode: "continue", replace: true })}
                 disabled={busy}
               >
-                {busy ? <Spinner /> : <SignOutIcon />} Sign out the other
+                {busy ? <Spinner /> : <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} />} Sign out the other
                 device and continue
               </Button>
               <Button variant="ghost" onClick={startOver} disabled={busy}>
@@ -387,7 +388,7 @@ function LoginForm() {
             <CardContent className="flex flex-col gap-3">
               {error ? (
                 <Alert variant="destructive">
-                  <WarningIcon />
+                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
                   <AlertTitle>Sign in failed</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -435,7 +436,7 @@ function LoginForm() {
                 onClick={() => void go(false)}
                 disabled={busy || !form.username.trim() || !form.password}
               >
-                {busy ? <Spinner /> : <ArrowRightIcon />} Sign in
+                {busy ? <Spinner /> : <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />} Sign in
               </Button>
 
               <Separator />

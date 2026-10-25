@@ -36,12 +36,13 @@ import {
 import { ListSkeleton } from "@/components/skeletons";
 import { Spinner } from "@/components/ui/spinner";
 import { useHourBucket } from "@/components/use-now";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ChatsIcon,
-  MagnifyingGlassIcon,
-  FunnelSimpleIcon,
+  BubbleChatIcon,
+  FilterHorizontalIcon,
+  Search01Icon,
   SirenIcon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 
 const KINDS = ["whatsapp", "web", "instagram", "rcs", "telegram"] as const;
 const CHANNEL_TYPES = new Set<string>(["all", ...KINDS]);
@@ -319,10 +320,10 @@ export default function ConversationsPage() {
           >
             <TabsList className="w-full">
               <TabsTrigger value="conversations">
-                <ChatsIcon /> Conversations
+                <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Conversations
               </TabsTrigger>
               <TabsTrigger value="escalations">
-                <SirenIcon /> Escalations
+                <HugeiconsIcon icon={SirenIcon} strokeWidth={2} /> Escalations
                 {counts?.escalated ? (
                   <span className="rounded-md bg-destructive/10 px-1 py-px text-[11px] text-destructive tabular-nums">
                     {counts.escalated}
@@ -411,7 +412,7 @@ export default function ConversationsPage() {
 
           <div className="flex shrink-0 items-center gap-2 px-3 pb-2">
             <div className="relative min-w-0 flex-1">
-              <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 placeholder="Search contact or message…"
@@ -435,7 +436,7 @@ export default function ConversationsPage() {
                   />
                 }
               >
-                <FunnelSimpleIcon />
+                <HugeiconsIcon icon={FilterHorizontalIcon} strokeWidth={2} />
                 {narrowed ? (
                   <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary ring-2 ring-background" />
                 ) : null}
@@ -576,7 +577,7 @@ export default function ConversationsPage() {
                 <Empty className="border border-dashed">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      {view === "escalations" ? <SirenIcon /> : <ChatsIcon />}
+                      {view === "escalations" ? <HugeiconsIcon icon={SirenIcon} strokeWidth={2} /> : <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} />}
                     </EmptyMedia>
                     <EmptyTitle>
                       {filtered || statusFilter !== "all"

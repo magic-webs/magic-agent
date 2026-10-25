@@ -1,4 +1,9 @@
-import { GlobeIcon, UserIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Globe02Icon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
+
 import type { ChannelKind } from "@/components/channel-mark";
 import { TeamAvatar } from "@/components/team-avatar";
 import { cn } from "@/lib/utils";
@@ -61,7 +66,7 @@ export function ContactAvatar({
   if (isAnonymousSession(label, channelType)) {
     return (
       <Glyph size={size} className={className}>
-        <GlobeIcon style={{ width: size * 0.5, height: size * 0.5 }} />
+        <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} style={{ width: size * 0.5, height: size * 0.5 }} />
       </Glyph>
     );
   }
@@ -71,7 +76,7 @@ export function ContactAvatar({
   if (!/\p{L}/u.test(label)) {
     return (
       <Glyph size={size} className={className}>
-        <UserIcon style={{ width: size * 0.5, height: size * 0.5 }} />
+        <HugeiconsIcon icon={UserIcon} strokeWidth={2} style={{ width: size * 0.5, height: size * 0.5 }} />
       </Glyph>
     );
   }

@@ -83,22 +83,22 @@ import {
   type WorkspaceBasics,
 } from "@/components/workspace-setup-prompt";
 import { CardGridSkeleton, TableSkeleton } from "@/components/skeletons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  BuildingsIcon,
-  CardsThreeIcon,
-  PlusIcon,
-  ArrowRightIcon,
-  ArrowSquareOutIcon,
-  ClockCounterClockwiseIcon,
-  CopyIcon,
-  GlobeIcon,
-  MagicWandIcon,
-  MagnifyingGlassIcon,
-  SparkleIcon,
-  TableIcon,
-  XIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+  ArrowRight02Icon,
+  Building03Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  Globe02Icon,
+  LayoutGridIcon,
+  LayoutTable01Icon,
+  LinkSquare02Icon,
+  MagicWand01Icon,
+  PlusSignIcon,
+  Search01Icon,
+  SparklesIcon,
+  WorkHistoryIcon,
+} from "@hugeicons/core-free-icons";
 import { formatDistanceToNow } from "date-fns";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -116,12 +116,12 @@ import type { FunctionReturnType } from "convex/server";
 type View = "list" | "cards";
 
 const VIEWS = [
-  { value: "list", label: "List", icon: TableIcon },
-  { value: "cards", label: "Cards", icon: CardsThreeIcon },
+  { value: "list", label: "List", icon: LayoutTable01Icon },
+  { value: "cards", label: "Cards", icon: LayoutGridIcon },
 ] as const satisfies ReadonlyArray<{
   value: View;
   label: string;
-  icon: Icon;
+  icon: IconSvgElement;
 }>;
 
 type WorkspaceChannel = FunctionReturnType<
@@ -152,7 +152,7 @@ const CHANNEL_KINDS = [
   {
     type: "web",
     label: "Web chat",
-    icon: <GlobeIcon className="size-4 text-sky-600" />,
+    icon: <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} className="size-4 text-sky-600" />,
   },
 ] as const;
 
@@ -206,14 +206,14 @@ function ChannelLink({ channel }: { channel: WorkspaceChannel }) {
               variant="outline"
               onClick={() => void copyText(url, "Link")}
             >
-              <CopyIcon /> Copy
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy
             </Button>
             <Button
               size="sm"
               nativeButton={false}
               render={<a href={url} target="_blank" rel="noopener noreferrer" />}
             >
-              <ArrowSquareOutIcon /> Open
+              <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} /> Open
             </Button>
           </div>
         </>
@@ -419,7 +419,7 @@ function CreateWorkspaceDialog() {
       <DialogTrigger
         render={
           <Button>
-            <PlusIcon /> New workspace
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New workspace
           </Button>
         }
       />
@@ -439,10 +439,10 @@ function CreateWorkspaceDialog() {
           >
             <TabsList className="w-full">
               <TabsTrigger value="form">
-                <PlusIcon /> Create now
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Create now
               </TabsTrigger>
               <TabsTrigger value="prompt">
-                <MagicWandIcon /> Setup prompt
+                <HugeiconsIcon icon={MagicWand01Icon} strokeWidth={2} /> Setup prompt
               </TabsTrigger>
             </TabsList>
 
@@ -564,11 +564,11 @@ function CreateWorkspaceDialog() {
           </Button>
           {mode === "prompt" ? (
             <Button onClick={copyPrompt}>
-              <CopyIcon /> Copy prompt
+              <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy prompt
             </Button>
           ) : (
             <Button onClick={submit} disabled={busy}>
-              {busy ? <Spinner /> : <PlusIcon />} Create workspace
+              {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Create workspace
             </Button>
           )}
         </DialogFooter>
@@ -649,7 +649,7 @@ function WorkspacesDirectory() {
                 title={`${option.label} view`}
                 aria-label={`${option.label} view`}
               >
-                <option.icon className="size-4" />
+                <HugeiconsIcon icon={option.icon} strokeWidth={2} className="size-4" />
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -671,7 +671,7 @@ function WorkspacesDirectory() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <BuildingsIcon />
+              <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No workspaces assigned</EmptyTitle>
             <EmptyDescription>
@@ -683,7 +683,7 @@ function WorkspacesDirectory() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <BuildingsIcon />
+              <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No workspaces yet</EmptyTitle>
             <EmptyDescription>
@@ -707,7 +707,7 @@ function WorkspacesDirectory() {
                   }
                 }}
               >
-                {seeding ? <Spinner /> : <SparkleIcon />} Start from a sample
+                {seeding ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} Start from a sample
               </Button>
             </div>
           </EmptyContent>
@@ -716,7 +716,7 @@ function WorkspacesDirectory() {
         <>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:w-60">
-              <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 placeholder="Find a workspace"
@@ -785,7 +785,7 @@ function WorkspacesDirectory() {
             />
             {filtering ? (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <XIcon /> Clear
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Clear
               </Button>
             ) : null}
             <span className="ml-auto text-xs tabular-nums text-muted-foreground">
@@ -799,7 +799,7 @@ function WorkspacesDirectory() {
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <BuildingsIcon />
+                  <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>No workspaces match</EmptyTitle>
                 <EmptyDescription>
@@ -808,7 +808,7 @@ function WorkspacesDirectory() {
               </EmptyHeader>
               <EmptyContent>
                 <Button variant="outline" onClick={clearFilters}>
-                  <XIcon /> Clear filters
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Clear filters
                 </Button>
               </EmptyContent>
             </Empty>
@@ -901,7 +901,7 @@ function WorkspacesDirectory() {
                               />
                             }
                           >
-                            <ClockCounterClockwiseIcon /> Activity
+                            <HugeiconsIcon icon={WorkHistoryIcon} strokeWidth={2} /> Activity
                           </Button>
                           <Button
                             size="sm"
@@ -909,7 +909,7 @@ function WorkspacesDirectory() {
                             nativeButton={false}
                             render={<Link href={`/w/${workspace.slug}`} />}
                           >
-                            Open <ArrowRightIcon />
+                            Open <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
                           </Button>
                         </div>
                       </TableCell>
@@ -975,7 +975,7 @@ function WorkspacesDirectory() {
                             />
                           }
                         >
-                          <ClockCounterClockwiseIcon />
+                          <HugeiconsIcon icon={WorkHistoryIcon} strokeWidth={2} />
                         </Button>
                         <Button
                           size="lg"
@@ -983,7 +983,7 @@ function WorkspacesDirectory() {
                           nativeButton={false}
                           render={<Link href={`/w/${workspace.slug}`} />}
                         >
-                          Open <ArrowRightIcon />
+                          Open <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />
                         </Button>
                       </div>
                     </div>

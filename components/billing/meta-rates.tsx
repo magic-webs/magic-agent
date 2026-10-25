@@ -34,7 +34,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import { TrashIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Delete02Icon,
+  FileImportIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 type ParsedRow = {
@@ -368,7 +372,7 @@ export function ImportMetaRatesDialog({
             disabled={busy || !parsed || parsed.rows.length === 0 || !date}
             onClick={() => void submit()}
           >
-            {busy ? <Spinner /> : <TrayArrowDownIcon />} Import
+            {busy ? <Spinner /> : <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />} Import
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -506,7 +510,7 @@ export function MetaRatesDialog({
                   disabled={busy !== null}
                   onClick={() => void drop(effectiveFrom)}
                 >
-                  {busy === effectiveFrom ? <Spinner /> : <TrashIcon />}
+                  {busy === effectiveFrom ? <Spinner /> : <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />}
                 </Button>
               ) : null}
             </div>

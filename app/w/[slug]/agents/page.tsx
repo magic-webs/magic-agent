@@ -57,25 +57,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { CardGridSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  ArrowsSplitIcon,
-  CardsIcon,
-  ChatsIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  CrosshairSimpleIcon,
-  DotsThreeVerticalIcon,
-  FunnelIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  RobotIcon,
+  Alert02Icon,
+  BubbleChatIcon,
+  CheckmarkCircle02Icon,
+  Clock01Icon,
+  DashboardSquare01Icon,
+  FilterIcon,
+  GitForkIcon,
+  Layers01Icon,
+  MoreVerticalIcon,
+  PlusSignIcon,
+  RoboticIcon,
+  Search01Icon,
   SignpostIcon,
-  SlidersIcon,
-  SparkleIcon,
-  SquaresFourIcon,
-  UsersThreeIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  SlidersVerticalIcon,
+  SparklesIcon,
+  Target01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 
 type Agent = Doc<"agents">;
 
@@ -169,13 +170,13 @@ function StatChip({
   value,
   label,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: IconSvgElement;
   value: string;
   label: string;
 }) {
   return (
     <div className="flex items-center gap-2.5 rounded-xl bg-card px-3.5 py-2.5 ring-1 ring-foreground/10">
-      <Icon className="size-5 shrink-0 text-muted-foreground" />
+      <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
         <div className="font-heading text-base leading-none font-semibold">
           {value}
@@ -192,13 +193,13 @@ function StatFigure({
   value,
   label,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: IconSvgElement;
   value: string;
   label: string;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
         <div className="font-heading text-sm leading-none font-semibold">
           {value}
@@ -295,7 +296,7 @@ function NewAgentDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="lg"><PlusIcon /> New agent</Button>} />
+      <DialogTrigger render={<Button size="lg"><HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New agent</Button>} />
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New agent</DialogTitle>
@@ -308,13 +309,13 @@ function NewAgentDialog() {
         <Tabs defaultValue="template">
           <TabsList className="w-full">
             <TabsTrigger value="template">
-              <CardsIcon /> Template
+              <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} /> Template
             </TabsTrigger>
             <TabsTrigger value="draft">
-              <SparkleIcon /> From a brief
+              <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} /> From a brief
             </TabsTrigger>
             <TabsTrigger value="manual">
-              <SlidersIcon /> Blank
+              <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Blank
             </TabsTrigger>
           </TabsList>
 
@@ -343,7 +344,7 @@ function NewAgentDialog() {
               </p>
             </div>
             <Button onClick={createFromBrief} disabled={busy}>
-              {busy ? <Spinner /> : <SparkleIcon />} Draft the agent
+              {busy ? <Spinner /> : <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />} Draft the agent
             </Button>
           </TabsContent>
 
@@ -406,7 +407,7 @@ function NewAgentDialog() {
               </p>
             </div>
             <Button onClick={createManual} disabled={busy}>
-              {busy ? <Spinner /> : <PlusIcon />} Create agent
+              {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Create agent
             </Button>
           </TabsContent>
         </Tabs>
@@ -471,17 +472,17 @@ function FrontDeskHero({
               this card is the only way into the front desk's own config. */}
           <div className="mt-5 flex flex-wrap items-center gap-2.5">
             <StatChip
-              icon={UsersThreeIcon}
+              icon={UserGroupIcon}
               value={String(agentCount)}
               label={agentCount === 1 ? "Agent" : "Agents"}
             />
             <StatChip
-              icon={ChatsIcon}
+              icon={BubbleChatIcon}
               value={count(conversations)}
               label="Conversations"
             />
             <StatChip
-              icon={CheckCircleIcon}
+              icon={CheckmarkCircle02Icon}
               value={percent(resolutionRate)}
               label="Resolution rate"
             />
@@ -492,7 +493,7 @@ function FrontDeskHero({
               nativeButton={false}
               render={<Link href={`${base}/agents/${router._id}/test`} />}
             >
-              <ChatsIcon /> Test routing
+              <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Test routing
             </Button>
             <Button
               size="lg"
@@ -501,7 +502,7 @@ function FrontDeskHero({
               nativeButton={false}
               render={<Link href={`${base}/agents/${router._id}`} />}
             >
-              <SlidersIcon /> Configure
+              <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Configure
             </Button>
           </div>
         </div>
@@ -551,21 +552,21 @@ function AgentMenu({ agent, base }: { agent: Agent; base: string }) {
           />
         }
       >
-        <DotsThreeVerticalIcon />
+        <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem render={<Link href={`${base}/agents/${agent._id}`} />}>
-          <SlidersIcon /> Configure
+          <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Configure
         </DropdownMenuItem>
         <DropdownMenuItem
           render={<Link href={`${base}/agents/${agent._id}/test`} />}
         >
-          <ChatsIcon /> Test
+          <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Test
         </DropdownMenuItem>
         <DropdownMenuItem
           render={<Link href={`${base}/agents?view=map&agent=${agent._id}`} />}
         >
-          <ArrowsSplitIcon /> Show in map
+          <HugeiconsIcon icon={GitForkIcon} strokeWidth={2} /> Show in map
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -643,17 +644,17 @@ function AgentCard({
 
         <div className="mt-auto grid grid-cols-3 gap-2 border-t pt-3">
           <StatFigure
-            icon={ChatsIcon}
+            icon={BubbleChatIcon}
             value={count(stats?.conversations)}
             label="Conversations"
           />
           <StatFigure
-            icon={CrosshairSimpleIcon}
+            icon={Target01Icon}
             value={percent(stats?.resolutionRate)}
             label="Resolution rate"
           />
           <StatFigure
-            icon={ClockIcon}
+            icon={Clock01Icon}
             value={duration(stats?.avgLatencyMs)}
             label="Avg. response"
           />
@@ -667,7 +668,7 @@ function AgentCard({
             nativeButton={false}
             render={<Link href={`${base}/agents/${agent._id}/test`} />}
           >
-            <ChatsIcon /> Test
+            <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Test
           </Button>
           <Button
             size="lg"
@@ -675,7 +676,7 @@ function AgentCard({
             nativeButton={false}
             render={<Link href={`${base}/agents/${agent._id}`} />}
           >
-            <SlidersIcon /> Configure
+            <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Configure
           </Button>
         </div>
       </CardContent>
@@ -700,7 +701,7 @@ function FollowUpDeskCard({
     <Card className="shrink-0 rounded-2xl">
       <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
-          <FunnelIcon className="size-5" />
+          <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-5" />
         </span>
 
         <div className="min-w-0 flex-1">
@@ -748,7 +749,7 @@ function FollowUpDeskCard({
           nativeButton={false}
           render={<Link href={`${base}/agents/${desk._id}`} />}
         >
-          <SlidersIcon /> Configure
+          <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Configure
         </Button>
       </CardHeader>
     </Card>
@@ -880,8 +881,8 @@ export default function AgentsPage() {
     <div className="flex items-center gap-0.5 rounded-lg border p-0.5">
       {(
         [
-          { value: "cards", label: "Cards", icon: SquaresFourIcon },
-          { value: "map", label: "Map", icon: ArrowsSplitIcon },
+          { value: "cards", label: "Cards", icon: DashboardSquare01Icon },
+          { value: "map", label: "Map", icon: GitForkIcon },
         ] as const
       ).map((option) => (
         <Button
@@ -892,7 +893,7 @@ export default function AgentsPage() {
           className={cn(view === option.value && "bg-primary/10 text-primary")}
           onClick={() => setView(option.value)}
         >
-          <option.icon /> {option.label}
+          <HugeiconsIcon icon={option.icon} strokeWidth={2} /> {option.label}
         </Button>
       ))}
     </div>
@@ -913,7 +914,7 @@ export default function AgentsPage() {
       <div className="flex flex-wrap items-center gap-2">
         {view === "cards" ? (
           <div className="relative w-full sm:w-64">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={searchRef}
               value={search}
@@ -970,7 +971,7 @@ export default function AgentsPage() {
         />
       ) : specialists.length > 0 ? (
         <Alert>
-          <ArrowsSplitIcon />
+          <HugeiconsIcon icon={GitForkIcon} strokeWidth={2} />
           <AlertTitle>No front desk yet</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             <span>
@@ -981,7 +982,7 @@ export default function AgentsPage() {
               single agent from the Channels page.
             </span>
             <Button size="lg" onClick={provision} disabled={provisioning}>
-              {provisioning ? <Spinner /> : <SignpostIcon />} Create the front
+              {provisioning ? <Spinner /> : <HugeiconsIcon icon={SignpostIcon} strokeWidth={2} />} Create the front
               desk and route my channels
             </Button>
           </AlertDescription>
@@ -990,7 +991,7 @@ export default function AgentsPage() {
 
       {frontDesk && routable.length === 0 && specialists.length > 0 ? (
         <Alert>
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Nothing to route to</AlertTitle>
           <AlertDescription>
             The front desk only hands over to agents that are <em>active</em>.
@@ -1007,7 +1008,7 @@ export default function AgentsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <RobotIcon />
+              <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No agents yet</EmptyTitle>
             <EmptyDescription>
@@ -1048,7 +1049,7 @@ export default function AgentsPage() {
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <MagnifyingGlassIcon />
+                  <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
                 </EmptyMedia>
                 <EmptyTitle>No agent matches “{search}”</EmptyTitle>
                 <EmptyDescription>

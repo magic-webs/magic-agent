@@ -25,10 +25,11 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  MagnifyingGlassIcon,
-  PlusIcon,
-} from "@phosphor-icons/react";
+  PlusSignIcon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * Open a thread with somebody the workspace already knows.
@@ -121,7 +122,7 @@ export function NewConversationDialog({
       <DialogTrigger
         render={
           <Button>
-            <PlusIcon /> New conversation
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New conversation
           </Button>
         }
       />
@@ -137,7 +138,7 @@ export function NewConversationDialog({
 
         <div className="flex flex-col gap-3">
           <div className="relative">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={term}
               placeholder="Search by name, number or email…"

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
-import { TrayArrowUpIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { FileExportIcon } from "@hugeicons/core-free-icons";
 
 const PAGE = 500;
 
@@ -79,7 +80,7 @@ export function ExportRecordsButton({
 
   return (
     <Button variant="outline" onClick={() => void run()} disabled={busy}>
-      {busy ? <Spinner /> : <TrayArrowUpIcon />} Export CSV
+      {busy ? <Spinner /> : <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} />} Export CSV
     </Button>
   );
 }

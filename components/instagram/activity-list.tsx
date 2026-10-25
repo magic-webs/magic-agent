@@ -16,7 +16,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ChatCircleDotsIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { BubbleChatIcon } from "@hugeicons/core-free-icons";
 
 export function ActivityList({ pageSize, paged }: { pageSize: number; paged: boolean }) {
   const workspace = useWorkspace();
@@ -33,7 +34,7 @@ export function ActivityList({ pageSize, paged }: { pageSize: number; paged: boo
       <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <ChatCircleDotsIcon />
+            <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} />
           </EmptyMedia>
           <EmptyTitle>Nothing yet</EmptyTitle>
           <EmptyDescription>

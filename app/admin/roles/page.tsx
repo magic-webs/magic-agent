@@ -49,12 +49,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  PencilSimpleIcon,
-  PlusIcon,
-  ShieldCheckIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+  Delete02Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
+  SecurityCheckIcon,
+} from "@hugeicons/core-free-icons";
+
 
 type Role = Doc<"adminRoles"> & { memberCount: number };
 
@@ -159,11 +161,11 @@ function RoleDialog({ role }: { role?: Role }) {
         render={
           role ? (
             <Button size="sm" variant="outline">
-              <PencilSimpleIcon /> Edit
+              <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> Edit
             </Button>
           ) : (
             <Button>
-              <PlusIcon /> New role
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New role
             </Button>
           )
         }
@@ -252,7 +254,7 @@ function RoleDialog({ role }: { role?: Role }) {
             Cancel
           </Button>
           <Button disabled={busy || invalid} onClick={() => void submit()}>
-            {busy ? <Spinner /> : role ? <PencilSimpleIcon /> : <PlusIcon />}
+            {busy ? <Spinner /> : role ? <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />}
             {role ? "Save" : "Create role"}
           </Button>
         </DialogFooter>
@@ -282,7 +284,7 @@ function RemoveRoleButton({ role }: { role: Role }) {
       <AlertDialogTrigger
         render={
           <Button size="sm" variant="ghost" disabled={role.memberCount > 0}>
-            <TrashIcon /> Delete
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Delete
           </Button>
         }
       />
@@ -327,7 +329,7 @@ export default function AdminRolesPage() {
       <Card className="shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheckIcon className="size-4" /> Platform roles
+            <HugeiconsIcon icon={SecurityCheckIcon} strokeWidth={2} className="size-4" /> Platform roles
           </CardTitle>
           <CardDescription>
             Changes apply to everyone holding the role on their next request.

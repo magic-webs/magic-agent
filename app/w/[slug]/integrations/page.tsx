@@ -72,27 +72,29 @@ import {
 } from "@/convex/lib/payments";
 import { cn } from "@/lib/utils";
 import { friendlyError } from "@/lib/errors";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowSquareOutIcon,
-  ArrowsClockwiseIcon,
+  Alert02Icon,
   AsteriskIcon,
-  CheckCircleIcon,
-  CheckIcon,
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
   CircleIcon,
-  CopyIcon,
-  CurrencyInrIcon,
-  DotsThreeIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  MagnifyingGlassIcon,
-  NotionLogoIcon,
-  PlugsConnectedIcon,
-  RobotIcon,
-  SlackLogoIcon,
-  WarningIcon,
-  WebhooksLogoIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  Copy01Icon,
+  LinkSquare02Icon,
+  MoreHorizontalIcon,
+  NotionIcon,
+  PlugSocketIcon,
+  RefreshIcon,
+  RoboticIcon,
+  RupeeIcon,
+  Search01Icon,
+  SlackIcon,
+  Tick02Icon,
+  ViewIcon,
+  ViewOffSlashIcon,
+  WebhookIcon,
+} from "@hugeicons/core-free-icons";
+
 
 /**
  * Integrations.
@@ -148,7 +150,7 @@ const RAZORPAY_ENTRY = {
   name: "Razorpay",
   blurb: "Agents send payment links for orders and see when they are paid.",
   icon: (props: { className?: string }) => (
-    <CurrencyInrIcon weight="bold" {...props} />
+    <HugeiconsIcon icon={RupeeIcon} strokeWidth={2} {...props} />
   ),
   tile: "bg-blue-50 text-[#0c2651] dark:bg-blue-500/10 dark:text-blue-300",
 };
@@ -202,7 +204,7 @@ const OTHER_TOOLS: OtherTool[] = [
     id: "slack",
     name: "Slack",
     blurb: "Get notified in your team.",
-    icon: (props) => <SlackLogoIcon weight="fill" {...props} />,
+    icon: (props) => <HugeiconsIcon icon={SlackIcon} strokeWidth={2} {...props} />,
     tile: "bg-fuchsia-50 text-[#611f69] dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
     hosts: ["hooks.slack.com", "slack.com/api"],
     action: { label: "Create a custom tool", path: "/tools" },
@@ -211,7 +213,7 @@ const OTHER_TOOLS: OtherTool[] = [
     id: "zapier",
     name: "Zapier",
     blurb: "Connect 6,000+ apps.",
-    icon: (props) => <AsteriskIcon weight="bold" {...props} />,
+    icon: (props) => <HugeiconsIcon icon={AsteriskIcon} strokeWidth={2} {...props} />,
     tile: "bg-orange-50 text-[#ff4f00] dark:bg-orange-500/10",
     hosts: ["hooks.zapier.com"],
     action: { label: "Open webhook settings", path: "/settings" },
@@ -220,7 +222,7 @@ const OTHER_TOOLS: OtherTool[] = [
     id: "webhooks",
     name: "Webhooks",
     blurb: "Trigger from any system.",
-    icon: (props) => <WebhooksLogoIcon weight="bold" {...props} />,
+    icon: (props) => <HugeiconsIcon icon={WebhookIcon} strokeWidth={2} {...props} />,
     tile: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300",
     hosts: [],
     action: { label: "Open webhook settings", path: "/settings" },
@@ -229,7 +231,7 @@ const OTHER_TOOLS: OtherTool[] = [
     id: "notion",
     name: "Notion",
     blurb: "Read and write pages.",
-    icon: (props) => <NotionLogoIcon weight="fill" {...props} />,
+    icon: (props) => <HugeiconsIcon icon={NotionIcon} strokeWidth={2} {...props} />,
     tile: "bg-muted text-foreground",
     hosts: ["api.notion.com"],
     action: { label: "Create a custom tool", path: "/tools" },
@@ -238,7 +240,7 @@ const OTHER_TOOLS: OtherTool[] = [
     id: "mcp",
     name: "Claude & ChatGPT",
     blurb: "Run your workspace from an assistant.",
-    icon: (props) => <RobotIcon weight="duotone" {...props} />,
+    icon: (props) => <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} {...props} />,
     tile: "bg-primary/10 text-primary",
     hosts: [],
     action: { label: "Open assistant settings", path: "/settings" },
@@ -445,7 +447,7 @@ export default function IntegrationsPage() {
         <div className="@container flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <InputGroup className="h-11 max-w-xl rounded-xl bg-muted/40">
             <InputGroupAddon>
-              <MagnifyingGlassIcon className="size-4" />
+              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4" />
             </InputGroupAddon>
             <InputGroupInput
               value={search}
@@ -458,7 +460,7 @@ export default function IntegrationsPage() {
           <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
             <div className="min-w-0">
               <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                <PlugsConnectedIcon className="size-3.5" /> Integrations
+                <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} className="size-3.5" /> Integrations
               </span>
               <h1 className="mt-3 font-heading text-3xl font-bold tracking-tight">
                 Integrations
@@ -676,14 +678,14 @@ function StateLine({ entry }: { entry: Entry }) {
   if (entry.state === "attention") {
     return (
       <span className="inline-flex items-center gap-1.5 text-destructive">
-        <WarningIcon weight="fill" className="size-3.5" /> Needs attention
+        <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3.5" /> Needs attention
       </span>
     );
   }
   if (entry.state === "connected") {
     return (
       <span className="inline-flex min-w-0 items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-        <CheckCircleIcon weight="fill" className="size-3.5 shrink-0" />
+        <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3.5 shrink-0" />
         <span className="truncate">
           Connected
           {entry.stateDetail ? (
@@ -695,7 +697,7 @@ function StateLine({ entry }: { entry: Entry }) {
   }
   return (
     <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-      <CircleIcon className="size-3.5" /> Not connected
+      <HugeiconsIcon icon={CircleIcon} strokeWidth={2} className="size-3.5" /> Not connected
     </span>
   );
 }
@@ -770,7 +772,7 @@ function CatalogueCard({
               />
             }
           >
-            <DotsThreeIcon weight="bold" />
+            <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpen}>View details</DropdownMenuItem>
@@ -859,7 +861,7 @@ function DetailPanel({
             render={<Link href={`${base}${other.action.path}`} />}
           >
             {other.action.label}
-            <ArrowSquareOutIcon />
+            <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} />
           </Button>
         ) : null}
 
@@ -877,7 +879,7 @@ function DetailPanel({
                 {detail.features.map((feature) => (
                   <div key={feature.title} className="flex items-start gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <feature.icon className="size-5" />
+                      <HugeiconsIcon icon={feature.icon} strokeWidth={2} className="size-5" />
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold">{feature.title}</p>
@@ -896,7 +898,7 @@ function DetailPanel({
                   <p className="font-semibold">It can</p>
                   {detail.permissions.can.map((line) => (
                     <p key={line} className="flex items-start gap-2">
-                      <CheckIcon className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-emerald-600" />
                       <span className="text-muted-foreground">{line}</span>
                     </p>
                   ))}
@@ -905,7 +907,7 @@ function DetailPanel({
                   <p className="font-semibold">It never</p>
                   {detail.permissions.never.map((line) => (
                     <p key={line} className="flex items-start gap-2">
-                      <XIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+                      <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-destructive" />
                       <span className="text-muted-foreground">{line}</span>
                     </p>
                   ))}
@@ -961,10 +963,8 @@ function DetailPanel({
               ))}
             </ol>
             <div className="mt-1 flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-              <CheckCircleIcon
-                weight="fill"
-                className="mt-0.5 size-5 shrink-0 text-emerald-600"
-              />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+                className="mt-0.5 size-5 shrink-0 text-emerald-600" />
               <span>{detail.note}</span>
             </div>
           </div>
@@ -1269,7 +1269,7 @@ function GoogleAction({
     <div className="flex flex-col gap-3">
       {!configured ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Google sign-in isn&apos;t available yet</AlertTitle>
           <AlertDescription>Contact support.</AlertDescription>
         </Alert>
@@ -1277,7 +1277,7 @@ function GoogleAction({
 
       {stale && connection?.lastError ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Google refused the last call</AlertTitle>
           <AlertDescription>{connection.lastError}</AlertDescription>
         </Alert>
@@ -1303,7 +1303,7 @@ function GoogleAction({
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 underline underline-offset-4"
                 >
-                  Open <ArrowSquareOutIcon className="size-3" />
+                  Open <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} className="size-3" />
                 </a>
               ) : null}
             </p>
@@ -1506,7 +1506,7 @@ function AppAction({
     <div className="flex flex-col gap-3">
       {connection?.status === "error" && connection.lastError ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>{app.name} refused the last call</AlertTitle>
           <AlertDescription>{connection.lastError}</AlertDescription>
         </Alert>
@@ -1551,7 +1551,7 @@ function AppAction({
             className="h-11 w-full rounded-lg"
             disabled={!apiKey.trim() || busy !== null}
           >
-            {busy === "connect" ? <Spinner /> : <PlugsConnectedIcon />}
+            {busy === "connect" ? <Spinner /> : <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} />}
             {busy === "connect"
               ? "Connecting…"
               : connected
@@ -1584,7 +1584,7 @@ function AppAction({
               onClick={() => void reload()}
               disabled={busy !== null}
             >
-              {busy === "refresh" ? <Spinner /> : <ArrowsClockwiseIcon />}
+              {busy === "refresh" ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />}
               Refresh {app.noun}s
             </Button>
             {!askingKey ? (
@@ -1646,7 +1646,7 @@ function CopyField({
               aria-label={shown ? `Hide ${label}` : `Show ${label}`}
               onClick={() => setShown((value) => !value)}
             >
-              {shown ? <EyeSlashIcon /> : <EyeIcon />}
+              {shown ? <HugeiconsIcon icon={ViewOffSlashIcon} strokeWidth={2} /> : <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />}
             </Button>
           ) : null}
           <Button
@@ -1655,7 +1655,7 @@ function CopyField({
             aria-label={`Copy ${label}`}
             onClick={() => void copyText(label, value)}
           >
-            <CopyIcon />
+            <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
           </Button>
         </InputGroupAddon>
       </InputGroup>
@@ -1733,7 +1733,7 @@ function RazorpayAction({ info }: { info: PaymentInfo }) {
     <div className="flex flex-col gap-3">
       {!info.available ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Payments aren&apos;t available yet</AlertTitle>
           <AlertDescription>Contact support.</AlertDescription>
         </Alert>
@@ -1741,7 +1741,7 @@ function RazorpayAction({ info }: { info: PaymentInfo }) {
 
       {connection?.status === "error" && connection.lastError ? (
         <Alert variant="destructive">
-          <WarningIcon />
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           <AlertTitle>Razorpay refused the last call</AlertTitle>
           <AlertDescription>{connection.lastError}</AlertDescription>
         </Alert>
@@ -1802,7 +1802,7 @@ function RazorpayAction({ info }: { info: PaymentInfo }) {
             className="h-11 w-full rounded-lg"
             disabled={!keyId.trim() || !keySecret.trim() || busy || !info.available}
           >
-            {busy ? <Spinner /> : <PlugsConnectedIcon />}
+            {busy ? <Spinner /> : <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} />}
             {busy ? "Checking keys…" : connection ? "Use these keys" : "Connect Razorpay"}
           </Button>
         </form>
@@ -1949,10 +1949,8 @@ function SettingRow({
 function ConnectedBox({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-      <CheckCircleIcon
-        weight="fill"
-        className="mt-0.5 size-5 shrink-0 text-emerald-600"
-      />
+      <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2}
+        className="mt-0.5 size-5 shrink-0 text-emerald-600" />
       <div className="flex min-w-0 flex-col gap-0.5">{children}</div>
     </div>
   );

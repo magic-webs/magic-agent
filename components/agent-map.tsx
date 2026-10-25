@@ -30,7 +30,11 @@ import {
 } from "@/components/ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/components/ui/toast";
-import { ChatsIcon, SlidersIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  BubbleChatIcon,
+  SlidersVerticalIcon,
+} from "@hugeicons/core-free-icons";
 
 const STATUSES = ["draft", "active", "paused"] as const;
 type Status = (typeof STATUSES)[number];
@@ -319,14 +323,14 @@ function Inspector({
             nativeButton={false}
             render={<Link href={`${base}/agents/${agent._id}/test`} />}
           >
-            <ChatsIcon /> Test in the playground
+            <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} /> Test in the playground
           </Button>
           <Button
             variant="ghost"
             nativeButton={false}
             render={<Link href={`${base}/agents/${agent._id}`} />}
           >
-            <SlidersIcon /> Persona, tone, rules and prompt
+            <HugeiconsIcon icon={SlidersVerticalIcon} strokeWidth={2} /> Persona, tone, rules and prompt
           </Button>
         </div>
       </div>

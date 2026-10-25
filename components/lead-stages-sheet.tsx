@@ -20,13 +20,14 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowLeftIcon,
+  ArrowLeft02Icon,
+  Delete02Icon,
   FloppyDiskIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+  PencilEdit02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 export type LeadStage = {
@@ -99,7 +100,7 @@ function StageList({
                 aria-label={`Edit ${stage.name}`}
                 onClick={() => onEdit(stage)}
               >
-                <PencilSimpleIcon />
+                <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
               </Button>
               <Button
                 size="icon-lg"
@@ -124,7 +125,7 @@ function StageList({
                   }
                 }}
               >
-                <TrashIcon />
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
               </Button>
             </div>
           </div>
@@ -133,7 +134,7 @@ function StageList({
 
       <SheetFooter className="border-t p-4">
         <Button size="lg" onClick={() => onEdit("new")}>
-          <PlusIcon /> Add stage
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add stage
         </Button>
       </SheetFooter>
     </>
@@ -201,7 +202,7 @@ function StageForm({
           className="-ml-2 w-fit"
           onClick={onDone}
         >
-          <ArrowLeftIcon /> All stages
+          <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} /> All stages
         </Button>
         <SheetTitle>
           {stage ? `Edit ${stage.name}` : "Add a stage"}
@@ -256,7 +257,7 @@ function StageForm({
           onClick={save}
           disabled={busy || !name.trim() || !description.trim()}
         >
-          {busy ? <Spinner /> : <FloppyDiskIcon />} Save
+          {busy ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
         </Button>
       </SheetFooter>
     </>

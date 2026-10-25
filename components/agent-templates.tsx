@@ -14,25 +14,26 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  BriefcaseIcon,
-  CalendarCheckIcon,
-  InfoIcon,
-  LifebuoyIcon,
+  Briefcase01Icon,
+  CalendarCheckIn01Icon,
+  CustomerSupportIcon,
+  InformationCircleIcon,
   PackageIcon,
-  PlusIcon,
-  RobotIcon,
-  ShoppingBagIcon,
-  TargetIcon,
-} from "@phosphor-icons/react";
+  PlusSignIcon,
+  RoboticIcon,
+  ShoppingBag01Icon,
+  Target02Icon,
+} from "@hugeicons/core-free-icons";
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  sales: ShoppingBagIcon,
-  lead_qualifier: TargetIcon,
-  support: LifebuoyIcon,
+const ICONS: Record<string, IconSvgElement> = {
+  sales: ShoppingBag01Icon,
+  lead_qualifier: Target02Icon,
+  support: CustomerSupportIcon,
   after_sales: PackageIcon,
-  bookings: CalendarCheckIcon,
-  careers: BriefcaseIcon,
+  bookings: CalendarCheckIn01Icon,
+  careers: Briefcase01Icon,
 };
 
 /**
@@ -99,7 +100,7 @@ export function AgentTemplatePicker({
     <div className="flex flex-col gap-3">
       <div role="radiogroup" aria-label="Agent templates" className="grid gap-2 sm:grid-cols-2">
         {AGENT_TEMPLATES.map((template) => {
-          const Icon = ICONS[template.key] ?? RobotIcon;
+          const Icon = ICONS[template.key] ?? RoboticIcon;
           const active = template.key === selected.key;
           return (
             <button
@@ -123,7 +124,7 @@ export function AgentTemplatePicker({
                     : "bg-muted text-muted-foreground"
                 )}
               >
-                <Icon className="size-5" />
+                <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
@@ -159,7 +160,7 @@ export function AgentTemplatePicker({
           </p>
           {selected.setupHint ? (
             <p className="flex gap-1.5">
-              <InfoIcon className="mt-px size-3.5 shrink-0" />
+              <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="mt-px size-3.5 shrink-0" />
               {selected.setupHint}
             </p>
           ) : null}
@@ -179,7 +180,7 @@ export function AgentTemplatePicker({
         </div>
 
         <Button onClick={() => void create()} disabled={busy}>
-          {busy ? <Spinner /> : <PlusIcon />} Create{" "}
+          {busy ? <Spinner /> : <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />} Create{" "}
           {botName.trim() || selected.botName} · {selected.role}
         </Button>
       </div>

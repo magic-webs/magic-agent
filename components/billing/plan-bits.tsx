@@ -18,14 +18,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
-  CaretRightIcon,
-  CheckIcon,
-  RobotIcon,
+  ArrowRight01Icon,
+  RoboticIcon,
+  Tick02Icon,
+  UserGroupIcon,
   UserIcon,
-  UsersThreeIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+} from "@hugeicons/core-free-icons";
 
 /**
  * Small pieces the Plan, Wallet and admin pages share, so a rupee, a date
@@ -224,12 +224,11 @@ export function IncludedAgents({
           className
         )}
       >
-        <UsersThreeIcon
+        <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2}
           className={cn(
             "size-6 shrink-0",
             selected ? "text-primary" : "text-muted-foreground"
-          )}
-        />
+          )} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm font-semibold">
             {count(ai + human, "agent")} included
@@ -238,7 +237,7 @@ export function IncludedAgents({
             {count(ai, "AI agent")} + {count(human, "human agent")}
           </span>
         </span>
-        <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" />
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
 
       <PopoverContent side="bottom" align="end" className="w-80 gap-3 p-3">
@@ -246,7 +245,7 @@ export function IncludedAgents({
           <PopoverTitle>What {plan.name} includes</PopoverTitle>
         </PopoverHeader>
 
-        <IncludedGroup icon={RobotIcon} title={count(ai, "AI agent")}>
+        <IncludedGroup icon={RoboticIcon} title={count(ai, "AI agent")}>
           {DESKS.map((desk) => (
             <IncludedLine
               key={desk.name}
@@ -292,7 +291,7 @@ function IncludedGroup({
   children,
   className,
 }: {
-  icon: Icon;
+  icon: IconSvgElement;
   title: string;
   detail?: string;
   children?: React.ReactNode;
@@ -301,7 +300,7 @@ function IncludedGroup({
   return (
     <div className={cn("flex items-start gap-2.5", className)}>
       <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
-        <Icon className="size-4 text-muted-foreground" />
+        <HugeiconsIcon icon={Icon} strokeWidth={2} className="size-4 text-muted-foreground" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-col">
@@ -319,7 +318,7 @@ function IncludedGroup({
 function IncludedLine({ name, detail }: { name: string; detail: string }) {
   return (
     <li className="flex items-start gap-2 text-xs">
-      <CheckIcon className="mt-px size-3.5 shrink-0 text-primary" />
+      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="mt-px size-3.5 shrink-0 text-primary" />
       <span>
         <span className="font-medium">{name}</span>
         <span className="text-muted-foreground"> · {detail}</span>
@@ -341,7 +340,7 @@ export function PlanFeatures({
     <ul className={cn("flex flex-col gap-2 text-sm", className)}>
       {features.map((feature, index) => (
         <li key={index} className="flex items-start gap-2.5">
-          <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-primary" />
           <span>{feature}</span>
         </li>
       ))}

@@ -42,16 +42,17 @@ import { toast } from "@/components/ui/toast";
 import { TableSkeleton } from "@/components/skeletons";
 import { SelectField } from "@/components/select-field";
 import { useHourBucket } from "@/components/use-now";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  UsersIcon,
-  PencilSimpleIcon,
-  ChatsIcon,
-  MagnifyingGlassIcon,
+  BubbleChatIcon,
+  Cancel01Icon,
   FloppyDiskIcon,
-  RobotIcon,
+  PencilEdit02Icon,
+  RoboticIcon,
+  Search01Icon,
   SignpostIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  UserMultipleIcon,
+} from "@hugeicons/core-free-icons";
 import { formatDistanceToNow } from "date-fns";
 import { friendlyError } from "@/lib/errors";
 import {
@@ -275,7 +276,7 @@ function ContactDialog({
             Cancel
           </Button>
           <Button onClick={save} disabled={busy}>
-            {busy ? <Spinner /> : <FloppyDiskIcon />} Save
+            {busy ? <Spinner /> : <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} />} Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -418,7 +419,7 @@ export default function ContactsPage() {
           see that. */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs min-w-56">
-          <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchDraft}
             placeholder="Search name, number, owner or remark…"
@@ -457,7 +458,7 @@ export default function ContactsPage() {
 
         {filtered ? (
           <Button variant="ghost" onClick={clear}>
-            <XIcon /> Clear
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Clear
           </Button>
         ) : null}
 
@@ -478,7 +479,7 @@ export default function ContactsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <MagnifyingGlassIcon />
+              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>No matches yet</EmptyTitle>
             <EmptyDescription>Only part of your contacts has been checked so far.</EmptyDescription>
@@ -497,7 +498,7 @@ export default function ContactsPage() {
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <UsersIcon />
+              <HugeiconsIcon icon={UserMultipleIcon} strokeWidth={2} />
             </EmptyMedia>
             <EmptyTitle>
               {filtered ? "No contacts match" : "No contacts yet"}
@@ -511,7 +512,7 @@ export default function ContactsPage() {
           {filtered ? (
             <EmptyContent>
               <Button variant="outline" onClick={clear}>
-                <XIcon /> Clear filters
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} /> Clear filters
               </Button>
             </EmptyContent>
           ) : null}
@@ -582,7 +583,7 @@ export default function ContactsPage() {
                         last handoff left in charge. */}
                     {contact.handledBy ? (
                       <span className="flex items-center gap-1.5">
-                        <RobotIcon className="size-3.5 text-muted-foreground" />
+                        <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} className="size-3.5 text-muted-foreground" />
                         {contact.handledBy}
                       </span>
                     ) : (
@@ -598,7 +599,7 @@ export default function ContactsPage() {
                         className="flex items-center gap-1.5 text-xs text-muted-foreground"
                         title="The desk reads a conversation an hour after it goes quiet."
                       >
-                        <SignpostIcon className="size-3.5" /> Not reviewed
+                        <HugeiconsIcon icon={SignpostIcon} strokeWidth={2} className="size-3.5" /> Not reviewed
                       </span>
                     ) : (
                       <Blank />
@@ -652,7 +653,7 @@ export default function ContactsPage() {
                             />
                           }
                         >
-                          <ChatsIcon />
+                          <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} />
                         </Button>
                       ) : (
                         <Button
@@ -662,7 +663,7 @@ export default function ContactsPage() {
                           title="This contact has not sent a message yet"
                           disabled
                         >
-                          <ChatsIcon />
+                          <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} />
                         </Button>
                       )}
                       <ContactDialog
@@ -673,7 +674,7 @@ export default function ContactsPage() {
                             variant="ghost"
                             aria-label={`Edit ${displayName(contact)}`}
                           >
-                            <PencilSimpleIcon />
+                            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
                           </Button>
                         }
                       />

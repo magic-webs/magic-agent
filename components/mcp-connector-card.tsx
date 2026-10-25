@@ -37,16 +37,17 @@ import {
 } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  CaretRightIcon,
-  CopyIcon,
-  EyeIcon,
-  PaperPlaneTiltIcon,
-  PlugsConnectedIcon,
-  TrashIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+  Alert02Icon,
+  ArrowRight01Icon,
+  Copy01Icon,
+  Delete02Icon,
+  PlugSocketIcon,
+  RefreshIcon,
+  SentIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
 async function copy(text: string, title = "Copied") {
@@ -83,7 +84,7 @@ function Snippet({ label, code }: { label: string; code: string }) {
       <div className="flex items-center justify-between gap-2">
         <Label>{label}</Label>
         <Button size="sm" variant="ghost" onClick={() => void copy(code)}>
-          <CopyIcon /> Copy
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} /> Copy
         </Button>
       </div>
       <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap">
@@ -140,7 +141,7 @@ function ToolList() {
           />
         }
       >
-        <CaretRightIcon className="transition-transform group-data-panel-open/tools:rotate-90" />
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="transition-transform group-data-panel-open/tools:rotate-90" />
         Every tool it gets
         {total ? <Badge variant="secondary">{total}</Badge> : null}
       </CollapsibleTrigger>
@@ -170,7 +171,7 @@ function ToolList() {
                         className="font-mono text-[11px]"
                         title={tool.description}
                       >
-                        {tool.readOnly ? null : <PaperPlaneTiltIcon />}
+                        {tool.readOnly ? null : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />}
                         {tool.name}
                       </Badge>
                     ))}
@@ -236,13 +237,13 @@ export function McpConnectorCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
-          <PlugsConnectedIcon className="size-4" />
+          <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} className="size-4" />
           Connect an AI assistant
           <Badge variant="outline">
-            <EyeIcon /> Read-only
+            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} /> Read-only
           </Badge>
           <Badge variant="outline">
-            <PaperPlaneTiltIcon /> Can reply
+            <HugeiconsIcon icon={SentIcon} strokeWidth={2} /> Can reply
           </Badge>
         </CardTitle>
         <CardDescription>
@@ -254,7 +255,7 @@ export function McpConnectorCard({
       <CardContent className="flex flex-col gap-6">
         {freshUrl ? (
           <Alert>
-            <WarningIcon />
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>Copy this now — it is not shown again</AlertTitle>
             <AlertDescription className="flex flex-col gap-2">
               <span>Anyone with this URL can read this workspace.</span>
@@ -271,7 +272,7 @@ export function McpConnectorCard({
                   aria-label="Copy the connector URL"
                   onClick={() => void copy(freshUrl, "URL copied")}
                 >
-                  <CopyIcon />
+                  <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
                 </Button>
               </div>
             </AlertDescription>
@@ -286,7 +287,7 @@ export function McpConnectorCard({
             <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">No connector yet</p>
               <Button onClick={() => void generate()} disabled={busy}>
-                {busy ? <Spinner /> : <PlugsConnectedIcon />} Create the
+                {busy ? <Spinner /> : <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} />} Create the
                 connector
               </Button>
             </div>
@@ -304,13 +305,13 @@ export function McpConnectorCard({
                     onClick={() => void generate()}
                     disabled={busy}
                   >
-                    {busy ? <Spinner /> : <ArrowsClockwiseIcon />} Rotate
+                    {busy ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />} Rotate
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger
                       render={
                         <Button size="sm" variant="ghost">
-                          <TrashIcon /> Revoke
+                          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} /> Revoke
                         </Button>
                       }
                     />

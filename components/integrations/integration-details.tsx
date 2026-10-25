@@ -1,23 +1,23 @@
-import type { Icon } from "@phosphor-icons/react";
+import type { IconSvgElement } from "@hugeicons/react";
 import {
-  CalendarCheckIcon,
-  ChatCircleTextIcon,
-  ClockIcon,
-  FileTextIcon,
-  FolderIcon,
+  Award01Icon,
+  CalendarCheckIn01Icon,
+  Clock01Icon,
+  File02Icon,
+  FlashIcon,
+  Folder01Icon,
   GiftIcon,
-  KeyIcon,
-  LightningIcon,
-  LinkIcon,
-  MagnifyingGlassIcon,
-  ReceiptIcon,
-  RobotIcon,
-  ShieldCheckIcon,
-  TableIcon,
-  TrophyIcon,
-  TreeStructureIcon,
-  UserCircleCheckIcon,
-} from "@phosphor-icons/react";
+  HierarchyIcon,
+  Invoice01Icon,
+  Key01Icon,
+  LayoutTable01Icon,
+  Link01Icon,
+  Message01Icon,
+  RoboticIcon,
+  Search01Icon,
+  SecurityCheckIcon,
+  UserCheck01Icon,
+} from "@hugeicons/core-free-icons";
 
 /**
  * What the Integrations panel says about each card.
@@ -29,7 +29,7 @@ import {
  * about layout.
  */
 
-export type Feature = { icon: Icon; title: string; body: string };
+export type Feature = { icon: IconSvgElement; title: string; body: string };
 
 export type IntegrationDetail = {
   /** The Overview tab: three things it does, in the operator's words. */
@@ -48,17 +48,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   magic_forms: {
     features: [
       {
-        icon: FileTextIcon,
+        icon: File02Icon,
         title: "Every form, one tool",
         body: "Agents pick the right published form for the conversation and send it as a button.",
       },
       {
-        icon: UserCircleCheckIcon,
+        icon: UserCheck01Icon,
         title: "Filled in for them",
         body: "The customer's name, number and email are already there when the form opens.",
       },
       {
-        icon: ChatCircleTextIcon,
+        icon: Message01Icon,
         title: "Answers come back",
         body: "The submission lands in the same chat, and the agent replies to it.",
       },
@@ -104,12 +104,12 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
         body: "Agents can only send offers that are live in Magic Reward — never one they made up.",
       },
       {
-        icon: UserCircleCheckIcon,
+        icon: UserCheck01Icon,
         title: "One tap to play",
         body: "The customer's name and number are filled in, so they go straight to the game.",
       },
       {
-        icon: TrophyIcon,
+        icon: Award01Icon,
         title: "The prize comes back",
         body: "What they won lands in the same chat, and the agent follows it up.",
       },
@@ -151,17 +151,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   google_sheets: {
     features: [
       {
-        icon: TableIcon,
+        icon: LayoutTable01Icon,
         title: "A row per enquiry",
         body: "Agents log each completed enquiry as it happens — name, contact, what they want.",
       },
       {
-        icon: LightningIcon,
+        icon: FlashIcon,
         title: "Nothing to export",
         body: "The sheet is the export. Filter it, share it, pivot it.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "New or existing sheet",
         body: "We create a spreadsheet for you, or write to one you already use.",
       },
@@ -203,22 +203,22 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   google_calendar: {
     features: [
       {
-        icon: ClockIcon,
+        icon: Clock01Icon,
         title: "Real free time",
         body: "Agents read your actual availability before offering a slot.",
       },
       {
-        icon: CalendarCheckIcon,
+        icon: CalendarCheckIn01Icon,
         title: "Booked with a Meet link",
         body: "The meeting goes into your diary with a Google Meet link and the customer invited.",
       },
       {
-        icon: LinkIcon,
+        icon: Link01Icon,
         title: "Confirmed by email",
         body: "The customer gets an email with the time and the link, and the agent shares the link in the chat.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "No double bookings",
         body: "A slot taken between the offer and the booking is caught.",
       },
@@ -260,17 +260,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   google_drive: {
     features: [
       {
-        icon: MagnifyingGlassIcon,
+        icon: Search01Icon,
         title: "Find & share files",
         body: "Agents search for the right document and share it in chat.",
       },
       {
-        icon: FolderIcon,
+        icon: Folder01Icon,
         title: "Price lists & brochures",
         body: "Keep your latest files in one folder and agents send them instantly.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "Secure access",
         body: "Only the folder we create is searched. You can revoke access anytime.",
       },
@@ -307,17 +307,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   razorpay: {
     features: [
       {
-        icon: LinkIcon,
+        icon: Link01Icon,
         title: "Payment links in the chat",
         body: "Agents create a Razorpay link for an order's total or an agreed amount, and send it to the customer.",
       },
       {
-        icon: ReceiptIcon,
+        icon: Invoice01Icon,
         title: "Matched to the order",
         body: "When the link is paid the order moves to Confirmed, a note lands in the conversation, and your alerts fire.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "Your own account",
         body: "Money goes straight to your Razorpay account. The key secret is stored encrypted.",
       },
@@ -365,17 +365,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   slack: {
     features: [
       {
-        icon: ChatCircleTextIcon,
+        icon: Message01Icon,
         title: "Post to a channel",
         body: "An agent posts a message to your team channel when something needs a look.",
       },
       {
-        icon: LinkIcon,
+        icon: Link01Icon,
         title: "One webhook URL",
         body: "A Slack incoming webhook is all it takes — no app to install here.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "Post only",
         body: "The webhook can post to one channel and read nothing.",
       },
@@ -401,17 +401,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   zapier: {
     features: [
       {
-        icon: LightningIcon,
+        icon: FlashIcon,
         title: "6,000+ apps",
         body: "Send every order, record and escalation into Zapier and on to anything it connects.",
       },
       {
-        icon: TreeStructureIcon,
+        icon: HierarchyIcon,
         title: "Or call a Zap",
         body: "An agent can trigger a Zap mid-conversation as a custom tool.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "Signed events",
         body: "Every event carries a signature so your Zap can tell it is really us.",
       },
@@ -437,17 +437,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   webhooks: {
     features: [
       {
-        icon: LightningIcon,
+        icon: FlashIcon,
         title: "Every event, as it happens",
         body: "Orders, records, escalations and form results are posted to your URL.",
       },
       {
-        icon: KeyIcon,
+        icon: Key01Icon,
         title: "Signed",
         body: "An HMAC signature on every delivery, with a secret you can rotate.",
       },
       {
-        icon: TreeStructureIcon,
+        icon: HierarchyIcon,
         title: "In as well as out",
         body: "Alerts give other systems a URL to post to, which sends a WhatsApp or email.",
       },
@@ -473,17 +473,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   notion: {
     features: [
       {
-        icon: FileTextIcon,
+        icon: File02Icon,
         title: "Write pages",
         body: "An agent adds a page to a Notion database — a lead, a request, a note.",
       },
       {
-        icon: MagnifyingGlassIcon,
+        icon: Search01Icon,
         title: "Read what you share",
         body: "Only pages you share with your Notion integration can be reached.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "Your token, server-side",
         body: "The integration secret stays on Magic Agent's servers.",
       },
@@ -509,17 +509,17 @@ export const INTEGRATION_DETAILS: Record<string, IntegrationDetail> = {
   mcp: {
     features: [
       {
-        icon: RobotIcon,
+        icon: RoboticIcon,
         title: "Run it from Claude or ChatGPT",
         body: "Set up agents, catalogue and knowledge by asking an assistant.",
       },
       {
-        icon: ShieldCheckIcon,
+        icon: SecurityCheckIcon,
         title: "Your workspace only",
         body: "The connector acts for this workspace and nothing else.",
       },
       {
-        icon: KeyIcon,
+        icon: Key01Icon,
         title: "Revocable",
         body: "Rotate or delete the connector URL whenever you like.",
       },

@@ -96,6 +96,8 @@ import {
   MagicWand01Icon,
   PlusSignIcon,
   Search01Icon,
+  SortingAZ01Icon,
+  SortingZA01Icon,
   SparklesIcon,
   WorkHistoryIcon,
 } from "@hugeicons/core-free-icons";
@@ -610,7 +612,16 @@ function WorkspacesDirectory() {
     window.history.replaceState(null, "", pathname);
   };
 
+  const descending = params.get("sort") === "za";
+  const toggleSort = () => {
+    const next = new URLSearchParams(params);
+    if (descending) next.delete("sort");
+    else next.set("sort", "za");
+    window.history.replaceState(null, "", `${pathname}${next.size ? `?${next}` : ""}`);
+  };
+
   const shown = workspaces?.filter((workspace) => matches(workspace, filters)) ?? [];
+  if (descending) shown.reverse();
   const managers = useMemo(() => {
     const byId = new Map<string, string>();
     for (const workspace of workspaces ?? []) {
@@ -817,7 +828,24 @@ function WorkspacesDirectory() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-44">Workspace</TableHead>
+                    <TableHead
+                      className="min-w-44"
+                      aria-sort={descending ? "descending" : "ascending"}
+                    >
+                      <button
+                        type="button"
+                        onClick={toggleSort}
+                        title={descending ? "Sorted Z to A" : "Sorted A to Z"}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        Workspace
+                        <HugeiconsIcon
+                          icon={descending ? SortingZA01Icon : SortingAZ01Icon}
+                          strokeWidth={2}
+                          className="size-4 text-muted-foreground"
+                        />
+                      </button>
+                    </TableHead>
                     <TableHead className="min-w-36">Stage</TableHead>
                     <TableHead className="hidden sm:table-cell min-w-32">
                       Channels

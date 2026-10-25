@@ -128,11 +128,11 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const principal = await requireStaff(ctx);
-    const all = await ctx.db.query("workspaces").order("desc").collect();
+    const all = await ctx.db.query("workspaces").collect();
     const allowed = principal.workspaceIds;
-    const workspaces = allowed
-      ? all.filter((workspace) => allowed.includes(workspace._id))
-      : all;
+    const workspaces = (
+      allowed ? all.filter((workspace) => allowed.includes(workspace._id)) : all
+    ).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
     const staff = (await ctx.db.query("admins").collect()).filter(
       (admin) => admin.role === "member"
     );

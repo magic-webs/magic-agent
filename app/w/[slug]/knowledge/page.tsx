@@ -335,6 +335,14 @@ export default function KnowledgePage() {
   const reprocess = useMutation(api.knowledge.reprocess);
   const removeSource = useMutation(api.knowledge.remove);
   const resolveForSource = useMutation(api.knowledgeGaps.resolveForSource);
+  const [tab, setTab] = useState("sources");
+  const [showWrong, setShowWrong] = useState(false);
+  const [showGaps, setShowGaps] = useState(false);
+
+  if (openGaps?.wrong_answer && !showWrong) setShowWrong(true);
+  if (openGaps?.unanswered && !showGaps) setShowGaps(true);
+  const activeTab =
+    (tab === "wrong" && !showWrong) || (tab === "gaps" && !showGaps) ? "sources" : tab;
 
   const totalChunks = (sources ?? []).reduce(
     (sum, source) => sum + source.chunkCount,
@@ -368,8 +376,12 @@ export default function KnowledgePage() {
 
       <Separator />
 
-      <Tabs defaultValue="sources" className="gap-4">
-        <TabsList>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setTab(value as string)}
+        className="gap-4"
+      >
+        <TabsList className={showWrong || showGaps ? undefined : "hidden"}>
           <TabsTrigger value="sources">
             <HugeiconsIcon icon={Book02Icon} strokeWidth={2} /> Sources
             {needsUpdate.length ? (
@@ -378,22 +390,26 @@ export default function KnowledgePage() {
               </Badge>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="wrong">
-            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} /> Wrong answers
-            {openGaps?.wrong_answer ? (
-              <Badge variant="destructive" className="ml-1">
-                {openGaps.wrong_answer >= 100 ? "99+" : openGaps.wrong_answer}
-              </Badge>
-            ) : null}
-          </TabsTrigger>
-          <TabsTrigger value="gaps">
-            <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} /> Knowledge gaps
-            {openGaps?.unanswered ? (
-              <Badge variant="secondary" className="ml-1">
-                {openGaps.unanswered >= 100 ? "99+" : openGaps.unanswered}
-              </Badge>
-            ) : null}
-          </TabsTrigger>
+          {showWrong ? (
+            <TabsTrigger value="wrong">
+              <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} /> Wrong answers
+              {openGaps?.wrong_answer ? (
+                <Badge variant="destructive" className="ml-1">
+                  {openGaps.wrong_answer >= 100 ? "99+" : openGaps.wrong_answer}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+          ) : null}
+          {showGaps ? (
+            <TabsTrigger value="gaps">
+              <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} /> Knowledge gaps
+              {openGaps?.unanswered ? (
+                <Badge variant="secondary" className="ml-1">
+                  {openGaps.unanswered >= 100 ? "99+" : openGaps.unanswered}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="wrong">

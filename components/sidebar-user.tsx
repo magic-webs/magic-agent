@@ -35,7 +35,6 @@ import {
   Settings01Icon,
   Sun03Icon,
   Tick02Icon,
-  Alert02Icon,
   CustomerSupportIcon,
   UnfoldMoreIcon,
   Wallet01Icon,
@@ -87,8 +86,7 @@ export function SidebarUser({
 
   const isUser = session.me?.role === "user";
   const workspaces = useQuery(api.users.myWorkspaces, isUser ? {} : "skip");
-  const pathname = usePathname();
-  const segments = pathname.split("/").filter(Boolean);
+  const segments = usePathname().split("/").filter(Boolean);
   const currentSlug = segments[0] === "w" ? segments[1] : undefined;
   const section = segments[0] === "w" && segments[2] ? `/${segments[2]}` : "";
 
@@ -210,25 +208,15 @@ export function SidebarUser({
               </DropdownMenuItem>
             ) : null}
             {supportHref ? (
-              <>
-                <DropdownMenuItem render={<Link href={supportHref} />}>
-                  <HugeiconsIcon icon={CustomerSupportIcon} strokeWidth={2} />
-                  Support
-                  {supportUnread ? (
-                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-md bg-destructive/10 px-1 text-xs font-medium text-destructive tabular-nums">
-                      {supportUnread > 99 ? "99+" : supportUnread}
-                    </span>
-                  ) : null}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  render={
-                    <Link href={`${supportHref}/new?from=${encodeURIComponent(pathname)}`} />
-                  }
-                >
-                  <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
-                  Report a problem
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem render={<Link href={supportHref} />}>
+                <HugeiconsIcon icon={CustomerSupportIcon} strokeWidth={2} />
+                Support
+                {supportUnread ? (
+                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-md bg-destructive/10 px-1 text-xs font-medium text-destructive tabular-nums">
+                    {supportUnread > 99 ? "99+" : supportUnread}
+                  </span>
+                ) : null}
+              </DropdownMenuItem>
             ) : null}
             {session.isStaff && showPlatformLink ? (
               <DropdownMenuItem render={<Link href="/admin/workspaces" />}>

@@ -193,3 +193,34 @@ ${icon("envelope.png", 48, "margin:0 0 16px")}
 </table>
 </body></html>`;
 }
+
+export function supportEmailHtml(message: {
+  reference: string;
+  heading: string;
+  body: string;
+  link: string;
+  linkLabel: string;
+  brand: string;
+}): string {
+  const link = safeLink(message.link);
+  const button = link
+    ? `<p style="margin:8px 0 12px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#0c7d3e;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">${escapeHtml(message.linkLabel)}</a></p>`
+    : "";
+  return `<!doctype html>
+<html><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #e4e4e7">
+<tr><td style="padding:28px 20px 8px">
+<p style="margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#0c7d3e">Support ${escapeHtml(message.reference)}</p>
+<h1 style="margin:0 0 20px;font-size:22px;line-height:1.3;color:#18181b">${escapeHtml(message.heading)}</h1>
+${paragraphs(message.body)}${button}
+</td></tr>
+<tr><td style="padding:16px 20px 24px;border-top:1px solid #f4f4f5">
+<p style="margin:0;font-size:12px;line-height:1.5;color:#71717a">Reply from your ${escapeHtml(message.brand)} dashboard so the whole team sees it.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}

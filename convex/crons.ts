@@ -40,6 +40,8 @@ crons.interval(
   {}
 );
 
+crons.interval("support SLA and auto-close", { minutes: 15 }, internal.supportAdmin.sweep, {});
+
 crons.interval(
   "send due platform notifications",
   { minutes: 1 },

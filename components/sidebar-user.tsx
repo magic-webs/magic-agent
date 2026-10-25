@@ -35,6 +35,7 @@ import {
   Settings01Icon,
   Sun03Icon,
   Tick02Icon,
+  CustomerSupportIcon,
   UnfoldMoreIcon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
@@ -81,7 +82,8 @@ export function SidebarUser({
 
   const isUser = session.me?.role === "user";
   const workspaces = useQuery(api.users.myWorkspaces, isUser ? {} : "skip");
-  const segments = usePathname().split("/").filter(Boolean);
+  const pathname = usePathname();
+  const segments = pathname.split("/").filter(Boolean);
   const currentSlug = segments[0] === "w" ? segments[1] : undefined;
   const section = segments[0] === "w" && segments[2] ? `/${segments[2]}` : "";
 
@@ -195,6 +197,18 @@ export function SidebarUser({
               <DropdownMenuItem render={<Link href={billingHref} />}>
                 <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} />
                 Billing
+              </DropdownMenuItem>
+            ) : null}
+            {currentSlug && !session.isStaff ? (
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href={`/w/${currentSlug}/support/new?from=${encodeURIComponent(pathname)}`}
+                  />
+                }
+              >
+                <HugeiconsIcon icon={CustomerSupportIcon} strokeWidth={2} />
+                Report a problem
               </DropdownMenuItem>
             ) : null}
             {session.isStaff && showPlatformLink ? (

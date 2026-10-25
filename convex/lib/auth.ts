@@ -90,6 +90,22 @@ export function principalKey(principal: Principal): string {
   return `workspace|${principal.workspaceId}`;
 }
 
+/** A client's access grant on a ticket opens their workspace to its assignee until it expires. */
+async function withSupportGrants(
+  ctx: Ctx,
+  adminId: Id<"admins">,
+  assigned: Id<"workspaces">[]
+): Promise<Id<"workspaces">[]> {
+  const granted = await ctx.db
+    .query("supportTickets")
+    .withIndex("by_assigneeId_and_accessUntil", (q) =>
+      q.eq("assigneeId", adminId).gt("accessUntil", 0)
+    )
+    .take(50);
+  if (granted.length === 0) return assigned;
+  return [...new Set([...assigned, ...granted.map((ticket) => ticket.workspaceId)])];
+}
+
 export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
@@ -125,7 +141,9 @@ export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
       role: "admin",
       adminId,
       label: admin.email,
-      workspaceIds: role?.allWorkspaces ? null : (admin.workspaceIds ?? []),
+      workspaceIds: role?.allWorkspaces
+        ? null
+        : await withSupportGrants(ctx, adminId, admin.workspaceIds ?? []),
       scopes: role ? role.scopes : MEMBER_SCOPES,
       viewOnly: role?.viewOnly ?? [],
     };

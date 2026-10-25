@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ORDERS_HANDLE } from "@/convex/lib/ordersBook";
 import { WorkspaceProvider } from "@/components/workspace-provider";
@@ -80,6 +80,7 @@ import {
   Shield01Icon,
   BubbleChatIcon,
   Activity01Icon,
+  CustomerSupportIcon,
 } from "@hugeicons/core-free-icons";
 
 type NavItem = {
@@ -208,6 +209,7 @@ const NAV: Array<{
   // to give it to, and it is not a setting — it changes what the agents can
   // do. Settings itself lives in the profile menu.
   { label: "Integrations", icon: ConnectIcon, href: "/integrations" },
+  { label: "Support", icon: CustomerSupportIcon, href: "/support" },
 ];
 
 /** Whether `pathname` is the row's page, or — unless `exact` — one below it. */
@@ -353,6 +355,16 @@ export default function WorkspaceLayout({
     workspace ? { workspaceId: workspace._id } : "skip"
   );
 
+  const supportUnread = useQuery(
+    api.support.unreadCount,
+    workspace && !session.isStaff ? { workspaceId: workspace._id } : "skip"
+  );
+  const recordVisit = useMutation(api.supportAccess.recordVisit);
+  const visitedId = session.isStaff ? workspace?._id : undefined;
+  useEffect(() => {
+    if (visitedId) void recordVisit({ workspaceId: visitedId }).catch(() => undefined);
+  }, [visitedId, recordVisit]);
+
   const channels = useQuery(
     api.channels.inboxChannels,
     workspace ? { workspaceId: workspace._id } : "skip"
@@ -487,12 +499,13 @@ export default function WorkspaceLayout({
                         (!sharesPage ||
                           (section.view ?? null) ===
                             (currentView === "escalations" ? currentView : null));
-                      const badge =
-                        section.view === "escalations" && escalated
-                          ? escalated > 99
-                            ? "99+"
-                            : String(escalated)
-                          : null;
+                      const count =
+                        section.view === "escalations"
+                          ? escalated
+                          : section.href === "/support"
+                            ? supportUnread
+                            : 0;
+                      const badge = count ? (count > 99 ? "99+" : String(count)) : null;
                       return (
                         <SidebarMenuItem key={section.label}>
                           <SidebarMenuButton

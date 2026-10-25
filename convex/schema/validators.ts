@@ -122,7 +122,8 @@ export const adminScope = v.union(
   v.literal("subscriptions"),
   v.literal("billing"),
   v.literal("users"),
-  v.literal("notifications")
+  v.literal("notifications"),
+  v.literal("support")
 );
 
 // The retired stages stay readable until migrations:workspaceStages clears them.

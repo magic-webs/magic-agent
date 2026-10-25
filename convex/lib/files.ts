@@ -6,7 +6,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 export const r2 = new R2(components.r2);
 
-export type FileFolder = "logos" | "team" | "products" | "knowledge" | "speech" | "templates";
+export type FileFolder = "logos" | "team" | "products" | "knowledge" | "speech" | "templates" | "support";
 
 export function newFileKey(folder: FileFolder, workspaceId: Id<"workspaces">) {
   return `${folder}/${workspaceId}/${crypto.randomUUID()}`;

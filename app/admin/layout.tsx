@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { AdminSwitcher } from "@/components/admin-switcher";
 import { RequireAuth } from "@/components/require-auth";
 import { SidebarUser } from "@/components/sidebar-user";
@@ -27,6 +29,7 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -50,6 +53,7 @@ import {
   Tag01Icon,
   UserAccountIcon,
   UserGroupIcon,
+  CustomerSupportIcon,
 } from "@hugeicons/core-free-icons";
 
 // The platform's own sections, in the order an operator meets them: what the
@@ -88,6 +92,7 @@ const NAV: Array<{
   { href: "/billing", label: "Message billing", icon: Invoice01Icon, scope: "billing" },
   { href: "/users", label: "Users", icon: UserAccountIcon, scope: "users" },
   { href: "/notifications", label: "Notifications", icon: BellRingIcon, scope: "notifications" },
+  { href: "/support", label: "Support", icon: CustomerSupportIcon, scope: "support" },
   { href: "/team", label: "Team", icon: UserGroupIcon },
   { href: "/roles", label: "Roles", icon: SecurityLockIcon },
   { href: "/access", label: "Access", icon: Key01Icon, everyone: true },
@@ -104,6 +109,7 @@ const MODIFIABLE = new Set<AdminScope>([
   "billing",
   "users",
   "notifications",
+  "support",
 ]);
 
 function itemFor(pathname: string) {
@@ -126,6 +132,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const opens = (item: (typeof NAV)[number]) =>
     session.isAdmin || Boolean(item.everyone) || (item.scope ? session.can(item.scope) : false);
   const current = itemFor(pathname);
+  const supportCounts = useQuery(
+    api.support.counts,
+    session.isStaff && session.can("support") ? {} : "skip"
+  );
   const blocked = session.isStaff && !session.isAdmin && (!current || !opens(current));
   const landing = `/admin${(NAV.find(opens) ?? NAV[NAV.length - 1]).href}`;
 
@@ -201,6 +211,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
                         <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
+                      {item.scope === "support" && supportCounts?.unassigned ? (
+                        <SidebarMenuBadge className="bg-destructive/10 text-destructive">
+                          {supportCounts.unassigned}
+                        </SidebarMenuBadge>
+                      ) : null}
                     </SidebarMenuItem>
                   );
                 })}

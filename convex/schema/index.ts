@@ -11,9 +11,11 @@ import { notificationsTables } from "./notifications";
 import { instagramTables } from "./instagram";
 import { paymentsTables } from "./payments";
 import { platformTables } from "./platform";
+import { supportTables } from "./support";
 
 export * from "./validators";
 export * from "./instagram";
+export * from "./support";
 
 export default defineSchema({
   ...authTables,
@@ -28,4 +30,5 @@ export default defineSchema({
   ...instagramTables,
   ...paymentsTables,
   ...platformTables,
+  ...supportTables,
 });

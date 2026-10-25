@@ -189,6 +189,16 @@ function present(event: string, data: unknown): Presentation {
     };
   }
 
+  if (event === "support_update") {
+    return {
+      title: text("title") ?? "Support",
+      body: text("message") ?? "Your ticket was updated.",
+      channelId: CHANNELS.default,
+      sound: "default",
+      priority: "high",
+    };
+  }
+
   if (event.startsWith("campaign_")) {
     return {
       title: text("title") ?? "Smart campaign",
@@ -347,6 +357,7 @@ export const remember = internalMutation({
     body: v.string(),
     conversationId: v.optional(v.string()),
     orderId: v.optional(v.string()),
+    link: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("pushInbox", { ...args, createdAt: Date.now() });
@@ -432,6 +443,7 @@ export const notify = internalAction({
         body: shape.body,
         conversationId: ref(row.conversationId),
         orderId: ref(row.orderId),
+        link: ref(row.link),
       });
     } catch {
       // The inbox is a convenience; the push still goes.
@@ -456,6 +468,7 @@ export const notify = internalAction({
         event: args.event,
         conversationId: row.conversationId ?? null,
         orderId: row.orderId ?? null,
+        ticketId: row.ticketId ?? null,
       },
     }));
     const { accepted, dead } = await sendExpo(messages);

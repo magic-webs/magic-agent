@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -29,11 +29,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
+  CursorTextIcon,
   FloppyDiskIcon,
   PencilSimpleIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 export const STATUS_VARIANT = {
   pending: "secondary",
@@ -41,6 +43,94 @@ export const STATUS_VARIANT = {
   ready: "default",
   failed: "destructive",
 } as const;
+
+/**
+ * Where a chunk sits in the raw text it was cut from. Chunking collapses runs
+ * of spaces and joins paragraphs, so the chunk is not a literal substring: its
+ * opening and closing words are matched with any whitespace between them.
+ */
+function locate(raw: string, passage: string): [number, number] | null {
+  const pattern = (part: string) =>
+    part
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("\\s+");
+  const head = passage.trim().slice(0, 60);
+  const tail = passage.trim().slice(-60);
+  const start = new RegExp(pattern(head.replace(/\s+\S*$/, "") || head)).exec(raw);
+  if (!start) return null;
+  const end = new RegExp(pattern(tail.replace(/^\S*\s+/, "") || tail)).exec(raw.slice(start.index));
+  return end
+    ? [start.index, start.index + end.index + end[0].length]
+    : [start.index, start.index + start[0].length];
+}
+
+/** Ranges sorted and merged, so overlapping passages paint as one mark. */
+function merge(ranges: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [start, end] of [...ranges].sort((a, b) => a[0] - b[0])) {
+    const last = out[out.length - 1];
+    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
+    else out.push([start, end]);
+  }
+  return out;
+}
+
+/**
+ * A textarea with ranges of its text painted behind it. A textarea cannot
+ * style part of its value, so an identical copy of the text sits underneath in
+ * transparent ink, carrying the marks, and follows the textarea's scroll.
+ */
+function HighlightedTextarea({
+  value,
+  ranges,
+  onChange,
+  textareaRef,
+  ...props
+}: Omit<React.ComponentProps<typeof Textarea>, "value" | "onChange"> & {
+  value: string;
+  ranges: [number, number][];
+  onChange: (value: string) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  const backdrop = useRef<HTMLDivElement>(null);
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  for (const [start, end] of merge(ranges)) {
+    parts.push(value.slice(at, start));
+    parts.push(
+      <mark key={start} className="rounded-sm bg-destructive/30 text-transparent">
+        {value.slice(start, end)}
+      </mark>
+    );
+    at = end;
+  }
+  parts.push(value.slice(at));
+
+  return (
+    <div className="relative">
+      <div
+        ref={backdrop}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent px-2.5 py-2 font-mono text-base wrap-break-word whitespace-pre-wrap text-transparent md:text-sm dark:bg-input/30"
+      >
+        {parts}
+        {"\n"}
+      </div>
+      <Textarea
+        {...props}
+        ref={textareaRef}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onScroll={(event) => {
+          if (backdrop.current) backdrop.current.scrollTop = event.currentTarget.scrollTop;
+        }}
+        className="relative font-mono dark:bg-transparent"
+      />
+    </div>
+  );
+}
 
 /**
  * View a source's full content and the chunks the agents actually retrieve,
@@ -54,12 +144,15 @@ export function SourceDialog({
   agents,
   className,
   label = "View & edit",
+  needsUpdate = false,
   onSaved,
 }: {
   sourceId: Id<"knowledgeSources">;
   agents: { _id: Id<"agents">; name: string }[] | undefined;
   className?: string;
   label?: string;
+  /** Answers built from this source were marked wrong. */
+  needsUpdate?: boolean;
   onSaved?: (result: { reindexing: boolean }) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -69,6 +162,8 @@ export function SourceDialog({
   const detail = useQuery(api.knowledge.get, open ? { sourceId } : "skip");
   const updateSource = useMutation(api.knowledge.updateSource);
   const setScope = useMutation(api.knowledge.setScope);
+  const resolveForSource = useMutation(api.knowledgeGaps.resolveForSource);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
@@ -88,6 +183,23 @@ export function SourceDialog({
 
   const source = detail?.source;
   const editableText = source?.kind === "text" || source?.kind === "faq";
+  const flagged = detail?.flaggedPassages ?? [];
+  const marks = flagged
+    .map((passage) => locate(text, passage.text))
+    .filter((range): range is [number, number] => range !== null);
+
+  const selectPassage = (passage: string) => {
+    const range = locate(text, passage);
+    const field = textRef.current;
+    if (!range || !field) {
+      toast.add({ title: "That passage is no longer in the text", type: "info" });
+      return;
+    }
+    field.focus();
+    field.setSelectionRange(range[0], range[1]);
+    const line = text.slice(0, range[0]).split("\n").length - 1;
+    field.scrollTop = Math.max(0, line * 20 - field.clientHeight / 3);
+  };
 
   const save = async () => {
     if (!source) return;
@@ -105,11 +217,18 @@ export function SourceDialog({
           agentId: scope === "all" ? undefined : (scope as Id<"agents">),
         });
       }
+      const fixed =
+        result.reindexing && flagged.length > 0
+          ? (await resolveForSource({ sourceId })).fixed
+          : 0;
       toast.add({
         title: "Saved",
-        description: result.reindexing
-          ? "The text changed, so the source is being re-embedded."
-          : undefined,
+        description: [
+          result.reindexing ? "The text changed, so the source is being re-embedded." : null,
+          fixed ? `${fixed} wrong ${fixed === 1 ? "answer" : "answers"} marked as fixed.` : null,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined,
         type: "success",
       });
       setOpen(false);
@@ -136,7 +255,10 @@ export function SourceDialog({
     >
       <DialogTrigger
         render={
-          <Button variant="outline" className={className}>
+          <Button
+            variant="outline"
+            className={cn(needsUpdate && "border-destructive/50 text-destructive", className)}
+          >
             <PencilSimpleIcon /> {label}
           </Button>
         }
@@ -183,6 +305,50 @@ export function SourceDialog({
                 <AlertTitle>Processing failed</AlertTitle>
                 <AlertDescription className="font-mono text-xs">
                   {source.failureReason}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {flagged.length > 0 ? (
+              <Alert variant="destructive">
+                <WarningIcon />
+                <AlertTitle>
+                  {flagged.length === 1
+                    ? "This passage gave a wrong answer"
+                    : `These ${flagged.length} passages gave wrong answers`}
+                </AlertTitle>
+                <AlertDescription className="flex flex-col gap-2">
+                  <span>
+                    {editableText
+                      ? "Correct them in the content below. Saving re-embeds the source and marks the wrong answers as fixed."
+                      : "Update the original, then reprocess the source."}
+                  </span>
+                  {flagged.map((passage) => (
+                    <div
+                      key={passage.text}
+                      className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-foreground"
+                    >
+                      <p className="mb-1 font-mono text-muted-foreground">
+                        Chunk #{passage.order + 1}
+                      </p>
+                      <p className="line-clamp-4 whitespace-pre-wrap">{passage.text}</p>
+                      {passage.wrongReplies[0] ? (
+                        <p className="mt-1.5 line-clamp-2 text-destructive">
+                          Agent said: {passage.wrongReplies[0]}
+                        </p>
+                      ) : null}
+                      {editableText ? (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="mt-1.5"
+                          onClick={() => selectPassage(passage.text)}
+                        >
+                          <CursorTextIcon /> Select in text
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -235,17 +401,23 @@ export function SourceDialog({
             {editableText ? (
               <div className="flex flex-col gap-1">
                 <Label htmlFor="source-text">Content</Label>
-                <Textarea
+                <HighlightedTextarea
+                  textareaRef={textRef}
                   id="source-text"
                   rows={14}
-                  className="font-mono"
                   value={text}
-                  onChange={(event) => setText(event.target.value)}
+                  ranges={marks}
+                  onChange={setText}
                 />
+                {marks.length > 0 ? (
+                  <p className="text-xs text-destructive">
+                    Highlighted: the text the wrong {flagged.length === 1 ? "answer" : "answers"} came from.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
-            <Accordion>
+            <Accordion defaultValue={flagged.length > 0 ? ["chunks"] : []}>
               <AccordionItem value="chunks">
                 <AccordionTrigger className="text-sm">
                   What the agents retrieve — {detail.chunks.length}{" "}
@@ -264,10 +436,18 @@ export function SourceDialog({
                       {detail.chunks.map((chunk) => (
                         <div
                           key={chunk._id}
-                          className="rounded-md border p-2 text-xs"
+                          className={cn(
+                            "rounded-md border p-2 text-xs",
+                            chunk.flagged && "border-destructive/50 bg-destructive/5"
+                          )}
                         >
                           <p className="mb-1 font-mono text-muted-foreground">
                             #{chunk.order + 1} · {chunk.text.length} chars
+                            {chunk.flagged ? (
+                              <span className="ml-2 font-sans font-medium text-destructive">
+                                gave a wrong answer
+                              </span>
+                            ) : null}
                           </p>
                           <p className="whitespace-pre-wrap">{chunk.text}</p>
                         </div>

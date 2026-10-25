@@ -26,12 +26,28 @@ export const listByWorkspace = query({
       .collect();
     const agentNames = new Map(agents.map((a) => [a._id, a.name]));
 
+    const openGaps = await ctx.db
+      .query("knowledgeGaps")
+      .withIndex("by_workspace_status", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("status", "open")
+      )
+      .order("desc")
+      .take(200);
+    const wrongAnswers = new Map<string, Id<"knowledgeGaps">[]>();
+    for (const gap of openGaps) {
+      if (gap.kind !== "wrong_answer") continue;
+      for (const sourceId of gap.usedSourceIds ?? []) {
+        wrongAnswers.set(sourceId, [...(wrongAnswers.get(sourceId) ?? []), gap._id]);
+      }
+    }
+
     return sources.map((source) => ({
       ...source,
       // Keep list payloads small — the full text can be megabytes
       rawText: undefined,
       preview: source.rawText?.slice(0, 240),
       agentName: source.agentId ? agentNames.get(source.agentId) : undefined,
+      wrongAnswerGapIds: wrongAnswers.get(source._id) ?? [],
     }));
   },
 });
@@ -46,11 +62,38 @@ export const get = query({
       .query("knowledgeChunks")
       .withIndex("by_source", (q) => q.eq("sourceId", args.sourceId))
       .collect();
+
+    // The exact passages behind open wrong answers, as they read when the
+    // answer was given — the chunks themselves may since have been rebuilt.
+    const openGaps = await ctx.db
+      .query("knowledgeGaps")
+      .withIndex("by_workspace_status", (q) =>
+        q.eq("workspaceId", source.workspaceId).eq("status", "open")
+      )
+      .order("desc")
+      .take(200);
+    const flagged = new Map<string, { text: string; order: number; wrongReplies: string[] }>();
+    for (const gap of openGaps) {
+      if (gap.kind !== "wrong_answer") continue;
+      for (const chunk of gap.usedChunks ?? []) {
+        if (chunk.sourceId !== source._id) continue;
+        const entry = flagged.get(chunk.text) ?? { text: chunk.text, order: chunk.order, wrongReplies: [] };
+        if (gap.wrongReply) entry.wrongReplies.push(gap.wrongReply);
+        flagged.set(chunk.text, entry);
+      }
+    }
+
     return {
       source,
       chunks: chunks
         .sort((a, b) => a.order - b.order)
-        .map((c) => ({ _id: c._id, order: c.order, text: c.text })),
+        .map((c) => ({
+          _id: c._id,
+          order: c.order,
+          text: c.text,
+          flagged: flagged.has(c.text),
+        })),
+      flaggedPassages: [...flagged.values()].sort((a, b) => a.order - b.order),
     };
   },
 });
@@ -397,6 +440,8 @@ export const hydrateChunks = internalQuery({
       text: string;
       sourceTitle: string;
       sourceId: Id<"knowledgeSources">;
+      chunkId: Id<"knowledgeChunks">;
+      order: number;
       correction: boolean;
     }> = [];
     const sources = new Map<string, Doc<"knowledgeSources"> | null>();
@@ -411,6 +456,8 @@ export const hydrateChunks = internalQuery({
         text: chunk.text,
         sourceTitle: chunk.sourceTitle,
         sourceId: chunk.sourceId,
+        chunkId: chunk._id,
+        order: chunk.order,
         correction: Boolean(source?.tags.includes(CORRECTION_TAG)),
       });
     }

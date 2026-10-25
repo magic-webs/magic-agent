@@ -1501,6 +1501,7 @@ export const finishTurn = internalMutation({
     ),
     chargeAi: v.optional(v.boolean()),
     knowledgeSourceIds: v.optional(v.array(v.id("knowledgeSources"))),
+    knowledgeChunkIds: v.optional(v.array(v.id("knowledgeChunks"))),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -1562,6 +1563,9 @@ export const finishTurn = internalMutation({
         deliveryAt: delivery ? now : undefined,
         knowledgeSourceIds: args.knowledgeSourceIds?.length
           ? args.knowledgeSourceIds
+          : undefined,
+        knowledgeChunkIds: args.knowledgeChunkIds?.length
+          ? args.knowledgeChunkIds
           : undefined,
         createdAt: now,
       });

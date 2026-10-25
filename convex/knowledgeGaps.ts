@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { query, type MutationCtx } from "./_generated/server";
+import { internalQuery, query, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { mutation, internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAgent, requireWorkspace } from "./lib/auth";
@@ -112,6 +113,10 @@ export const get = query({
           kind: source.kind,
           status: source.status,
           correction: source.tags.includes(CORRECTION_TAG),
+          passages: (gap.usedChunks ?? [])
+            .filter((chunk) => chunk.sourceId === source._id)
+            .sort((a, b) => a.order - b.order)
+            .map(({ order, text }) => ({ order, text })),
         });
       }
     }
@@ -191,6 +196,14 @@ export const markWrong = mutation({
       .take(30);
     const asked = earlier.find((m) => m.role === "user" && m.text?.trim())?.text?.trim();
 
+    const usedChunks = [];
+    for (const chunkId of message.knowledgeChunkIds ?? []) {
+      const chunk = await ctx.db.get("knowledgeChunks", chunkId);
+      if (chunk) {
+        usedChunks.push({ sourceId: chunk.sourceId, order: chunk.order, text: chunk.text });
+      }
+    }
+
     const now = Date.now();
     const gapId = await ctx.db.insert("knowledgeGaps", {
       workspaceId: message.workspaceId,
@@ -206,9 +219,13 @@ export const markWrong = mutation({
       messageId: message._id,
       wrongReply: message.text?.slice(0, 2000),
       usedSourceIds: message.knowledgeSourceIds,
+      usedChunks: usedChunks.length ? usedChunks : undefined,
       note,
     });
     await ctx.db.patch(message._id, { review: "wrong", knowledgeGapId: gapId });
+    if (usedChunks.length === 0 && message.knowledgeSourceIds?.length) {
+      await ctx.scheduler.runAfter(0, internal.engine.findWrongPassages, { gapId });
+    }
     return gapId;
   },
 });
@@ -279,6 +296,35 @@ export const markFixed = mutation({
   },
 });
 
+/** After a source is updated, closes the open wrong answers that were built from it. */
+export const resolveForSource = mutation({
+  args: { sourceId: v.id("knowledgeSources") },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.get("knowledgeSources", args.sourceId);
+    if (!source) throw new ConvexError("Knowledge source not found");
+    await requireWorkspace(ctx, source.workspaceId);
+
+    const open = await ctx.db
+      .query("knowledgeGaps")
+      .withIndex("by_workspace_status", (q) =>
+        q.eq("workspaceId", source.workspaceId).eq("status", "open")
+      )
+      .take(200);
+    let fixed = 0;
+    for (const gap of open) {
+      if (gap.kind !== "wrong_answer" || !gap.usedSourceIds?.includes(source._id)) continue;
+      await ctx.db.patch(gap._id, {
+        status: "answered",
+        sourceId: source._id,
+        resolvedAt: Date.now(),
+      });
+      await setMessageReview(ctx, gap.messageId, "corrected");
+      fixed += 1;
+    }
+    return { fixed };
+  },
+});
+
 export const dismiss = mutation({
   args: { gapId: v.id("knowledgeGaps") },
   handler: async (ctx, args) => {
@@ -331,8 +377,12 @@ export const record = internalMutation({
       : null;
 
     if (match && match.workspaceId === args.workspaceId) {
-      const reopen = match.status === "answered" && (await answerIsLive(ctx, match));
-      const askCount = match.askCount + 1;
+      // One customer asking twice, or an agent logging the same question again
+      // later in the thread, is still one ask.
+      const sameThread = match.conversationIds.includes(args.conversationId);
+      const reopen =
+        !sameThread && match.status === "answered" && (await answerIsLive(ctx, match));
+      const askCount = sameThread ? match.askCount : match.askCount + 1;
       await ctx.db.patch(match._id, {
         askCount,
         lastAskedAt: now,
@@ -383,3 +433,45 @@ async function answerIsLive(
   const source = await ctx.db.get("knowledgeSources", gap.sourceId);
   return !source || source.status === "ready" || source.status === "failed";
 }
+
+export const forPassageSearch = internalQuery({
+  args: { gapId: v.id("knowledgeGaps") },
+  handler: async (ctx, args) => {
+    const gap = await ctx.db.get("knowledgeGaps", args.gapId);
+    if (!gap || gap.usedChunks?.length || !gap.usedSourceIds?.length) return null;
+    return {
+      workspaceId: gap.workspaceId,
+      agentId: gap.agentId,
+      text: [gap.customerMessage ?? gap.question, gap.wrongReply].filter(Boolean).join("\n"),
+      sourceIds: gap.usedSourceIds,
+    };
+  },
+});
+
+export const setUsedChunks = internalMutation({
+  args: {
+    gapId: v.id("knowledgeGaps"),
+    chunks: v.array(
+      v.object({ sourceId: v.id("knowledgeSources"), order: v.number(), text: v.string() })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const gap = await ctx.db.get("knowledgeGaps", args.gapId);
+    if (!gap || gap.usedChunks?.length) return;
+    await ctx.db.patch(gap._id, { usedChunks: args.chunks });
+  },
+});
+
+export const questions = internalQuery({
+  args: { gapIds: v.array(v.id("knowledgeGaps")) },
+  handler: async (ctx, args) => {
+    const out: Array<{ _id: Id<"knowledgeGaps">; question: string }> = [];
+    for (const id of args.gapIds) {
+      const gap = await ctx.db.get("knowledgeGaps", id);
+      if (gap && (gap.kind ?? "unanswered") === "unanswered") {
+        out.push({ _id: gap._id, question: gap.question });
+      }
+    }
+    return out;
+  },
+});

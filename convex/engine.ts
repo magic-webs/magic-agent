@@ -115,6 +115,7 @@ type TurnContext = {
   message: string;
   /** Every knowledge source retrieved this turn, stored on the reply. */
   knowledgeSourceIds: Id<"knowledgeSources">[];
+  knowledgeChunkIds: Id<"knowledgeChunks">[];
   trace: ToolTrace[];
   pendingTransfer: PendingTransfer | null;
   /**
@@ -225,9 +226,46 @@ async function retrieveKnowledge(
   });
 }
 
-// Close enough to count as the same question asked again. Questions arrive
-// already rewritten as short FAQ lines, so paraphrases land well above this.
-const GAP_MATCH_SCORE = 0.8;
+// Similarity only shortlists. Measured on real gaps it cannot tell a
+// rewording from a neighbour: "integrate with Zoho" scores 0.68 against "sync
+// leads to Zoho" and against "integrate with Shopify" alike, and 0.81 against
+// "integrate with HubSpot". A model reads the shortlist and decides.
+const GAP_SHORTLIST_SCORE = 0.5;
+const GAP_SHORTLIST_SIZE = 5;
+
+async function sameQuestion(
+  ctx: ActionCtx,
+  turn: TurnContext,
+  question: string,
+  candidates: Array<{ _id: Id<"knowledgeGaps">; question: string }>
+): Promise<Id<"knowledgeGaps"> | undefined> {
+  const model = gatewayModelId(undefined);
+  const result = await generateText({
+    model: aiGateway()(model),
+    providerOptions: await gatewayOptions(ctx, model),
+    instructions:
+      "You group customer questions for a business's FAQ. Two questions are the same only if one answer would fully answer both: same subject, same thing asked. A different product, integration, plan or place is a different question, however similarly it is worded. Reply with only the number of the matching question, or 0 if none matches.",
+    prompt: [
+      `New question: ${question}`,
+      "",
+      ...candidates.map((c, i) => `${i + 1}. ${c.question}`),
+    ].join("\n"),
+    temperature: 0,
+  });
+  await ctx.runMutation(internal.usage.record, {
+    workspaceId: turn.workspace._id,
+    agentId: turn.agent._id,
+    conversationId: turn.conversationId,
+    channelType: turn.channelType,
+    source: "retrieval",
+    model,
+    kind: "chat",
+    inputTokens: result.usage.inputTokens ?? 0,
+    outputTokens: result.usage.outputTokens ?? 0,
+  });
+  const pick = Number(/\d+/.exec(result.text)?.[0] ?? 0);
+  return candidates[pick - 1]?._id;
+}
 
 async function logKnowledgeGap(
   ctx: ActionCtx,
@@ -251,11 +289,22 @@ async function logKnowledgeGap(
     outputTokens: 0,
   });
 
-  const [closest] = await ctx.vectorSearch("knowledgeGaps", "by_embedding", {
+  const hits = await ctx.vectorSearch("knowledgeGaps", "by_embedding", {
     vector: embedding,
-    limit: 1,
+    limit: GAP_SHORTLIST_SIZE,
     filter: (q) => q.eq("workspaceId", workspace._id),
   });
+  const candidates = await ctx.runQuery(internal.knowledgeGaps.questions, {
+    gapIds: hits.filter((hit) => hit._score >= GAP_SHORTLIST_SCORE).map((hit) => hit._id),
+  });
+  let matchId: Id<"knowledgeGaps"> | undefined;
+  if (candidates.length) {
+    try {
+      matchId = await sameQuestion(ctx, turn, question, candidates);
+    } catch (error) {
+      console.error("[engine] knowledge gap matching failed", error);
+    }
+  }
 
   const { askCount, outcome } = await ctx.runMutation(internal.knowledgeGaps.record, {
     workspaceId: workspace._id,
@@ -264,7 +313,7 @@ async function logKnowledgeGap(
     question,
     customerMessage: truncate(turn.message, 1000),
     embedding,
-    matchId: closest && closest._score >= GAP_MATCH_SCORE ? closest._id : undefined,
+    matchId,
   });
 
   if (outcome === "new" || outcome === "reopened") {
@@ -287,6 +336,7 @@ type Passage = {
   text: string;
   sourceTitle: string;
   sourceId: Id<"knowledgeSources">;
+  chunkId: Id<"knowledgeChunks">;
   correction: boolean;
 };
 
@@ -294,6 +344,9 @@ function noteSources(turn: TurnContext, passages: Passage[]) {
   for (const p of passages) {
     if (!turn.knowledgeSourceIds.includes(p.sourceId)) {
       turn.knowledgeSourceIds.push(p.sourceId);
+    }
+    if (!turn.knowledgeChunkIds.includes(p.chunkId)) {
+      turn.knowledgeChunkIds.push(p.chunkId);
     }
   }
 }
@@ -2274,6 +2327,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       },
       message,
       knowledgeSourceIds: [],
+      knowledgeChunkIds: [],
       trace: [],
       pendingTransfer: null,
       askedThisTurn: false,
@@ -2546,6 +2600,7 @@ ${message}`
       latencyMs: Date.now() - startedAt,
       toolCalls: turn.trace,
       knowledgeSourceIds: turn.knowledgeSourceIds,
+      knowledgeChunkIds: turn.knowledgeChunkIds,
       chargeAi: !!args.channelId && !generationError && (!!replyText || askedItself),
     });
 
@@ -2649,5 +2704,56 @@ export const respondFromWidget = action({
       };
     }
     return { ok: true, delivered: true };
+  },
+});
+
+// How many passages to pin on a wrong answer whose reply predates chunk
+// tracking — the closest few from the sources it is known to have used.
+const FALLBACK_PASSAGES = 2;
+
+/**
+ * Finds the passages a wrong answer most likely came from, for a reply that
+ * recorded its sources but not its chunks. Matched on what the customer asked
+ * and what the agent said, within those sources only.
+ */
+export const findWrongPassages = internalAction({
+  args: { gapId: v.id("knowledgeGaps") },
+  handler: async (ctx, args) => {
+    const gap = await ctx.runQuery(internal.knowledgeGaps.forPassageSearch, args);
+    if (!gap?.text) return;
+
+    const { embedding, usage } = await embed({
+      model: aiGateway().embedding(EMBEDDING_MODEL),
+      value: gap.text,
+    });
+    await ctx.runMutation(internal.usage.record, {
+      workspaceId: gap.workspaceId,
+      agentId: gap.agentId,
+      source: "retrieval",
+      model: EMBEDDING_MODEL,
+      kind: "embedding",
+      inputTokens: usage?.tokens ?? 0,
+      outputTokens: 0,
+    });
+
+    const hits = await ctx.vectorSearch("knowledgeChunks", "by_embedding", {
+      vector: embedding,
+      limit: 32,
+      filter: (q) =>
+        q.or(
+          q.eq("scopeKey", `${gap.workspaceId}|*`),
+          ...(gap.agentId ? [q.eq("scopeKey", `${gap.workspaceId}|${gap.agentId}`)] : [])
+        ),
+    });
+    const passages = await ctx.runQuery(internal.knowledge.hydrateChunks, {
+      chunkIds: hits.map((hit) => hit._id),
+    });
+    const chunks = passages
+      .filter((p) => gap.sourceIds.includes(p.sourceId))
+      .slice(0, FALLBACK_PASSAGES)
+      .map((p) => ({ sourceId: p.sourceId, order: p.order, text: p.text }));
+    if (chunks.length) {
+      await ctx.runMutation(internal.knowledgeGaps.setUsedChunks, { gapId: args.gapId, chunks });
+    }
   },
 });

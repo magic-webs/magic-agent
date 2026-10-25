@@ -53,6 +53,7 @@ import {
   WarningIcon,
 } from "@phosphor-icons/react";
 import { friendlyError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { putFile } from "@/lib/upload";
 import { KnowledgeGaps } from "@/components/knowledge/knowledge-gaps";
 import { SourceDialog, STATUS_VARIANT } from "@/components/knowledge/source-dialog";
@@ -332,12 +333,17 @@ export default function KnowledgePage() {
   });
   const reprocess = useMutation(api.knowledge.reprocess);
   const removeSource = useMutation(api.knowledge.remove);
+  const resolveForSource = useMutation(api.knowledgeGaps.resolveForSource);
 
   const totalChunks = (sources ?? []).reduce(
     (sum, source) => sum + source.chunkCount,
     0
   );
   const failed = (sources ?? []).filter((s) => s.status === "failed");
+  const needsUpdate = (sources ?? []).filter((s) => s.wrongAnswerGapIds.length > 0);
+  const ordered = [...(sources ?? [])].sort(
+    (a, b) => b.wrongAnswerGapIds.length - a.wrongAnswerGapIds.length
+  );
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
@@ -365,6 +371,11 @@ export default function KnowledgePage() {
         <TabsList>
           <TabsTrigger value="sources">
             <BooksIcon /> Sources
+            {needsUpdate.length ? (
+              <Badge variant="destructive" className="ml-1">
+                {needsUpdate.length}
+              </Badge>
+            ) : null}
           </TabsTrigger>
           <TabsTrigger value="gaps">
             <QuestionIcon /> Knowledge gaps
@@ -381,6 +392,20 @@ export default function KnowledgePage() {
         </TabsContent>
 
         <TabsContent value="sources" className="flex flex-col gap-5">
+          {needsUpdate.length > 0 ? (
+            <Alert variant="destructive">
+              <WarningIcon />
+              <AlertTitle>
+                {needsUpdate.length} source{needsUpdate.length === 1 ? "" : "s"} need
+                {needsUpdate.length === 1 ? "s" : ""} updating
+              </AlertTitle>
+              <AlertDescription>
+                Answers built from {needsUpdate.length === 1 ? "it" : "them"} were
+                marked wrong. Open one to see the exact passages and correct them.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           {failed.length > 0 ? (
             <Alert variant="destructive">
               <WarningIcon />
@@ -414,7 +439,7 @@ export default function KnowledgePage() {
             </Empty>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {sources.map((source) => {
+              {ordered.map((source) => {
                 const Icon = KIND_ICONS[source.kind];
                 // What the source actually is, rather than a slice of its text: the
                 // title already says the subject, and the body is one click away.
@@ -423,7 +448,13 @@ export default function KnowledgePage() {
                   source.filename ??
                   `${source.charCount.toLocaleString()} characters`;
                 return (
-                  <Card key={source._id} className="flex flex-col">
+                  <Card
+                    key={source._id}
+                    className={cn(
+                      "flex flex-col",
+                      source.wrongAnswerGapIds.length > 0 && "ring-destructive/50"
+                    )}
+                  >
                     <CardHeader>
                       <CardTitle className="flex min-w-0 items-start gap-2">
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -454,6 +485,15 @@ export default function KnowledgePage() {
                         </Badge>
                       </div>
 
+                      {source.wrongAnswerGapIds.length > 0 ? (
+                        <p className="flex items-center gap-1.5 text-sm text-destructive">
+                          <WarningIcon className="size-4 shrink-0" />
+                          {source.wrongAnswerGapIds.length} wrong{" "}
+                          {source.wrongAnswerGapIds.length === 1 ? "answer" : "answers"} came
+                          from this source
+                        </p>
+                      ) : null}
+
                       {source.status === "failed" ? (
                         <p className="line-clamp-2 text-sm text-destructive">
                           {source.failureReason}
@@ -469,6 +509,8 @@ export default function KnowledgePage() {
                           sourceId={source._id}
                           agents={agents}
                           className="flex-1"
+                          needsUpdate={source.wrongAnswerGapIds.length > 0}
+                          label={source.wrongAnswerGapIds.length > 0 ? "Review & fix" : undefined}
                         />
                         <Button
                           size="icon-lg"
@@ -476,7 +518,18 @@ export default function KnowledgePage() {
                           aria-label="Reprocess"
                           onClick={async () => {
                             await reprocess({ sourceId: source._id });
-                            toast.add({ title: "Reprocessing", type: "info" });
+                            const { fixed } =
+                              source.wrongAnswerGapIds.length > 0 &&
+                              (source.kind === "url" || source.kind === "file")
+                                ? await resolveForSource({ sourceId: source._id })
+                                : { fixed: 0 };
+                            toast.add({
+                              title: "Reprocessing",
+                              description: fixed
+                                ? `${fixed} wrong ${fixed === 1 ? "answer" : "answers"} marked as fixed.`
+                                : undefined,
+                              type: "info",
+                            });
                           }}
                         >
                           <ArrowsClockwiseIcon />

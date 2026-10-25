@@ -183,6 +183,15 @@ export const agentsTables = {
     messageId: v.optional(v.id("messages")),
     wrongReply: v.optional(v.string()),
     usedSourceIds: v.optional(v.array(v.id("knowledgeSources"))),
+    usedChunks: v.optional(
+      v.array(
+        v.object({
+          sourceId: v.id("knowledgeSources"),
+          order: v.number(),
+          text: v.string(),
+        })
+      )
+    ),
     note: v.optional(v.string()),
     // Only unanswered questions are embedded, so a wrong answer never absorbs one.
     embedding: v.optional(v.array(v.float64())),

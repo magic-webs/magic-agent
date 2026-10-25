@@ -199,7 +199,7 @@ export function FixAnswerDialog({
             ) : (
               <>
                 <section className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium">Edit the source it came from</h3>
+                  <h3 className="text-sm font-medium">Edit the exact passages it came from</h3>
                   {gap.usedSources.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No knowledge source is recorded for this reply. It either
@@ -221,8 +221,24 @@ export function FixAnswerDialog({
                             sourceId={source._id}
                             agents={agents}
                             label={editable ? "Edit" : "Open"}
+                            needsUpdate
                             onSaved={editable ? () => void sourceEdited(source._id) : undefined}
                           />
+                          {source.passages.length > 0 ? (
+                            <div className="flex w-full flex-col gap-1.5">
+                              {source.passages.map((passage) => (
+                                <div
+                                  key={passage.order}
+                                  className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs"
+                                >
+                                  <p className="mb-1 font-mono text-muted-foreground">
+                                    Chunk #{passage.order + 1}
+                                  </p>
+                                  <p className="line-clamp-6 whitespace-pre-wrap">{passage.text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
                           {!editable ? (
                             <p className="w-full text-xs text-muted-foreground">
                               This text comes from a {source.kind === "url" ? "web page" : "file"}.

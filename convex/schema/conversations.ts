@@ -279,6 +279,8 @@ export const conversationsTables = {
     reaction: v.optional(v.string()),
     teamReaction: v.optional(v.string()),
     knowledgeSourceIds: v.optional(v.array(v.id("knowledgeSources"))),
+    // Ids only last until the source is re-embedded; a wrong answer copies the text.
+    knowledgeChunkIds: v.optional(v.array(v.id("knowledgeChunks"))),
     review: v.optional(v.union(v.literal("wrong"), v.literal("corrected"))),
     knowledgeGapId: v.optional(v.id("knowledgeGaps")),
     createdAt: v.number(),

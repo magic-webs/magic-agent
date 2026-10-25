@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { SelectField } from "@/components/select-field";
 import {
@@ -31,9 +30,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
-import { CardGridSkeleton } from "@/components/skeletons";
+import { ListSkeleton } from "@/components/skeletons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  Alert02Icon,
   BubbleChatIcon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
@@ -43,10 +43,11 @@ import {
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { FixAnswerDialog } from "@/components/knowledge/fix-answer-dialog";
 
 type Status = "open" | "answered" | "dismissed";
-type Kind = "all" | "unanswered" | "wrong_answer";
+type Kind = "unanswered" | "wrong_answer";
 
 type Gap = {
   _id: Id<"knowledgeGaps">;
@@ -63,19 +64,41 @@ type Gap = {
   sourceTitle?: string;
 };
 
-const EMPTY_COPY: Record<Status, { title: string; description: string }> = {
-  open: {
-    title: "No knowledge gaps",
-    description:
-      "Questions an agent could not answer, and replies marked as wrong in the inbox, show up here so you can fix the knowledge base.",
+const INTRO: Record<Kind, string> = {
+  wrong_answer:
+    "Replies the team marked as wrong in the inbox. Fix the knowledge they came from so the agent answers right next time.",
+  unanswered:
+    "Questions the agents could not answer. The same question asked again is grouped, most asked first.",
+};
+
+const EMPTY_COPY: Record<Kind, Record<Status, { title: string; description: string }>> = {
+  wrong_answer: {
+    open: {
+      title: "No wrong answers",
+      description: "Replies marked as wrong in the inbox show up here so you can fix the knowledge base.",
+    },
+    answered: {
+      title: "Nothing fixed yet",
+      description: "Wrong answers you fix are listed with the source that now answers them.",
+    },
+    dismissed: {
+      title: "Nothing dismissed",
+      description: "Replies you unmark stay here and are not raised again.",
+    },
   },
-  answered: {
-    title: "Nothing answered yet",
-    description: "Questions you answer from here are listed with the FAQ they became.",
-  },
-  dismissed: {
-    title: "Nothing dismissed",
-    description: "Questions you dismiss stay here and are not raised again.",
+  unanswered: {
+    open: {
+      title: "No knowledge gaps",
+      description: "Questions an agent could not answer show up here so you can add the answer.",
+    },
+    answered: {
+      title: "Nothing answered yet",
+      description: "Questions you answer from here are listed with the FAQ they became.",
+    },
+    dismissed: {
+      title: "Nothing dismissed",
+      description: "Questions you dismiss stay here and are not raised again.",
+    },
   },
 };
 
@@ -209,14 +232,13 @@ function AnswerGapDialog({
   );
 }
 
-export function KnowledgeGaps() {
+export function KnowledgeGaps({ kind }: { kind: Kind }) {
   const workspace = useWorkspace();
   const [status, setStatus] = useState<Status>("open");
-  const [kind, setKind] = useState<Kind>("all");
   const gaps = useQuery(api.knowledgeGaps.listByWorkspace, {
     workspaceId: workspace._id,
     status,
-    kind: kind === "all" ? undefined : kind,
+    kind,
   });
   const dismiss = useMutation(api.knowledgeGaps.dismiss);
   const reopen = useMutation(api.knowledgeGaps.reopen);
@@ -236,28 +258,15 @@ export function KnowledgeGaps() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Questions the agents could not answer, and replies the team marked as
-          wrong. The same question asked again is grouped, most asked first.
-        </p>
+        <p className="max-w-2xl text-sm text-muted-foreground">{INTRO[kind]}</p>
         <div className="flex gap-2">
-          <SelectField
-            className="w-40"
-            value={kind}
-            onValueChange={(value) => setKind(value as Kind)}
-            options={[
-              { value: "all", label: "All types" },
-              { value: "unanswered", label: "Unanswered" },
-              { value: "wrong_answer", label: "Wrong answers" },
-            ]}
-          />
           <SelectField
             className="w-36"
             value={status}
             onValueChange={(value) => setStatus(value as Status)}
             options={[
               { value: "open", label: "Open" },
-              { value: "answered", label: "Fixed" },
+              { value: "answered", label: kind === "wrong_answer" ? "Fixed" : "Answered" },
               { value: "dismissed", label: "Dismissed" },
             ]}
           />
@@ -265,97 +274,107 @@ export function KnowledgeGaps() {
       </div>
 
       {gaps === undefined ? (
-        <CardGridSkeleton count={3} />
+        <ListSkeleton rows={4} />
       ) : gaps.length === 0 ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} />
+              <HugeiconsIcon icon={kind === "wrong_answer" ? Alert02Icon : HelpCircleIcon} strokeWidth={2} />
             </EmptyMedia>
-            <EmptyTitle>{EMPTY_COPY[status].title}</EmptyTitle>
-            <EmptyDescription>{EMPTY_COPY[status].description}</EmptyDescription>
+            <EmptyTitle>{EMPTY_COPY[kind][status].title}</EmptyTitle>
+            <EmptyDescription>{EMPTY_COPY[kind][status].description}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {gaps.map((gap) => (
-            <Card key={gap._id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="line-clamp-3">
-                  {gap.question || "Agent reply marked wrong"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex min-w-0 flex-1 flex-col gap-3">
-                <div className="flex flex-wrap gap-1">
-                  {gap.kind === "wrong_answer" ? (
-                    <Badge variant="destructive">Wrong answer</Badge>
-                  ) : (
-                    <Badge variant={gap.askCount > 1 ? "default" : "secondary"}>
-                      Asked {gap.askCount}×
-                    </Badge>
+        <div className="flex flex-col gap-2">
+          {gaps.map((gap) => {
+            const wrong = gap.kind === "wrong_answer";
+            return (
+              <div
+                key={gap._id}
+                className={cn(
+                  "flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start",
+                  wrong ? "border-destructive/30 bg-destructive/5" : "bg-card"
+                )}
+              >
+                <div
+                  className={cn(
+                    "hidden size-8 shrink-0 items-center justify-center rounded-md sm:flex",
+                    wrong ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground"
                   )}
-                  <Badge variant="secondary">
-                    {formatDistanceToNow(gap.lastAskedAt, { addSuffix: true })}
-                  </Badge>
-                  {gap.agentName ? (
-                    <Badge variant="outline">{gap.agentName}</Badge>
-                  ) : null}
+                >
+                  <HugeiconsIcon
+                    icon={wrong ? Alert02Icon : HelpCircleIcon}
+                    strokeWidth={2}
+                    className="size-4"
+                  />
                 </div>
 
-                {gap.kind === "wrong_answer" ? (
-                  <>
-                    {gap.wrongReply ? (
-                      <p className="line-clamp-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-sm">
-                        {gap.wrongReply}
-                      </p>
-                    ) : null}
-                    {gap.note ? (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        Note: {gap.note}
-                      </p>
-                    ) : null}
-                  </>
-                ) : gap.customerMessage ? (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    &ldquo;{gap.customerMessage}&rdquo;
-                  </p>
-                ) : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="min-w-0 font-medium">
+                      {gap.question || "Agent reply marked wrong"}
+                    </p>
+                    {wrong ? (
+                      <Badge variant="destructive">Wrong answer</Badge>
+                    ) : (
+                      <Badge variant={gap.askCount > 1 ? "default" : "secondary"}>
+                        Asked {gap.askCount}×
+                      </Badge>
+                    )}
+                  </div>
 
-                {gap.status === "answered" && gap.sourceTitle ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 shrink-0" />
-                    <span className="truncate">Answered in &ldquo;{gap.sourceTitle}&rdquo;</span>
-                  </p>
-                ) : null}
+                  {wrong && gap.wrongReply ? (
+                    <p className="truncate text-sm text-muted-foreground" title={gap.wrongReply}>
+                      <span className="font-medium text-destructive">Agent replied:</span>{" "}
+                      {gap.wrongReply}
+                    </p>
+                  ) : !wrong && gap.customerMessage ? (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      &ldquo;{gap.customerMessage}&rdquo;
+                    </p>
+                  ) : null}
 
-                {gap.conversationIds.length > 0 ? (
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  {gap.note ? (
+                    <p className="line-clamp-1 text-xs text-muted-foreground">Note: {gap.note}</p>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>{formatDistanceToNow(gap.lastAskedAt, { addSuffix: true })}</span>
+                    {gap.agentName ? <span>{gap.agentName}</span> : null}
                     {gap.conversationIds.map((conversationId, index) => (
                       <Link
                         key={conversationId}
                         href={`${base}/conversations?c=${conversationId}`}
-                        className="inline-flex items-center gap-1 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                        className="inline-flex items-center gap-1 underline-offset-2 hover:text-foreground hover:underline"
                       >
                         <HugeiconsIcon icon={BubbleChatIcon} strokeWidth={2} className="size-3.5" />
-                        Conversation {index + 1}
+                        {gap.conversationIds.length > 1 ? `Conversation ${index + 1}` : "Conversation"}
                       </Link>
                     ))}
+                    {gap.status === "answered" && gap.sourceTitle ? (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3.5 shrink-0" />
+                        <span className="truncate">Answered in &ldquo;{gap.sourceTitle}&rdquo;</span>
+                      </span>
+                    ) : null}
                   </div>
-                ) : null}
+                </div>
 
-                <div className="mt-auto flex gap-1 pt-1">
+                <div className="flex shrink-0 gap-2">
                   {gap.status === "open" ? (
                     <>
-                      {gap.kind === "wrong_answer" ? (
-                        <Button className="flex-1" onClick={() => setFixing(gap._id)}>
+                      {wrong ? (
+                        <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setFixing(gap._id)}>
                           <HugeiconsIcon icon={Wrench01Icon} strokeWidth={2} /> Fix
                         </Button>
                       ) : (
-                        <Button className="flex-1" onClick={() => setAnswering(gap)}>
+                        <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setAnswering(gap)}>
                           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add answer
                         </Button>
                       )}
                       <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => run(() => dismiss({ gapId: gap._id }), "Dismissed")}
                       >
@@ -364,17 +383,18 @@ export function KnowledgeGaps() {
                     </>
                   ) : (
                     <Button
+                      size="sm"
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 sm:flex-none"
                       onClick={() => run(() => reopen({ gapId: gap._id }), "Moved back to open")}
                     >
                       <HugeiconsIcon icon={Undo02Icon} strokeWidth={2} /> Reopen
                     </Button>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
 

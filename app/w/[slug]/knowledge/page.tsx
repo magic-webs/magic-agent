@@ -329,7 +329,7 @@ export default function KnowledgePage() {
   const agents = useQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const openGaps = useQuery(api.knowledgeGaps.openCount, {
+  const openGaps = useQuery(api.knowledgeGaps.openCountByKind, {
     workspaceId: workspace._id,
   });
   const reprocess = useMutation(api.knowledge.reprocess);
@@ -378,18 +378,30 @@ export default function KnowledgePage() {
               </Badge>
             ) : null}
           </TabsTrigger>
+          <TabsTrigger value="wrong">
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} /> Wrong answers
+            {openGaps?.wrong_answer ? (
+              <Badge variant="destructive" className="ml-1">
+                {openGaps.wrong_answer >= 100 ? "99+" : openGaps.wrong_answer}
+              </Badge>
+            ) : null}
+          </TabsTrigger>
           <TabsTrigger value="gaps">
             <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} /> Knowledge gaps
-            {openGaps ? (
-              <Badge variant="destructive" className="ml-1">
-                {openGaps >= 100 ? "99+" : openGaps}
+            {openGaps?.unanswered ? (
+              <Badge variant="secondary" className="ml-1">
+                {openGaps.unanswered >= 100 ? "99+" : openGaps.unanswered}
               </Badge>
             ) : null}
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="wrong">
+          <KnowledgeGaps kind="wrong_answer" />
+        </TabsContent>
+
         <TabsContent value="gaps">
-          <KnowledgeGaps />
+          <KnowledgeGaps kind="unanswered" />
         </TabsContent>
 
         <TabsContent value="sources" className="flex flex-col gap-5">

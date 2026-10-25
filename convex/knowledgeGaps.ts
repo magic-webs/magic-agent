@@ -97,6 +97,21 @@ export const openCount = query({
   },
 });
 
+export const openCountByKind = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const open = await ctx.db
+      .query("knowledgeGaps")
+      .withIndex("by_workspace_status", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("status", "open")
+      )
+      .take(200);
+    const wrong = open.filter((gap) => kindOf(gap) === "wrong_answer").length;
+    return { wrong_answer: wrong, unanswered: open.length - wrong };
+  },
+});
+
 /** Everything the fix-it dialog shows for one gap. */
 export const get = query({
   args: { gapId: v.id("knowledgeGaps") },

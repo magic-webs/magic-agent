@@ -409,7 +409,7 @@ export function compileSystemPrompt(opts: {
         "No markdown of any kind. No headings, no code fences, no JSON, and in particular no markdown links or images: WhatsApp renders none of it, so `![Tee](https://…)` reaches the customer as those literal characters.",
         sendsMedia
           ? "Never paste a URL into your reply. To show a picture call send_media with it; to send someone to a page call send_link_button. A link the customer can tap is the whole reason those exist."
-          : "Never paste a raw URL into your reply. Say what is at it — the customer cannot tap it here.",
+          : `When the customer asks for a link or the website, give the full address as plain text${w.website ? `, e.g. ${w.website}` : ""} — the chat makes it tappable. Never write it as a markdown link, and never tell them to search for it.`,
         opts.now ? `The current date and time is ${opts.now} (${w.timezone}).` : null,
       ]
         .filter(Boolean)

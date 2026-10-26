@@ -15,9 +15,14 @@ import {
   APPROVAL_LIMIT_MICROS,
   LIVE_STATUSES,
   MAX_EXTRA_AGENTS,
+  agentsNeeded,
   extrasNeeded,
+  isPerAgent,
   isValidGstin,
+  planLine,
   quote,
+  unlockedLine,
+  type AgentCounts,
 } from "@/convex/lib/plans";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useHourBucket } from "@/components/use-now";
@@ -74,7 +79,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowRight02Icon,
@@ -205,7 +210,7 @@ export function PlanTab() {
         // Keyed on what the account is on, so a switch that lands resets the
         // picker to the new plan rather than leaving the old choice in it.
         <PlanPicker
-          key={`${data.plan?._id ?? ""}:${data.account.extraAgents}:${data.subscription?._id ?? ""}`}
+          key={`${data.plan?._id ?? ""}:${data.account.extraAgents}:${data.account.agents?.ai ?? ""}:${data.account.agents?.human ?? ""}:${data.subscription?._id ?? ""}`}
           data={data}
         />
       )}
@@ -314,6 +319,7 @@ function StatusCard({ data, now }: { data: Enabled; now: number }) {
         }
       : null;
   const extras = charging?.extraAgents ?? account.extraAgents;
+  const bought = charging ? charging.agents : account.agents;
 
   const cancel = async () => {
     setBusy("cancel");
@@ -382,10 +388,11 @@ function StatusCard({ data, now }: { data: Enabled; now: number }) {
               ) : null}
             </p>
             <p className="text-sm text-muted-foreground tabular-nums">
-              {plan?.name ?? "Plan"}
-              {extras > 0
-                ? ` + ${extras} extra ${extras === 1 ? "agent" : "agents"}`
-                : ""}{" "}
+              {planLine(
+                plan?.name ?? "Platform",
+                extras,
+                plan && isPerAgent(plan) ? bought : null
+              )}{" "}
               {money(monthly.subtotal)}
               {monthly.gst > 0
                 ? ` · ${monthly.gstLabel} ${money(monthly.gst)}`
@@ -415,10 +422,9 @@ function StatusCard({ data, now }: { data: Enabled; now: number }) {
             <HugeiconsIcon icon={RotateClockwiseIcon} strokeWidth={2} />
             <AlertTitle>A checkout hasn&apos;t been authorised yet</AlertTitle>
             <AlertDescription>
-              {pendingPlan ? `The ${pendingPlan.name} plan` : "A plan"}
-              {pending.extraAgents > 0
-                ? ` with ${pending.extraAgents} extra ${pending.extraAgents === 1 ? "agent" : "agents"}`
-                : ""}{" "}
+              {pendingPlan
+                ? `The ${planLine(pendingPlan.name, pending.extraAgents, pending.agents)}`
+                : "A plan"}{" "}
               was started {daysFrom(pending.createdAt, now)} and Razorpay
               hasn&apos;t confirmed it.
               {data.isOwner
@@ -533,6 +539,7 @@ function SeatsCard({ data }: { data: Enabled }) {
   const workspace = useWorkspace();
   const base = `/w/${workspace.slug}`;
   const { seats, used, plan } = data;
+  const perAgent = plan !== null && isPerAgent(plan);
 
   const rows = seats
     ? [
@@ -541,22 +548,26 @@ function SeatsCard({ data }: { data: Enabled }) {
           label: "Custom agents live",
           used: used.ai,
           of: seats.ai.included,
-          noun: "included",
+          noun: perAgent ? "paid for" : "included",
         },
         {
           icon: UserIcon,
           label: "Human agents with a login",
           used: used.human,
           of: seats.human.included,
-          noun: "included",
+          noun: perAgent ? "paid for" : "included",
         },
-        {
-          icon: UserGroupIcon,
-          label: "Extra agents in use",
-          used: seats.extra.used,
-          of: seats.extra.bought,
-          noun: "bought",
-        },
+        ...(perAgent
+          ? []
+          : [
+              {
+                icon: UserGroupIcon,
+                label: "Extra agents in use",
+                used: seats.extra.used,
+                of: seats.extra.bought,
+                noun: "bought",
+              },
+            ]),
       ]
     : [];
 
@@ -575,12 +586,12 @@ function SeatsCard({ data }: { data: Enabled }) {
                   You&apos;re over your plan by {agents(seats.over)}
                 </AlertTitle>
                 <AlertDescription>
-                  More agents are live than the {plan.name} plan and its extra
-                  agents cover. Pause a custom agent or revoke a human
-                  agent&apos;s login,{" "}
+                  More agents are live than the {plan.name} plan
+                  {perAgent ? " is paid for" : " and its extra agents cover"}.
+                  Pause a custom agent or revoke a human agent&apos;s login,{" "}
                   {data.isOwner
-                    ? "or add extra agents below."
-                    : "or ask whoever manages the account to add extra agents."}
+                    ? "or add agents below."
+                    : "or ask whoever manages the account to add agents."}
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -686,9 +697,23 @@ function PlanPicker({ data }: { data: Enabled }) {
     plans[0] ??
     null;
 
+  // Enough of each kind to keep everything live, and never fewer than the
+  // account already pays for.
+  const suggestedAgents = (plan: Plan): AgentCounts => {
+    const needed = agentsNeeded(plan, used);
+    const paid = plan._id === current?._id ? account.agents : null;
+    return {
+      ai: Math.min(MAX_EXTRA_AGENTS, Math.max(paid?.ai ?? 0, needed.ai)),
+      human: Math.min(MAX_EXTRA_AGENTS, Math.max(paid?.human ?? 0, needed.human)),
+    };
+  };
+
   const [chosenId, setChosenId] = useState(initial?._id ?? null);
   const [extras, setExtras] = useState(() =>
     initial ? suggested(initial) : 0
+  );
+  const [counts, setCounts] = useState<AgentCounts>(() =>
+    initial ? suggestedAgents(initial) : { ai: 0, human: 0 }
   );
   const [busy, setBusy] = useState(false);
 
@@ -710,23 +735,26 @@ function PlanPicker({ data }: { data: Enabled }) {
   const pick = (plan: Plan) => {
     setChosenId(plan._id);
     setExtras(suggested(plan));
+    setCounts(suggestedAgents(plan));
   };
-  const setClamped = (value: number) =>
-    setExtras(
-      Math.min(
-        MAX_EXTRA_AGENTS,
-        Math.max(0, Number.isFinite(value) ? Math.floor(value) : 0)
-      )
-    );
 
-  const needed = extrasNeeded(chosen, used);
-  const stranded = Math.max(0, needed - extras);
+  const perAgent = isPerAgent(chosen);
+  const neededAgents = agentsNeeded(chosen, used);
+  const needed = perAgent
+    ? neededAgents.ai + neededAgents.human
+    : extrasNeeded(chosen, used);
+  const stranded = perAgent
+    ? Math.max(0, neededAgents.ai - counts.ai) +
+      Math.max(0, neededAgents.human - counts.human)
+    : Math.max(0, needed - extras);
   const summary = quote({
     plan: chosen,
     extraAgents: extras,
+    agents: counts,
     settings: data.pricing,
     account: data.accountPricing,
   });
+  const taxed = data.pricing.gstPercent > 0;
   const seat = {
     priceMicros: summary.seatMicros,
     listMicros: summary.seatListMicros,
@@ -735,7 +763,13 @@ function PlanPicker({ data }: { data: Enabled }) {
   };
 
   const same =
-    live !== null && live.planId === chosen._id && live.extraAgents === extras;
+    live !== null &&
+    live.planId === chosen._id &&
+    (perAgent
+      ? (live.agents?.ai ?? 0) === counts.ai &&
+        (live.agents?.human ?? 0) === counts.human
+      : live.extraAgents === extras);
+  const empty = perAgent && counts.ai < 1;
   const unchanged = same && !live.cancelAtCycleEnd;
   const label = !live
     ? "Subscribe"
@@ -754,7 +788,8 @@ function PlanPicker({ data }: { data: Enabled }) {
       const options = await startSubscription({
         workspaceId: workspace._id,
         planId: chosen._id,
-        extraAgents: extras,
+        extraAgents: perAgent ? 0 : extras,
+        agents: perAgent ? counts : undefined,
       });
       const response = await openCheckout(options);
       const razorpaySubscriptionId =
@@ -836,14 +871,15 @@ function PlanPicker({ data }: { data: Enabled }) {
                   </div>
                   <p className="flex flex-wrap items-baseline gap-x-1.5">
                     <StrikePrice
-                      priceMicros={plan.priceMicros}
-                      listMicros={plan.listPriceMicros}
+                      priceMicros={plan.perAgent?.aiMicros ?? plan.priceMicros}
+                      listMicros={plan.perAgent?.aiListMicros ?? plan.listPriceMicros}
                       currency={data.pricing.currency}
                       className="font-heading text-3xl font-semibold tracking-tight tabular-nums"
                       listClassName="text-[0.6em]"
                     />
                     <span className="text-sm text-muted-foreground">
-                      / month{data.pricing.gstPercent > 0 ? " + GST" : ""}
+                      {plan.perAgent ? "/ AI agent a month" : "/ month"}
+                      {taxed ? " + GST" : ""}
                     </span>
                   </p>
                   {plan.description ? (
@@ -868,59 +904,64 @@ function PlanPicker({ data }: { data: Enabled }) {
         </div>
 
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          {/* ------------------------------------------- extra agents */}
+          {/* ------------------------------------------------- agents */}
           <div className="flex min-w-0 flex-col gap-3 self-start rounded-lg border p-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <Label htmlFor="extra-agents" className="flex items-center gap-2">
-                <HugeiconsIcon icon={UserGroupIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
-                Extra agents
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                <StrikePrice
-                  priceMicros={summary.seatMicros}
-                  listMicros={summary.seatListMicros}
+            {perAgent && summary.perAgent ? (
+              <>
+                <CountStepper
+                  id="ai-agents"
+                  icon={RoboticIcon}
+                  label="AI agents"
+                  noun="AI agent"
+                  value={counts.ai}
+                  line={summary.perAgent.ai}
                   currency={data.pricing.currency}
-                  className="font-medium text-foreground"
-                />{" "}
-                each a month{data.pricing.gstPercent > 0 ? " + GST" : ""}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="One fewer extra agent"
-                disabled={extras <= 0 || busy}
-                onClick={() => setClamped(extras - 1)}
-              >
-                <HugeiconsIcon icon={MinusSignIcon} strokeWidth={2} />
-              </Button>
-              <Input
+                  taxed={taxed}
+                  disabled={busy}
+                  onChange={(ai) => setCounts((prev) => ({ ...prev, ai }))}
+                />
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  {unlockedLine(counts.ai)}
+                </p>
+                <CountStepper
+                  id="human-agents"
+                  icon={UserIcon}
+                  label={
+                    chosen.includedHumanAgents > 0
+                      ? `Human agents beyond the ${chosen.includedHumanAgents} included`
+                      : "Human agents"
+                  }
+                  noun="human agent"
+                  value={counts.human}
+                  line={summary.perAgent.human}
+                  currency={data.pricing.currency}
+                  taxed={taxed}
+                  disabled={busy}
+                  onChange={(human) => setCounts((prev) => ({ ...prev, human }))}
+                />
+              </>
+            ) : (
+              <CountStepper
                 id="extra-agents"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={MAX_EXTRA_AGENTS}
-                step={1}
+                icon={UserGroupIcon}
+                label="Extra agents"
+                noun="extra agent"
                 value={extras}
+                line={{
+                  priceMicros: summary.seatMicros,
+                  listMicros: summary.seatListMicros,
+                }}
+                currency={data.pricing.currency}
+                taxed={taxed}
                 disabled={busy}
-                onChange={(event) => setClamped(Number(event.target.value))}
-                className="w-20 text-center tabular-nums"
+                onChange={setExtras}
               />
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="One more extra agent"
-                disabled={extras >= MAX_EXTRA_AGENTS || busy}
-                onClick={() => setClamped(extras + 1)}
-              >
-                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-              </Button>
-            </div>
+            )}
             {needed > 0 ? (
               <p className="text-xs text-muted-foreground">
-                What is live now needs {needed} extra{" "}
-                {needed === 1 ? "agent" : "agents"} on {chosen.name}.
+                {perAgent
+                  ? `What is live now needs ${neededAgents.ai} AI and ${neededAgents.human} human ${neededAgents.human === 1 ? "agent" : "agents"} on ${chosen.name}.`
+                  : `What is live now needs ${needed} extra ${needed === 1 ? "agent" : "agents"} on ${chosen.name}.`}
               </p>
             ) : null}
             {stranded > 0 ? (
@@ -935,8 +976,10 @@ function PlanPicker({ data }: { data: Enabled }) {
                   You can still go ahead. Afterwards, pause custom agents or
                   revoke logins until you are within the plan — or add{" "}
                   {stranded === 1
-                    ? "an extra agent"
-                    : `${stranded} more extra agents`}{" "}
+                    ? perAgent
+                      ? "an agent"
+                      : "an extra agent"
+                    : `${stranded} more ${perAgent ? "agents" : "extra agents"}`}{" "}
                   here.
                 </AlertDescription>
               </Alert>
@@ -949,10 +992,21 @@ function PlanPicker({ data }: { data: Enabled }) {
               Each month
             </p>
             <dl className="flex flex-col gap-1.5 text-sm">
-              <SummaryRow
-                label={`${chosen.name} plan`}
-                value={money(summary.planMicros + summary.discountMicros)}
-              />
+              {!perAgent || summary.planMicros + summary.discountMicros > 0 ? (
+                <SummaryRow
+                  label={`${chosen.name} plan`}
+                  value={money(summary.planMicros + summary.discountMicros)}
+                />
+              ) : null}
+              {summary.perAgent
+                ? agentRows(summary.perAgent).map((row) => (
+                    <SummaryRow
+                      key={row.key}
+                      label={`${row.label} × ${money(row.priceMicros)}`}
+                      value={money(row.totalMicros)}
+                    />
+                  ))
+                : null}
               {summary.discountMicros > 0 ? (
                 <SummaryRow
                   label={
@@ -991,7 +1045,7 @@ function PlanPicker({ data }: { data: Enabled }) {
 
             <Button
               size="lg"
-              disabled={busy || unchanged || !payable}
+              disabled={busy || unchanged || empty || !payable}
               onClick={subscribe}
             >
               {busy ? <Spinner /> : null}{" "}
@@ -999,6 +1053,11 @@ function PlanPicker({ data }: { data: Enabled }) {
             </Button>
 
             <div className="flex flex-col gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              {empty ? (
+                <p>
+                  {chosen.name} needs at least one AI agent: the front desk.
+                </p>
+              ) : null}
               {!payable ? (
                 <p className="text-destructive">
                   Payments aren&apos;t set up on the platform yet, so a plan
@@ -1020,6 +1079,106 @@ function PlanPicker({ data }: { data: Enabled }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type Lines = NonNullable<ReturnType<typeof quote>["perAgent"]>;
+
+function agentRows(lines: Lines) {
+  return (["ai", "human"] as const)
+    .filter((kind) => lines[kind].count > 0)
+    .map((kind) => {
+      const line = lines[kind];
+      const noun = kind === "ai" ? "AI agent" : "human agent";
+      return {
+        key: kind,
+        label: `${line.count} ${noun}${line.count === 1 ? "" : "s"}`,
+        priceMicros: line.priceMicros,
+        totalMicros: line.totalMicros,
+      };
+    });
+}
+
+function CountStepper({
+  id,
+  icon,
+  label,
+  noun,
+  value,
+  line,
+  currency,
+  taxed,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  icon: IconSvgElement;
+  label: string;
+  noun: string;
+  value: number;
+  line: { priceMicros: number; listMicros: number };
+  currency: string;
+  taxed: boolean;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  const set = (next: number) =>
+    onChange(
+      Math.min(
+        MAX_EXTRA_AGENTS,
+        Math.max(0, Number.isFinite(next) ? Math.floor(next) : 0)
+      )
+    );
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <Label htmlFor={id} className="flex items-center gap-2">
+          <HugeiconsIcon icon={icon} strokeWidth={2} className="size-4 text-muted-foreground" />
+          {label}
+        </Label>
+        <p className="text-sm text-muted-foreground">
+          <StrikePrice
+            priceMicros={line.priceMicros}
+            listMicros={line.listMicros}
+            currency={currency}
+            className="font-medium text-foreground"
+          />{" "}
+          each a month{taxed ? " + GST" : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={`One fewer ${noun}`}
+          disabled={value <= 0 || disabled}
+          onClick={() => set(value - 1)}
+        >
+          <HugeiconsIcon icon={MinusSignIcon} strokeWidth={2} />
+        </Button>
+        <Input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={MAX_EXTRA_AGENTS}
+          step={1}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => set(Number(event.target.value))}
+          className="w-20 text-center tabular-nums"
+        />
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={`One more ${noun}`}
+          disabled={value >= MAX_EXTRA_AGENTS || disabled}
+          onClick={() => set(value + 1)}
+        >
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+        </Button>
+      </div>
+    </div>
   );
 }
 

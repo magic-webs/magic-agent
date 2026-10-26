@@ -4,7 +4,15 @@ import { useState, useSyncExternalStore } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { isIndian } from "@/convex/lib/currency";
-import type { CurrencyPricing, PublicPlan, PublicPricing } from "@/convex/lib/plans";
+import {
+  PLATFORM_CURRENCY,
+  PLATFORM_LOCALE,
+  quote,
+  unlockedLine,
+  type CurrencyPricing,
+  type PublicPlan,
+  type PublicPricing,
+} from "@/convex/lib/plans";
 import { currencySymbol, moneyIn } from "@/components/billing/plan-bits";
 import { SpecularButton } from "@/components/landing/specular-button";
 import { cn } from "@/lib/utils";
@@ -41,6 +49,8 @@ export function PricingPlans({
 
   const money = moneyIn(offer.currency);
   const gst = offer.gstPercent > 0 ? ` + ${offer.gstPercent}% GST` : "";
+  const bundles = offer.plans.filter((plan) => !plan.perAgent);
+  const perAgent = offer.plans.filter((plan) => plan.perAgent);
 
   return (
     <div className="flex flex-col">
@@ -79,13 +89,24 @@ export function PricingPlans({
       </div>
 
       <div className="mt-8 grid gap-4 md:auto-cols-fr md:grid-flow-col">
-        {offer.plans.map((plan) => (
+        {bundles.map((plan) => (
           <PlanCard key={plan.code} plan={plan} offer={offer} />
         ))}
       </div>
 
+      {perAgent.map((plan) => (
+        <PayAsYouGo
+          // Remounted per currency, so the sliders start over at its prices.
+          key={`${offer.currency}:${plan.code}`}
+          plan={plan}
+          offer={offer}
+        />
+      ))}
+
       <p className="mt-8 text-center text-sm leading-relaxed text-(--ink-muted)">
-        Extra agents {money(offer.extraAgentPriceMicros)} a month each{gst}. WhatsApp
+        Extra agents {money(offer.extraAgentPriceMicros)} a month each{gst}
+        {perAgent.length > 0 ? ", or pay only for the agents you use as you go" : ""}
+        . WhatsApp
         messages and AI replies are paid from a prepaid wallet at per-message rates
         {offer.welcomeBonusMicros > 0
           ? `, and every new wallet starts with ${money(offer.welcomeBonusMicros)} of credit.`
@@ -95,7 +116,7 @@ export function PricingPlans({
       {compareHeading ? (
         <div className="mt-[clamp(5rem,10vw,8rem)] flex flex-col gap-10">
           {compareHeading}
-          <CompareTable offer={offer} trialDays={pricing.trialDays} />
+          <CompareTable plans={bundles} offer={offer} trialDays={pricing.trialDays} />
         </div>
       ) : null}
     </div>
@@ -172,7 +193,162 @@ function PlanCard({ plan, offer }: { plan: PublicPlan; offer: CurrencyPricing })
   );
 }
 
-function CompareTable({ offer, trialDays }: { offer: CurrencyPricing; trialDays: number }) {
+const AI_MAX = 25;
+const PEOPLE_MAX = 25;
+
+/**
+ * The per-agent plan, under the bundles: its prices, and sliders that work
+ * the month out the way checkout prices it.
+ */
+function PayAsYouGo({ plan, offer }: { plan: PublicPlan; offer: CurrencyPricing }) {
+  const [ai, setAi] = useState(3);
+  const [human, setHuman] = useState(0);
+  const per = plan.perAgent!;
+  const money = moneyIn(offer.currency);
+  const exact = new Intl.NumberFormat(
+    offer.currency === PLATFORM_CURRENCY ? PLATFORM_LOCALE : "en-US",
+    { style: "currency", currency: offer.currency, maximumFractionDigits: 2 }
+  );
+  const priced = quote({ plan, extraAgents: 0, agents: { ai, human }, settings: offer });
+  const free = plan.includedHumanAgents;
+
+  return (
+    <article className="mt-4 grid gap-8 rounded-[24px] border border-(--line) bg-(--surface) p-7 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-12">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <h3 className="font-display text-2xl font-medium tracking-tight">{plan.name}</h3>
+          {plan.description ? (
+            <p className="text-[15px] leading-relaxed text-(--ink-muted)">{plan.description}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            {per.aiListMicros > per.aiMicros ? (
+              <span className="text-lg text-(--ink-muted) line-through">{money(per.aiListMicros)}</span>
+            ) : null}
+            <span className="font-display text-[clamp(2.5rem,4vw,3.25rem)] leading-none font-medium tracking-[-0.03em] tabular-nums">
+              {money(per.aiMicros)}
+            </span>
+            <span className="text-(--ink-muted)">/AI agent a month</span>
+          </div>
+          <span className="text-sm text-(--ink-muted)">
+            {money(per.humanMicros)} per person
+            {free > 0 ? `, the first ${free === 1 ? "login" : `${free} logins`} free` : ""}
+            {plan.priceMicros > 0 ? ` · ${money(plan.priceMicros)} plan fee` : ""}
+            {offer.gstPercent > 0 ? ` · plus ${offer.gstPercent}% GST` : ""}
+          </span>
+        </div>
+
+        <p className="text-[15px] leading-relaxed text-(--ink-muted)">
+          One AI agent runs the front desk. Two add the follow-up desk, three the marketing
+          desk, and every one after that is a custom agent built around your business.
+        </p>
+
+        <SpecularButton
+          href="/signup"
+          radius={999}
+          tint="var(--ink)"
+          tintOpacity={1}
+          textColor="var(--paper)"
+          lineColor="#10b981"
+          autoAnimate
+          className="mt-auto h-12 self-start px-6 py-0 text-[15px]"
+        >
+          Start free trial
+        </SpecularButton>
+      </div>
+
+      <div className="flex flex-col gap-7 rounded-2xl border border-(--line) p-6">
+        <AgentSlider
+          id="payg-ai"
+          label="AI agents"
+          value={ai}
+          min={1}
+          max={AI_MAX}
+          onChange={setAi}
+          detail={unlockedLine(ai)}
+        />
+        <AgentSlider
+          id="payg-people"
+          label={free > 0 ? "People beyond the admin" : "People on the inbox"}
+          value={human}
+          min={0}
+          max={PEOPLE_MAX}
+          onChange={setHuman}
+          detail={
+            human === 0
+              ? free > 0
+                ? "Just the admin, whose login is free"
+                : "Nobody on the inbox yet"
+              : `${human} more ${human === 1 ? "login" : "logins"} for your team`
+          }
+        />
+        <div className="mt-auto flex flex-wrap items-baseline justify-between gap-3 border-t border-(--line) pt-6">
+          <span className="text-sm text-(--ink-muted)">
+            {offer.gstPercent > 0 ? `A month, with ${offer.gstPercent}% GST` : "A month"}
+          </span>
+          <span
+            aria-live="polite"
+            className="font-display text-[clamp(2rem,3.5vw,2.75rem)] leading-none font-medium tracking-[-0.03em] tabular-nums"
+          >
+            {exact.format(priced.totalMicros / 1_000_000)}
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AgentSlider({
+  id,
+  label,
+  value,
+  min,
+  max,
+  detail,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  detail: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <label htmlFor={id} className="text-[15px] font-medium">
+          {label}
+        </label>
+        <span className="font-display text-xl font-medium tabular-nums">{value}</span>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-2 w-full cursor-pointer accent-(--ok)"
+      />
+      <span className="text-sm text-(--ink-muted)">{detail}</span>
+    </div>
+  );
+}
+
+function CompareTable({
+  plans,
+  offer,
+  trialDays,
+}: {
+  plans: PublicPlan[];
+  offer: CurrencyPricing;
+  trialDays: number;
+}) {
   const money = moneyIn(offer.currency);
   const rows: Array<{ label: string; value: (plan: PublicPlan) => React.ReactNode }> = [
     { label: "Price a month", value: (plan) => money(plan.priceMicros) },
@@ -193,7 +369,7 @@ function CompareTable({ offer, trialDays }: { offer: CurrencyPricing; trialDays:
               Prices in {offer.currency}
               {offer.gstPercent > 0 ? `, plus ${offer.gstPercent}% GST` : ""}
             </th>
-            {offer.plans.map((plan) => (
+            {plans.map((plan) => (
               <th
                 key={plan.code}
                 scope="col"
@@ -213,7 +389,7 @@ function CompareTable({ offer, trialDays }: { offer: CurrencyPricing; trialDays:
               <th scope="row" className="px-6 py-4 font-normal text-(--ink-muted)">
                 {row.label}
               </th>
-              {offer.plans.map((plan) => (
+              {plans.map((plan) => (
                 <td
                   key={plan.code}
                   className={cn("px-6 py-4 tabular-nums", plan.highlighted && "bg-(--ink)/4")}

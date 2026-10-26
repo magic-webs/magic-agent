@@ -8,7 +8,12 @@ import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toMicros } from "@/convex/lib/billing";
-import { extrasNeeded, type SeatUsage } from "@/convex/lib/plans";
+import {
+  agentsNeeded,
+  extrasNeeded,
+  planLine,
+  type SeatUsage,
+} from "@/convex/lib/plans";
 import { useHourBucket } from "@/components/use-now";
 import { SelectField } from "@/components/select-field";
 import { CompanyLogo } from "@/components/company-logo";
@@ -449,15 +454,40 @@ function PlanSection({
   const [busy, run] = useRun();
   const [planId, setPlanId] = useState<string>(account.planId ?? "");
   const [extras, setExtras] = useState(String(account.extraAgents));
+  const [aiAgents, setAiAgents] = useState(String(account.agents?.ai ?? 0));
+  const [humanAgents, setHumanAgents] = useState(
+    String(account.agents?.human ?? 0)
+  );
 
-  const extraAgents = num(extras);
-  const bad = !Number.isInteger(extraAgents) || extraAgents < 0;
-  const planChanged = planId !== "" && planId !== account.planId;
-  const dirty = planChanged || (!bad && extraAgents !== account.extraAgents);
   const plan = plans.find((row) => row._id === planId);
+  const perAgent = plan?.perAgent != null;
+  const extraAgents = num(extras);
+  const agents = { ai: num(aiAgents), human: num(humanAgents) };
+  const whole = (value: number) => Number.isInteger(value) && value >= 0;
+  const bad = perAgent
+    ? !whole(agents.ai) || !whole(agents.human)
+    : !whole(extraAgents);
+  const planChanged = planId !== "" && planId !== account.planId;
+  const dirty =
+    planChanged ||
+    (!bad &&
+      (perAgent
+        ? agents.ai !== (account.agents?.ai ?? 0) ||
+          agents.human !== (account.agents?.human ?? 0)
+        : extraAgents !== account.extraAgents));
   // What it takes to cover the agents already live, so a downgrade here does
   // not quietly leave the account over its limit.
-  const needed = plan ? extrasNeeded(plan, account.used) : 0;
+  const neededAgents = plan
+    ? agentsNeeded(plan, account.used)
+    : { ai: 0, human: 0 };
+  const needed = plan
+    ? perAgent
+      ? neededAgents.ai + neededAgents.human
+      : extrasNeeded(plan, account.used)
+    : 0;
+  const short = perAgent
+    ? agents.ai < neededAgents.ai || agents.human < neededAgents.human
+    : extraAgents < needed;
 
   const save = () =>
     void run("Could not change the plan", async () => {
@@ -466,7 +496,7 @@ function PlanSection({
         // Only when it moved: the plan shown may be the trial plan the
         // account falls back to, and saving it would pin the account there.
         planId: planChanged ? (planId as Id<"billingPlans">) : undefined,
-        extraAgents,
+        ...(perAgent ? { agents } : { extraAgents }),
       });
       return {
         title: `${account.name}'s plan saved`,
@@ -476,7 +506,7 @@ function PlanSection({
 
   return (
     <Section
-      title="Plan and extra agents"
+      title={perAgent ? "Plan and agents" : "Plan and extra agents"}
       description={
         isCharging(account)
           ? `This changes the account's limits now. Razorpay keeps charging ${money(account.subscription!.totalMicros)} a month until the company checks out again.`
@@ -493,10 +523,11 @@ function PlanSection({
             onValueChange={setPlanId}
             options={plans.map((row) => ({
               value: row._id,
-              label: `${row.name} · ${money(row.priceMicros)}${row.status === "hidden" ? " · hidden" : ""}`,
+              label: `${row.name} · ${row.perAgent ? `${money(row.perAgent.aiMicros)} per agent` : money(row.priceMicros)}${row.status === "hidden" ? " · hidden" : ""}`,
             }))}
           />
         </Field>
+        {perAgent ? null : (
         <Field id="manage-extras" label="Extra agents">
           <Input
             id="manage-extras"
@@ -510,13 +541,47 @@ function PlanSection({
             onChange={(event) => setExtras(event.target.value)}
           />
         </Field>
+        )}
       </div>
-      {plan && !bad && extraAgents < needed ? (
+      {perAgent ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field id="manage-ai-agents" label="Custom agents paid for">
+            <Input
+              id="manage-ai-agents"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={aiAgents}
+              aria-invalid={!whole(agents.ai) || undefined}
+              className="tabular-nums"
+              onChange={(event) => setAiAgents(event.target.value)}
+            />
+          </Field>
+          <Field id="manage-human-agents" label="Human agents paid for">
+            <Input
+              id="manage-human-agents"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={humanAgents}
+              aria-invalid={!whole(agents.human) || undefined}
+              className="tabular-nums"
+              onChange={(event) => setHumanAgents(event.target.value)}
+            />
+          </Field>
+        </div>
+      ) : null}
+      {plan && !bad && short ? (
         <Note tone="warn">
           {account.used.ai} custom and {account.used.human} human agents are
-          live. {plan.name} needs {needed} extra{" "}
-          {needed === 1 ? "agent" : "agents"} to cover them; fewer leaves the
-          account over its limit until some are paused.
+          live.{" "}
+          {perAgent
+            ? `${plan.name} needs ${neededAgents.ai} custom and ${neededAgents.human} human agents paid for`
+            : `${plan.name} needs ${needed} extra ${needed === 1 ? "agent" : "agents"}`}{" "}
+          to cover them; fewer leaves the account over its limit until some are
+          paused.
         </Note>
       ) : null}
       <SaveButton busy={busy} disabled={bad || !dirty} onClick={save}>
@@ -948,7 +1013,11 @@ function SubscriptionSection({
   return (
     <Section
       title="Razorpay subscription"
-      description={`Created ${formatDay(subscription.createdAt)}, with ${subscription.extraAgents} extra ${subscription.extraAgents === 1 ? "agent" : "agents"}.`}
+      description={`Created ${formatDay(subscription.createdAt)}${
+        subscription.agents
+          ? `, for ${planLine("", 0, subscription.agents).replace(/^: /, "")}`
+          : `, with ${subscription.extraAgents} extra ${subscription.extraAgents === 1 ? "agent" : "agents"}`
+      }.`}
     >
       <dl className="grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-[8rem_1fr]">
         {facts.map(([label, value]) => (

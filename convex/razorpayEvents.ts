@@ -18,7 +18,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { accountFor, ensureAccount } from "./lib/account";
 import { formatMoney } from "./lib/billing";
-import { PLATFORM_LOCALE, fromPaise, roundToPaise } from "./lib/plans";
+import { PLATFORM_LOCALE, fromPaise, planLine, roundToPaise } from "./lib/plans";
 import { creditWallet } from "./lib/wallet";
 
 export const subscriptionEntity = v.object({
@@ -112,6 +112,7 @@ async function applySubscription(
         pendingSubscriptionId: isPending ? undefined : account.pendingSubscriptionId,
         planId: subscription.planId,
         extraAgents: subscription.extraAgents,
+        agents: subscription.agents,
         mode: "razorpay",
         updatedAt: now,
       });
@@ -165,17 +166,17 @@ async function recordSubscriptionCharge(
       ? roundToPaise((totalMicros * subscription.gstMicros) / subscription.totalMicros)
       : 0;
   const plan = await ctx.db.get("billingPlans", subscription.planId);
-  const extras =
-    subscription.extraAgents > 0
-      ? ` + ${subscription.extraAgents} extra ${subscription.extraAgents === 1 ? "agent" : "agents"}`
-      : "";
   const fresh = await ctx.db.get("billingSubscriptions", subscription._id);
   const now = Date.now();
   await ctx.db.insert("billingPayments", {
     workspaceId: subscription.workspaceId,
     purpose: "subscription",
     status: "paid",
-    description: `${plan?.name ?? "Platform"} plan${extras}`,
+    description: planLine(
+      plan?.name ?? "Platform",
+      subscription.extraAgents,
+      subscription.agents
+    ),
     currency: payment.currency,
     subtotalMicros: totalMicros - gstMicros,
     gstMicros,

@@ -33,6 +33,7 @@ import {
   requireWorkspace,
 } from "./lib/auth";
 import { noteSent } from "./lib/delivery";
+import { deskBlock } from "./lib/account";
 
 const outcome = v.union(v.literal("open"), v.literal("won"), v.literal("lost"));
 
@@ -628,6 +629,7 @@ export const reviewContext = internalQuery({
     return {
       workspace,
       deskAgent: desk,
+      deskBlock: await deskBlock(ctx, conversation.workspaceId, "follow_up"),
       stages: stages.map((stage) => ({
         id: stage._id,
         name: stage.name,

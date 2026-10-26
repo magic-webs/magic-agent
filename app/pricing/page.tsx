@@ -74,6 +74,7 @@ function questions(pricing: PublicPricing) {
       question: "What counts as an agent?",
       answer: `Every plan includes the front desk, the follow-up desk and the marketing agent. Custom agents are the ones you build around your business: sales, support, bookings. Human agents are the people on your team who work the inbox. Need more of either? Extra agents are ${inEach(pricing, (entry) => entry.extraAgentPriceMicros)} a month each, and each one can be an AI agent or a person.`,
     },
+    ...(payAsYouGo(pricing) ? [payAsYouGo(pricing)!] : []),
     {
       question: "How are WhatsApp messages charged?",
       answer: `Separately from the plan, from a prepaid wallet. Meta prices each message by its type and the country of the number it goes to, and the wallet pays for each one as it is sent. Top up whenever you like, or let it recharge itself when the balance runs low.${bonus}`,
@@ -94,6 +95,21 @@ function questions(pricing: PublicPricing) {
   ];
 }
 
+function payAsYouGo(pricing: PublicPricing) {
+  const priced = pricing.currencies.flatMap((entry) =>
+    entry.plans
+      .filter((plan) => plan.perAgent)
+      .map((plan) => ({ currency: entry.currency, name: plan.name, perAgent: plan.perAgent! }))
+  );
+  if (priced.length === 0) return null;
+  const ai = priced.map((entry) => whole(entry.perAgent.aiMicros, entry.currency)).join(" or ");
+  const human = priced.map((entry) => whole(entry.perAgent.humanMicros, entry.currency)).join(" or ");
+  return {
+    question: `How does ${priced[0].name} work?`,
+    answer: `There is no plan fee. You pay ${ai} a month for each AI agent and ${human} for each person beyond the admin, whose login is free. AI agents switch on in order: the first runs the front desk, the second adds the follow-up desk, the third the marketing desk, and every one after that is a custom agent. Change the numbers whenever you like; the new amount starts from your next billing date.`,
+  };
+}
+
 export default async function PricingPage() {
   const pricing = await loadPricing();
 
@@ -103,12 +119,13 @@ export default async function PricingPage() {
         <Eyebrow>Pricing</Eyebrow>
         <MaskLines
           className="mt-7 text-[clamp(2.75rem,7vw,6rem)]"
-          lines={["One price a month.", "Every feature in it."]}
+          lines={["Pay for the agents.", "Every feature in it."]}
         />
         <Reveal className="mt-7 flex">
           <p className="max-w-[600px] text-[20px] leading-[30px] text-(--ink-muted) max-[600px]:text-base max-[600px]:leading-6">
-            Plans differ only in how many agents they hold. Every channel, every desk and every
-            tool is on all of them, and the first {pricing.trialDays} days are free.
+            Plans differ only in how many agents they hold, or pay per agent as you go. Every
+            channel, every desk and every tool is on all of them, and the first{" "}
+            {pricing.trialDays} days are free.
           </p>
         </Reveal>
 

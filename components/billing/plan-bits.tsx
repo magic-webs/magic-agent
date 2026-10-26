@@ -8,6 +8,7 @@ import {
   PLATFORM_LOCALE,
   SUBSCRIPTION_STATUS,
   type Access,
+  type PerAgentPrice,
 } from "@/convex/lib/plans";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -200,7 +201,12 @@ export function IncludedAgents({
   selected = false,
   className,
 }: {
-  plan: { name: string; includedAiAgents: number; includedHumanAgents: number };
+  plan: {
+    name: string;
+    includedAiAgents: number;
+    includedHumanAgents: number;
+    perAgent?: PerAgentPrice | null;
+  };
   /** One extra agent, when the page knows what it sells at. */
   seat?: {
     priceMicros: number;
@@ -215,6 +221,8 @@ export function IncludedAgents({
   const custom = plan.includedAiAgents;
   const ai = DESKS.length + custom;
   const human = plan.includedHumanAgents;
+  const per = plan.perAgent ?? null;
+  const taxed = seat?.taxed === false ? "" : " + GST";
 
   return (
     <Popover>
@@ -231,10 +239,12 @@ export function IncludedAgents({
           )} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm font-semibold">
-            {count(ai + human, "agent")} included
+            {per ? "Pay per agent" : `${count(ai + human, "agent")} included`}
           </span>
           <span className="truncate text-xs text-muted-foreground">
-            {count(ai, "AI agent")} + {count(human, "human agent")}
+            {per
+              ? `Desks first, then custom agents · ${count(human, "human agent")} free`
+              : `${count(ai, "AI agent")} + ${count(human, "human agent")}`}
           </span>
         </span>
         <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
@@ -267,7 +277,26 @@ export function IncludedAgents({
           className="border-t pt-3"
         />
 
-        {seat ? (
+        {per ? (
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            The AI agents you pay for go to the front desk, then the follow-up
+            desk, then the marketing desk, then custom agents. Each AI agent{" "}
+            <StrikePrice
+              priceMicros={per.aiMicros}
+              listMicros={per.aiListMicros}
+              currency={seat?.currency}
+              className="font-medium text-foreground"
+            />
+            , each more human agent{" "}
+            <StrikePrice
+              priceMicros={per.humanMicros}
+              listMicros={per.humanListMicros}
+              currency={seat?.currency}
+              className="font-medium text-foreground"
+            />{" "}
+            a month{taxed}
+          </p>
+        ) : seat ? (
           <p className="border-t pt-3 text-xs text-muted-foreground">
             Extra agents{" "}
             <StrikePrice

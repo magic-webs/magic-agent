@@ -563,10 +563,18 @@ type PlanDraft = {
   listPrice: string;
   includedAiAgents: string;
   includedHumanAgents: string;
+  perAgent: boolean;
+  aiPrice: string;
+  aiList: string;
+  humanPrice: string;
+  humanList: string;
   features: string;
   highlighted: boolean;
   offered: boolean;
 };
+
+const listOrBlank = (price: number, list: number) =>
+  list > price ? rupeesOf(list) : "";
 
 function planDraft(plan: PlanRow | null): PlanDraft {
   if (!plan) {
@@ -577,6 +585,11 @@ function planDraft(plan: PlanRow | null): PlanDraft {
       listPrice: "",
       includedAiAgents: "1",
       includedHumanAgents: "1",
+      perAgent: false,
+      aiPrice: "",
+      aiList: "",
+      humanPrice: "",
+      humanList: "",
       features: "",
       highlighted: false,
       offered: true,
@@ -594,6 +607,15 @@ function planDraft(plan: PlanRow | null): PlanDraft {
         : "",
     includedAiAgents: String(plan.includedAiAgents),
     includedHumanAgents: String(plan.includedHumanAgents),
+    perAgent: plan.perAgent != null,
+    aiPrice: plan.perAgent ? rupeesOf(plan.perAgent.aiMicros) : "",
+    aiList: plan.perAgent
+      ? listOrBlank(plan.perAgent.aiMicros, plan.perAgent.aiListMicros)
+      : "",
+    humanPrice: plan.perAgent ? rupeesOf(plan.perAgent.humanMicros) : "",
+    humanList: plan.perAgent
+      ? listOrBlank(plan.perAgent.humanMicros, plan.perAgent.humanListMicros)
+      : "",
     features: plan.features.join("\n"),
     highlighted: plan.highlighted,
     offered: plan.status === "active",
@@ -633,12 +655,21 @@ function PlanForm({
   const list = draft.listPrice.trim() === "" ? price : num(draft.listPrice);
   const ai = num(draft.includedAiAgents);
   const human = num(draft.includedHumanAgents);
+  const aiPrice = num(draft.aiPrice);
+  const aiList = draft.aiList.trim() === "" ? aiPrice : num(draft.aiList);
+  const humanPrice = num(draft.humanPrice);
+  const humanList =
+    draft.humanList.trim() === "" ? humanPrice : num(draft.humanList);
   const problems = {
     name: draft.name.trim() === "",
     price: !(price >= 0),
     list: !(list >= 0),
     ai: !Number.isInteger(ai) || ai < 0,
     human: !Number.isInteger(human) || human < 0,
+    aiPrice: draft.perAgent && !(aiPrice >= 0),
+    aiList: draft.perAgent && !(aiList >= 0),
+    humanPrice: draft.perAgent && !(humanPrice >= 0),
+    humanList: draft.perAgent && !(humanList >= 0),
   };
   const invalid = Object.values(problems).some(Boolean);
   const features = draft.features
@@ -663,6 +694,9 @@ function PlanForm({
         price,
         includedAiAgents: ai,
         includedHumanAgents: human,
+        perAgent: draft.perAgent
+          ? { ai: aiPrice, aiList, human: humanPrice, humanList }
+          : null,
         features,
         highlighted: draft.highlighted,
         status: draft.offered ? "active" : "hidden",
@@ -712,8 +746,78 @@ function PlanForm({
           />
         </Field>
 
+        <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+          <div className="flex flex-col">
+            <Label htmlFor="plan-per-agent" className="font-normal">
+              Price it per agent
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              Pay as you go: the company picks how many custom and human agents
+              it pays for, on top of the price below — usually zero.
+            </span>
+          </div>
+          <Switch
+            id="plan-per-agent"
+            checked={draft.perAgent}
+            onCheckedChange={(checked) => set("perAgent", checked)}
+          />
+        </div>
+
+        {draft.perAgent ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="plan-ai-price" label="Per custom agent">
+              <NumberInput
+                id="plan-ai-price"
+                prefix={symbol}
+                value={draft.aiPrice}
+                placeholder="Monthly price"
+                invalid={tried && problems.aiPrice}
+                onChange={(value) => set("aiPrice", value)}
+              />
+            </Field>
+            <Field
+              id="plan-ai-list"
+              label="Custom agent list price"
+              hint="Shown struck through. Blank for none."
+            >
+              <NumberInput
+                id="plan-ai-list"
+                prefix={symbol}
+                value={draft.aiList}
+                placeholder={draft.aiPrice || "Same as the price"}
+                invalid={tried && problems.aiList}
+                onChange={(value) => set("aiList", value)}
+              />
+            </Field>
+            <Field id="plan-human-price" label="Per human agent">
+              <NumberInput
+                id="plan-human-price"
+                prefix={symbol}
+                value={draft.humanPrice}
+                placeholder="Monthly price"
+                invalid={tried && problems.humanPrice}
+                onChange={(value) => set("humanPrice", value)}
+              />
+            </Field>
+            <Field
+              id="plan-human-list"
+              label="Human agent list price"
+              hint="Shown struck through. Blank for none."
+            >
+              <NumberInput
+                id="plan-human-list"
+                prefix={symbol}
+                value={draft.humanList}
+                placeholder={draft.humanPrice || "Same as the price"}
+                invalid={tried && problems.humanList}
+                onChange={(value) => set("humanList", value)}
+              />
+            </Field>
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="plan-price" label="Price">
+          <Field id="plan-price" label={draft.perAgent ? "Plan fee" : "Price"}>
             <NumberInput
               id="plan-price"
               prefix={symbol}
@@ -754,7 +858,11 @@ function PlanForm({
           <Field
             id="plan-ai"
             label="Custom agents included"
-            hint="Live specialists, beyond the three desks."
+            hint={
+              draft.perAgent
+                ? "Free, before the paid ones. Usually zero."
+                : "Live specialists, beyond the three desks."
+            }
           >
             <NumberInput
               id="plan-ai"
@@ -767,7 +875,11 @@ function PlanForm({
           <Field
             id="plan-human"
             label="Human agents included"
-            hint="People with a login of their own."
+            hint={
+              draft.perAgent
+                ? "Free, before the paid ones. One keeps the admin free."
+                : "People with a login of their own."
+            }
           >
             <NumberInput
               id="plan-human"
@@ -916,12 +1028,14 @@ function PlanCard({
         </div>
         <p className="flex flex-wrap items-baseline gap-x-1.5">
           <StrikePrice
-            priceMicros={plan.priceMicros}
-            listMicros={plan.listPriceMicros}
+            priceMicros={plan.perAgent?.aiMicros ?? plan.priceMicros}
+            listMicros={plan.perAgent?.aiListMicros ?? plan.listPriceMicros}
             currency={plan.currency}
             className="font-heading text-2xl font-semibold tabular-nums"
           />
-          <span className="text-xs text-muted-foreground">/ month + GST</span>
+          <span className="text-xs text-muted-foreground">
+            {plan.perAgent ? "/ AI agent a month + GST" : "/ month + GST"}
+          </span>
         </p>
         {plan.description ? (
           <CardDescription>{plan.description}</CardDescription>

@@ -16,8 +16,13 @@ import {
   planCurrency,
   termsIn,
   accessOf,
+  DESK_NAMES,
+  DESK_ORDER,
+  deskPaid,
   hasRoomFor,
-  seatUsage,
+  isPerAgent,
+  seatsOf,
+  type DeskKind,
   type Access,
   type SeatKind,
   type SeatUsage,
@@ -248,16 +253,27 @@ export async function standingOf(
       now,
     }),
     used,
-    seats: plan
-      ? seatUsage({
-          includedAiAgents: plan.includedAiAgents,
-          includedHumanAgents: plan.includedHumanAgents,
-          extraAgents: account?.extraAgents ?? 0,
-          aiUsed: used.ai,
-          humanUsed: used.human,
-        })
-      : null,
+    seats: plan ? seatsOf(plan, account, used) : null,
   };
+}
+
+/**
+ * Why a desk may not work, or null when it may. Only a per-agent plan holds a
+ * desk back: there the AI agents paid for go to the desks in order.
+ */
+export async function deskBlock(
+  ctx: Ctx,
+  workspaceId: Id<"workspaces">,
+  kind: DeskKind
+): Promise<string | null> {
+  const terms = await billingTermsFor(ctx, workspaceId);
+  if (!terms) return null;
+  const plan = await planFor(ctx, terms.settings, terms.account);
+  if (!plan || !isPerAgent(plan)) return null;
+  const paid = terms.account?.agents?.ai ?? 0;
+  if (deskPaid(kind, paid)) return null;
+  const needed = DESK_ORDER.indexOf(kind) + 1;
+  return `The ${DESK_NAMES[kind].toLowerCase()} isn't on your ${plan.name} plan. Pay for ${needed} AI agents on the Billing page to switch it on.`;
 }
 
 /**
@@ -282,6 +298,21 @@ export async function assertSeat(
   if (hasRoomFor(standing.seats, kind)) return;
 
   const { plan, seats } = standing;
+  const instead =
+    kind === "ai"
+      ? "pause another agent first"
+      : "set another human agent to inactive first";
+  if (isPerAgent(plan)) {
+    const own = seats[kind];
+    const noun = kind === "ai" ? "custom agent" : "human agent";
+    const desks =
+      kind === "ai"
+        ? ` Custom agents start after the ${DESK_ORDER.length} desks.`
+        : "";
+    throw new ConvexError(
+      `Your ${plan.name} plan pays for ${own.included} ${noun}${own.included === 1 ? "" : "s"}, and all of them are in use.${desks} Add one on the Billing page, or ${instead}.`
+    );
+  }
   const included =
     kind === "ai"
       ? `${plan.includedAiAgents} live custom ${plan.includedAiAgents === 1 ? "agent" : "agents"}`
@@ -290,10 +321,6 @@ export async function assertSeat(
     seats.extra.bought === 0
       ? "no extra agents"
       : `all ${seats.extra.bought} extra ${seats.extra.bought === 1 ? "agent is" : "agents are"} in use`;
-  const instead =
-    kind === "ai"
-      ? "pause another agent first"
-      : "set another human agent to inactive first";
   throw new ConvexError(
     `The ${plan.name} plan includes ${included}, and ${extras}. Add an extra agent on the Billing page, or ${instead}.`
   );

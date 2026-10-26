@@ -18,11 +18,13 @@ import {
   DEFAULT_PLANS,
   DEFAULT_SETTINGS,
   DEFAULT_CURRENCY_TERMS,
+  PAY_AS_YOU_GO,
   PLATFORM_CURRENCY,
   USD_PRICES,
   allCurrencyTerms,
   planCurrency,
   publicPricing,
+  usdTwin,
 } from "./lib/plans";
 import { isValidCurrency } from "./lib/regional";
 import { slugify } from "./lib/shared";
@@ -302,6 +304,18 @@ const planFields = {
   price: v.number(),
   includedAiAgents: v.number(),
   includedHumanAgents: v.number(),
+  /** Whole units; null makes it a plan with a fixed price again. */
+  perAgent: v.optional(
+    v.union(
+      v.null(),
+      v.object({
+        ai: v.number(),
+        aiList: v.number(),
+        human: v.number(),
+        humanList: v.number(),
+      })
+    )
+  ),
   features: v.array(v.string()),
   highlighted: v.boolean(),
   status: v.union(v.literal("active"), v.literal("hidden")),
@@ -320,6 +334,26 @@ export const savePlan = mutation({
     if (!name) throw new ConvexError("A plan needs a name.");
 
     const priceMicros = money("The price", args.price);
+    const perAgent = args.perAgent
+      ? (() => {
+          const aiMicros = money("A custom agent's price", args.perAgent.ai);
+          const humanMicros = money("A human agent's price", args.perAgent.human);
+          return {
+            aiMicros,
+            aiListMicros: Math.max(
+              money("A custom agent's list price", args.perAgent.aiList),
+              aiMicros
+            ),
+            humanMicros,
+            humanListMicros: Math.max(
+              money("A human agent's list price", args.perAgent.humanList),
+              humanMicros
+            ),
+          };
+        })()
+      : args.perAgent === null
+        ? undefined
+        : null;
     const fields = {
       name,
       description: args.description?.trim() || undefined,
@@ -345,6 +379,8 @@ export const savePlan = mutation({
       highlighted: args.highlighted,
       status: args.status,
       updatedAt: Date.now(),
+      // Left out, an edit keeps how the plan is priced.
+      ...(perAgent === null ? {} : { perAgent }),
     };
 
     const existing = args.planId
@@ -492,13 +528,22 @@ export const addUsdPlans = internalMutation({
         price: Math.round(plan.priceMicros / 100 / 1_000_000),
         list: Math.round(plan.listPriceMicros / 100 / 1_000_000),
       };
+      const twinPrices = plan.perAgent
+        ? usdTwin(plan)
+        : {
+            listPriceMicros: toMicros(Math.max(usd.list, usd.price)),
+            priceMicros: toMicros(usd.price),
+          };
+      // A per-agent plan with no USD prices of its own is left to an admin.
+      if (!twinPrices) continue;
       await ctx.db.insert("billingPlans", {
         code: plan.code,
         currency: "USD",
         name: plan.name,
         description: plan.description,
-        listPriceMicros: toMicros(Math.max(usd.list, usd.price)),
-        priceMicros: toMicros(usd.price),
+        listPriceMicros: twinPrices.listPriceMicros,
+        priceMicros: twinPrices.priceMicros,
+        perAgent: "perAgent" in twinPrices ? twinPrices.perAgent : undefined,
         includedAiAgents: plan.includedAiAgents,
         includedHumanAgents: plan.includedHumanAgents,
         features: plan.features,
@@ -520,6 +565,42 @@ export const addUsdPlans = internalMutation({
         currencies: [...(settings.currencies ?? []), ...DEFAULT_CURRENCY_TERMS],
         updatedAt: now,
       });
+    }
+    return { added };
+  },
+});
+
+/**
+ * Put the Pay as you go plan on sale in every currency that has a starting
+ * price for it, at the end of the cards. Safe to run again: a currency that
+ * already has it is left alone. `bunx convex run plans:addPayAsYouGo`
+ */
+export const addPayAsYouGo = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const template = DEFAULT_PLANS.find((plan) => plan.code === PAY_AS_YOU_GO);
+    if (!template) return { added: 0 };
+    const plans = await allPlans(ctx);
+    const now = Date.now();
+    let sortOrder =
+      plans.reduce((max, plan) => Math.max(max, plan.sortOrder), -1) + 1;
+    let added = 0;
+    const usd = usdTwin(template);
+    for (const prices of [{ currency: PLATFORM_CURRENCY }, ...(usd ? [usd] : [])]) {
+      const exists = plans.some(
+        (plan) =>
+          plan.code === PAY_AS_YOU_GO && planCurrency(plan) === prices.currency
+      );
+      if (exists) continue;
+      await ctx.db.insert("billingPlans", {
+        ...template,
+        ...prices,
+        status: "active",
+        sortOrder: sortOrder++,
+        createdAt: now,
+        updatedAt: now,
+      });
+      added++;
     }
     return { added };
   },

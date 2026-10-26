@@ -11,7 +11,8 @@ import { ConvexError, v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { toMicros } from "./lib/billing";
-import { toPaise } from "./lib/plans";
+import { planLine, toPaise } from "./lib/plans";
+import { agentCounts } from "./schema/billing";
 import {
   RazorpayError,
   checkoutSignatureValid,
@@ -55,9 +56,6 @@ export type CheckoutOptions = {
     }
 );
 
-const agents = (count: number) =>
-  `${count} extra ${count === 1 ? "agent" : "agents"}`;
-
 const message = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
@@ -79,6 +77,7 @@ export const startSubscription = action({
     workspaceId: v.id("workspaces"),
     planId: v.id("billingPlans"),
     extraAgents: v.number(),
+    agents: v.optional(agentCounts),
   },
   handler: async (ctx, args): Promise<CheckoutOptions> => {
     const config = requireRazorpay();
@@ -87,8 +86,11 @@ export const startSubscription = action({
       now: Date.now(),
     });
     const { quote } = context;
-    const extras = quote.extraAgents > 0 ? ` + ${agents(quote.extraAgents)}` : "";
-    const description = `${context.plan.name} plan${extras}, monthly`;
+    const line = planLine(context.plan.name, quote.extraAgents, context.agents);
+    const description = `${line}, monthly`;
+    const counts = context.agents
+      ? { aiAgents: String(context.agents.ai), humanAgents: String(context.agents.human) }
+      : { extraAgents: String(quote.extraAgents) };
 
     let razorpayPlanId = context.razorpayPlanId;
     if (!razorpayPlanId) {
@@ -96,12 +98,12 @@ export const startSubscription = action({
         period: "monthly",
         interval: 1,
         item: {
-          name: `${BRAND} ${context.plan.name}${extras}`,
+          name: `${BRAND} ${line}`,
           amount: toPaise(quote.totalMicros),
           currency: context.currency,
           description: `Platform fee, including ${quote.gstPercent}% GST`,
         },
-        notes: { plan: context.plan.code, extraAgents: String(quote.extraAgents) },
+        notes: { plan: context.plan.code, ...counts },
       });
       razorpayPlanId = await ctx.runMutation(
         internal.subscriptions.rememberRazorpayPlan,
@@ -133,7 +135,7 @@ export const startSubscription = action({
         notes: {
           workspaceId: args.workspaceId,
           plan: context.plan.code,
-          extraAgents: String(quote.extraAgents),
+          ...counts,
         },
       }
     );
@@ -144,6 +146,7 @@ export const startSubscription = action({
       razorpayPlanId,
       planId: context.plan._id,
       extraAgents: quote.extraAgents,
+      agents: context.agents ?? undefined,
       subtotalMicros: quote.subtotalMicros,
       gstMicros: quote.gstMicros,
       totalMicros: quote.totalMicros,

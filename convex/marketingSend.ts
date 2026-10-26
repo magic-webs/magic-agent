@@ -193,7 +193,9 @@ function blocker(context: {
   template: Doc<"marketingTemplates"> | null;
   channel: Channel | null;
   walletBlock: string | null;
+  deskBlock: string | null;
 }): string | null {
+  if (context.deskBlock) return context.deskBlock;
   if (!context.template) return "The template was removed.";
   // Not applied, still in review, rejected, or edited since it was approved.
   const unapproved = templateBlocker(context.template);

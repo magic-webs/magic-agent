@@ -978,10 +978,15 @@ function SeatsDialog({
   const price = formatMoney(seats.seatMicros, seats.currency, PLATFORM_LOCALE);
 
   const options = [
-    {
-      title: "Add one extra agent",
-      body: `${price} a month + ${seats.gstPercent}% GST. Use it for a human agent or a custom AI agent.`,
-    },
+    seats.perAgent
+      ? {
+          title: "Pay for one more human agent",
+          body: `${price} a month + ${seats.gstPercent}% GST.`,
+        }
+      : {
+          title: "Add one extra agent",
+          body: `${price} a month + ${seats.gstPercent}% GST. Use it for a human agent or a custom AI agent.`,
+        },
     ...(seats.upgrade
       ? [
           {
@@ -1002,7 +1007,9 @@ function SeatsDialog({
             {seats.included === 1
               ? `The ${seats.planName} plan includes 1 human agent, and that is the admin.`
               : `The ${seats.planName} plan includes ${seats.included} human agents, the admin among them, and every one is taken.`}{" "}
-            To add someone else, add an extra agent or upgrade your plan.
+            {seats.perAgent
+              ? "To add someone else, pay for one more human agent or change your plan."
+              : "To add someone else, add an extra agent or upgrade your plan."}
           </DialogDescription>
         </DialogHeader>
 

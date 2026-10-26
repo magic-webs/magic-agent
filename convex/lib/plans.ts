@@ -159,6 +159,22 @@ const DESKS = [
   "Marketing agent for festival and birthday greetings",
 ];
 
+/**
+ * A plan priced by the agent: what one custom agent and one human agent cost
+ * a month, on top of the plan's own fee — usually none.
+ */
+export type PerAgentPrice = {
+  aiMicros: number;
+  aiListMicros: number;
+  humanMicros: number;
+  humanListMicros: number;
+};
+
+/** The agents a per-agent plan is bought for, beyond the ones it includes. */
+export type AgentCounts = { ai: number; human: number };
+
+export const PAY_AS_YOU_GO = "pay-as-you-go";
+
 export const DEFAULT_PLANS: Array<{
   code: string;
   name: string;
@@ -167,6 +183,7 @@ export const DEFAULT_PLANS: Array<{
   priceMicros: number;
   includedAiAgents: number;
   includedHumanAgents: number;
+  perAgent?: PerAgentPrice;
   features: string[];
   highlighted: boolean;
 }> = [
@@ -211,6 +228,28 @@ export const DEFAULT_PLANS: Array<{
     ],
     highlighted: false,
   },
+  {
+    code: PAY_AS_YOU_GO,
+    name: "Pay as you go",
+    description: "No plan fee. Pay for each agent you put to work.",
+    listPriceMicros: 0,
+    priceMicros: 0,
+    includedAiAgents: 0,
+    includedHumanAgents: 1,
+    perAgent: {
+      aiMicros: toMicros(1999),
+      aiListMicros: toMicros(1999),
+      humanMicros: toMicros(499),
+      humanListMicros: toMicros(499),
+    },
+    features: [
+      "Your first AI agent runs the front desk",
+      "The next two add the follow-up and marketing desks",
+      "Every AI agent after that is a custom agent",
+      "The admin's login free, more people as you need them",
+    ],
+    highlighted: false,
+  },
 ];
 
 /** USD prices for the plans a fresh catalogue starts with, by plan code. */
@@ -219,6 +258,56 @@ export const USD_PRICES: Record<string, { price: number; list: number }> = {
   growth: { price: 99, list: 119 },
   scale: { price: 199, list: 249 },
 };
+
+/** USD prices for the per-agent plans a fresh catalogue starts with. */
+export const USD_AGENT_PRICES: Record<string, { ai: number; human: number }> = {
+  [PAY_AS_YOU_GO]: { ai: 20, human: 5 },
+};
+
+export const isPerAgent = (plan: { perAgent?: PerAgentPrice | null }) =>
+  plan.perAgent != null;
+
+/**
+ * On a per-agent plan the AI agents paid for go to the desks first, in this
+ * order, and only then to custom agents: one is the front desk alone, two
+ * adds the follow-up desk, three the marketing desk, four the first custom
+ * agent.
+ */
+export const DESK_ORDER = ["router", "follow_up", "marketing"] as const;
+export type DeskKind = (typeof DESK_ORDER)[number];
+
+export const DESK_NAMES: Record<DeskKind, string> = {
+  router: "Front desk",
+  follow_up: "Follow-up desk",
+  marketing: "Marketing desk",
+};
+
+export const deskPaid = (kind: DeskKind, aiAgents: number) =>
+  DESK_ORDER.indexOf(kind) < aiAgents;
+
+/** "Front desk, follow-up desk + 2 custom agents" — what that many AI agents run. */
+export function unlockedLine(aiAgents: number): string {
+  const { desks, custom } = unlockedBy(aiAgents);
+  if (desks.length === 0) return "Nothing yet — the first is the front desk";
+  const names = desks.map((desk, index) =>
+    index === 0 ? DESK_NAMES[desk] : DESK_NAMES[desk].toLowerCase()
+  );
+  const extra =
+    custom > 0 ? ` + ${custom} custom agent${custom === 1 ? "" : "s"}` : "";
+  return `${names.join(", ")}${extra}`;
+}
+
+/** What a number of paid AI agents switches on. */
+export function unlockedBy(aiAgents: number): {
+  desks: DeskKind[];
+  custom: number;
+} {
+  const paid = Math.max(0, Math.floor(aiAgents));
+  return {
+    desks: DESK_ORDER.slice(0, paid),
+    custom: Math.max(0, paid - DESK_ORDER.length),
+  };
+}
 
 // --- Public pricing ------------------------------------------------------------
 
@@ -248,19 +337,44 @@ export type PublicPricing = {
 
 function startingCatalogue(): CataloguePlan[] {
   return DEFAULT_PLANS.flatMap((plan) => {
-    const usd = USD_PRICES[plan.code];
     const inr = { ...plan, currency: PLATFORM_CURRENCY, status: "active" as const };
-    if (!usd) return [inr];
-    return [
-      inr,
-      {
-        ...inr,
-        currency: "USD",
-        priceMicros: toMicros(usd.price),
-        listPriceMicros: toMicros(Math.max(usd.list, usd.price)),
-      },
-    ];
+    const usd = usdTwin(plan);
+    return usd ? [inr, { ...inr, ...usd }] : [inr];
   });
+}
+
+/** A starting plan's USD prices, or null when it has none. */
+export function usdTwin(plan: {
+  code: string;
+  perAgent?: PerAgentPrice;
+}): {
+  currency: string;
+  priceMicros: number;
+  listPriceMicros: number;
+  perAgent?: PerAgentPrice;
+} | null {
+  if (plan.perAgent) {
+    const usd = USD_AGENT_PRICES[plan.code];
+    if (!usd) return null;
+    return {
+      currency: "USD",
+      priceMicros: 0,
+      listPriceMicros: 0,
+      perAgent: {
+        aiMicros: toMicros(usd.ai),
+        aiListMicros: toMicros(usd.ai),
+        humanMicros: toMicros(usd.human),
+        humanListMicros: toMicros(usd.human),
+      },
+    };
+  }
+  const usd = USD_PRICES[plan.code];
+  if (!usd) return null;
+  return {
+    currency: "USD",
+    priceMicros: toMicros(usd.price),
+    listPriceMicros: toMicros(Math.max(usd.list, usd.price)),
+  };
 }
 
 /**
@@ -307,6 +421,7 @@ export function publicPricing(
           priceMicros: plan.priceMicros,
           includedAiAgents: plan.includedAiAgents,
           includedHumanAgents: plan.includedHumanAgents,
+          perAgent: plan.perAgent,
           features: plan.features,
           highlighted: plan.highlighted,
         })),
@@ -344,25 +459,74 @@ export type Quote = {
   seatMicros: number;
   seatListMicros: number;
   seatsMicros: number;
+  /** On a per-agent plan: each kind of agent bought, at this account's price. */
+  perAgent: {
+    ai: AgentLine;
+    human: AgentLine;
+  } | null;
   subtotalMicros: number;
   gstPercent: number;
   gstMicros: number;
   totalMicros: number;
 };
 
+export type AgentLine = {
+  count: number;
+  priceMicros: number;
+  listMicros: number;
+  totalMicros: number;
+};
+
+function agentLine(count: number, price: number, list: number): AgentLine {
+  const priceMicros = roundToPaise(price);
+  return {
+    count,
+    priceMicros,
+    listMicros: Math.max(roundToPaise(list), priceMicros),
+    totalMicros: priceMicros * count,
+  };
+}
+
+const wholeCount = (value: number | undefined) =>
+  Math.max(0, Math.floor(Number.isFinite(value) ? (value ?? 0) : 0));
+
 /**
  * A month of the platform fee: the plan, less any discount this account has
  * been given, plus its extra agents, plus GST.
+ *
+ * A per-agent plan takes no extra agents: it is bought for a number of custom
+ * and human agents instead, and the discount comes off the plan and its
+ * agents together — on a plan with no fee, the agents are all there is.
  *
  * Each part is rounded to a paisa before it is added, so the parts on the
  * summary add up to the total the subscription charges.
  */
 export function quote(args: {
-  plan: { priceMicros: number; listPriceMicros: number };
+  plan: {
+    priceMicros: number;
+    listPriceMicros: number;
+    perAgent?: PerAgentPrice | null;
+  };
   extraAgents: number;
+  agents?: AgentCounts | null;
   settings: PricingSettings;
   account?: AccountPricing | null;
 }): Quote {
+  const per = args.plan.perAgent ?? null;
+  const perAgent = per
+    ? {
+        ai: agentLine(wholeCount(args.agents?.ai), per.aiMicros, per.aiListMicros),
+        human: agentLine(
+          wholeCount(args.agents?.human),
+          per.humanMicros,
+          per.humanListMicros
+        ),
+      }
+    : null;
+  const agentsMicros = perAgent
+    ? perAgent.ai.totalMicros + perAgent.human.totalMicros
+    : 0;
+
   const fixedMicros = Math.max(0, args.account?.discountFixedMicros ?? 0);
   const discountPercent =
     fixedMicros > 0 ? 0 : clampPercent(args.account?.discountPercent ?? 0);
@@ -370,15 +534,16 @@ export function quote(args: {
     args.plan.listPriceMicros,
     args.plan.priceMicros
   );
+  const discountable = roundToPaise(args.plan.priceMicros) + agentsMicros;
   const discountMicros =
     fixedMicros > 0
-      ? Math.min(roundToPaise(fixedMicros), roundToPaise(args.plan.priceMicros))
-      : roundToPaise((args.plan.priceMicros * discountPercent) / 100);
+      ? Math.min(roundToPaise(fixedMicros), discountable)
+      : roundToPaise((discountable * discountPercent) / 100);
   const discountKind =
     fixedMicros > 0 ? "fixed" : discountPercent > 0 ? "percent" : null;
   const planMicros = roundToPaise(args.plan.priceMicros) - discountMicros;
 
-  const extraAgents = Math.max(0, Math.floor(args.extraAgents));
+  const extraAgents = perAgent ? 0 : wholeCount(args.extraAgents);
   const seatMicros = roundToPaise(
     args.account?.extraAgentPriceMicros ?? args.settings.extraAgentPriceMicros
   );
@@ -388,7 +553,7 @@ export function quote(args: {
   );
   const seatsMicros = seatMicros * extraAgents;
 
-  const subtotalMicros = planMicros + seatsMicros;
+  const subtotalMicros = planMicros + seatsMicros + agentsMicros;
   const gstMicros = roundToPaise(
     (subtotalMicros * args.settings.gstPercent) / 100
   );
@@ -403,6 +568,7 @@ export function quote(args: {
     seatMicros,
     seatListMicros,
     seatsMicros,
+    perAgent,
     subtotalMicros,
     gstPercent: args.settings.gstPercent,
     gstMicros,
@@ -458,6 +624,64 @@ export function hasRoomFor(usage: SeatUsage, kind: SeatKind): boolean {
   const own = usage[kind];
   if (own.used < own.included) return true;
   return usage.extra.used < usage.extra.bought;
+}
+
+/**
+ * The seats a plan gives this account. On a per-agent plan the agents it is
+ * bought for are its own included ones, and there are no extras to share.
+ */
+export function seatsOf(
+  plan: {
+    includedAiAgents: number;
+    includedHumanAgents: number;
+    perAgent?: PerAgentPrice | null;
+  },
+  account: { extraAgents: number; agents?: AgentCounts } | null,
+  used: { ai: number; human: number }
+): SeatUsage {
+  const bought = isPerAgent(plan) ? account?.agents : undefined;
+  return seatUsage({
+    includedAiAgents: plan.includedAiAgents + unlockedBy(bought?.ai ?? 0).custom,
+    includedHumanAgents: plan.includedHumanAgents + (bought?.human ?? 0),
+    extraAgents: isPerAgent(plan) ? 0 : (account?.extraAgents ?? 0),
+    aiUsed: used.ai,
+    humanUsed: used.human,
+  });
+}
+
+/**
+ * The fewest agents of each kind a per-agent plan needs for what is live now:
+ * the front desk at least, and every desk before any custom agent.
+ */
+export function agentsNeeded(
+  plan: { includedAiAgents: number; includedHumanAgents: number },
+  used: { ai: number; human: number }
+): AgentCounts {
+  const custom = Math.max(0, used.ai - plan.includedAiAgents);
+  return {
+    ai: custom > 0 ? DESK_ORDER.length + custom : 1,
+    human: Math.max(0, used.human - plan.includedHumanAgents),
+  };
+}
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** "Growth plan + 2 extra agents", "Pay as you go: 3 AI agents + 1 human agent". */
+export function planLine(
+  planName: string,
+  extraAgents: number,
+  agents?: AgentCounts | null
+): string {
+  if (agents) {
+    const parts = [
+      agents.ai > 0 ? plural(agents.ai, "AI agent") : null,
+      agents.human > 0 ? plural(agents.human, "human agent") : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? `${planName}: ${parts.join(" + ")}` : planName;
+  }
+  return extraAgents > 0
+    ? `${planName} plan + ${plural(extraAgents, "extra agent")}`
+    : `${planName} plan`;
 }
 
 /**

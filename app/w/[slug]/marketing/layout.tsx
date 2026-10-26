@@ -18,6 +18,9 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
   const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
   const ensureDesk = useMutation(api.marketing.ensureDesk);
+  const deskBlocks = useQuery(api.subscriptions.deskBlocks, {
+    workspaceId: workspace._id,
+  });
   const [creatingDesk, setCreatingDesk] = useState(false);
 
   return (
@@ -90,6 +93,19 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
               Channels
             </Link>{" "}
             and anything scheduled here will send from it.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {deskBlocks?.marketing ? (
+        <Alert>
+          <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
+          <AlertTitle>The marketing desk is not on your plan</AlertTitle>
+          <AlertDescription>
+            {deskBlocks.marketing} Until then nothing scheduled here sends.{" "}
+            <Link className="underline" href={`/w/${workspace.slug}/billing?tab=plan`}>
+              Billing
+            </Link>
           </AlertDescription>
         </Alert>
       ) : null}

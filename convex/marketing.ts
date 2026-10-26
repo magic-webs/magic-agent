@@ -32,6 +32,7 @@ import { requireWorkspace } from "./lib/auth";
 import { charge } from "./lib/charge";
 import { normalisePhone } from "./lib/notifications";
 import { templateBlock } from "./lib/wallet";
+import { deskBlock } from "./lib/account";
 import { recordAgentReply } from "./lib/agentStats";
 import { noteMessage } from "./lib/inbox";
 import { ensureMarketingDesk } from "./agents";
@@ -1017,6 +1018,8 @@ type SendContext = {
   channelId: Id<"channels"> | null;
   entryAgentId: Id<"agents"> | null;
   template: Doc<"marketingTemplates"> | null;
+  /** Why the marketing desk may not send on this plan, if it may not. */
+  deskBlock: string | null;
   channel: {
     apiBaseUrl: string;
     apiVersion: string;
@@ -1053,6 +1056,7 @@ async function sendContext(
     channelId: channel?._id ?? null,
     entryAgentId: channel?.agentId ?? null,
     template: own,
+    deskBlock: await deskBlock(ctx, workspaceId, "marketing"),
     // Read per page, so a campaign that drains the wallet stops at the page
     // it ran out on rather than sending the rest on credit.
     walletBlock: own

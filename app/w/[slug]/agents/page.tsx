@@ -692,10 +692,13 @@ function FollowUpDeskCard({
   desk,
   leads,
   base,
+  blocked,
 }: {
   desk: Agent;
   leads: { today: number; open: number; conversionRate: number | null } | null;
   base: string;
+  /** Why the plan holds it back, when it does. */
+  blocked?: string | null;
 }) {
   return (
     <Card className="shrink-0 rounded-2xl">
@@ -710,6 +713,11 @@ function FollowUpDeskCard({
               {desk.name}
             </span>
             <Badge variant="secondary">Lead pipeline</Badge>
+            {blocked ? (
+              <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
+                Not on your plan
+              </Badge>
+            ) : null}
           </div>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
             Reads a conversation an hour after it goes quiet, files it at a lead
@@ -717,6 +725,11 @@ function FollowUpDeskCard({
             live turn, so it is not in the front desk&apos;s roster and cannot be
             transferred to.
           </p>
+          {blocked ? (
+            <p className="mt-1 max-w-prose text-sm text-amber-700 dark:text-amber-400">
+              {blocked}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-6 lg:gap-8">
@@ -775,6 +788,9 @@ export default function AgentsPage() {
     now,
   });
   const ensureRouter = useMutation(api.agents.ensureDefaultRouter);
+  const deskBlocks = useQuery(api.subscriptions.deskBlocks, {
+    workspaceId: workspace._id,
+  });
 
   const [provisioning, setProvisioning] = useState(false);
   const [search, setSearch] = useState("");
@@ -1077,6 +1093,7 @@ export default function AgentsPage() {
           desk={followUpDesk}
           leads={roster?.leads ?? null}
           base={base}
+          blocked={deskBlocks?.follow_up}
         />
       ) : null}
     </div>

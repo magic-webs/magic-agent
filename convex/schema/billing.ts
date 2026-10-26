@@ -17,6 +17,17 @@ const usageSource = v.union(
 );
 const markup = v.object({ fixedMicros: v.number(), percent: v.number() });
 
+/** A per-agent plan's price for one custom agent and one human agent a month. */
+export const perAgentPrice = v.object({
+  aiMicros: v.number(),
+  aiListMicros: v.number(),
+  humanMicros: v.number(),
+  humanListMicros: v.number(),
+});
+
+/** The agents a per-agent plan is bought for, beyond those it includes. */
+export const agentCounts = v.object({ ai: v.number(), human: v.number() });
+
 export const currencyTerms = v.object({
   currency: v.string(),
   gstPercent: v.number(),
@@ -94,6 +105,7 @@ export const billingTables = {
     priceMicros: v.number(),
     includedAiAgents: v.number(),
     includedHumanAgents: v.number(),
+    perAgent: v.optional(perAgentPrice),
     features: v.array(v.string()),
     highlighted: v.boolean(),
     status: v.union(v.literal("active"), v.literal("hidden")),
@@ -109,6 +121,7 @@ export const billingTables = {
     currency: v.optional(v.string()),
     planId: v.optional(v.id("billingPlans")),
     extraAgents: v.number(),
+    agents: v.optional(agentCounts),
     mode: v.union(
       v.literal("trial"),
       v.literal("razorpay"),
@@ -159,6 +172,7 @@ export const billingTables = {
     razorpayPlanId: v.string(),
     planId: v.id("billingPlans"),
     extraAgents: v.number(),
+    agents: v.optional(agentCounts),
     subtotalMicros: v.number(),
     gstMicros: v.number(),
     totalMicros: v.number(),

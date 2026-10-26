@@ -115,6 +115,11 @@ export const review = internalAction({
       });
       return { reviewed: false, reason };
     };
+    if (context.deskBlock) {
+      // Not paid for on a per-agent plan. Marked reviewed, so the sweep does
+      // not pick the same thread up again every run.
+      return await skip("desk_not_on_plan");
+    }
     if (context.stages.length === 0) {
       // Nothing to file it at. Not an error: a workspace that has deleted every
       // stage has opted out of the pipeline.

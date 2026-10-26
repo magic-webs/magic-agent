@@ -32,6 +32,7 @@ import {
   liveSubscription,
   standingOf,
   billingTermsFor,
+  deskBlock,
 } from "./lib/account";
 import { MICROS, formatMoney, toMicros } from "./lib/billing";
 import { logoSrcFor } from "./lib/branding";
@@ -49,9 +50,12 @@ import {
   allCurrencyTerms,
   planCurrency,
   hasRoomFor,
+  isPerAgent,
   roundToPaise,
+  type AgentCounts,
 } from "./lib/plans";
 import { walletFor } from "./lib/wallet";
+import { agentCounts } from "./schema/billing";
 
 const LIVE = new Set(["authenticated", "active"]);
 /** Statuses in which Razorpay may still take a payment. */
@@ -64,6 +68,7 @@ function subscriptionView(row: Doc<"billingSubscriptions"> | null) {
     status: row.status,
     planId: row.planId,
     extraAgents: row.extraAgents,
+    agents: row.agents ?? null,
     subtotalMicros: row.subtotalMicros,
     gstMicros: row.gstMicros,
     totalMicros: row.totalMicros,
@@ -77,6 +82,22 @@ function subscriptionView(row: Doc<"billingSubscriptions"> | null) {
     createdAt: row.createdAt,
   };
 }
+
+function checkedAgents(agents: AgentCounts): AgentCounts {
+  for (const value of [agents.ai, agents.human]) {
+    if (!Number.isInteger(value) || value < 0 || value > MAX_EXTRA_AGENTS) {
+      throw new ConvexError(
+        `Agents must be a whole number from 0 to ${MAX_EXTRA_AGENTS}.`
+      );
+    }
+  }
+  return { ai: agents.ai, human: agents.human };
+}
+
+const sameAgents = (
+  left: AgentCounts | undefined | null,
+  right: AgentCounts | undefined | null
+) => (left?.ai ?? 0) === (right?.ai ?? 0) && (left?.human ?? 0) === (right?.human ?? 0);
 
 function pricingOf(settings: Doc<"billingSettings">) {
   return {
@@ -173,6 +194,7 @@ export const overview = query({
       account: {
         mode: account?.mode ?? ("trial" as const),
         extraAgents,
+        agents: account?.agents ?? null,
         discountPercent: account?.discountPercent ?? 0,
         discountFixedMicros: account?.discountFixedMicros ?? null,
         extraAgentPriceMicros: account?.extraAgentPriceMicros ?? null,
@@ -195,7 +217,13 @@ export const overview = query({
       // What the account's plan and extras come to at today's prices —
       // what the next checkout would be created at.
       quote: plan
-        ? quote({ plan, extraAgents, settings, account: pricing })
+        ? quote({
+            plan,
+            extraAgents,
+            agents: account?.agents,
+            settings,
+            account: pricing,
+          })
         : null,
       used: standing.used,
       seats: standing.seats,
@@ -251,12 +279,27 @@ export const humanSeats = query({
       currency: settings.currency,
       gstPercent: settings.gstPercent,
       seatMicros: roundToPaise(
-        account?.extraAgentPriceMicros ?? settings.extraAgentPriceMicros
+        plan.perAgent?.humanMicros ??
+          account?.extraAgentPriceMicros ??
+          settings.extraAgentPriceMicros
       ),
+      perAgent: isPerAgent(plan),
       upgrade: upgrade
         ? { name: upgrade.name, includedHumanAgents: upgrade.includedHumanAgents }
         : null,
       canBuy: principal.role !== "member",
+    };
+  },
+});
+
+/** Which desks a per-agent plan holds back, and why. Null for each that runs. */
+export const deskBlocks = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    return {
+      follow_up: await deskBlock(ctx, args.workspaceId, "follow_up"),
+      marketing: await deskBlock(ctx, args.workspaceId, "marketing"),
     };
   },
 });
@@ -347,6 +390,7 @@ export const adminAccounts = query({
             ? quote({
                 plan,
                 extraAgents: account?.extraAgents ?? 0,
+                agents: account?.agents,
                 settings: standing.settings,
                 account,
               })
@@ -365,6 +409,7 @@ export const adminAccounts = query({
           ownPlanId: account?.planId ?? null,
           planName: plan?.name ?? null,
           extraAgents: account?.extraAgents ?? 0,
+          agents: account?.agents ?? null,
           discountPercent: account?.discountPercent ?? 0,
           discountFixedMicros: account?.discountFixedMicros ?? null,
           extraAgentPriceMicros: account?.extraAgentPriceMicros ?? null,
@@ -416,6 +461,7 @@ export const adminUpdateAccount = mutation({
     workspaceId: v.id("workspaces"),
     planId: v.optional(v.id("billingPlans")),
     extraAgents: v.optional(v.number()),
+    agents: v.optional(agentCounts),
     mode: v.optional(v.union(v.literal("trial"), v.literal("manual"))),
     trialEndsAt: v.optional(v.number()),
     manualPaidThrough: v.optional(v.union(v.number(), v.null())),
@@ -498,6 +544,9 @@ export const adminUpdateAccount = mutation({
         );
       }
       patch.extraAgents = args.extraAgents;
+    }
+    if (args.agents !== undefined) {
+      patch.agents = checkedAgents(args.agents);
     }
     if (args.mode !== undefined && charging) {
       throw new ConvexError(
@@ -583,6 +632,7 @@ export const checkoutContext = internalQuery({
     workspaceId: v.id("workspaces"),
     planId: v.id("billingPlans"),
     extraAgents: v.number(),
+    agents: v.optional(agentCounts),
     now: v.number(),
   },
   handler: async (ctx, args) => {
@@ -622,20 +672,32 @@ export const checkoutContext = internalQuery({
       );
     }
 
+    const agents = isPerAgent(plan)
+      ? checkedAgents(args.agents ?? { ai: 0, human: 0 })
+      : null;
+    if (agents && agents.ai < 1) {
+      throw new ConvexError(
+        `The ${plan.name} plan needs at least one AI agent: the front desk.`
+      );
+    }
+    const extraAgents = agents ? 0 : args.extraAgents;
+
     const live =
       subscription && LIVE.has(subscription.status) ? subscription : null;
     if (
       live &&
       !live.cancelAtCycleEnd &&
       live.planId === plan._id &&
-      live.extraAgents === args.extraAgents
+      live.extraAgents === extraAgents &&
+      sameAgents(live.agents, agents)
     ) {
       throw new ConvexError("That is the plan you are already on.");
     }
 
     const priced = quote({
       plan,
-      extraAgents: args.extraAgents,
+      extraAgents,
+      agents,
       settings,
       account,
     });
@@ -651,7 +713,8 @@ export const checkoutContext = internalQuery({
       now: args.now,
     });
 
-    const razorpayPlanKey = `${plan.code}:${args.extraAgents}:${toPaise(priced.totalMicros)}:${settings.currency}`;
+    const counts = agents ? `${agents.ai}a${agents.human}h` : String(extraAgents);
+    const razorpayPlanKey = `${plan.code}:${counts}:${toPaise(priced.totalMicros)}:${settings.currency}`;
     const cached = await ctx.db
       .query("razorpayPlans")
       .withIndex("by_key", (q) => q.eq("key", razorpayPlanKey))
@@ -664,6 +727,7 @@ export const checkoutContext = internalQuery({
     return {
       workspaceName: workspace.name,
       plan: { _id: plan._id, code: plan.code, name: plan.name },
+      agents,
       quote: priced,
       currency: settings.currency,
       startAt,
@@ -707,6 +771,7 @@ export const recordCreated = internalMutation({
     razorpayPlanId: v.string(),
     planId: v.id("billingPlans"),
     extraAgents: v.number(),
+    agents: v.optional(agentCounts),
     subtotalMicros: v.number(),
     gstMicros: v.number(),
     totalMicros: v.number(),

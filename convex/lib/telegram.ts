@@ -117,6 +117,18 @@ export function telegramRequests(chatId: string, message: Outbound): TelegramReq
       if (rows.length === 0) return null;
       return keyed(chatId, withFooter(message.body, message.footer), keyboard(rows), message.header);
     }
+    case "cards":
+      return [
+        { method: "sendMessage", body: { chat_id: chatId, text: message.body.slice(0, TELEGRAM_TEXT_LIMIT) } },
+        ...message.cards.flatMap((card) =>
+          keyed(
+            chatId,
+            [card.title, card.body].filter((part) => part?.trim()).join("\n"),
+            keyboard(card.buttons),
+            { type: "image", media: { link: card.imageLink } }
+          )
+        ),
+      ];
     case "cta_url":
       return keyed(
         chatId,

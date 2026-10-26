@@ -23,6 +23,9 @@ const CAP = {
   quickReplyTitle: 20,
   buttonText: 640,
   buttonTitle: 20,
+  elements: 10,
+  elementTitle: 80,
+  elementButtons: 3,
 } as const;
 
 export function instagramRedirectUri(siteUrl: string): string {
@@ -72,6 +75,27 @@ export function instagramMessage(message: Outbound): Json | null {
                 title: message.displayText.slice(0, CAP.buttonTitle),
               },
             ],
+          },
+        },
+      };
+    case "cards":
+      return {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "generic",
+            elements: message.cards.slice(0, CAP.elements).map((card) => ({
+              title: card.title.trim().slice(0, CAP.elementTitle),
+              ...(card.body?.trim()
+                ? { subtitle: card.body.trim().slice(0, CAP.elementTitle) }
+                : {}),
+              image_url: card.imageLink,
+              buttons: card.buttons.slice(0, CAP.elementButtons).map((button) => ({
+                type: "postback",
+                title: button.title.trim().slice(0, CAP.buttonTitle),
+                payload: button.id,
+              })),
+            })),
           },
         },
       };

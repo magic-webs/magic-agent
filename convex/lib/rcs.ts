@@ -108,6 +108,18 @@ export function rcsMessages(to: string, message: Outbound): Json[] | null {
       if (rows.length === 0 || rows.length > CAP.buttons) return null;
       return [card(to, message.body, rows.map(postback), message.header, message.footer)];
     }
+    case "cards":
+      return [
+        ...splitForRcs(message.body).map((body) => ({ to, type: "text", text: { body } })),
+        ...message.cards.map((item) =>
+          card(
+            to,
+            [item.title, item.body].filter((part) => part?.trim()).join("\n"),
+            item.buttons.slice(0, CAP.buttons).map(postback),
+            { type: "image", media: { link: item.imageLink } }
+          )
+        ),
+      ];
     case "cta_url":
       return [
         card(

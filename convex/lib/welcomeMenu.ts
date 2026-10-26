@@ -1,6 +1,6 @@
 import type { Outbound } from "./whatsappSend";
 
-export type WelcomeOption = { title: string; description?: string };
+export type WelcomeOption = { title: string; description?: string; imageKey?: string };
 
 export type WelcomeMenu = {
   enabled: boolean;
@@ -8,6 +8,7 @@ export type WelcomeMenu = {
   header?: string;
   footer?: string;
   buttonText?: string;
+  headerImageKey?: string;
   options: WelcomeOption[];
 };
 
@@ -20,6 +21,7 @@ export const WELCOME_LIMITS = {
   description: 72,
   options: 10,
   buttons: 3,
+  cardsMin: 2,
 } as const;
 
 export const FRESH_AFTER_MS = 12 * 60 * 60 * 1000;
@@ -131,7 +133,11 @@ export function tidyWelcomeMenu(menu: WelcomeMenu): WelcomeMenu {
     const description = option.description
       ? clip(option.description, WELCOME_LIMITS.description)
       : "";
-    options.push(description ? { title, description } : { title });
+    options.push({
+      title,
+      ...(description ? { description } : {}),
+      ...(option.imageKey ? { imageKey: option.imageKey } : {}),
+    });
     if (options.length === WELCOME_LIMITS.options) break;
   }
   const header = menu.header ? clip(menu.header, WELCOME_LIMITS.header) : "";
@@ -143,6 +149,7 @@ export function tidyWelcomeMenu(menu: WelcomeMenu): WelcomeMenu {
     ...(header ? { header } : {}),
     ...(footer ? { footer } : {}),
     ...(buttonText ? { buttonText } : {}),
+    ...(menu.headerImageKey ? { headerImageKey: menu.headerImageKey } : {}),
     options,
   };
 }
@@ -160,14 +167,41 @@ export function optionsFromAgents(
   }).options;
 }
 
+/** Every option has a picture, and there are enough of them for a carousel. */
+export function showsAsCards(options: WelcomeOption[]): boolean {
+  return (
+    options.length >= WELCOME_LIMITS.cardsMin &&
+    options.every((option) => Boolean(option.imageKey))
+  );
+}
+
 export function welcomeOutbound(
   menu: WelcomeMenu,
-  workspaceName: string
+  workspaceName: string,
+  imageUrl: (key: string) => string
 ): Outbound | null {
   const tidy = tidyWelcomeMenu(menu);
   if (tidy.options.length === 0) return null;
   const body = tidy.body || defaultWelcomeBody(workspaceName);
-  const header = tidy.header ? { type: "text" as const, text: tidy.header } : undefined;
+
+  if (showsAsCards(tidy.options)) {
+    return {
+      kind: "cards",
+      body,
+      cards: tidy.options.map((option) => ({
+        imageLink: imageUrl(option.imageKey!),
+        title: option.title,
+        ...(option.description ? { body: option.description } : {}),
+        buttons: [{ id: option.title, title: option.title }],
+      })),
+    };
+  }
+
+  const header = tidy.headerImageKey
+    ? { type: "image" as const, media: { link: imageUrl(tidy.headerImageKey) } }
+    : tidy.header
+      ? { type: "text" as const, text: tidy.header }
+      : undefined;
 
   if (tidy.options.length <= WELCOME_LIMITS.buttons) {
     return {

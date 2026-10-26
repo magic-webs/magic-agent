@@ -8,8 +8,13 @@ export const welcomeMenuShape = v.object({
   header: v.optional(v.string()),
   footer: v.optional(v.string()),
   buttonText: v.optional(v.string()),
+  headerImageKey: v.optional(v.string()),
   options: v.array(
-    v.object({ title: v.string(), description: v.optional(v.string()) })
+    v.object({
+      title: v.string(),
+      description: v.optional(v.string()),
+      imageKey: v.optional(v.string()),
+    })
   ),
 });
 

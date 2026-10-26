@@ -11,6 +11,7 @@ import type { Id } from "./_generated/dataModel";
 import {
   buildMessage,
   providerMessageId,
+  splitMediaHeader,
   summarise,
   type Outbound,
 } from "./lib/whatsappSend";
@@ -220,16 +221,21 @@ export const sendOutbound = internalAction({
       };
     }
 
-    const message = args.message as Outbound;
-    const result = await send(channel.whatsapp, args.to, message, args.replyTo);
-    if (result.ok) {
+    const sent: Array<{ message: Outbound; wamid?: string }> = [];
+    let result: { ok: boolean; error?: string; wamid?: string } = { ok: false };
+    for (const message of splitMediaHeader(args.message as Outbound, ["list"])) {
+      result = await send(channel.whatsapp, args.to, message, args.replyTo);
+      if (!result.ok) break;
+      sent.push({ message, wamid: result.wamid });
+    }
+    if (sent.length > 0) {
       await bill(ctx, {
         workspaceId: channel.workspaceId,
         channelId: channel._id,
         conversationId: args.conversationId,
         to: args.to,
         source: args.source ?? "agent",
-        messages: [{ message, wamid: result.wamid }],
+        messages: sent,
       });
     }
     if (!result.ok) {

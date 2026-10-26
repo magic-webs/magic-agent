@@ -57,6 +57,7 @@ import {
   welcomeOutbound,
   worthClassifying,
 } from "./lib/welcomeMenu";
+import { fileUrl } from "./lib/files";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { sendOnChannel } from "./lib/channelSend";
 import { channelType } from "./schema";
@@ -467,7 +468,7 @@ function buildBuiltinTools(
         const withFiles = products.filter((p) => p.files.length > 0).length;
         const notes = [
           withImages > 0 && enabled.has("rich_messages")
-            ? "imageUrl is for send_media, not for your reply. If the customer wants to see a product, call send_media with its imageUrl and a short caption — one call per product. Never write the URL out."
+            ? "imageUrl is for send_media and send_product_carousel, not for your reply. To show several products with pictures, call send_product_carousel with their slugs; for a single one, send_media with its imageUrl and a short caption. Never write the URL out."
             : withImages > 0
               ? "Do not put imageUrl in your reply — the customer cannot open it. Describe the product instead."
               : null,
@@ -704,6 +705,7 @@ const ASKS_ITS_OWN_QUESTION = new Set<Outbound["kind"]>([
   "product",
   "product_list",
   "catalog",
+  "cards",
 ]);
 
 const ALREADY_ASKED =
@@ -906,6 +908,50 @@ function buildRichMessageTools(ctx: ActionCtx, turn: TurnContext): ToolSet {
         filename: input.filename,
       })
     ),
+  });
+
+  registry.send_product_carousel = tool({
+    description:
+      "Show 2 to 10 catalogue products as a swipeable row of picture cards, each with its name, price and a button to pick it. Use it when the customer wants to see options or browse, instead of one send_media per product. Only products search_products returned with an imageUrl can be shown.",
+    inputSchema: z.object({
+      body: z.string().describe("One line above the cards, e.g. 'Here are our bestsellers'"),
+      slugs: z
+        .array(z.string())
+        .min(2)
+        .max(10)
+        .describe("The products' slugs from search_products, in the order to show them"),
+    }),
+    execute: traced(trace, "send_product_carousel", async (input) => {
+      const products = await ctx.runQuery(internal.products.cardsForTool, {
+        workspaceId: turn.workspace._id,
+        slugs: input.slugs,
+      });
+      const shown = products.filter((product) => product.imageUrl);
+      if (shown.length < 2) {
+        return {
+          ok: false,
+          error:
+            "Fewer than two of those products have a picture. Send the one that has with send_media, or describe them in text.",
+          skipped: products.filter((product) => !product.imageUrl).map((product) => product.name),
+        };
+      }
+      return deliver({
+        kind: "cards",
+        body: input.body,
+        cards: shown.map((product) => ({
+          imageLink: product.imageUrl!,
+          title: product.name,
+          ...(product.price !== null
+            ? {
+                body: [product.currency, product.price, product.unit ? `/ ${product.unit}` : null]
+                  .filter((part) => part !== null && part !== "")
+                  .join(" "),
+              }
+            : {}),
+          buttons: [{ id: product.slug, title: product.name }],
+        })),
+      });
+    }),
   });
 
   registry.send_link_button = tool({
@@ -2146,7 +2192,7 @@ async function welcomeMenuTurn(
       : null;
   if (!reason) return null;
 
-  const outbound = welcomeOutbound(menu, turn.workspace.name);
+  const outbound = welcomeOutbound(menu, turn.workspace.name, fileUrl);
   if (!outbound) return null;
   try {
     await makeDeliver(ctx, menuTurn)(outbound);

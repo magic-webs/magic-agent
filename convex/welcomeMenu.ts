@@ -3,6 +3,7 @@ import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
+import { deleteFile, fileUrl, requireOwnKey, uploadUrlFor } from "./lib/files";
 import { welcomeMenuShape } from "./schema/workspaces";
 import {
   defaultWelcomeBody,
@@ -37,6 +38,7 @@ function resolve(workspace: Doc<"workspaces">, automatic: WelcomeMenu["options"]
     header: saved?.header,
     footer: saved?.footer,
     buttonText: saved?.buttonText,
+    headerImageKey: saved?.headerImageKey,
     options: custom ? saved!.options : automatic,
     automaticOptions: !custom,
   };
@@ -49,8 +51,14 @@ export const get = query({
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) return null;
     const automatic = await specialistOptions(ctx, args.workspaceId);
+    const saved = workspace.welcomeMenu;
+    const keys = [
+      saved?.headerImageKey,
+      ...(saved?.options ?? []).map((option) => option.imageKey),
+    ].filter((key): key is string => Boolean(key));
     return {
-      saved: workspace.welcomeMenu ?? null,
+      saved: saved ?? null,
+      images: Object.fromEntries(keys.map((key) => [key, fileUrl(key)])),
       effective: resolve(workspace, automatic),
       agentOptions: automatic,
       defaultBody: defaultWelcomeBody(workspace.name),
@@ -63,6 +71,17 @@ export const save = mutation({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     const menu = tidyWelcomeMenu(args.menu);
+    const keys = (value: WelcomeMenu | undefined) =>
+      [value?.headerImageKey, ...(value?.options ?? []).map((option) => option.imageKey)].filter(
+        (key): key is string => Boolean(key)
+      );
+    for (const key of keys(menu)) requireOwnKey(key, "welcome", args.workspaceId);
+
+    const workspace = await ctx.db.get("workspaces", args.workspaceId);
+    const kept = new Set(keys(menu));
+    for (const key of keys(workspace?.welcomeMenu)) {
+      if (!kept.has(key)) await deleteFile(ctx, key);
+    }
     await ctx.db.patch(args.workspaceId, { welcomeMenu: menu, updatedAt: Date.now() });
     return menu;
   },
@@ -88,5 +107,13 @@ export const returnToFrontDesk = internalMutation({
     const conversation = await ctx.db.get("conversations", args.conversationId);
     if (!conversation || conversation.activeAgentId === args.agentId) return;
     await ctx.db.patch(args.conversationId, { activeAgentId: args.agentId });
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    return await uploadUrlFor("welcome", args.workspaceId);
   },
 });

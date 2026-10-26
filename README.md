@@ -259,7 +259,7 @@ consequential goes through a tool call:
 | `save_contact_detail` | Remember a name / email / company / preference |
 | `escalate_to_human` | Mark the conversation escalated, assign it by the handover rules, fire `escalation` |
 | `transfer_to_agent` | Hand the conversation to a colleague agent, silently |
-| `rich_messages` | One switch for eight tools: `send_buttons`, `send_list`, `send_media`, `send_link_button`, `request_location`, `request_address`, `send_location`, `send_contact_card`. They work the same on WhatsApp and the web widget, and fall back to text on Instagram |
+| `rich_messages` | One switch for nine tools: `send_buttons`, `send_list`, `send_media`, `send_product_carousel`, `send_link_button`, `request_location`, `request_address`, `send_location`, `send_contact_card`. They work the same on WhatsApp and the web widget, and fall back to text on Instagram |
 
 Each is toggled per agent. Each record book an agent is switched on for adds
 `file_<handle>`, plus `find_<handle>` and `update_<handle>` when the book

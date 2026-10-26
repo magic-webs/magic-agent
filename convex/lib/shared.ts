@@ -141,6 +141,7 @@ export const RICH_TOOL_NAMES = [
   "send_buttons",
   "send_list",
   "send_media",
+  "send_product_carousel",
   "send_link_button",
   "request_location",
   "request_address",

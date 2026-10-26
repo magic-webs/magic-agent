@@ -28,6 +28,7 @@ import { resolveGreeting } from "./lib/prompt";
 import { welcomeOutbound } from "./lib/welcomeMenu";
 import { liveWelcomeMenu } from "./welcomeMenu";
 import { logoSrcFor } from "./lib/branding";
+import { fileUrl } from "./lib/files";
 import { insertConversation, refreshContactSearch } from "./lib/inbox";
 import { summarise } from "./lib/whatsappSend";
 import { INTAKE_ASK_NAME, intakeAskPhone } from "./lib/widgetIntake";
@@ -97,7 +98,7 @@ export const bootstrap = query({
         // document to work it out.
         greeting: resolveGreeting(agent, workspace.name),
       },
-      welcome: welcome ? welcomeOutbound(welcome, workspace.name) : null,
+      welcome: welcome ? welcomeOutbound(welcome, workspace.name, fileUrl) : null,
     };
   },
 });
@@ -331,7 +332,7 @@ async function recordIntake(
   ];
   const menu =
     agent.kind === "router" ? await liveWelcomeMenu(ctx, workspace) : null;
-  const welcome = menu ? welcomeOutbound(menu, workspace.name) : null;
+  const welcome = menu ? welcomeOutbound(menu, workspace.name, fileUrl) : null;
 
   const conversationId = await insertConversation(ctx, {
     workspaceId: channel.workspaceId,

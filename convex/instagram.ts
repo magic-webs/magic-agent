@@ -24,7 +24,7 @@ import {
   instagramRedirectUri,
   splitForInstagram,
 } from "./lib/instagram";
-import type { Outbound } from "./lib/whatsappSend";
+import { splitMediaHeader, type Outbound } from "./lib/whatsappSend";
 
 const STATE_TTL_MS = 15 * 60_000;
 const REFRESH_WITHIN_MS = 10 * 24 * 60 * 60_000;
@@ -376,9 +376,15 @@ async function send(
     }
     return last;
   }
-  const payload = instagramMessage(message);
-  if (!payload) return { ok: false, error: UNSUPPORTED };
-  return await sendOne(config, { id: to }, { message: payload });
+  const parts = splitMediaHeader(message, ["buttons", "list", "cta_url"]);
+  const payloads = parts.map(instagramMessage);
+  if (payloads.some((payload) => !payload)) return { ok: false, error: UNSUPPORTED };
+  let last: SendResult = { ok: false, error: "Nothing to send." };
+  for (const payload of payloads) {
+    last = await sendOne(config, { id: to }, { message: payload });
+    if (!last.ok) return last;
+  }
+  return last;
 }
 
 async function senderAction(

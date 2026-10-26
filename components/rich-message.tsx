@@ -70,6 +70,10 @@ export function quotedChoice(
       if (section.rows.some((r) => r.title === text)) return { body: message.body };
     }
   }
+  if (message.kind === "cards") {
+    const card = message.cards.find((c) => c.buttons.some((b) => b.title === text));
+    if (card) return { body: card.title };
+  }
   return null;
 }
 
@@ -1117,6 +1121,48 @@ export function RichMessage({
                     <span className="truncate">{cardData.quickReplyPayload}</span>
                   </button>
                 ) : null}
+              </div>
+            ))}
+          </div>
+          <MetaStamp meta={meta} />
+        </div>
+      );
+
+    case "cards":
+      return (
+        <div className="flex flex-col gap-1">
+          <Body text={message.body} />
+          <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-0.5 pb-1">
+            {message.cards.map((cardData, index) => (
+              <div
+                key={index}
+                className="flex w-52 shrink-0 snap-start flex-col overflow-hidden rounded-md border border-foreground/10 bg-background"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- any host */}
+                <img
+                  src={cardData.imageLink}
+                  alt=""
+                  loading="lazy"
+                  className="h-32 w-full bg-foreground/5 object-cover"
+                />
+                <div className="flex-1 px-2.5 py-2">
+                  <p className="text-sm font-medium">{cardData.title}</p>
+                  {cardData.body ? (
+                    <p className="text-xs text-muted-foreground">{cardData.body}</p>
+                  ) : null}
+                </div>
+                {cardData.buttons.map((button) => (
+                  <button
+                    key={button.id}
+                    type="button"
+                    disabled={!live}
+                    onClick={pick(button.title)}
+                    className={cn(action, live ? "cursor-pointer hover:bg-foreground/5" : "cursor-default")}
+                  >
+                    <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} className="size-4" />
+                    <span className="truncate">{button.title}</span>
+                  </button>
+                ))}
               </div>
             ))}
           </div>

@@ -690,6 +690,31 @@ export const searchForTool = internalQuery({
   },
 });
 
+export const cardsForTool = internalQuery({
+  args: { workspaceId: v.id("workspaces"), slugs: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const cards = [];
+    for (const slug of new Set(args.slugs)) {
+      const product = await ctx.db
+        .query("products")
+        .withIndex("by_workspace_slug", (q) =>
+          q.eq("workspaceId", args.workspaceId).eq("slug", slug)
+        )
+        .first();
+      if (!product) continue;
+      cards.push({
+        slug,
+        name: product.name,
+        price: product.price ?? null,
+        currency: product.currency ?? null,
+        unit: product.unit ?? null,
+        imageUrl: await primaryImageUrl(ctx, product),
+      });
+    }
+    return cards;
+  },
+});
+
 export const requirementsForTool = internalQuery({
   args: {
     workspaceId: v.id("workspaces"),

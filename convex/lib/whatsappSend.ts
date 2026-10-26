@@ -31,6 +31,9 @@ const CAP = {
   buttons: 3,
   rows: 10,
   sections: 10,
+  cards: 10,
+  cardBody: 160,
+  cardButtons: 2,
 } as const;
 
 /** Hard clamp. No ellipsis: these are labels, and "Confirm or…" reads worse. */
@@ -98,6 +101,14 @@ export type CarouselCard = {
   urlVariable?: string;
   /** Payload for the card's quick-reply button, when the template has one. */
   quickReplyPayload?: string;
+};
+
+/** One card of an ad-hoc carousel: an image, a caption and its own reply buttons. */
+export type MediaCard = {
+  imageLink: string;
+  title: string;
+  body?: string;
+  buttons: ReplyButton[];
 };
 
 export type Outbound =
@@ -185,6 +196,7 @@ export type Outbound =
       bodyVariables?: string[];
       cards: CarouselCard[];
     }
+  | { kind: "cards"; body: string; cards: MediaCard[] }
   | {
       kind: "template";
       /**
@@ -579,6 +591,9 @@ function payloadFor(message: Outbound): Json {
     case "carousel":
       return carouselJson(message);
 
+    case "cards":
+      return cardsJson(message);
+
     case "template":
       return {
         type: "template",
@@ -620,6 +635,54 @@ function payloadFor(message: Outbound): Json {
 }
 
 /**
+ * An interactive carousel, composed per message rather than approved.
+ *
+ * Meta wants 2 to 10 cards and the same number of reply buttons on every
+ * card, so the count is the smallest any card has.
+ */
+function cardsJson(message: Extract<Outbound, { kind: "cards" }>): Json {
+  const cards = message.cards.slice(0, CAP.cards);
+  const buttons = Math.max(
+    1,
+    Math.min(CAP.cardButtons, ...cards.map((card) => card.buttons.length))
+  );
+  return {
+    type: "interactive",
+    interactive: {
+      type: "carousel",
+      body: { text: clamp(message.body, CAP.body) },
+      action: {
+        cards: cards.map((card, index) => ({
+          card_index: index,
+          type: "cta_url",
+          header: { type: "image", image: { link: card.imageLink } },
+          body: {
+            text: clamp(
+              [card.title, card.body].filter((part) => part?.trim()).join("\n"),
+              CAP.cardBody
+            ),
+          },
+          action: {
+            buttons: (card.buttons.length > 0
+              ? card.buttons
+              : [{ id: card.title, title: card.title }]
+            )
+              .slice(0, buttons)
+              .map((button) => ({
+                type: "quick_reply",
+                quick_reply: {
+                  id: clamp(button.id, CAP.buttonId),
+                  title: clampLabel(button.title, CAP.buttonTitle),
+                },
+              })),
+          },
+        })),
+      },
+    },
+  };
+}
+
+/**
  * The complete request body. `replyTo` threads the message under one the
  * customer sent, which is what makes a reply read as an answer rather than as
  * a new topic.
@@ -636,6 +699,25 @@ export function buildMessage(
     ...(replyTo ? { context: { message_id: replyTo } } : {}),
     ...payloadFor(message),
   };
+}
+
+/**
+ * An image or video header sent ahead as its own message, for the kinds a
+ * channel cannot put one on — a WhatsApp list takes a text header only.
+ */
+export function splitMediaHeader(
+  message: Outbound,
+  kinds: ReadonlyArray<Outbound["kind"]>
+): Outbound[] {
+  if (!kinds.includes(message.kind) || !("header" in message)) return [message];
+  const header = message.header;
+  if (!header || (header.type !== "image" && header.type !== "video")) {
+    return [message];
+  }
+  return [
+    { kind: "media", media: header.type, source: header.media },
+    { ...message, header: undefined },
+  ];
 }
 
 /** Long text has to be split; WhatsApp caps a body at 4096. */
@@ -679,6 +761,8 @@ export function historyText(message: Outbound): string {
       return message.body;
     case "carousel":
       return "(sent a carousel)";
+    case "cards":
+      return message.body;
     case "template":
       return message.preview?.trim() || "(sent a template message)";
   }
@@ -734,6 +818,10 @@ export function summarise(message: Outbound): string {
       return `${message.body} [catalogue]`;
     case "carousel":
       return `[carousel: ${message.cards.length} cards]`;
+    case "cards":
+      return `${message.body} [cards: ${message.cards
+        .map((card) => card.title)
+        .join(" | ")}]`;
     case "template":
       return message.preview?.trim() || `[template: ${message.templateName}]`;
   }

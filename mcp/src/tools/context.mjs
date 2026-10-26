@@ -167,7 +167,7 @@ export function register(server) {
     {
       title: "Update the welcome menu",
       description:
-        "Replace the welcome menu. Up to 3 options go out as WhatsApp reply buttons, 4–10 as a list behind buttonText. Titles are cut to 20 characters, descriptions (list only) to 72. Pass options: [] to keep the buttons following the live agents, and an empty body for the default greeting.",
+        "Replace the welcome menu. Up to 3 options go out as WhatsApp reply buttons, 4–10 as a list behind buttonText. Titles are cut to 20 characters, descriptions (list only) to 72. Pass options: [] to keep the buttons following the live agents, and an empty body for the default greeting. Pictures are set in the console and kept for options whose title stays the same; when every option has one, the menu goes out as an image carousel.",
       inputSchema: {
         ...workspaceArg,
         enabled: z.boolean(),
@@ -182,9 +182,24 @@ export function register(server) {
     },
     handler(async ({ workspace, ...menu }) => {
       const found = await resolveWorkspace(workspace);
+      const current = await call.query(api.welcomeMenu.get, { workspaceId: found._id });
+      const images = new Map(
+        (current?.saved?.options ?? [])
+          .filter((option) => option.imageKey)
+          .map((option) => [option.title.trim().toLowerCase(), option.imageKey])
+      );
       const saved = await call.mutation(api.welcomeMenu.save, {
         workspaceId: found._id,
-        menu,
+        menu: {
+          ...menu,
+          ...(current?.saved?.headerImageKey
+            ? { headerImageKey: current.saved.headerImageKey }
+            : {}),
+          options: menu.options.map((option) => {
+            const imageKey = images.get(option.title.trim().toLowerCase());
+            return imageKey ? { ...option, imageKey } : option;
+          }),
+        },
       });
       return ok(saved);
     })

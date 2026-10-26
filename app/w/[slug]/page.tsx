@@ -13,7 +13,6 @@ import { useHourBucket } from "@/components/use-now";
 import {
   ActivityChart,
   ChannelSplit,
-  RankedBars,
   StatTile,
 } from "@/components/dashboard-charts";
 import {
@@ -51,15 +50,6 @@ const RANGES = [
   { value: "14", label: "Last 14 days" },
   { value: "30", label: "Last 30 days" },
 ];
-
-const STATUS_LABELS: Record<string, string> = {
-  new: "New",
-  quoted: "Quoted",
-  confirmed: "Confirmed",
-  in_progress: "In progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
 
 export default function WorkspaceOverviewPage() {
   const workspace = useWorkspace();
@@ -178,39 +168,6 @@ export default function WorkspaceOverviewPage() {
                   rcs={stats.channels.rcs}
                   telegram={stats.channels.telegram}
                   web={stats.channels.web}
-                />
-              </CardContent>
-            </Card>
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Orders by status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RankedBars
-                  data={stats.ordersByStatus}
-                  categoryKey="status"
-                  valueKey="count"
-                  valueLabel="Orders"
-                  formatCategory={(value) => STATUS_LABELS[value] ?? value}
-                  emptyLabel="Orders appear once an agent completes an enquiry."
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Most-used tools</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RankedBars
-                  data={stats.toolUsage}
-                  categoryKey="name"
-                  valueKey="calls"
-                  valueLabel="Calls"
-                  emptyLabel="Enable a custom tool and it will show up here once called."
                 />
               </CardContent>
             </Card>

@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { requireWorkspace } from "./lib/auth";
-import { orderRecords, statusForStage } from "./lib/ordersBook";
 import { dayKey } from "./lib/dailyStats";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,16 +32,9 @@ export const dashboard = query({
     const windowStart = todayStart - (days - 1) * DAY_MS;
     const previousStart = windowStart - days * DAY_MS;
 
-    const [allConversations, orders, tools, dailyRows] = await Promise.all([
+    const [allConversations, dailyRows] = await Promise.all([
       ctx.db
         .query("conversations")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-        .collect(),
-      // Orders are the Orders record book's records now — see
-      // convex/lib/ordersBook.ts. Their stages stand in for the old statuses.
-      orderRecords(ctx, args.workspaceId, 5000),
-      ctx.db
-        .query("tools")
         .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
         .collect(),
       ctx.db
@@ -64,7 +56,6 @@ export const dashboard = query({
       {
         date: string;
         conversations: number;
-        orders: number;
         messages: number;
         /** Mean assistant reply time that day, in seconds. Null on quiet days. */
         replySeconds: number | null;
@@ -75,22 +66,15 @@ export const dashboard = query({
       buckets.set(key, {
         date: key,
         conversations: 0,
-        orders: 0,
         messages: 0,
         replySeconds: null,
       });
     }
 
-    const bump = (
-      timestamp: number,
-      field: "conversations" | "orders"
-    ) => {
-      const bucket = buckets.get(dayKey(timestamp));
-      if (bucket) bucket[field] += 1;
-    };
-
-    for (const row of conversations) bump(row.createdAt, "conversations");
-    for (const row of orders) bump(row.createdAt, "orders");
+    for (const row of conversations) {
+      const bucket = buckets.get(dayKey(row.createdAt));
+      if (bucket) bucket.conversations += 1;
+    }
     for (const row of dailyRows) {
       const bucket = buckets.get(row.day);
       if (!bucket) continue;
@@ -128,22 +112,6 @@ export const dashboard = query({
     const before = sumDays((day) => day < windowDay);
 
     // --- breakdowns -------------------------------------------------------
-    const statusOrder = [
-      "new",
-      "quoted",
-      "confirmed",
-      "in_progress",
-      "completed",
-      "cancelled",
-    ] as const;
-    const statusCounts = new Map<string, number>(
-      statusOrder.map((status) => [status, 0])
-    );
-    for (const order of orders) {
-      const status = statusForStage(order.stage);
-      statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
-    }
-
     let whatsapp = 0;
     let instagram = 0;
     let rcs = 0;
@@ -162,7 +130,6 @@ export const dashboard = query({
       daily: [...buckets.values()],
       totals: {
         conversations: count(conversations, inWindow),
-        orders: count(orders, inWindow),
         messages: current.messages,
         escalated: conversations.filter(
           (c) => c.status === "escalated" && inWindow(c.createdAt)
@@ -171,23 +138,13 @@ export const dashboard = query({
       },
       previous: {
         conversations: count(conversations, inPrevious),
-        orders: count(orders, inPrevious),
         messages: before.messages,
         escalated: conversations.filter(
           (c) => c.status === "escalated" && inPrevious(c.createdAt)
         ).length,
         avgLatencyMs: before.avgLatencyMs,
       },
-      ordersByStatus: statusOrder.map((status) => ({
-        status,
-        count: statusCounts.get(status) ?? 0,
-      })),
       channels: { whatsapp, instagram, rcs, telegram, web },
-      toolUsage: tools
-        .filter((tool) => tool.callCount > 0)
-        .sort((a, b) => b.callCount - a.callCount)
-        .slice(0, 6)
-        .map((tool) => ({ name: tool.name, calls: tool.callCount })),
     };
   },
 });

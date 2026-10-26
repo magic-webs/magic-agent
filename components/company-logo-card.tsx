@@ -225,8 +225,8 @@ export function CompanyLogoCard() {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="text-[10px] font-semibold text-primary">
-                    AI
+                  <span className="text-xs font-semibold text-primary">
+                    {workspace.name.trim().charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>

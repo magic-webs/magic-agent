@@ -34,9 +34,6 @@ import {
   useMessageScroller,
 } from "@/components/ui/message-scroller";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-// The same agent icon the console's sidebar carries, so the chat a customer
-// sees and the Agents page a workspace edits are one product.
 import {
   HugeiconsIcon,
 } from "@hugeicons/react";
@@ -45,7 +42,6 @@ import {
   AlertCircleIcon,
   ArrowRight02Icon,
   Cancel01Icon,
-  Robot01Icon,
   SentIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -430,7 +426,6 @@ function WidgetShell({
   children,
 }: {
   title: string;
-  /** The company's logo, drawn in place of the robot when it has one. */
   logoSrc: string | null;
   embedded: boolean;
   typing?: boolean;
@@ -454,8 +449,8 @@ function WidgetShell({
               />
             </div>
           ) : (
-            <div className="flex size-10 items-center justify-center rounded-full bg-primary-foreground/20 ring-1 ring-primary-foreground/25">
-              <HugeiconsIcon icon={Robot01Icon} size={20} strokeWidth={2} />
+            <div className="flex size-10 items-center justify-center rounded-full bg-white font-semibold text-primary ring-1 ring-primary-foreground/25">
+              {title.trim().charAt(0).toUpperCase()}
             </div>
           )}
           {/* Says someone is there before a word has been typed. The ring is
@@ -539,9 +534,7 @@ export default function WidgetPage({
     );
   }
 
-  // Whoever is holding the conversation now — the front desk on a fresh chat,
-  // the specialist it routed to afterwards.
-  const title = session.agentBotName ?? widget.agent.botName;
+  const title = widget.workspaceName;
 
   if (!session.registered) {
     return theme(
@@ -550,7 +543,6 @@ export default function WidgetPage({
           <ChatIntake
             channelKey={channelKey}
             sessionId={sessionId}
-            greeting={widget.agent.greeting}
             defaultIso={isoFromLocale(widget.locale)}
           />
         ) : (
@@ -580,7 +572,6 @@ export default function WidgetPage({
         welcome={widget.welcome}
         messages={session.messages}
         intake={session.intake}
-        awaitingFirstMessage={session.awaitingFirstMessage}
         onTyping={setTyping}
       />
     </WidgetShell>
@@ -755,12 +746,10 @@ function RegisterForm({
 function ChatIntake({
   channelKey,
   sessionId,
-  greeting,
   defaultIso,
 }: {
   channelKey: string;
   sessionId: string;
-  greeting: string;
   defaultIso: string | null;
 }) {
   const register = useMutation(api.widget.register);
@@ -857,7 +846,6 @@ function ChatIntake({
               <MessageScrollerItem messageId="day">
                 <DayChip label={dayLabel(openedAt, openedAt)} />
               </MessageScrollerItem>
-              {bot("greeting", greeting, openedAt)}
               {bot("ask-name", INTAKE_ASK_NAME, openedAt)}
               {state.nameAt !== null
                 ? mine(
@@ -978,7 +966,6 @@ type Quote = { author: string; body: string };
 
 type Row =
   | { type: "greeting"; key: string; at: number }
-  | { type: "welcome"; key: string; at: number }
   | {
       type: "message";
       key: string;
@@ -1184,7 +1171,6 @@ function WidgetChat({
   welcome,
   messages,
   intake,
-  awaitingFirstMessage,
   onTyping,
 }: {
   channelKey: string;
@@ -1193,9 +1179,8 @@ function WidgetChat({
   greeting: string;
   welcome: Outbound | null;
   messages: WidgetMessage[];
-  /** The thread opens with the stored sign-up questions, greeting included. */
+  /** The thread opens with the stored sign-up questions and welcome menu. */
   intake: boolean;
-  awaitingFirstMessage: boolean;
   onTyping: (typing: boolean) => void;
 }) {
   const respond = useAction(api.engine.respondFromWidget);
@@ -1257,7 +1242,15 @@ function WidgetChat({
     ? []
     : [{ type: "greeting", key: "greeting", at: messages[0]?.createdAt ?? openedAt }];
   const lastAssistant = messages.findLastIndex((m) => m.role === "assistant");
-  let prompt: { rich: Outbound | null; author: string } = { rich: null, author: title };
+  const firstUser = messages.find((m) => m.role === "user");
+  const greetingMenu =
+    !intake && (!firstUser || quotedChoice(welcome, firstUser.text.trim()))
+      ? welcome
+      : null;
+  let prompt: { rich: Outbound | null; author: string } = {
+    rich: greetingMenu,
+    author: title,
+  };
   const quoteFor = (text: string): Quote | null => {
     const hit = quotedChoice(prompt.rich, text.trim());
     return hit ? { author: prompt.author, body: hit.body } : null;
@@ -1274,11 +1267,8 @@ function WidgetChat({
       quote: assistant ? null : quoteFor(message.text),
       read: index < lastAssistant,
     });
-    if (assistant) prompt = { rich, author: message.botName ?? title };
+    if (assistant) prompt = { rich, author: title };
   });
-  if (intake && awaitingFirstMessage && welcome) {
-    rows.push({ type: "welcome", key: "welcome", at: messages.at(-1)?.createdAt ?? openedAt });
-  }
   for (const item of pending) {
     rows.push({ type: "outgoing", key: item.key, at: item.at, item, quote: quoteFor(item.text) });
   }
@@ -1307,18 +1297,7 @@ function WidgetChat({
                     <ChatBubble
                       mine={false}
                       text={greeting}
-                      rich={messages.length === 0 ? welcome : null}
-                      quote={null}
-                      meta={{ time: clockTime(row.at) }}
-                      onPick={send}
-                    />
-                  );
-                } else if (row.type === "welcome") {
-                  body = (
-                    <ChatBubble
-                      mine={false}
-                      text=""
-                      rich={welcome}
+                      rich={greetingMenu}
                       quote={null}
                       meta={{ time: clockTime(row.at) }}
                       onPick={send}

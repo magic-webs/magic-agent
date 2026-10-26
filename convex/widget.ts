@@ -29,6 +29,7 @@ import { welcomeOutbound } from "./lib/welcomeMenu";
 import { liveWelcomeMenu } from "./welcomeMenu";
 import { logoSrcFor } from "./lib/branding";
 import { insertConversation, refreshContactSearch } from "./lib/inbox";
+import { summarise } from "./lib/whatsappSend";
 import { INTAKE_ASK_NAME, intakeAskPhone } from "./lib/widgetIntake";
 
 const MAX_SESSION_ID_CHARS = 64;
@@ -323,12 +324,14 @@ async function recordIntake(
   const nameAt = clamp(intake.nameAt, openedAt);
 
   const transcript: Array<{ role: "user" | "assistant"; text: string; at: number }> = [
-    { role: "assistant", text: resolveGreeting(agent, workspace.name), at: openedAt },
     { role: "assistant", text: INTAKE_ASK_NAME, at: openedAt },
     { role: "user", text: intake.name, at: nameAt },
     { role: "assistant", text: intakeAskPhone(intake.name), at: nameAt },
     { role: "user", text: intake.phone, at: now },
   ];
+  const menu =
+    agent.kind === "router" ? await liveWelcomeMenu(ctx, workspace) : null;
+  const welcome = menu ? welcomeOutbound(menu, workspace.name) : null;
 
   const conversationId = await insertConversation(ctx, {
     workspaceId: channel.workspaceId,
@@ -339,11 +342,11 @@ async function recordIntake(
     channelId: channel._id,
     channelType: "web",
     status: "open",
-    messageCount: transcript.length,
+    messageCount: transcript.length + (welcome ? 1 : 0),
     lastMessageAt: now,
-    lastMessagePreview: intake.phone,
-    lastMessageRole: "user",
-    lastMessageFrom: "customer",
+    lastMessagePreview: welcome ? summarise(welcome) : intake.phone,
+    lastMessageRole: welcome ? "assistant" : "user",
+    lastMessageFrom: welcome ? "agent" : "customer",
     unreadCount: 1,
     marketingOnly: true,
     intakeAt: now,
@@ -358,6 +361,18 @@ async function recordIntake(
       text: line.text,
       ...(line.role === "assistant" ? { agentId: channel.agentId } : {}),
       createdAt: line.at,
+    });
+  }
+  if (welcome) {
+    await ctx.db.insert("messages", {
+      workspaceId: channel.workspaceId,
+      conversationId,
+      role: "assistant",
+      kind: "rich",
+      text: summarise(welcome),
+      payload: JSON.stringify(welcome),
+      agentId: channel.agentId,
+      createdAt: now,
     });
   }
 }

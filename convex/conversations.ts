@@ -1180,9 +1180,15 @@ export const startTurn = internalMutation({
       )
       .unique();
     // The widget's sign-up questions are not a conversation yet, so the first
-    // real message still counts as a fresh start.
+    // real message still counts as a fresh start — unless the intake already
+    // ended on the welcome menu.
     let lastActivityAt =
-      conversation && !(conversation.intakeAt && conversation.marketingOnly)
+      conversation &&
+      !(
+        conversation.intakeAt &&
+        conversation.marketingOnly &&
+        conversation.lastMessageRole === "user"
+      )
         ? conversation.lastMessageAt
         : 0;
 

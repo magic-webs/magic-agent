@@ -58,7 +58,7 @@ const OUTCOMES: Array<{ value: Outcome; label: string }> = [
 
 const READ_CHART: ChartConfig = { reads: { label: "Reads", color: "var(--viz-series)" } };
 
-const TILES = ["Sent", "Delivered", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Unsubscribed", "Cost"];
+const TILES = ["Total", "Sent", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Unsubscribed", "Cost"];
 const FUNNEL = [
   ["w-10", "w-full", "w-12"],
   ["w-16", "w-11/12", "w-20"],
@@ -145,6 +145,7 @@ export function CampaignReport({
 
   const stats = report?.stats;
   const sent = stats ? stats.sent : 0;
+  const total = stats ? stats.sent + stats.failed : 0;
 
   if (campaign === null) {
     return (
@@ -199,11 +200,11 @@ export function CampaignReport({
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                <StatTile label="Sent" value={sent} previous={null} />
-                <StatTile label="Delivered" value={pct(stats.delivered, sent)} previous={null} suffix="%" />
-                <StatTile label="Read" value={pct(stats.read, sent)} previous={null} suffix="%" />
-                <StatTile label="Replied" value={pct(stats.replied, sent)} previous={null} suffix="%" />
-                <StatTile label="Clicked" value={pct(stats.clicked, sent)} previous={null} suffix="%" />
+                <StatTile label="Total" value={total} previous={null} />
+                <StatTile label="Sent" value={stats.delivered} previous={null} />
+                <StatTile label="Read" value={pct(stats.read, total)} previous={null} suffix="%" />
+                <StatTile label="Replied" value={pct(stats.replied, total)} previous={null} suffix="%" />
+                <StatTile label="Clicked" value={pct(stats.clicked, total)} previous={null} suffix="%" />
                 <StatTile label="Orders and bookings" value={stats.converted} previous={null} />
                 <StatTile label="Failed" value={stats.failed} previous={null} lowerIsBetter />
                 <StatTile label="Unsubscribed" value={stats.optedOut} previous={null} lowerIsBetter />
@@ -220,8 +221,8 @@ export function CampaignReport({
                   <p className="text-sm font-semibold">From send to reply</p>
                   <RankedBars
                     data={[
-                      { step: "Sent", value: sent },
-                      { step: "Delivered", value: stats.delivered },
+                      { step: "Total", value: total },
+                      { step: "Sent", value: stats.delivered },
                       { step: "Read", value: stats.read },
                       { step: "Replied", value: stats.replied },
                       { step: "Clicked", value: stats.clicked },
@@ -231,7 +232,7 @@ export function CampaignReport({
                     valueKey="value"
                     valueLabel="People"
                     emptyLabel="Nothing has gone out yet."
-                    formatValue={(value) => `${value.toLocaleString()}${sent ? ` · ${pct(value, sent)}%` : ""}`}
+                    formatValue={(value) => `${value.toLocaleString()}${total ? ` · ${pct(value, total)}%` : ""}`}
                   />
                 </div>
                 <div className="flex flex-col gap-2 rounded-lg border border-border p-4">

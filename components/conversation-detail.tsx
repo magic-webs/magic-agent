@@ -16,6 +16,7 @@ import { ContactAvatar } from "@/components/contact-avatar";
 import { DeliveryTicks } from "@/components/delivery-ticks";
 import { WindowClock } from "@/components/window-clock";
 import { SelectField } from "@/components/select-field";
+import { LeadTagsField } from "@/components/lead-tags";
 import { hasReplyWindow } from "@/convex/lib/shared";
 import { CHANNEL_LABEL, ChannelMark, type ChannelKind } from "@/components/channel-mark";
 import {
@@ -860,6 +861,9 @@ function Pipeline({
   const records = useQuery(api.records.forConversation, {
     conversationId: conversation._id,
   });
+  const tags = useQuery(api.leads.listTags, {
+    workspaceId: conversation.workspaceId,
+  });
   const setLeadStage = useMutation(api.leads.setStage);
   const updateRecord = useMutation(api.records.updateRecord);
 
@@ -906,6 +910,12 @@ function Pipeline({
           ]}
         />
       </div>
+
+      <LeadTagsField
+        conversationId={conversation._id}
+        tagIds={conversation.leadTagIds ?? []}
+        tags={tags}
+      />
 
       {records === undefined ? (
         <Spinner className="size-3.5" />

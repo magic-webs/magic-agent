@@ -10,7 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  DropdownMenu,
   DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -178,6 +181,77 @@ export function LeadTagsSubmenu({
         )}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
+  );
+}
+
+export function LeadTagsField({
+  conversationId,
+  tagIds,
+  tags,
+}: {
+  conversationId: Id<"conversations">;
+  tagIds: Id<"leadTags">[];
+  tags: LeadTag[] | undefined;
+}) {
+  const setTags = useMutation(api.leads.setTags);
+
+  const toggle = async (tagId: Id<"leadTags">, on: boolean) => {
+    try {
+      await setTags({
+        conversationId,
+        tagIds: on ? [...tagIds, tagId] : tagIds.filter((id) => id !== tagId),
+      });
+    } catch (error) {
+      toast.add({
+        title: "Could not change the tags",
+        description: friendlyError(error),
+        type: "error",
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">Tags</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={tags === undefined}
+            render={<Button size="xs" variant="ghost" className="text-muted-foreground" />}
+          >
+            <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} /> Edit
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="max-h-72 w-52 overflow-y-auto">
+            {!tags?.length ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                No tags yet. Add them on the Leads page.
+              </p>
+            ) : (
+              tags.map((tag) => (
+                <DropdownMenuCheckboxItem
+                  key={tag._id}
+                  checked={tagIds.includes(tag._id)}
+                  onCheckedChange={(checked) => toggle(tag._id, checked)}
+                >
+                  <span
+                    aria-hidden
+                    className={cn("size-2 shrink-0 rounded-full", toneOf(tag.color).dot)}
+                  />
+                  <span className="truncate">{tag.name}</span>
+                </DropdownMenuCheckboxItem>
+              ))
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {tags === undefined ? (
+        <Spinner className="size-3.5" />
+      ) : tags.some((tag) => tagIds.includes(tag._id)) ? (
+        <TagChips tagIds={tagIds} tags={tags} />
+      ) : (
+        <p className="text-xs text-muted-foreground">No tags.</p>
+      )}
+    </div>
   );
 }
 

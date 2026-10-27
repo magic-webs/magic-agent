@@ -298,7 +298,7 @@ export function ManualReply({
 
   const submit = async () => {
     const body = text.trim();
-    if (!body || sending) return;
+    if (!body || sending || closed) return;
 
     setSending(true);
     try {
@@ -337,9 +337,8 @@ export function ManualReply({
     <div className="shrink-0 border-t bg-background px-3 py-2.5">
       {/* WhatsApp refuses a free-form message more than 24 hours after the
           customer's last one. Four words is enough to warn; the reason sits on
-          hover for whoever has not met the rule before. The input stays live
-          either way, because WhatsApp is the authority on its own window and
-          our timestamp is not. */}
+          hover for whoever has not met the rule before. The input is shut
+          while it is closed; on WhatsApp a template still gets through. */}
       {closed ? (
         <p
           className="mx-auto mb-1.5 flex w-full max-w-3xl items-center gap-1.5 text-xs text-muted-foreground"
@@ -437,7 +436,14 @@ export function ManualReply({
             ref={inputRef}
             rows={1}
             value={text}
-            placeholder="Type a message…"
+            disabled={closed}
+            placeholder={
+              closed
+                ? whatsapp
+                  ? "Reply window closed — send a template with +"
+                  : "Reply window closed"
+                : "Type a message…"
+            }
             // Textarea already sizes to its content; the min-height it ships
             // with is for a form field, and here a one-line reply should get a
             // one-line box. The border and ring come off because the wrapper
@@ -457,7 +463,7 @@ export function ManualReply({
         <Button
           className="size-11 shrink-0 rounded-xl [&_svg:not([class*='size-'])]:size-5"
           aria-label="Send reply"
-          disabled={sending || !text.trim()}
+          disabled={sending || closed || !text.trim()}
           onClick={() => void submit()}
         >
           {sending ? <Spinner /> : <HugeiconsIcon icon={SentIcon} strokeWidth={2} />}

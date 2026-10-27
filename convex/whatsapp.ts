@@ -95,7 +95,10 @@ async function bill(
   }
 ): Promise<void> {
   const messages = args.messages.flatMap(({ message, wamid }) => {
-    const category = categoryOf(message);
+    const category = categoryOf(
+      message,
+      message.kind === "template" ? message.category : undefined
+    );
     if (!category) return [];
     return [
       {

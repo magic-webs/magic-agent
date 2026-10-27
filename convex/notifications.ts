@@ -132,7 +132,7 @@ function templateKey(name: string, language: string): string {
 }
 
 /** A synced template, read for the app: its blanks, its text and its state. */
-function describeTemplate(row: Doc<"whatsappTemplates">) {
+export function describeTemplate(row: Doc<"whatsappTemplates">) {
   let components: unknown = [];
   try {
     components = JSON.parse(row.components);

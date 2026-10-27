@@ -33,6 +33,7 @@ import {
   SmileIcon,
 } from "@hugeicons/core-free-icons";
 import { WindowClock } from "@/components/window-clock";
+import { ComposeDialog, ComposeMenu, type ComposeKind } from "@/components/inbox/whatsapp-compose";
 import { friendlyError } from "@/lib/errors";
 
 /**
@@ -258,6 +259,13 @@ export function ManualReply({
   // browser, so there is no server render for the stored value to disagree
   // with.
   const [pauseMinutes, setPauseMinutes] = useState(storedPause);
+  const [composing, setComposing] = useState<ComposeKind | null>(null);
+  const [composeSession, setComposeSession] = useState(0);
+  const compose = (kind: ComposeKind) => {
+    setComposing(kind);
+    setComposeSession((session) => session + 1);
+  };
+  const whatsapp = channelType === "whatsapp";
 
   const now = useNow();
   const window24 = hasReplyWindow(channelType) ? replyWindow(lastInboundAt, now) : null;
@@ -347,6 +355,16 @@ export function ManualReply({
             <WindowClock lastInboundAt={lastInboundAt} size={16} />
           )}
           {neverWritten ? "No inbound message yet" : "Reply window closed"}
+          {whatsapp ? (
+            <Button
+              size="xs"
+              variant="link"
+              className="h-auto px-1 text-xs"
+              onClick={() => compose("template")}
+            >
+              Send a template
+            </Button>
+          ) : null}
         </p>
       ) : window24 ? (
         // Open, and counting. Amber for the last hour, which is when somebody
@@ -402,6 +420,7 @@ export function ManualReply({
                 </div>
               </PopoverContent>
             </Popover>
+            {whatsapp ? <ComposeMenu onPick={compose} /> : null}
             {replyingAs ? null : (
               <ProductInsert
                 onPick={(line) =>
@@ -502,6 +521,18 @@ export function ManualReply({
           />
         </span>
       </div>
+      {whatsapp ? (
+        <ComposeDialog
+          key={composeSession}
+          kind={composing}
+          onClose={() => setComposing(null)}
+          conversationId={conversationId}
+          workspaceId={workspaceId}
+          teamMemberId={sendingAs ? (sendingAs as Id<"teamMembers">) : undefined}
+          pauseMinutes={pauseMinutes}
+          windowClosed={closed}
+        />
+      ) : null}
     </div>
   );
 }

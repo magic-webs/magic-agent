@@ -35,6 +35,7 @@ import type * as formSubmissions from "../formSubmissions.js";
 import type * as functions from "../functions.js";
 import type * as handover from "../handover.js";
 import type * as http from "../http.js";
+import type * as inboxCompose from "../inboxCompose.js";
 import type * as ingest from "../ingest.js";
 import type * as instagram from "../instagram.js";
 import type * as instagramAi from "../instagramAi.js";
@@ -208,6 +209,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   handover: typeof handover;
   http: typeof http;
+  inboxCompose: typeof inboxCompose;
   ingest: typeof ingest;
   instagram: typeof instagram;
   instagramAi: typeof instagramAi;

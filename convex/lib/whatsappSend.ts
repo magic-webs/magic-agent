@@ -215,6 +215,9 @@ export type Outbound =
       headerText?: string;
       footer?: string;
       buttons?: Array<{ type: "quick_reply" | "url" | "phone"; text: string }>;
+      /** Built from a synced template's blanks; sent in place of the fields above. */
+      components?: Array<Record<string, unknown>>;
+      category?: "marketing" | "utility" | "authentication";
     };
 
 // ---------------------------------------------------------------------------
@@ -600,7 +603,7 @@ function payloadFor(message: Outbound): Json {
         template: {
           name: message.templateName,
           language: { policy: "deterministic", code: message.languageCode },
-          components: [
+          components: message.components ?? [
             ...(message.headerMedia
               ? [
                   {

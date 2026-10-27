@@ -673,6 +673,8 @@ export const recordManualReply = internalMutation({
     conversationId: v.id("conversations"),
     agentId: v.optional(v.id("agents")),
     text: v.string(),
+    /** A rich message's Outbound, as JSON; `text` is then its summary. */
+    payload: v.optional(v.string()),
     teamMemberId: v.optional(v.id("teamMembers")),
     /** How long this reply keeps the agent quiet. An hour when absent. */
     pauseMinutes: v.optional(v.number()),
@@ -701,8 +703,9 @@ export const recordManualReply = internalMutation({
       workspaceId: args.workspaceId,
       conversationId: args.conversationId,
       role: "assistant",
-      kind: "text",
+      kind: args.payload ? "rich" : "text",
       text: args.text,
+      ...(args.payload ? { payload: args.payload } : {}),
       agentId: args.agentId,
       sentByHuman: true,
       teamMemberId: sender?._id,

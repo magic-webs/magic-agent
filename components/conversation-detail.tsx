@@ -587,7 +587,7 @@ export function ConversationDetail({
                 {contact?.phone ? (
                   <span className="font-mono">{contact.phone}</span>
                 ) : (
-                  <span>Web chat</span>
+                  <span>{CHANNEL_LABEL[conversation.channelType]}</span>
                 )}
                 {channel ? <span>· via {channel.name}</span> : null}
               </span>

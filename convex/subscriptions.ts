@@ -642,11 +642,6 @@ export const checkoutContext = internalQuery({
     const standing = await standingOf(ctx, workspace, args.now);
     const { settings, account, subscription } = standing;
     if (!settings) throw new ConvexError("Billing is not switched on yet.");
-    if (account?.mode === "manual") {
-      throw new ConvexError(
-        "Your plan is billed by arrangement with us. Get in touch to change it."
-      );
-    }
 
     // A hidden plan is still sold to whoever is on it — by choice, or as the
     // plan their trial runs on.

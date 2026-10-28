@@ -108,7 +108,7 @@ function activitySince(activity: string, now: number): number | undefined {
 
 export default function ConversationsPage() {
   const workspace = useWorkspace();
-  const { me } = useSession();
+  const { me, isAdmin } = useSession();
   const myMemberId = me?.role === "member" ? me.memberId : undefined;
   const agents = useQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
@@ -251,7 +251,7 @@ export default function ConversationsPage() {
           <p className="mt-1 hidden max-w-2xl text-sm text-muted-foreground sm:block">
             {view === "escalations"
               ? "Threads an agent has handed to your team. Set one back to open, or mark it resolved, once it is dealt with."
-              : "Threads across every WhatsApp number and the web chat."}
+              : "Threads across every channel."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -292,7 +292,7 @@ export default function ConversationsPage() {
               />
             </>
           ) : null}
-          {me && me.role !== "member" ? <CrmImportDialog /> : null}
+          {isAdmin ? <CrmImportDialog /> : null}
           <NewConversationDialog onStarted={setSelected} />
         </div>
       </header>

@@ -190,12 +190,19 @@ export function PlanTab() {
           <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
           <AlertTitle>Your plan is billed by arrangement</AlertTitle>
           <AlertDescription>
-            It is invoiced to you directly rather than through Razorpay, so it
-            is not changed here. Get in touch with us to change the plan or add
-            extra agents.
+            {data.account.manualPaidThrough
+              ? `It is paid up to ${formatDay(data.account.manualPaidThrough)}. `
+              : ""}
+            To keep the dashboard open after that, subscribe below and pay by
+            card.
+            {data.access.state === "active" && data.account.manualPaidThrough
+              ? " Nothing is charged until the arranged period ends."
+              : ""}
           </AlertDescription>
         </Alert>
-      ) : !data.isOwner ? (
+      ) : null}
+
+      {!data.isOwner ? (
         <Alert>
           <HugeiconsIcon icon={Invoice01Icon} strokeWidth={2} />
           <AlertTitle>
@@ -474,7 +481,7 @@ function StatusCard({ data, now }: { data: Enabled; now: number }) {
         ) : null}
       </CardContent>
 
-      {data.isOwner && !manual && (cancellable || pending) ? (
+      {data.isOwner && (cancellable || pending) ? (
         <CardFooter className="flex flex-wrap justify-end gap-2">
           {pending ? (
             <Button

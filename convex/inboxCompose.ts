@@ -10,6 +10,7 @@ import { sendOnChannel } from "./lib/channelSend";
 import { summarise, type Outbound } from "./lib/whatsappSend";
 import { billingCategory, parseTemplate, templateComponents, templatePreview } from "./lib/notifications";
 import { describeTemplate } from "./notifications";
+import { templateBlock } from "./lib/wallet";
 
 export const composedMessage = v.union(
   v.object({
@@ -103,6 +104,14 @@ export const generateUploadUrl = mutation({
 export const templateForSend = internalQuery({
   args: { templateId: v.id("whatsappTemplates") },
   handler: async (ctx, args) => await ctx.db.get("whatsappTemplates", args.templateId),
+});
+
+export const walletBlockFor = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+    category: v.union(v.literal("marketing"), v.literal("utility"), v.literal("authentication")),
+  },
+  handler: async (ctx, args) => await templateBlock(ctx, args.workspaceId, args.category),
 });
 
 async function toOutbound(
@@ -245,6 +254,13 @@ async function toOutbound(
       const missing = parsed.slots.find((slot) => !values[slot.key]?.trim());
       if (missing) return `Fill in ${missing.label} first.`;
 
+      const category = billingCategory(row.category);
+      const walletBlock = await ctx.runQuery(internal.inboxCompose.walletBlockFor, {
+        workspaceId,
+        category,
+      });
+      if (walletBlock) return walletBlock;
+
       const format = parsed.header?.format;
       const link = values["header:media"];
       const headerText =
@@ -258,7 +274,7 @@ async function toOutbound(
         templateName: row.name,
         languageCode: row.language,
         components: templateComponents(parsed, values),
-        category: billingCategory(row.category),
+        category,
         preview: templatePreview(parsed, values),
         ...(link && (format === "IMAGE" || format === "VIDEO")
           ? { headerMedia: { type: format === "IMAGE" ? "image" : "video", link } }

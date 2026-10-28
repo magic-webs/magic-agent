@@ -872,7 +872,7 @@ function ArrangementSection({
   return (
     <Section
       title="Bill by arrangement"
-      description="Invoiced outside Razorpay, or given away. The dashboard stays open through the paid-through day, then runs the usual grace period before it locks."
+      description="Paid outside Razorpay. After it ends, they can subscribe by card or UPI."
     >
       <div className="flex items-center justify-between gap-3 rounded-md border p-3">
         <Label htmlFor="manage-manual" className="font-normal">

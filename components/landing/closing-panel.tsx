@@ -14,13 +14,13 @@ const GLOWS = [
 ];
 
 const FACES = [
-  ["female-2", "#f7d9c4"],
-  ["male-1", "#cfe3f5"],
-  ["female-4", "#d9ecd2"],
-  ["male-3", "#eadcf7"],
-  ["female-1", "#f7d3dc"],
-  ["male-2", "#d3efec"],
-  ["female-5", "#f6e8c3"],
+  ["sakhi", "#f7d9c4"],
+  ["arjun", "#cfe3f5"],
+  ["meera", "#d9ecd2"],
+  ["vikram", "#eadcf7"],
+  ["ayesha", "#f7d3dc"],
+  ["samay", "#d3efec"],
+  ["vaani", "#f6e8c3"],
 ];
 
 export function ClosingPanel({
@@ -129,7 +129,7 @@ export function ClosingPanel({
                 }}
               >
                 <Image
-                  src={`/images/3d-avatars/${face}.png`}
+                  src={`/images/agents/${face}.png`}
                   alt=""
                   fill
                   sizes="76px"

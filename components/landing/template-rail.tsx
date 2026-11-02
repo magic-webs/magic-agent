@@ -15,6 +15,7 @@ import {
   Target02Icon,
 } from "@hugeicons/core-free-icons";
 
+import { agentAvatarSrc } from "@/components/agent-avatar";
 import { AGENT_TEMPLATES } from "@/convex/lib/agentTemplates";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -37,13 +38,13 @@ const OPENERS: Record<string, string> = {
   careers: "Is the accounts executive role still open?",
 };
 
-const FACES: Record<string, [string, string]> = {
-  sales: ["female-1", "#f7d9c4"],
-  lead_qualifier: ["male-2", "#cfe3f5"],
-  support: ["female-3", "#d9ecd2"],
-  after_sales: ["male-1", "#eadcf7"],
-  bookings: ["female-4", "#f7d3dc"],
-  careers: ["male-4", "#f6e8c3"],
+const TINTS: Record<string, string> = {
+  sales: "#f7d9c4",
+  lead_qualifier: "#cfe3f5",
+  support: "#d9ecd2",
+  after_sales: "#eadcf7",
+  bookings: "#f7d3dc",
+  careers: "#f6e8c3",
 };
 
 /**
@@ -137,7 +138,7 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
           >
             {AGENT_TEMPLATES.map((template) => {
               const Icon = ICONS[template.key] ?? RoboticIcon;
-              const [face, tint] = FACES[template.key] ?? ["female-2", "#d3efec"];
+              const tint = TINTS[template.key] ?? "#d3efec";
               return (
                 <article
                   key={template.key}
@@ -156,7 +157,7 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
                       }}
                     >
                       <Image
-                        src={`/images/3d-avatars/${face}.png`}
+                        src={agentAvatarSrc(template.botName, template.gender)}
                         alt=""
                         fill
                         sizes="72px"
@@ -169,7 +170,8 @@ export function TemplateRail({ heading }: { heading: React.ReactNode }) {
                   </div>
                   <div className="flex flex-1 flex-col gap-2 p-5">
                     <h3 className="font-display text-xl font-medium tracking-tight">
-                      {template.name}
+                      {template.botName}
+                      <span className="text-(--ink-muted)"> · {template.name}</span>
                     </h3>
                     <p className="text-sm leading-relaxed text-(--ink-muted)">{template.summary}</p>
                     <p className="mt-auto pt-3 text-xs text-(--ink-muted)/80">{template.suitedTo}</p>

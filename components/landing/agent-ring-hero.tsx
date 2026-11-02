@@ -5,19 +5,10 @@ import Image from "next/image";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
+import { AGENT_FACES } from "@/components/agent-avatar";
+
 gsap.registerPlugin(ScrollTrigger);
 
-const FACES = [
-  "female-1",
-  "male-1",
-  "female-2",
-  "male-2",
-  "female-3",
-  "male-3",
-  "female-4",
-  "male-4",
-  "female-5",
-];
 
 const TINTS = [
   ["#f7d9c4", "#e9b796"],
@@ -30,7 +21,7 @@ const TINTS = [
 ];
 
 const TILES = Array.from({ length: 18 }, (_, index) => ({
-  face: FACES[(index * 4) % FACES.length],
+  face: AGENT_FACES[(index * 3) % AGENT_FACES.length].src,
   tint: TINTS[index % TINTS.length],
   width: [84, 76, 92, 72, 80, 88][index % 6],
   bob: index * 1.7,
@@ -229,7 +220,7 @@ export function AgentRingHero({
             }}
           >
             <Image
-              src={`/images/3d-avatars/${tile.face}.png`}
+              src={tile.face}
               alt=""
               fill
               sizes="92px"

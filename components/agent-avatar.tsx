@@ -2,34 +2,33 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
- * The agent faces, shared with the mobile app.
- *
- * Same files and the same choosing rule as
- * magic-agent-app/src/components/agent-avatar.tsx, so an agent wears one face
- * across the dashboard and the app. They are rendered 3D busts on transparent
- * backgrounds, which is why they are cut out over a tinted circle rather than
- * boxed into a photo frame.
+ * The agent faces: head-and-shoulders photos on transparent backgrounds, so
+ * they are cut out over a tinted circle rather than boxed into a photo frame.
  */
 
-const FEMALE = [
-  "/images/3d-avatars/female-1.png",
-  "/images/3d-avatars/female-2.png",
-  "/images/3d-avatars/female-3.png",
-  "/images/3d-avatars/female-4.png",
-  "/images/3d-avatars/female-5.png",
-] as const;
-
-const MALE = [
-  "/images/3d-avatars/male-1.png",
-  "/images/3d-avatars/male-2.png",
-  "/images/3d-avatars/male-3.png",
-  "/images/3d-avatars/male-4.png",
-] as const;
-
-/** Every face, for an agent whose record predates the gender field. */
-const EITHER = [...FEMALE, ...MALE] as const;
-
 export type AgentGender = "male" | "female";
+
+export const AGENT_FACES = [
+  { name: "Sakhi", role: "Customer Support Agent", gender: "female", src: "/images/agents/sakhi.png" },
+  { name: "Vani", role: "Ad Qualification Agent", gender: "female", src: "/images/agents/vaani.png" },
+  { name: "Ayesha", role: "Front Desk (Reception)", gender: "female", src: "/images/agents/ayesha.png" },
+  { name: "Meera", role: "Marketing", gender: "female", src: "/images/agents/meera.png" },
+  { name: "Aarti", role: "Front Desk", gender: "female", src: "/images/agents/aarti.png" },
+  { name: "Arjun", role: "Meeting Manager", gender: "male", src: "/images/agents/arjun.png" },
+  { name: "Vikram", role: "Sales Agent", gender: "male", src: "/images/agents/vikram.png" },
+  { name: "Arth", role: "Quotation Agent", gender: "male", src: "/images/agents/arth.png" },
+  { name: "Suchit", role: "Notifier", gender: "male", src: "/images/agents/suchit.png" },
+  { name: "Samay", role: "Follow Up", gender: "male", src: "/images/agents/samay.png" },
+] as const satisfies readonly { name: string; role: string; gender: AgentGender; src: string }[];
+
+const BY_NAME = new Map<string, string>([
+  ...AGENT_FACES.map((face) => [face.name.toLowerCase(), face.src] as const),
+  ["vaani", "/images/agents/vaani.png"],
+]);
+
+const FEMALE = AGENT_FACES.filter((face) => face.gender === "female").map((face) => face.src);
+const MALE = AGENT_FACES.filter((face) => face.gender === "male").map((face) => face.src);
+const EITHER = AGENT_FACES.map((face) => face.src);
 
 /** Stable, and only has to be stable — not well distributed. */
 function hashOf(name: string): number {
@@ -42,18 +41,15 @@ function hashOf(name: string): number {
 }
 
 /**
- * Which face an agent gets.
- *
- * `gender` comes off the agent record and decides which set is drawn from;
- * within a set the choice is hashed on the bot name, so an agent keeps its face
- * across reloads. With no gender the hash runs over every face rather than
- * guessing from the name — name-to-gender inference is wrong often enough
- * across languages that a stable arbitrary face is the better failure.
+ * Which face an agent gets: its own photo when the bot name is one of the
+ * named agents, otherwise one hashed on the name from the set its gender picks.
  */
 export function agentAvatarSrc(
   name: string,
   gender?: AgentGender | null
 ): string {
+  const named = BY_NAME.get(name.trim().toLowerCase());
+  if (named) return named;
   const set = gender === "female" ? FEMALE : gender === "male" ? MALE : EITHER;
   return set[hashOf(name) % set.length];
 }

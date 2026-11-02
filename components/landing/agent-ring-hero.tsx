@@ -64,7 +64,7 @@ export function AgentRingHero({
     const layer = node.querySelector<HTMLElement>("[data-orbit]");
     const target = next ? document.getElementById(next) : null;
 
-    const size = { rx: 0, ry: 0, cy: 0, top: 0, height: 0, scale: 1, narrow: false };
+    const size = { rx: 0, ry: 0, cy: 0, top: 0, height: 0, scale: 1, narrow: false, viewport: 0 };
     const goal = { cy: 0, rx: 0, ry: 0 };
     const measure = () => {
       const rect = node.getBoundingClientRect();
@@ -74,6 +74,7 @@ export function AgentRingHero({
       const scale = narrow ? 0.6 : 1;
       const room = (height - nav) / 2 - (115 * scale) / 2 - (narrow ? 14 : 24);
       size.narrow = narrow;
+      size.viewport = window.innerHeight;
       size.scale = scale;
       size.top = rect.top + window.scrollY;
       size.height = height;
@@ -101,7 +102,7 @@ export function AgentRingHero({
       pointer.y += (pointer.ty - pointer.y) * 0.06;
 
       const scrollY = window.scrollY;
-      const viewport = window.innerHeight;
+      const viewport = size.viewport;
       const heroCy = size.top + size.height / 2 + size.cy - scrollY;
       const goalCy = goal.cy - scrollY;
       const start = size.top + size.height * 0.1;
@@ -123,7 +124,7 @@ export function AgentRingHero({
         const sin = Math.sin(angle);
         // A phone's content fills the width, so the ring there flattens into a
         // row above it and a row below rather than curving across the text.
-        const goalSin = size.narrow ? Math.sign(sin) : sin;
+        const goalSin = size.narrow ? Math.max(-1, Math.min(1, sin / 0.62)) : sin;
         const bob = reduced ? 0 : Math.sin(time * 0.6 + TILES[index].bob) * 6;
         const reach = (0.35 + 0.65 * p) * (1 + Math.sin(Math.PI * e) * 0.35);
         const x = Math.cos(angle) * lerp(size.rx, goal.rx, e) * reach + pointer.x;
@@ -185,7 +186,7 @@ export function AgentRingHero({
     }, node);
 
     const onPointer = (event: PointerEvent) => {
-      if (reduced) return;
+      if (reduced || event.pointerType !== "mouse") return;
       pointer.tx = (event.clientX / window.innerWidth - 0.5) * 28;
       pointer.ty = (event.clientY / window.innerHeight - 0.5) * 18;
     };

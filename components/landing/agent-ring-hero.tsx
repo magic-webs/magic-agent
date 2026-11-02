@@ -23,9 +23,10 @@ const TINTS = [
 const TILES = Array.from({ length: 18 }, (_, index) => ({
   face: AGENT_FACES[(index * 3) % AGENT_FACES.length].src,
   tint: TINTS[index % TINTS.length],
-  width: [84, 76, 92, 72, 80, 88][index % 6],
   bob: index * 1.7,
 }));
+
+const TILE_WIDTH = 84;
 
 const TRAVEL_STAGGER = 0.5;
 
@@ -215,7 +216,7 @@ export function AgentRingHero({
             data-tile
             className="absolute top-0 left-1/2 aspect-[4/5] overflow-hidden rounded-[14px] opacity-0 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.45)] will-change-[transform,opacity]"
             style={{
-              width: tile.width,
+              width: TILE_WIDTH,
               background: `linear-gradient(180deg, ${tile.tint[0]}, ${tile.tint[1]})`,
             }}
           >
@@ -223,7 +224,7 @@ export function AgentRingHero({
               src={tile.face}
               alt=""
               fill
-              sizes="92px"
+              sizes="84px"
               className="object-cover object-bottom"
               priority={index < 6}
             />

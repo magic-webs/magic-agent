@@ -72,7 +72,7 @@ export function AgentRingHero({
       const narrow = width < 820;
       const nav = narrow ? 64 : 84;
       const scale = narrow ? 0.6 : 1;
-      const room = (height - nav) / 2 - (115 * scale) / 2 - (narrow ? 14 : 24);
+      const room = (height - nav) / 2 - (TILE_WIDTH * 1.25 * scale) / 2 - (narrow ? 14 : 24);
       size.narrow = narrow;
       size.viewport = window.innerHeight;
       size.scale = scale;
@@ -88,7 +88,7 @@ export function AgentRingHero({
       const padTop = parseFloat(style.paddingTop);
       const inner = box.height - padTop - parseFloat(style.paddingBottom);
       goal.cy = box.top + window.scrollY + padTop + inner / 2;
-      goal.ry = inner / 2 + (115 * scale) / 2 + (narrow ? 16 : 28);
+      goal.ry = inner / 2 + (TILE_WIDTH * 1.25 * scale) / 2 + 28;
       goal.rx = narrow ? width / 2 - 8 : Math.min(width / 2 - 70, 560);
     };
     measure();

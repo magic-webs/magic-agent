@@ -119,7 +119,7 @@ export default async function LandingPage() {
 
       <section
         id="draft"
-        className={cn(CONTAINER, "flex flex-col items-center gap-7 pt-[clamp(4rem,9vw,7rem)] text-center")}
+        className={cn(CONTAINER, "flex flex-col items-center gap-7 pt-[clamp(4rem,9vw,7rem)] text-center max-[820px]:pb-28")}
       >
         <MaskLines lines={["Describe the job.", "We'll draft the agent."]} />
         <Reveal className="flex w-full justify-center">

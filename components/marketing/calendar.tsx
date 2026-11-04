@@ -73,6 +73,7 @@ import {
 export type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
   headerMediaUrl: string | null;
+  cardMediaUrls?: Array<string | null>;
 };
 export type Occasion = Doc<"marketingTemplates">["occasion"];
 export type CalendarEvent = Doc<"marketingEvents"> & { templateName: string | null };

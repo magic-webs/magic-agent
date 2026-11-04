@@ -804,6 +804,51 @@ export function RichMessage({
       );
 
     case "template": {
+      if (message.cards?.length) {
+        return (
+          <div className="flex flex-col gap-1">
+            <Body text={message.preview ?? `[${message.templateName}]`} />
+            <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-0.5 pb-1">
+              {message.cards.map((cardData, index) => (
+                <div
+                  key={index}
+                  className="flex w-52 shrink-0 snap-start flex-col overflow-hidden rounded-md border border-foreground/10 bg-background"
+                >
+                  {cardData.media?.type === "video" ? (
+                    <video src={cardData.media.link} muted className="h-32 w-full bg-foreground/5 object-cover" />
+                  ) : cardData.media ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- any host
+                    <img
+                      src={cardData.media.link}
+                      alt=""
+                      loading="lazy"
+                      className="h-32 w-full bg-foreground/5 object-cover"
+                    />
+                  ) : null}
+                  <p className="flex-1 px-2.5 py-2 text-sm whitespace-pre-wrap">{cardData.body}</p>
+                  {cardData.buttons.map((button, buttonIndex) => (
+                    <span key={buttonIndex} className={cn(action, "cursor-default")}>
+                      <HugeiconsIcon
+                        icon={
+                          button.type === "url"
+                            ? LinkSquare02Icon
+                            : button.type === "phone"
+                              ? Call02Icon
+                              : ArrowTurnBackwardIcon
+                        }
+                        strokeWidth={2}
+                        className="size-4"
+                      />
+                      <span className="truncate">{button.text}</span>
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <MetaStamp meta={meta} />
+          </div>
+        );
+      }
       const header = message.headerMedia
         ? { type: message.headerMedia.type, media: { link: message.headerMedia.link } }
         : message.headerText

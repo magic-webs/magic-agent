@@ -27,6 +27,7 @@ type TemplateLike = {
   metaTemplateName?: string;
   metaStatus?: string;
   metaRejectedReason?: string;
+  cards?: unknown[];
 };
 
 export const APPROVED_TONE =
@@ -99,10 +100,14 @@ export function templateStanding(template: TemplateLike): { label: string; class
 }
 
 /** A template's name in a picker, with its standing when it cannot send. */
-export const templateOptionLabel = (template: TemplateLike) =>
-  templateReady(template)
-    ? template.name
-    : `${template.name} (${templateStanding(template).label.toLowerCase()})`;
+export const templateOptionLabel = (template: TemplateLike) => {
+  const name = template.cards?.length
+    ? `${template.name} · carousel of ${template.cards.length}`
+    : template.name;
+  return templateReady(template)
+    ? name
+    : `${name} (${templateStanding(template).label.toLowerCase()})`;
+};
 
 export type EventStatus = Doc<"marketingEvents">["status"];
 

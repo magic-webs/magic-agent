@@ -12,17 +12,23 @@ import {
 } from "@/convex/lib/marketing";
 import {
   BUTTON_TEXT_LIMIT,
+  CARD_BODY_LIMIT,
   FOOTER_LIMIT,
   HEADER_LIMIT,
   HEADER_MEDIA_TYPES,
   MAX_BUTTONS,
+  MAX_CARD_BUTTONS,
+  MAX_CARDS,
   MAX_PHONE_BUTTONS,
   MAX_URL_BUTTONS,
   STOP_BUTTON,
+  cardsProblems,
   partsProblems,
   sameParts,
+  tidyCards,
   type HeaderMedia,
   type TemplateButton,
+  type TemplateCard,
 } from "@/convex/lib/templateParts";
 import { putFile } from "@/lib/upload";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
@@ -51,6 +57,8 @@ import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   AlertCircleIcon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
   ArrowTurnBackwardIcon,
   Call02Icon,
   Cancel01Icon,
@@ -59,6 +67,7 @@ import {
   HandIcon,
   Image01Icon,
   LinkSquare02Icon,
+  PlusSignIcon,
   SentIcon,
   SparklesIcon,
   Upload01Icon,
@@ -95,8 +104,20 @@ const OCCASIONS: { value: Occasion; label: string }[] = [
   { value: "general", label: "General" },
 ];
 
+type MediaKind = HeaderMedia["type"];
+type TemplateKind = "standard" | "carousel";
+
+export type DraftCard = {
+  media: (HeaderMedia & { url: string }) | null;
+  body: string;
+  buttons: TemplateButton[];
+};
+
 export type TemplateDraft = {
   templateId?: Id<"marketingTemplates">;
+  kind: TemplateKind;
+  cardMediaKind: MediaKind;
+  cards: DraftCard[];
   name: string;
   occasion: Occasion;
   category: TemplateCategory;
@@ -110,7 +131,32 @@ export type TemplateDraft = {
   buttons: TemplateButton[];
 };
 
+function draftCards(draft: TemplateDraft): TemplateCard[] | undefined {
+  if (draft.kind !== "carousel") return undefined;
+  return draft.cards.map((card) => ({
+    ...(card.media && card.media.type === draft.cardMediaKind
+      ? { media: { type: card.media.type, key: card.media.key, mimeType: card.media.mimeType } }
+      : {}),
+    body: card.body,
+    buttons: card.buttons,
+  }));
+}
+
+const sameCards = (a: TemplateCard[] | undefined, b: TemplateCard[] | undefined) =>
+  JSON.stringify(tidyCards(a) ?? null) === JSON.stringify(tidyCards(b) ?? null);
+
+function blankCard(like?: DraftCard): DraftCard {
+  return {
+    media: null,
+    body: "",
+    buttons: like ? like.buttons.map((button) => ({ ...button })) : [{ type: "quick_reply", text: "" }],
+  };
+}
+
 function draftParts(draft: TemplateDraft) {
+  if (draft.kind === "carousel") {
+    return { header: "", headerMedia: undefined, footer: "", buttons: [] as TemplateButton[] };
+  }
   const media =
     draft.headerMedia && draft.headerMedia.type === draft.headerKind ? draft.headerMedia : null;
   return {
@@ -154,6 +200,8 @@ export function TemplateDialog({
   const generateUploadUrl = useMutation(api.marketing.generateTemplateUploadUrl);
   const [busy, setBusy] = useState<string | null>(null);
   const mediaInput = useRef<HTMLInputElement>(null);
+  const cardInput = useRef<HTMLInputElement>(null);
+  const cardTarget = useRef(0);
 
   if (!draft) {
     return <Dialog open={false} />;
@@ -169,7 +217,8 @@ export function TemplateDialog({
     (draft.body.trim() !== saved.body ||
       draft.category !== (saved.category ?? "marketing") ||
       draft.languageCode.trim() !== saved.languageCode ||
-      !sameParts(draftParts(draft), saved));
+      !sameParts(draftParts(draft), saved) ||
+      !sameCards(draftCards(draft), saved.cards));
   const inReview = status === "PENDING" || status === "IN_APPEAL";
   // Approved, or linked by hand, and not touched since: nothing to apply.
   const settled =
@@ -177,11 +226,45 @@ export function TemplateDialog({
   const parts = draftParts(draft);
   const mediaKind =
     draft.headerKind === "image" || draft.headerKind === "video" ? draft.headerKind : null;
+  const carousel = draft.kind === "carousel";
+  const cards = draftCards(draft);
   const problems = [
     ...templateProblems(draft.body),
     ...partsProblems(parts),
-    ...(mediaKind && !parts.headerMedia ? [`Add the header ${mediaKind} first.`] : []),
+    ...(!carousel && mediaKind && !parts.headerMedia ? [`Add the header ${mediaKind} first.`] : []),
+    ...(cards ? cardsProblems(cards) : []),
   ];
+  const cardButtons = draft.cards[0]?.buttons ?? [];
+  const setCard = (index: number, next: DraftCard) =>
+    setDraft({ ...draft, cards: draft.cards.map((card, i) => (i === index ? next : card)) });
+  const moveCard = (index: number, by: number) => {
+    const next = [...draft.cards];
+    const [card] = next.splice(index, 1);
+    next.splice(index + by, 0, card);
+    setDraft({ ...draft, cards: next });
+  };
+  const cardKindAllowed = (type: TemplateButton["type"]) =>
+    cardButtons.length < MAX_CARD_BUTTONS &&
+    (type !== "phone" || !cardButtons.some((button) => button.type === "phone"));
+  const addCardButton = (type: TemplateButton["type"]) =>
+    setDraft({
+      ...draft,
+      cards: draft.cards.map((card) => ({ ...card, buttons: [...card.buttons, blankButton(type)] })),
+    });
+  const removeCardButton = (index: number) =>
+    setDraft({
+      ...draft,
+      cards: draft.cards.map((card) => ({
+        ...card,
+        buttons: card.buttons.filter((_, i) => i !== index),
+      })),
+    });
+  const setKind = (kind: TemplateKind) =>
+    setDraft({
+      ...draft,
+      kind,
+      cards: kind === "carousel" && draft.cards.length === 0 ? [blankCard(), blankCard()] : draft.cards,
+    });
   const approvedChange = edited && saved?.metaStatus === "APPROVED";
   const urlButtons = draft.buttons.filter((button) => button.type === "url").length;
   const phoneButtons = draft.buttons.filter((button) => button.type === "phone").length;
@@ -208,7 +291,33 @@ export function TemplateDialog({
     headerMedia: parts.headerMedia ?? null,
     footer: parts.footer,
     buttons: parts.buttons,
+    cards: cards ?? null,
   });
+
+  const uploadCardMedia = async (index: number, file: File | undefined) => {
+    if (!file) return;
+    const kind = draft.cardMediaKind;
+    const allowed = HEADER_MEDIA_TYPES[kind];
+    if (
+      !(allowed.mimeTypes as readonly string[]).includes(file.type) ||
+      file.size > allowed.maxBytes
+    ) {
+      toast.add({ title: `The ${kind} must be ${allowed.label}`, type: "error" });
+      return;
+    }
+    setBusy(`card-${index}`);
+    try {
+      const key = await putFile(await generateUploadUrl({ workspaceId: workspace._id }), file);
+      setCard(index, {
+        ...draft.cards[index],
+        media: { type: kind, key, mimeType: file.type, url: URL.createObjectURL(file) },
+      });
+    } catch (error) {
+      fail(`Could not upload the ${kind}`, error);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const uploadMedia = async (file: File | undefined) => {
     if (!file || !mediaKind) return;
@@ -378,6 +487,24 @@ export function TemplateDialog({
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Type</Label>
+            <ToggleGroup
+              value={[draft.kind]}
+              onValueChange={(value) => {
+                const next = value[0] as TemplateKind | undefined;
+                if (next) setKind(next);
+              }}
+              variant="outline"
+              size="sm"
+              aria-label="Template type"
+            >
+              <ToggleGroupItem value="standard">Standard</ToggleGroupItem>
+              <ToggleGroupItem value="carousel">Carousel</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+
+          {!carousel ? (
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="template-header">Header</Label>
@@ -467,6 +594,7 @@ export function TemplateDialog({
               </div>
             ) : null}
           </div>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2">
@@ -494,6 +622,36 @@ export function TemplateDialog({
             </p>
           </div>
 
+          {carousel ? (
+            <CardsEditor
+              draft={draft}
+              setDraft={setDraft}
+              busy={busy}
+              cardButtons={cardButtons}
+              setCard={setCard}
+              moveCard={moveCard}
+              cardKindAllowed={cardKindAllowed}
+              addCardButton={addCardButton}
+              removeCardButton={removeCardButton}
+              pickMedia={(index) => {
+                cardTarget.current = index;
+                cardInput.current?.click();
+              }}
+            />
+          ) : null}
+          <input
+            ref={cardInput}
+            type="file"
+            hidden
+            accept={HEADER_MEDIA_TYPES[draft.cardMediaKind].mimeTypes.join(",")}
+            onChange={(event) => {
+              void uploadCardMedia(cardTarget.current, event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+
+          {!carousel ? (
+          <>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="template-footer">Footer</Label>
@@ -604,6 +762,8 @@ export function TemplateDialog({
               ) : null}
             </div>
           </div>
+          </>
+          ) : null}
 
           {numbered ? (
             <div className="flex flex-col gap-1.5 rounded-md border border-border bg-muted/40 p-3">
@@ -673,6 +833,18 @@ export function TemplateDialog({
             }
             footer={draft.footer}
             buttons={draft.buttons}
+            cards={
+              carousel
+                ? draft.cards.map((card) => ({
+                    media:
+                      card.media && card.media.type === draft.cardMediaKind
+                        ? { type: card.media.type, url: card.media.url }
+                        : { type: draft.cardMediaKind },
+                    body: card.body,
+                    buttons: card.buttons,
+                  }))
+                : undefined
+            }
             business={workspace.name}
             occasion={draft.occasion}
           />
@@ -744,6 +916,16 @@ export function draftFor(template?: Template): TemplateDraft {
   return template
     ? {
         templateId: template._id,
+        kind: template.cards?.length ? "carousel" : "standard",
+        cardMediaKind: template.cards?.find((card) => card.media)?.media?.type ?? "image",
+        cards: (template.cards ?? []).map((card, index) => {
+          const url = template.cardMediaUrls?.[index];
+          return {
+            media: card.media && url ? { ...card.media, url } : null,
+            body: card.body,
+            buttons: card.buttons,
+          };
+        }),
         name: template.name,
         occasion: template.occasion,
         category: template.category ?? "marketing",
@@ -760,6 +942,9 @@ export function draftFor(template?: Template): TemplateDraft {
         buttons: template.buttons ?? [],
       }
     : {
+        kind: "standard",
+        cardMediaKind: "image",
+        cards: [],
         name: "",
         occasion: "festival",
         category: "marketing",
@@ -781,4 +966,248 @@ export function copyDraftOf(template: Template): TemplateDraft {
     name: `${template.name} (copy)`,
     metaTemplateName: "",
   };
+}
+
+function CardsEditor({
+  draft,
+  setDraft,
+  busy,
+  cardButtons,
+  setCard,
+  moveCard,
+  cardKindAllowed,
+  addCardButton,
+  removeCardButton,
+  pickMedia,
+}: {
+  draft: TemplateDraft;
+  setDraft: (next: TemplateDraft) => void;
+  busy: string | null;
+  cardButtons: TemplateButton[];
+  setCard: (index: number, next: DraftCard) => void;
+  moveCard: (index: number, by: number) => void;
+  cardKindAllowed: (type: TemplateButton["type"]) => boolean;
+  addCardButton: (type: TemplateButton["type"]) => void;
+  removeCardButton: (index: number) => void;
+  pickMedia: (index: number) => void;
+}) {
+  const kind = draft.cardMediaKind;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label>Cards</Label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Each card shows</span>
+          <ToggleGroup
+            value={[kind]}
+            onValueChange={(value) => {
+              const next = value[0] as MediaKind | undefined;
+              if (next) setDraft({ ...draft, cardMediaKind: next });
+            }}
+            variant="outline"
+            size="sm"
+            aria-label="Card media"
+          >
+            <ToggleGroupItem value="image">Image</ToggleGroupItem>
+            <ToggleGroupItem value="video">Video</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-border p-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-medium">Card buttons</span>
+          <span className="text-xs text-muted-foreground">
+            Up to {MAX_CARD_BUTTONS} · the same on every card
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {cardButtons.map((button, index) => {
+            const item = BUTTON_KINDS.find((one) => one.type === button.type)!;
+            return (
+              <span
+                key={index}
+                className="flex h-7 items-center gap-1.5 rounded-md bg-secondary pr-0.5 pl-2 text-xs font-medium"
+              >
+                <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-3.5" />
+                {item.label}
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="size-6"
+                  aria-label={`Remove ${item.label.toLowerCase()} button`}
+                  onClick={() => removeCardButton(index)}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+                </Button>
+              </span>
+            );
+          })}
+          {BUTTON_KINDS.map((item) => (
+            <Button
+              key={item.type}
+              size="sm"
+              variant="outline"
+              disabled={!cardKindAllowed(item.type)}
+              onClick={() => addCardButton(item.type)}
+            >
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> {item.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {draft.cards.map((card, index) => {
+        const media = card.media && card.media.type === kind ? card.media : null;
+        return (
+          <div key={index} className="flex flex-col gap-2.5 rounded-lg border border-border p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">Card {index + 1}</span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Move card earlier"
+                  disabled={index === 0}
+                  onClick={() => moveCard(index, -1)}
+                >
+                  <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Move card later"
+                  disabled={index === draft.cards.length - 1}
+                  onClick={() => moveCard(index, 1)}
+                >
+                  <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Remove card"
+                  disabled={draft.cards.length <= 2}
+                  onClick={() =>
+                    setDraft({ ...draft, cards: draft.cards.filter((_, i) => i !== index) })
+                  }
+                >
+                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {media ? (
+                kind === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={media.url} alt="" className="size-14 shrink-0 rounded-md object-cover" />
+                ) : (
+                  <video
+                    src={media.url}
+                    muted
+                    className="size-14 shrink-0 rounded-md bg-muted object-cover"
+                  />
+                )
+              ) : (
+                <span className="flex size-14 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <HugeiconsIcon
+                    icon={kind === "image" ? Image01Icon : Video01Icon}
+                    strokeWidth={2}
+                    className="size-5"
+                  />
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm">{media ? `Card ${kind}` : `No ${kind} yet`}</span>
+                <span className="text-xs text-muted-foreground">{HEADER_MEDIA_TYPES[kind].label}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy !== null}
+                onClick={() => pickMedia(index)}
+              >
+                {busy === `card-${index}` ? (
+                  <Spinner />
+                ) : (
+                  <HugeiconsIcon icon={Upload01Icon} strokeWidth={2} />
+                )}
+                {media ? "Replace" : "Upload"}
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Textarea
+                aria-label={`Card ${index + 1} text`}
+                value={card.body}
+                rows={2}
+                maxLength={CARD_BODY_LIMIT}
+                placeholder="What this card says"
+                onChange={(event) => setCard(index, { ...card, body: event.target.value })}
+              />
+              <span className="self-end text-xs text-muted-foreground tabular-nums">
+                {card.body.length}/{CARD_BODY_LIMIT}
+              </span>
+            </div>
+
+            {card.buttons.map((button, buttonIndex) => {
+              const item = BUTTON_KINDS.find((one) => one.type === button.type)!;
+              const setButton = (next: TemplateButton) =>
+                setCard(index, {
+                  ...card,
+                  buttons: card.buttons.map((one, i) => (i === buttonIndex ? next : one)),
+                });
+              return (
+                <div key={buttonIndex} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground sm:w-24">
+                    <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-3.5" /> {item.label}
+                  </span>
+                  <Input
+                    aria-label="Button label"
+                    value={button.text}
+                    maxLength={BUTTON_TEXT_LIMIT}
+                    placeholder="Button label"
+                    className="h-8 sm:max-w-44"
+                    onChange={(event) => setButton({ ...button, text: event.target.value })}
+                  />
+                  {button.type === "url" ? (
+                    <Input
+                      aria-label="Web address"
+                      value={button.url}
+                      placeholder="Link address"
+                      className="h-8 min-w-0 flex-1 font-mono text-xs"
+                      onChange={(event) => setButton({ ...button, url: event.target.value })}
+                    />
+                  ) : button.type === "phone" ? (
+                    <Input
+                      aria-label="Phone number"
+                      value={button.phone}
+                      inputMode="tel"
+                      placeholder="Phone number"
+                      className="h-8 min-w-0 flex-1 font-mono text-xs"
+                      onChange={(event) => setButton({ ...button, phone: event.target.value })}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      <Button
+        variant="outline"
+        disabled={draft.cards.length >= MAX_CARDS}
+        onClick={() =>
+          setDraft({
+            ...draft,
+            cards: [...draft.cards, blankCard(draft.cards[draft.cards.length - 1])],
+          })
+        }
+      >
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add card ({draft.cards.length}/
+        {MAX_CARDS})
+      </Button>
+    </div>
+  );
 }

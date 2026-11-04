@@ -39,10 +39,13 @@ import {
 } from "./lib/panel";
 import {
   HEADER_MEDIA_TYPES,
+  cardsProblems,
+  metaCarousel,
   metaParts,
   partsProblems,
   type HeaderMedia,
   type TemplateButton,
+  type TemplateCard,
 } from "./lib/templateParts";
 import { fileUrl, newFileKey, r2 } from "./lib/files";
 
@@ -113,7 +116,12 @@ export const apply = action({
     if (template.metaStatus === "PENDING") {
       throw new ConvexError("Meta is still reviewing it. Apply again once it has decided.");
     }
-    const problems = [...templateProblems(template.body), ...partsProblems(template)];
+    const cards = template.cards?.length ? template.cards : undefined;
+    const problems = [
+      ...templateProblems(template.body),
+      ...partsProblems(template),
+      ...(cards ? cardsProblems(cards, template) : []),
+    ];
     if (problems.length > 0) throw new ConvexError(problems[0]);
 
     const text = metaBody(template.body);
@@ -123,15 +131,22 @@ export const apply = action({
       text,
       ...(samples.length ? { example: { body_text: [samples] } } : {}),
     };
-    const parts: Json[] = metaParts(
-      template,
-      template.headerMedia ? await mediaHandle(panel, template.headerMedia) : undefined
-    );
-    const components = [
-      ...parts.filter((part) => part.type === "HEADER"),
-      body,
-      ...parts.filter((part) => part.type !== "HEADER"),
-    ];
+    let components: Json[];
+    if (cards) {
+      const handles: string[] = [];
+      for (const card of cards) handles.push(await mediaHandle(panel, card.media!));
+      components = [body, metaCarousel(cards, handles)];
+    } else {
+      const parts: Json[] = metaParts(
+        template,
+        template.headerMedia ? await mediaHandle(panel, template.headerMedia) : undefined
+      );
+      components = [
+        ...parts.filter((part) => part.type === "HEADER"),
+        body,
+        ...parts.filter((part) => part.type !== "HEADER"),
+      ];
+    }
     const category = (template.category ?? "marketing").toUpperCase();
     // The name it already goes by, when it has one: Meta keys a template on
     // its name and language, and an edit keeps both.
@@ -280,7 +295,47 @@ type Imported = {
   footer?: string;
   buttons?: TemplateButton[];
   media?: { type: "image" | "video"; url: string };
+  cards?: Array<{ media: { type: "image" | "video"; url: string }; body: string; buttons: TemplateButton[] }>;
 };
+
+function panelButtons(buttons: unknown): TemplateButton[] | null {
+  const mapped: TemplateButton[] = [];
+  for (const button of Array.isArray(buttons) ? (buttons as Json[]) : []) {
+    const type = String(button.type ?? "").toUpperCase();
+    const text = String(button.text ?? "");
+    if (type === "QUICK_REPLY") {
+      mapped.push({ type: "quick_reply", text });
+    } else if (type === "URL" && typeof button.url === "string" && !button.url.includes("{{")) {
+      mapped.push({ type: "url", text, url: button.url });
+    } else if (type === "PHONE_NUMBER" && typeof button.phone_number === "string") {
+      mapped.push({ type: "phone", text, phone: button.phone_number });
+    } else {
+      return null;
+    }
+  }
+  return mapped;
+}
+
+function panelCards(carousel: Json): Imported["cards"] | null {
+  const cards = Array.isArray(carousel.cards) ? (carousel.cards as Json[]) : [];
+  if (cards.length === 0) return null;
+  const out: NonNullable<Imported["cards"]> = [];
+  for (const card of cards) {
+    const parts = Array.isArray(card.components) ? (card.components as Json[]) : [];
+    const part = (type: string) => parts.find((c) => String(c.type ?? "").toUpperCase() === type);
+    const header = part("HEADER");
+    const format = String(header?.format ?? "").toUpperCase();
+    const handles = (header?.example as Json | undefined)?.header_handle;
+    const url = Array.isArray(handles) ? handles[0] : undefined;
+    if ((format !== "IMAGE" && format !== "VIDEO") || typeof url !== "string") return null;
+    const body = part("BODY")?.text;
+    if (typeof body !== "string" || body.includes("{{")) return null;
+    const buttons = panelButtons(part("BUTTONS")?.buttons);
+    if (!buttons) return null;
+    out.push({ media: { type: format === "IMAGE" ? "image" : "video", url }, body, buttons });
+  }
+  return out;
+}
 
 /**
  * A template made in WhatsApp Manager, in the desk's terms — or null when it
@@ -321,6 +376,14 @@ function fromPanel(row: PanelTemplate): Imported | null {
     metaRejectedReason: row.status === "REJECTED" ? row.rejectedReason : undefined,
   };
 
+  const carousel = part("CAROUSEL");
+  if (carousel) {
+    const cards = panelCards(carousel);
+    if (!cards) return null;
+    imported.cards = cards;
+    return imported;
+  }
+
   const header = part("HEADER");
   if (header) {
     const format = String(header.format ?? "TEXT").toUpperCase();
@@ -341,21 +404,8 @@ function fromPanel(row: PanelTemplate): Imported | null {
   const footer = part("FOOTER")?.text;
   if (typeof footer === "string") imported.footer = footer;
 
-  const buttons = part("BUTTONS")?.buttons;
-  const mapped: TemplateButton[] = [];
-  for (const button of Array.isArray(buttons) ? (buttons as Json[]) : []) {
-    const type = String(button.type ?? "").toUpperCase();
-    const text = String(button.text ?? "");
-    if (type === "QUICK_REPLY") {
-      mapped.push({ type: "quick_reply", text });
-    } else if (type === "URL" && typeof button.url === "string" && !button.url.includes("{{")) {
-      mapped.push({ type: "url", text, url: button.url });
-    } else if (type === "PHONE_NUMBER" && typeof button.phone_number === "string") {
-      mapped.push({ type: "phone", text, phone: button.phone_number });
-    } else {
-      return null;
-    }
-  }
+  const mapped = panelButtons(part("BUTTONS")?.buttons);
+  if (!mapped) return null;
   if (mapped.length > 0) imported.buttons = mapped;
   return imported;
 }
@@ -415,7 +465,21 @@ export const sync = action({
         skipped++;
         continue;
       }
-      const { media, ...template } = found;
+      const { media, cards, ...template } = found;
+      if (cards) {
+        const stored: TemplateCard[] = [];
+        for (const card of cards) {
+          const cardMedia = await storeMedia(ctx, args.workspaceId, card.media);
+          if (!cardMedia) break;
+          stored.push({ media: cardMedia, body: card.body, buttons: card.buttons });
+        }
+        if (stored.length < cards.length) {
+          skipped++;
+          continue;
+        }
+        ready.push({ ...template, cards: stored });
+        continue;
+      }
       if (!media) {
         ready.push(template);
         continue;

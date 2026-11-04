@@ -2,7 +2,12 @@
 
 import { cn } from "cn";
 import { renderTemplate, sampleValues } from "@/convex/lib/marketing";
-import { orderedButtons, tidyParts, type TemplateButton } from "@/convex/lib/templateParts";
+import {
+  orderedButtons,
+  tidyParts,
+  type TemplateButton,
+  type TemplateCard,
+} from "@/convex/lib/templateParts";
 import { WhatsAppText } from "@/components/whatsapp-text";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -29,12 +34,96 @@ const BUTTON_ICON = {
   phone: Call02Icon,
 } as const;
 
+export type PreviewCard = {
+  media?: { type: "image" | "video"; url?: string };
+  body: string;
+  buttons: TemplateButton[];
+};
+
+/** A saved template's cards, in the shape the preview takes. */
+export function previewCards(template?: {
+  cards?: TemplateCard[];
+  cardMediaUrls?: Array<string | null>;
+}): PreviewCard[] | undefined {
+  if (!template?.cards?.length) return undefined;
+  return template.cards.map((card, index) => ({
+    media: card.media
+      ? { type: card.media.type, url: template.cardMediaUrls?.[index] ?? undefined }
+      : undefined,
+    body: card.body,
+    buttons: card.buttons,
+  }));
+}
+
+function MediaFrame({
+  media,
+  className,
+}: {
+  media: { type: "image" | "video"; url?: string };
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative flex items-center justify-center overflow-hidden bg-muted text-muted-foreground",
+        className
+      )}
+    >
+      {media.url && media.type === "image" ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={media.url} alt="" className="size-full object-cover" />
+      ) : media.url ? (
+        <video src={media.url} muted className="size-full object-cover" />
+      ) : (
+        <HugeiconsIcon icon={Image01Icon} strokeWidth={2} className="size-6" />
+      )}
+      {media.type === "video" ? (
+        <span className="absolute flex size-9 items-center justify-center rounded-full bg-black/50 text-white">
+          <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-4" />
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function CarouselCards({ cards }: { cards: PreviewCard[] }) {
+  return (
+    <div className="-mr-2 flex shrink-0 snap-x snap-mandatory gap-1.5 overflow-x-auto pr-2 pb-1">
+      {cards.map((card, index) => (
+        <div
+          key={index}
+          className="flex w-[78%] shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-background text-[12.5px] leading-snug text-foreground shadow-sm"
+        >
+          {card.media ? (
+            <MediaFrame media={card.media} className="aspect-[1.91/1]" />
+          ) : (
+            <MediaFrame media={{ type: "image" }} className="aspect-[1.91/1]" />
+          )}
+          <p className="flex-1 px-2.5 py-1.5 break-words whitespace-pre-wrap">
+            {card.body.trim() || <span className="text-muted-foreground italic">Card text</span>}
+          </p>
+          {card.buttons.map((button, buttonIndex) => (
+            <span
+              key={`${button.type}-${buttonIndex}`}
+              className="flex items-center justify-center gap-1.5 border-t border-border/70 px-2 py-2 font-medium text-[var(--chat-action)]"
+            >
+              <HugeiconsIcon icon={BUTTON_ICON[button.type]} strokeWidth={2} className="size-3.5 shrink-0" />
+              <span className="truncate">{button.text || "Button"}</span>
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function WhatsAppPreview({
   body,
   header,
   headerMedia,
   footer,
   buttons,
+  cards,
   business,
   occasion,
   size = "phone",
@@ -45,22 +134,24 @@ export function WhatsAppPreview({
   headerMedia?: { type: "image" | "video"; url?: string };
   footer?: string;
   buttons?: TemplateButton[];
+  cards?: PreviewCard[];
   business: string;
   occasion?: string;
   size?: "phone" | "card";
   className?: string;
 }) {
-  const parts = tidyParts({ header, footer, buttons });
+  const carousel = cards && cards.length > 0 ? cards : null;
+  const parts: ReturnType<typeof tidyParts> = carousel ? {} : tidyParts({ header, footer, buttons });
   const text = body.trim()
     ? renderTemplate(body.trim(), sampleValues(business, occasion)).text
     : "";
   const shown = orderedButtons(parts.buttons);
   const visible = shown.length > 3 ? shown.slice(0, 2) : shown;
 
-  const message = (
+  const bubble = (
     <div className="flex max-w-[88%] shrink-0 flex-col self-start">
       <div className="relative rounded-lg rounded-tl-none bg-background px-2.5 pt-1.5 pb-1 text-[12.5px] leading-snug text-foreground shadow-sm">
-        {headerMedia ? (
+        {headerMedia && !carousel ? (
           <div className="relative -mx-1.5 mb-1.5 flex aspect-[1.91/1] items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground">
             {headerMedia.url && headerMedia.type === "image" ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -113,6 +204,15 @@ export function WhatsAppPreview({
         ) : null}
       </div>
     </div>
+  );
+
+  const message = carousel ? (
+    <div className="flex shrink-0 flex-col gap-1.5">
+      {bubble}
+      <CarouselCards cards={carousel} />
+    </div>
+  ) : (
+    bubble
   );
 
   if (size === "card") {

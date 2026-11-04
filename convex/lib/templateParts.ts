@@ -12,8 +12,15 @@ export const headerMedia = v.object({
   mimeType: v.string(),
 });
 
+export const templateCard = v.object({
+  media: v.optional(headerMedia),
+  body: v.string(),
+  buttons: v.array(templateButton),
+});
+
 export type TemplateButton = Infer<typeof templateButton>;
 export type HeaderMedia = Infer<typeof headerMedia>;
+export type TemplateCard = Infer<typeof templateCard>;
 export type TemplateParts = {
   header?: string;
   headerMedia?: HeaderMedia;
@@ -146,4 +153,116 @@ export function metaParts(parts: TemplateParts, mediaHandle?: string) {
 
 export function sameParts(a: TemplateParts, b: TemplateParts): boolean {
   return JSON.stringify(tidyParts(a)) === JSON.stringify(tidyParts(b));
+}
+
+export const MIN_CARDS = 2;
+export const MAX_CARDS = 10;
+export const CARD_BODY_LIMIT = 160;
+export const MAX_CARD_BUTTONS = 2;
+
+export function tidyCards(cards: TemplateCard[] | undefined): TemplateCard[] | undefined {
+  if (!cards?.length) return undefined;
+  return cards.map((card) => ({
+    ...(card.media
+      ? { media: { type: card.media.type, key: card.media.key, mimeType: card.media.mimeType } }
+      : {}),
+    body: card.body.trim(),
+    buttons: tidyParts({ buttons: card.buttons }).buttons ?? [],
+  }));
+}
+
+const buttonShape = (card: TemplateCard) => card.buttons.map((button) => button.type).join(",");
+
+export function cardsProblems(cards: TemplateCard[] | undefined, parts: TemplateParts = {}): string[] {
+  const tidy = tidyCards(cards);
+  if (!tidy) return [];
+  const problems: string[] = [];
+  if (tidy.length < MIN_CARDS) problems.push(`A carousel needs at least ${MIN_CARDS} cards.`);
+  if (tidy.length > MAX_CARDS) problems.push(`A carousel holds at most ${MAX_CARDS} cards.`);
+  const outer = tidyParts(parts);
+  if (outer.header || outer.headerMedia) problems.push("A carousel has no header of its own.");
+  if (outer.footer) problems.push("A carousel has no footer.");
+  if (outer.buttons?.length) problems.push("Buttons go on the cards of a carousel.");
+  const mediaType = tidy.find((card) => card.media)?.media?.type;
+  const shape = buttonShape(tidy[0]);
+  tidy.forEach((card, index) => {
+    const label = `Card ${index + 1}`;
+    if (!card.media) problems.push(`${label} needs an image or video.`);
+    else if (card.media.type !== mediaType) problems.push("Every card needs the same kind of media.");
+    if (!card.body) problems.push(`${label} needs its text.`);
+    if (card.body.length > CARD_BODY_LIMIT) {
+      problems.push(`Keep the text of ${label.toLowerCase()} under ${CARD_BODY_LIMIT} characters.`);
+    }
+    if (VARIABLE.test(card.body)) problems.push("Card text cannot hold a variable.");
+    if (card.buttons.length === 0) problems.push(`${label} needs a button.`);
+    if (card.buttons.length > MAX_CARD_BUTTONS) {
+      problems.push(`A card carries at most ${MAX_CARD_BUTTONS} buttons.`);
+    }
+    if (buttonShape(card) !== shape) problems.push("Every card needs the same buttons, in the same order.");
+    for (const problem of partsProblems({ buttons: card.buttons })) problems.push(problem);
+  });
+  return [...new Set(problems)];
+}
+
+function metaButton(button: TemplateButton) {
+  return button.type === "url"
+    ? { type: "URL", text: button.text, url: button.url }
+    : button.type === "phone"
+      ? { type: "PHONE_NUMBER", text: button.text, phone_number: button.phone }
+      : { type: "QUICK_REPLY", text: button.text };
+}
+
+/** The CAROUSEL component Meta reviews, with one sample handle per card. */
+export function metaCarousel(cards: TemplateCard[], handles: string[]) {
+  return {
+    type: "CAROUSEL",
+    cards: (tidyCards(cards) ?? []).map((card, index) => ({
+      components: [
+        {
+          type: "HEADER",
+          format: (card.media?.type ?? "image").toUpperCase(),
+          example: { header_handle: [handles[index]] },
+        },
+        { type: "BODY", text: card.body },
+        { type: "BUTTONS", buttons: card.buttons.map(metaButton) },
+      ],
+    })),
+  };
+}
+
+/** The send-time `carousel` component: each card's media, and a payload per quick reply. */
+export function carouselSendComponent(
+  cards: TemplateCard[],
+  linkFor: (key: string) => string
+) {
+  return {
+    type: "carousel",
+    cards: (tidyCards(cards) ?? []).map((card, cardIndex) => ({
+      card_index: cardIndex,
+      components: [
+        ...(card.media
+          ? [
+              {
+                type: "header",
+                parameters: [
+                  { type: card.media.type, [card.media.type]: { link: linkFor(card.media.key) } },
+                ],
+              },
+            ]
+          : []),
+        ...card.buttons.flatMap((button, index) =>
+          button.type === "quick_reply"
+            ? [
+                {
+                  type: "button",
+                  sub_type: "quick_reply",
+                  index,
+                  parameters: [{ type: "payload", payload: button.text }],
+                },
+              ]
+            : []
+        ),
+      ],
+    })),
+  };
 }

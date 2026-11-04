@@ -47,6 +47,9 @@ export default function MarketingEventsPage() {
         onOpenTouch={(touch) => setTouchId(touch._id)}
         onCreateTemplate={() =>
           setTemplateDraft({
+            kind: "standard",
+            cardMediaKind: "image",
+            cards: [],
             name: "Event reminder",
             occasion: "event",
             category: "marketing",

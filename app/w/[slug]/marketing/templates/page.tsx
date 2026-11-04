@@ -14,7 +14,7 @@ import {
   draftFor,
   type TemplateDraft,
 } from "@/components/marketing/template-dialog";
-import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
+import { WhatsAppPreview, previewCards } from "@/components/marketing/whatsapp-preview";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -218,6 +218,7 @@ export default function MarketingTemplatesPage() {
                 }
                 footer={template.footer}
                 buttons={template.buttons}
+                cards={previewCards(template)}
                 business={workspace.name}
                 occasion={template.occasion}
               />

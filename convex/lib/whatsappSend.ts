@@ -215,6 +215,11 @@ export type Outbound =
       headerText?: string;
       footer?: string;
       buttons?: Array<{ type: "quick_reply" | "url" | "phone"; text: string }>;
+      cards?: Array<{
+        media?: { type: "image" | "video"; link: string };
+        body: string;
+        buttons: Array<{ type: "quick_reply" | "url" | "phone"; text: string }>;
+      }>;
       /** Built from a synced template's blanks; sent in place of the fields above. */
       components?: Array<Record<string, unknown>>;
       category?: "marketing" | "utility" | "authentication";

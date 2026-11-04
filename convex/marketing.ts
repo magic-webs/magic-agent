@@ -73,6 +73,8 @@ import {
   partsProblems,
   sameParts,
   templateButton,
+  templateCard,
+  tidyCards,
   tidyParts,
 } from "./lib/templateParts";
 import { deleteFile, fileUrl, requireOwnKey, uploadUrlFor } from "./lib/files";
@@ -181,6 +183,7 @@ function withMeta(template: Doc<"marketingTemplates">) {
     ...template,
     metaBody: metaBody(template.body),
     headerMediaUrl: template.headerMedia ? fileUrl(template.headerMedia.key) : null,
+    cardMediaUrls: (template.cards ?? []).map((card) => (card.media ? fileUrl(card.media.key) : null)),
   };
 }
 
@@ -477,15 +480,19 @@ export const saveTemplate = mutation({
     headerMedia: v.optional(v.union(headerMediaValidator, v.null())),
     footer: v.optional(v.string()),
     buttons: v.optional(v.array(templateButton)),
+    cards: v.optional(v.union(v.array(templateCard), v.null())),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     requireOwnKey(args.headerMedia?.key, "templates", args.workspaceId);
+    for (const card of args.cards ?? []) requireOwnKey(card.media?.key, "templates", args.workspaceId);
     const name = args.name.trim();
     const body = args.body.trim();
     const parts = tidyParts({ ...args, headerMedia: args.headerMedia ?? undefined });
     const partProblems = partsProblems(parts);
     if (partProblems.length > 0) throw new ConvexError(partProblems[0]);
+    const givenCards = args.cards === null ? undefined : tidyCards(args.cards);
+    if (givenCards && givenCards.length > 10) throw new ConvexError("A carousel holds at most 10 cards.");
     if (!name) throw new ConvexError("Give the template a name.");
     if (!body) throw new ConvexError("Write the message first.");
     if (body.length > 1024) {
@@ -515,6 +522,7 @@ export const saveTemplate = mutation({
         footer: args.footer ?? existing.footer,
         buttons: args.buttons ?? existing.buttons,
       });
+      const keptCards = args.cards === undefined ? existing.cards : givenCards;
 
       // Keeping Meta's copy honest. A name typed over by hand links a
       // different template, so what was tracked for the old one goes. A
@@ -527,7 +535,8 @@ export const saveTemplate = mutation({
         metaBody(body) !== metaBody(existing.body) ||
         languageCode !== existing.languageCode ||
         (args.category !== undefined && args.category !== (existing.category ?? "marketing")) ||
-        !sameParts(kept, existing);
+        !sameParts(kept, existing) ||
+        JSON.stringify(tidyCards(keptCards) ?? null) !== JSON.stringify(tidyCards(existing.cards) ?? null);
       const review = relinked
         ? {
             metaStatus: undefined,
@@ -554,11 +563,18 @@ export const saveTemplate = mutation({
         headerMedia: kept.headerMedia,
         footer: kept.footer,
         buttons: kept.buttons,
+        cards: keptCards,
         ...review,
         updatedAt: now,
       });
       if (existing.headerMedia && existing.headerMedia.key !== kept.headerMedia?.key) {
         await deleteUnsharedMedia(ctx, args.workspaceId, existing.headerMedia.key);
+      }
+      const stillUsed = new Set((keptCards ?? []).map((card) => card.media?.key));
+      for (const card of existing.cards ?? []) {
+        if (card.media && !stillUsed.has(card.media.key)) {
+          await deleteUnsharedMedia(ctx, args.workspaceId, card.media.key);
+        }
       }
       return args.templateId;
     }
@@ -572,6 +588,7 @@ export const saveTemplate = mutation({
       languageCode,
       category: args.category ?? "marketing",
       ...parts,
+      ...(givenCards ? { cards: givenCards } : {}),
       createdAt: now,
       updatedAt: now,
     });
@@ -636,6 +653,9 @@ export const removeTemplate = mutation({
 
     await ctx.db.delete("marketingTemplates", args.templateId);
     await deleteUnsharedMedia(ctx, template.workspaceId, template.headerMedia?.key);
+    for (const card of template.cards ?? []) {
+      await deleteUnsharedMedia(ctx, template.workspaceId, card.media?.key);
+    }
     return { success: true };
   },
 });
@@ -650,7 +670,15 @@ async function deleteUnsharedMedia(
     .query("marketingTemplates")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .take(500);
-  if (templates.some((template) => template.headerMedia?.key === key)) return;
+  if (
+    templates.some(
+      (template) =>
+        template.headerMedia?.key === key ||
+        template.cards?.some((card) => card.media?.key === key)
+    )
+  ) {
+    return;
+  }
   await deleteFile(ctx, key);
 }
 
@@ -1412,6 +1440,17 @@ export function templateAsShown(template: Doc<"marketingTemplates">): ShownTempl
     headerText: parts.header,
     footer: parts.footer,
     buttons: parts.buttons?.map(({ type, text }) => ({ type, text })),
+    ...(template.cards?.length
+      ? {
+          cards: template.cards.map((card) => ({
+            ...(card.media
+              ? { media: { type: card.media.type, link: fileUrl(card.media.key) } }
+              : {}),
+            body: card.body,
+            buttons: card.buttons.map(({ type, text }) => ({ type, text })),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -1914,6 +1953,7 @@ export const importTemplates = internalMutation({
         headerMedia: v.optional(headerMediaValidator),
         footer: v.optional(v.string()),
         buttons: v.optional(v.array(templateButton)),
+        cards: v.optional(v.array(templateCard)),
       })
     ),
   },
@@ -1929,6 +1969,9 @@ export const importTemplates = internalMutation({
       const key = `${template.metaTemplateName}|${template.languageCode}`;
       if (taken.has(key)) {
         if (template.headerMedia) await deleteFile(ctx, template.headerMedia.key);
+        for (const card of template.cards ?? []) {
+          if (card.media) await deleteFile(ctx, card.media.key);
+        }
         continue;
       }
       taken.add(key);

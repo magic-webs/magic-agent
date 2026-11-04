@@ -24,7 +24,7 @@ import {
 } from "@/components/marketing/format";
 import { ConfirmButton } from "@/components/marketing/calendar";
 import { TestSendButton } from "@/components/marketing/test-send";
-import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
+import { WhatsAppPreview, previewCards } from "@/components/marketing/whatsapp-preview";
 import {
   PartialNote,
   ReachBreakdown,
@@ -65,6 +65,7 @@ import {
 type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
   headerMediaUrl?: string | null;
+  cardMediaUrls?: Array<string | null>;
 };
 
 export type CampaignMode = "manual" | "smart";
@@ -472,6 +473,7 @@ export function CampaignComposer({
       }
       footer={template?.footer}
       buttons={template?.buttons}
+      cards={previewCards(template)}
       business={workspace.name}
       occasion={template?.occasion}
     />

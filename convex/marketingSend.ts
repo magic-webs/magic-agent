@@ -26,6 +26,7 @@ import { slug, trackFirstLink } from "./lib/links";
 import { errorText, providerError } from "./lib/panel";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { fileUrl } from "./lib/files";
+import { carouselSendComponent } from "./lib/templateParts";
 
 /** Every variable but the customer's own name, which is filled per contact. */
 type SharedValues = Omit<Record<TemplateVariable, string>, "name">;
@@ -62,6 +63,24 @@ async function sendTemplate(
             ? { type: template.headerMedia.type, link: fileUrl(template.headerMedia.key) }
             : undefined,
           preview,
+          ...(template.cards?.length
+            ? {
+                components: [
+                  ...(parameters.length
+                    ? [
+                        {
+                          type: "body",
+                          parameters: parameters.map((text) => ({
+                            type: "text",
+                            text: text.replace(/\s+/g, " ").trim() || "-",
+                          })),
+                        },
+                      ]
+                    : []),
+                  carouselSendComponent(template.cards, fileUrl),
+                ],
+              }
+            : {}),
         })
       ),
     });

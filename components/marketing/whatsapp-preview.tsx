@@ -95,9 +95,9 @@ function CarouselCards({ cards }: { cards: PreviewCard[] }) {
           className="flex w-[78%] shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-background text-[12.5px] leading-snug text-foreground shadow-sm"
         >
           {card.media ? (
-            <MediaFrame media={card.media} className="aspect-[1.91/1]" />
+            <MediaFrame media={card.media} className="aspect-square" />
           ) : (
-            <MediaFrame media={{ type: "image" }} className="aspect-[1.91/1]" />
+            <MediaFrame media={{ type: "image" }} className="aspect-square" />
           )}
           <p className="flex-1 px-2.5 py-1.5 break-words whitespace-pre-wrap">
             {card.body.trim() || <span className="text-muted-foreground italic">Card text</span>}
@@ -223,7 +223,7 @@ export function WhatsAppPreview({
       >
         <div
           data-slot="message-scroller-viewport"
-          className="flex max-h-56 flex-col overflow-y-auto overscroll-contain p-2.5"
+          className={cn("flex flex-col overflow-y-auto overscroll-contain p-2.5", carousel ? "max-h-[26rem]" : "max-h-56")}
         >
           {message}
         </div>

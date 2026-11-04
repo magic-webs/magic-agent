@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import { deliveryStatus, kvPair } from "./validators";
-import { headerMedia, templateButton, templateCard } from "../lib/templateParts";
+import { cardRatio, headerMedia, templateButton, templateCard } from "../lib/templateParts";
 
 export const audienceSelection = v.object({
   audienceIds: v.array(v.id("audiences")),
@@ -154,6 +154,7 @@ export const marketingTables = {
     footer: v.optional(v.string()),
     buttons: v.optional(v.array(templateButton)),
     cards: v.optional(v.array(templateCard)),
+    cardRatio: v.optional(cardRatio),
     metaTemplateName: v.optional(v.string()),
     metaStatus: v.optional(v.string()),
     metaTemplateId: v.optional(v.string()),

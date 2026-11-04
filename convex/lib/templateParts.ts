@@ -18,6 +18,25 @@ export const templateCard = v.object({
   buttons: v.array(templateButton),
 });
 
+export const cardRatio = v.union(v.literal("square"), v.literal("portrait"), v.literal("landscape"));
+
+export type CardRatio = Infer<typeof cardRatio>;
+
+export const CARD_RATIOS: Array<{ value: CardRatio; label: string; ratio: string; size: string; aspect: number }> = [
+  { value: "square", label: "Square", ratio: "1:1", size: "1080 × 1080", aspect: 1 },
+  { value: "portrait", label: "Portrait", ratio: "4:5", size: "1080 × 1350", aspect: 4 / 5 },
+  { value: "landscape", label: "Landscape", ratio: "1.91:1", size: "1200 × 628", aspect: 1.91 },
+];
+
+/** The listed shape nearest a picture's width over height. */
+export function nearestRatio(widthOverHeight: number): CardRatio {
+  return CARD_RATIOS.reduce((best, one) =>
+    Math.abs(Math.log(one.aspect / widthOverHeight)) < Math.abs(Math.log(best.aspect / widthOverHeight))
+      ? one
+      : best
+  ).value;
+}
+
 export type TemplateButton = Infer<typeof templateButton>;
 export type HeaderMedia = Infer<typeof headerMedia>;
 export type TemplateCard = Infer<typeof templateCard>;

@@ -43,6 +43,12 @@ import {
  * button in a transcript must not answer on the customer's behalf.
  */
 
+const CARD_RATIO_CLASS = {
+  square: "aspect-square",
+  portrait: "aspect-[4/5]",
+  landscape: "aspect-[1.91/1]",
+} as const;
+
 export function parseRichPayload(
   payload: string | null | undefined
 ): Outbound | null {
@@ -815,14 +821,24 @@ export function RichMessage({
                   className="flex w-52 shrink-0 snap-start flex-col overflow-hidden rounded-md border border-foreground/10 bg-background"
                 >
                   {cardData.media?.type === "video" ? (
-                    <video src={cardData.media.link} muted className="aspect-square w-full bg-foreground/5 object-cover" />
+                    <video
+                      src={cardData.media.link}
+                      muted
+                      className={cn(
+                        "w-full bg-foreground/5 object-cover",
+                        CARD_RATIO_CLASS[message.cardRatio ?? "square"]
+                      )}
+                    />
                   ) : cardData.media ? (
                     // eslint-disable-next-line @next/next/no-img-element -- any host
                     <img
                       src={cardData.media.link}
                       alt=""
                       loading="lazy"
-                      className="aspect-square w-full bg-foreground/5 object-cover"
+                      className={cn(
+                        "w-full bg-foreground/5 object-cover",
+                        CARD_RATIO_CLASS[message.cardRatio ?? "square"]
+                      )}
                     />
                   ) : null}
                   <p className="flex-1 px-2.5 py-2 text-sm whitespace-pre-wrap">{cardData.body}</p>

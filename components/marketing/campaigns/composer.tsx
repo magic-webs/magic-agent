@@ -474,6 +474,7 @@ export function CampaignComposer({
       footer={template?.footer}
       buttons={template?.buttons}
       cards={previewCards(template)}
+      cardRatio={template?.cardRatio}
       business={workspace.name}
       occasion={template?.occasion}
     />

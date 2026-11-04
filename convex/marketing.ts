@@ -69,6 +69,7 @@ import {
   withBuiltIns,
 } from "./lib/audience";
 import {
+  cardRatio as cardRatioValidator,
   headerMedia as headerMediaValidator,
   partsProblems,
   sameParts,
@@ -481,6 +482,7 @@ export const saveTemplate = mutation({
     footer: v.optional(v.string()),
     buttons: v.optional(v.array(templateButton)),
     cards: v.optional(v.union(v.array(templateCard), v.null())),
+    cardRatio: v.optional(cardRatioValidator),
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
@@ -564,6 +566,7 @@ export const saveTemplate = mutation({
         footer: kept.footer,
         buttons: kept.buttons,
         cards: keptCards,
+        ...(args.cardRatio ? { cardRatio: args.cardRatio } : {}),
         ...review,
         updatedAt: now,
       });
@@ -588,7 +591,7 @@ export const saveTemplate = mutation({
       languageCode,
       category: args.category ?? "marketing",
       ...parts,
-      ...(givenCards ? { cards: givenCards } : {}),
+      ...(givenCards ? { cards: givenCards, cardRatio: args.cardRatio } : {}),
       createdAt: now,
       updatedAt: now,
     });
@@ -1442,6 +1445,7 @@ export function templateAsShown(template: Doc<"marketingTemplates">): ShownTempl
     buttons: parts.buttons?.map(({ type, text }) => ({ type, text })),
     ...(template.cards?.length
       ? {
+          cardRatio: template.cardRatio,
           cards: template.cards.map((card) => ({
             ...(card.media
               ? { media: { type: card.media.type, link: fileUrl(card.media.key) } }

@@ -219,6 +219,7 @@ export default function MarketingTemplatesPage() {
                 footer={template.footer}
                 buttons={template.buttons}
                 cards={previewCards(template)}
+                cardRatio={template.cardRatio}
                 business={workspace.name}
                 occasion={template.occasion}
               />

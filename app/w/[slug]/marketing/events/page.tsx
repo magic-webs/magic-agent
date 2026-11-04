@@ -49,6 +49,7 @@ export default function MarketingEventsPage() {
           setTemplateDraft({
             kind: "standard",
             cardMediaKind: "image",
+            cardRatio: "square",
             cards: [],
             name: "Event reminder",
             occasion: "event",

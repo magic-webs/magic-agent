@@ -19,6 +19,9 @@ import {
   MAX_BUTTONS,
   MAX_CARD_BUTTONS,
   MAX_CARDS,
+  CARD_RATIOS,
+  nearestRatio,
+  type CardRatio,
   MAX_PHONE_BUTTONS,
   MAX_URL_BUTTONS,
   STOP_BUTTON,
@@ -117,6 +120,7 @@ export type TemplateDraft = {
   templateId?: Id<"marketingTemplates">;
   kind: TemplateKind;
   cardMediaKind: MediaKind;
+  cardRatio: CardRatio;
   cards: DraftCard[];
   name: string;
   occasion: Occasion;
@@ -144,6 +148,25 @@ function draftCards(draft: TemplateDraft): TemplateCard[] | undefined {
 
 const sameCards = (a: TemplateCard[] | undefined, b: TemplateCard[] | undefined) =>
   JSON.stringify(tidyCards(a) ?? null) === JSON.stringify(tidyCards(b) ?? null);
+
+function shapeOf(url: string, kind: MediaKind): Promise<CardRatio | null> {
+  return new Promise((resolve) => {
+    if (kind === "image") {
+      const image = new Image();
+      image.onload = () =>
+        resolve(image.naturalHeight ? nearestRatio(image.naturalWidth / image.naturalHeight) : null);
+      image.onerror = () => resolve(null);
+      image.src = url;
+    } else {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () =>
+        resolve(video.videoHeight ? nearestRatio(video.videoWidth / video.videoHeight) : null);
+      video.onerror = () => resolve(null);
+      video.src = url;
+    }
+  });
+}
 
 function blankCard(like?: DraftCard): DraftCard {
   return {
@@ -176,6 +199,9 @@ const BUTTON_KINDS: Array<{
   { type: "url", label: "Website", icon: LinkSquare02Icon },
   { type: "phone", label: "Call", icon: Call02Icon },
 ];
+
+const isStopButton = (button: TemplateButton) =>
+  button.type === "quick_reply" && button.text.trim().toLowerCase() === STOP_BUTTON.toLowerCase();
 
 function blankButton(type: TemplateButton["type"]): TemplateButton {
   if (type === "url") return { type, text: "Visit website", url: "https://" };
@@ -246,10 +272,13 @@ export function TemplateDialog({
   const cardKindAllowed = (type: TemplateButton["type"]) =>
     cardButtons.length < MAX_CARD_BUTTONS &&
     (type !== "phone" || !cardButtons.some((button) => button.type === "phone"));
-  const addCardButton = (type: TemplateButton["type"]) =>
+  const addCardButton = (type: TemplateButton["type"], text?: string) =>
     setDraft({
       ...draft,
-      cards: draft.cards.map((card) => ({ ...card, buttons: [...card.buttons, blankButton(type)] })),
+      cards: draft.cards.map((card) => ({
+        ...card,
+        buttons: [...card.buttons, text ? { type: "quick_reply", text } : blankButton(type)],
+      })),
     });
   const removeCardButton = (index: number) =>
     setDraft({
@@ -292,6 +321,7 @@ export function TemplateDialog({
     footer: parts.footer,
     buttons: parts.buttons,
     cards: cards ?? null,
+    ...(carousel ? { cardRatio: draft.cardRatio } : {}),
   });
 
   const uploadCardMedia = async (index: number, file: File | undefined) => {
@@ -307,10 +337,15 @@ export function TemplateDialog({
     }
     setBusy(`card-${index}`);
     try {
+      const url = URL.createObjectURL(file);
+      const shape = index === 0 ? await shapeOf(url, kind) : null;
       const key = await putFile(await generateUploadUrl({ workspaceId: workspace._id }), file);
-      setCard(index, {
-        ...draft.cards[index],
-        media: { type: kind, key, mimeType: file.type, url: URL.createObjectURL(file) },
+      setDraft({
+        ...draft,
+        ...(shape ? { cardRatio: shape } : {}),
+        cards: draft.cards.map((card, i) =>
+          i === index ? { ...card, media: { type: kind, key, mimeType: file.type, url } } : card
+        ),
       });
     } catch (error) {
       fail(`Could not upload the ${kind}`, error);
@@ -833,6 +868,7 @@ export function TemplateDialog({
             }
             footer={draft.footer}
             buttons={draft.buttons}
+            cardRatio={draft.cardRatio}
             cards={
               carousel
                 ? draft.cards.map((card) => ({
@@ -918,6 +954,7 @@ export function draftFor(template?: Template): TemplateDraft {
         templateId: template._id,
         kind: template.cards?.length ? "carousel" : "standard",
         cardMediaKind: template.cards?.find((card) => card.media)?.media?.type ?? "image",
+        cardRatio: template.cardRatio ?? "square",
         cards: (template.cards ?? []).map((card, index) => {
           const url = template.cardMediaUrls?.[index];
           return {
@@ -944,6 +981,7 @@ export function draftFor(template?: Template): TemplateDraft {
     : {
         kind: "standard",
         cardMediaKind: "image",
+        cardRatio: "square",
         cards: [],
         name: "",
         occasion: "festival",
@@ -987,7 +1025,7 @@ function CardsEditor({
   setCard: (index: number, next: DraftCard) => void;
   moveCard: (index: number, by: number) => void;
   cardKindAllowed: (type: TemplateButton["type"]) => boolean;
-  addCardButton: (type: TemplateButton["type"]) => void;
+  addCardButton: (type: TemplateButton["type"], text?: string) => void;
   removeCardButton: (index: number) => void;
   pickMedia: (index: number) => void;
 }) {
@@ -1012,6 +1050,33 @@ function CardsEditor({
             <ToggleGroupItem value="video">Video</ToggleGroupItem>
           </ToggleGroup>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-medium">Card size</span>
+          <ToggleGroup
+            value={[draft.cardRatio]}
+            onValueChange={(value) => {
+              const next = value[0] as CardRatio | undefined;
+              if (next) setDraft({ ...draft, cardRatio: next });
+            }}
+            variant="outline"
+            size="sm"
+            aria-label="Card size"
+          >
+            {CARD_RATIOS.map((one) => (
+              <ToggleGroupItem key={one.value} value={one.value}>
+                {one.label} {one.ratio}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Every card uses one size. Upload at{" "}
+          {CARD_RATIOS.find((one) => one.value === draft.cardRatio)?.size} px; the first
+          card&apos;s {kind} sets it when you upload.
+        </p>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-border p-2.5">
@@ -1054,6 +1119,17 @@ function CardsEditor({
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> {item.label}
             </Button>
           ))}
+          {draft.category === "marketing" &&
+          !cardButtons.some((button) => isStopButton(button)) ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!cardKindAllowed("quick_reply")}
+              onClick={() => addCardButton("quick_reply", STOP_BUTTON)}
+            >
+              <HugeiconsIcon icon={HandIcon} strokeWidth={2} /> Add “{STOP_BUTTON}”
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -1187,6 +1263,10 @@ function CardsEditor({
                       className="h-8 min-w-0 flex-1 font-mono text-xs"
                       onChange={(event) => setButton({ ...button, phone: event.target.value })}
                     />
+                  ) : isStopButton(button) ? (
+                    <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                      Tapping it unsubscribes them.
+                    </span>
                   ) : null}
                 </div>
               );

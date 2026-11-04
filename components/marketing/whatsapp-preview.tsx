@@ -5,6 +5,7 @@ import { renderTemplate, sampleValues } from "@/convex/lib/marketing";
 import {
   orderedButtons,
   tidyParts,
+  type CardRatio,
   type TemplateButton,
   type TemplateCard,
 } from "@/convex/lib/templateParts";
@@ -33,6 +34,12 @@ const BUTTON_ICON = {
   url: LinkSquare02Icon,
   phone: Call02Icon,
 } as const;
+
+export const RATIO_CLASS: Record<CardRatio, string> = {
+  square: "aspect-square",
+  portrait: "aspect-[4/5]",
+  landscape: "aspect-[1.91/1]",
+};
 
 export type PreviewCard = {
   media?: { type: "image" | "video"; url?: string };
@@ -86,7 +93,7 @@ function MediaFrame({
   );
 }
 
-function CarouselCards({ cards }: { cards: PreviewCard[] }) {
+function CarouselCards({ cards, ratio }: { cards: PreviewCard[]; ratio: CardRatio }) {
   return (
     <div className="-mr-2 flex shrink-0 snap-x snap-mandatory gap-1.5 overflow-x-auto pr-2 pb-1">
       {cards.map((card, index) => (
@@ -95,9 +102,9 @@ function CarouselCards({ cards }: { cards: PreviewCard[] }) {
           className="flex w-[78%] shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-background text-[12.5px] leading-snug text-foreground shadow-sm"
         >
           {card.media ? (
-            <MediaFrame media={card.media} className="aspect-square" />
+            <MediaFrame media={card.media} className={RATIO_CLASS[ratio]} />
           ) : (
-            <MediaFrame media={{ type: "image" }} className="aspect-square" />
+            <MediaFrame media={{ type: "image" }} className={RATIO_CLASS[ratio]} />
           )}
           <p className="flex-1 px-2.5 py-1.5 break-words whitespace-pre-wrap">
             {card.body.trim() || <span className="text-muted-foreground italic">Card text</span>}
@@ -124,6 +131,7 @@ export function WhatsAppPreview({
   footer,
   buttons,
   cards,
+  cardRatio = "square",
   business,
   occasion,
   size = "phone",
@@ -135,6 +143,7 @@ export function WhatsAppPreview({
   footer?: string;
   buttons?: TemplateButton[];
   cards?: PreviewCard[];
+  cardRatio?: CardRatio;
   business: string;
   occasion?: string;
   size?: "phone" | "card";
@@ -209,7 +218,7 @@ export function WhatsAppPreview({
   const message = carousel ? (
     <div className="flex shrink-0 flex-col gap-1.5">
       {bubble}
-      <CarouselCards cards={carousel} />
+      <CarouselCards cards={carousel} ratio={cardRatio} />
     </div>
   ) : (
     bubble

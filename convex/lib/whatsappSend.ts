@@ -215,6 +215,7 @@ export type Outbound =
       headerText?: string;
       footer?: string;
       buttons?: Array<{ type: "quick_reply" | "url" | "phone"; text: string }>;
+      cardRatio?: "square" | "portrait" | "landscape";
       cards?: Array<{
         media?: { type: "image" | "video"; link: string };
         body: string;

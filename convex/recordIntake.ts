@@ -19,8 +19,9 @@ import { noteContactActivity } from "./lib/contactActivity";
 import { ORDERS_HANDLE } from "./lib/ordersBook";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { randomKey } from "./lib/shared";
-import { requireRecordBook } from "./lib/auth";
-import { claimReference, searchBlobFor } from "./records";
+import { requireRecordBook, requireWorkspace } from "./lib/auth";
+import { toHandle } from "./lib/records";
+import { claimReference, insertBook, searchBlobFor } from "./records";
 
 const MAX_IMPORT_ROWS = 200;
 const MAX_VALUE_LENGTH = 2000;
@@ -251,6 +252,63 @@ export const captureInboundSample = mutation({
     await requireRecordBook(ctx, args.bookId);
     await ctx.db.patch(args.bookId, { inboundCapture: args.capture ? true : undefined });
     return { success: true };
+  },
+});
+
+const WEBSITE_BOOK = "Website enquiry";
+
+/**
+ * Where a Magicwebs site's form submissions go: the workspace's "Website
+ * enquiry" book, made the first time it is asked for, with its incoming URL
+ * switched on. Magicwebs posts each submission there as name, email, phone,
+ * company, message, page and form, plus whatever else the form asked.
+ */
+export const websiteEnquiries = mutation({
+  args: { workspaceSlug: v.string() },
+  handler: async (ctx, args): Promise<{ url: string }> => {
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_slug", (q) => q.eq("slug", args.workspaceSlug))
+      .unique();
+    if (!workspace) throw new ConvexError("Workspace not found");
+    await requireWorkspace(ctx, workspace._id);
+
+    const handle = toHandle(WEBSITE_BOOK);
+    let book = (
+      await ctx.db
+        .query("recordBooks")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+        .collect()
+    ).find((row) => row.handle === handle);
+    if (!book) {
+      const { bookId } = await insertBook(ctx, {
+        workspaceId: workspace._id,
+        name: WEBSITE_BOOK,
+        pluralName: "Website enquiries",
+        purpose:
+          "File one when a visitor on the website chat asks to be contacted or leaves a question for the team to follow up.",
+        fields: [
+          { key: "message", label: "Message", type: "text", required: false },
+          { key: "page", label: "Page", type: "text", required: false },
+          { key: "form", label: "Form", type: "text", required: false },
+        ],
+        stages: ["New", "Contacted", "Won", "Lost"],
+        referencePrefix: "WEB",
+        status: "active",
+      });
+      book = (await ctx.db.get("recordBooks", bookId))!;
+    }
+
+    const inboundKey = book.inboundKey ?? randomKey(28);
+    if (!book.inboundEnabled || !book.inboundKey || book.status === "archived") {
+      await ctx.db.patch(book._id, {
+        inboundEnabled: true,
+        inboundKey,
+        ...(book.status === "archived" ? { status: "active" as const } : {}),
+        updatedAt: Date.now(),
+      });
+    }
+    return { url: inboundUrl(inboundKey)! };
   },
 });
 

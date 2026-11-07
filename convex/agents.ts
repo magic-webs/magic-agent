@@ -238,7 +238,7 @@ export const findRouter = query({
 
 // Shared by the public mutation and by agents.create, so a workspace always
 // has a front desk the moment it has anything to route to.
-async function ensureRouter(
+export async function ensureRouter(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">
 ): Promise<{ agentId: Id<"agents">; created: boolean }> {

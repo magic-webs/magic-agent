@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";
 import { widgetIntake } from "./schema";
+import { ensureRouter } from "./agents";
 import {
   requireChannel,
   requireWorkspace,
@@ -246,6 +247,47 @@ export const create = mutation({
       await ctx.scheduler.runAfter(0, internal.telegram.register, { channelId });
     }
     return channelId;
+  },
+});
+
+/**
+ * The chat widget of a website built on Magicwebs: the workspace's web
+ * channel, answered by its front desk, made the first time it is asked for.
+ * Magicwebs puts its embed script on every page of the site.
+ */
+export const websiteWidget = mutation({
+  args: { workspaceSlug: v.string() },
+  handler: async (ctx, args): Promise<{ channelKey: string }> => {
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_slug", (q) => q.eq("slug", args.workspaceSlug))
+      .unique();
+    if (!workspace) throw new ConvexError("Workspace not found");
+    await requireWorkspace(ctx, workspace._id);
+
+    const channels = await ctx.db
+      .query("channels")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+      .collect();
+    const web = channels.find((channel) => channel.type === "web" && channel.status === "active");
+    if (web) return { channelKey: web.channelKey };
+
+    const { agentId } = await ensureRouter(ctx, workspace._id);
+    const now = Date.now();
+    const channelKey = randomKey(28);
+    await ctx.db.insert("channels", {
+      workspaceId: workspace._id,
+      agentId,
+      type: "web",
+      name: "Website chat",
+      channelKey,
+      // Asked inside the conversation, so a visitor can start typing at once.
+      intake: "chat",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { channelKey };
   },
 });
 

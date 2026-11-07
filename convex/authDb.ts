@@ -36,7 +36,8 @@ const roleValidator = v.union(
 const sourceValidator = v.union(
   v.literal("web"),
   v.literal("app"),
-  v.literal("mcp")
+  v.literal("mcp"),
+  v.literal("magicwebs")
 );
 
 /** Who a session or a half-done sign-in belongs to, as stored on both. */
@@ -95,7 +96,8 @@ function isInteractiveLive(session: Doc<"authSessions">, now: number): boolean {
   return (
     session.endedAt === undefined &&
     session.expiresAt > now &&
-    session.source !== "mcp"
+    session.source !== "mcp" &&
+    session.source !== "magicwebs"
   );
 }
 

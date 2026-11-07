@@ -8,6 +8,7 @@ import {
 
 const LOGIN_PATH = "/login";
 const SIGNUP_PATH = "/signup";
+const START_PATH = "/start";
 
 /** The area a session belongs to. Mirrors the redirect the login route returns. */
 function homeFor(role: string | undefined, ownSlug: string | undefined) {
@@ -15,6 +16,8 @@ function homeFor(role: string | undefined, ownSlug: string | undefined) {
   if ((role === "workspace" || role === "member" || role === "user") && ownSlug) {
     return `/w/${ownSlug}`;
   }
+  // A personal account with no workspace yet, typically one opened on Magicwebs.
+  if (role === "user") return START_PATH;
   return role === "member" ? DESK_PATH : "/admin";
 }
 
@@ -75,6 +78,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (role === "user" && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
+    return NextResponse.redirect(new URL(START_PATH, request.url));
+  }
+
   if ((role === "workspace" || role === "member") && ownSlug) {
     // A company has no platform area.
     if (pathname === "/admin" || pathname.startsWith("/admin/")) {
@@ -92,5 +99,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/signup", "/admin/:path*", "/w/:path*", "/desk/:path*"],
+  matcher: ["/login", "/signup", "/start", "/admin/:path*", "/w/:path*", "/desk/:path*"],
 };

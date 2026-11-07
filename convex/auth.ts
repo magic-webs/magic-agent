@@ -541,12 +541,13 @@ type LoginPrincipal =
 
 /**
  * Where a sign-in comes from. `web` and `app` hold one session per login
- * between them; `mcp` is exempt (see `authSessions.source`). Left undefined
+ * between them; `mcp` and `magicwebs` (the website builder, signing in to the
+ * same account on its own platform) are exempt (see `authSessions.source`). Left undefined
  * by a client from before any of this — an app build still installed on
  * someone's phone — which is then told in words rather than handed a step it
  * does not know how to show.
  */
-type Source = "web" | "app" | "mcp";
+type Source = "web" | "app" | "mcp" | "magicwebs";
 
 type Profile = {
   role: "admin" | "workspace" | "member" | "user";
@@ -682,7 +683,7 @@ async function finishSignIn(
   const opened = await openSession(ctx, principal, {
     source,
     device,
-    mode: source === "mcp" ? "shared" : "exclusive",
+    mode: source === "mcp" || source === "magicwebs" ? "shared" : "exclusive",
     challengeId: challenge?.id,
   });
   if (opened.ok) {
@@ -722,7 +723,12 @@ async function finishSignIn(
 }
 
 const sourceValidator = v.optional(
-  v.union(v.literal("web"), v.literal("app"), v.literal("mcp"))
+  v.union(
+    v.literal("web"),
+    v.literal("app"),
+    v.literal("mcp"),
+    v.literal("magicwebs")
+  )
 );
 
 /**
@@ -816,6 +822,11 @@ export const login = action({
     if (principal.role === "user" && args.client === "mcp") {
       throw new ConvexError(
         "The MCP server cannot sign in with a user's password. Use a connector URL from the workspace dashboard instead."
+      );
+    }
+    if (principal.role !== "user" && args.client === "magicwebs") {
+      throw new ConvexError(
+        "Magicwebs signs in with a personal account. Use the email you signed up with, not a company or team login."
       );
     }
 
@@ -1532,19 +1543,24 @@ async function sendSignupCode(details: SignupEmail, code: string): Promise<void>
 export const startSignUp = action({
   args: {
     name: v.string(),
-    businessName: v.string(),
+    /** Left out by Magicwebs: its accounts get a workspace per website, not one up front. */
+    businessName: v.optional(v.string()),
     email: v.string(),
     password: v.string(),
     timezone: v.optional(v.string()),
     locale: v.optional(v.string()),
     brief: v.optional(v.string()),
+    client: v.optional(v.literal("magicwebs")),
   },
   handler: async (ctx, args): Promise<{ challenge: string; email: string }> => {
     const name = args.name.trim();
-    const businessName = args.businessName.trim();
+    const businessName =
+      args.client === "magicwebs" ? "" : (args.businessName ?? "").trim();
     const email = args.email.trim().toLowerCase();
     if (!name) throw new ConvexError("Enter your name.");
-    if (!businessName) throw new ConvexError("Enter your business name.");
+    if (!businessName && args.client !== "magicwebs") {
+      throw new ConvexError("Enter your business name.");
+    }
     if (name.length > 80 || businessName.length > 80) {
       throw new ConvexError("Keep names under 80 characters.");
     }
@@ -1565,7 +1581,7 @@ export const startSignUp = action({
       codeHash: await sha256Hex(`${challenge}:${code}`),
       email,
       name,
-      businessName,
+      businessName: businessName || undefined,
       passwordHash: await hashPassword(args.password),
       timezone: args.timezone?.trim().slice(0, 64) || undefined,
       locale: args.locale?.trim().slice(0, 35) || undefined,
@@ -1595,11 +1611,12 @@ export const finishSignUp = action({
     challenge: v.string(),
     code: v.string(),
     device: v.optional(v.string()),
+    client: v.optional(v.literal("magicwebs")),
   },
   handler: async (
     ctx,
     args
-  ): Promise<{ sessionToken: string; expiresAt: number; workspaceSlug: string }> => {
+  ): Promise<{ sessionToken: string; expiresAt: number; workspaceSlug: string | null }> => {
     const challenge = args.challenge.trim();
     const done = await ctx.runMutation(internal.signup.complete, {
       tokenHash: await sha256Hex(challenge),
@@ -1611,7 +1628,9 @@ export const finishSignUp = action({
     const opened = await openSession(
       ctx,
       { role: "user", userId: done.userId },
-      { source: "web", device: cleanDevice(args.device), mode: "exclusive" }
+      args.client === "magicwebs"
+        ? { source: "magicwebs", device: cleanDevice(args.device), mode: "shared" }
+        : { source: "web", device: cleanDevice(args.device), mode: "exclusive" }
     );
     if (!opened.ok) throw new ConvexError("Your account is ready. Sign in to open it.");
     return {

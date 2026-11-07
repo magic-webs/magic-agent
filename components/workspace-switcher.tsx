@@ -29,8 +29,9 @@ import {
 } from "@hugeicons/core-free-icons";
 
 /**
- * The workspace this sidebar belongs to, and — for an administrator — the way
- * to any other.
+ * The workspace this sidebar belongs to, and the way to any other the signed-in
+ * login can open: every one for an administrator, a person's own for a user
+ * (one per website they build on Magicwebs).
  *
  * The caret and the menu appear only when there is somewhere to switch to. A
  * company has exactly one workspace, so for them this is a plain link home:
@@ -45,7 +46,9 @@ export function WorkspaceSwitcher({
 }) {
   const { isMobile } = useSidebar();
   // Admin-only query, so it is skipped rather than refused for a company.
-  const workspaces = useQuery(api.workspaces.list, isAdmin ? {} : "skip");
+  const all = useQuery(api.workspaces.list, isAdmin ? {} : "skip");
+  const own = useQuery(api.workspaces.mine, isAdmin ? "skip" : {});
+  const workspaces = isAdmin ? all : own;
   const pathname = usePathname();
 
   /**
@@ -91,7 +94,7 @@ export function WorkspaceSwitcher({
     </div>
   );
 
-  if (!isAdmin) {
+  if (!isAdmin && (own?.length ?? 0) < 2) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
@@ -167,11 +170,15 @@ export function WorkspaceSwitcher({
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/admin/workspaces" />}>
-              <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
-              All workspaces
-            </DropdownMenuItem>
+            {isAdmin ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href="/admin/workspaces" />}>
+                  <HugeiconsIcon icon={Building03Icon} strokeWidth={2} />
+                  All workspaces
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

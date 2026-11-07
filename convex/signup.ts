@@ -23,7 +23,7 @@ const EXPIRED = { message: "This sign-up has expired. Start again.", restart: tr
 export type SignupEmail = {
   email: string;
   name: string;
-  businessName: string;
+  businessName?: string;
   perks: { trialDays: number; bonus: string | null } | null;
 };
 
@@ -60,7 +60,7 @@ export const start = internalMutation({
     codeHash: v.string(),
     email: v.string(),
     name: v.string(),
-    businessName: v.string(),
+    businessName: v.optional(v.string()),
     passwordHash: v.string(),
     timezone: v.optional(v.string()),
     locale: v.optional(v.string()),
@@ -113,6 +113,8 @@ export const resend = internalMutation({
 
 /**
  * The code checked, then the workspace and its owner's login made in one go.
+ * An account opened from Magicwebs has no business name and starts with no
+ * workspace: each website it builds there adds one.
  * A wrong code comes back rather than throwing, so the count of tries is kept.
  */
 export const complete = internalMutation({
@@ -121,7 +123,7 @@ export const complete = internalMutation({
     ctx,
     args
   ): Promise<
-    | { ok: true; userId: Id<"users">; slug: string }
+    | { ok: true; userId: Id<"users">; slug: string | null }
     | { ok: false; error: string; restart: boolean }
   > => {
     const now = Date.now();
@@ -151,6 +153,17 @@ export const complete = internalMutation({
 
     await ctx.db.delete("signups", row._id);
     if (await loginEmailTaken(ctx, row.email)) return { ok: false, error: TAKEN, restart: true };
+
+    if (!row.businessName) {
+      const userId = await ctx.db.insert("users", {
+        email: row.email,
+        name: row.name,
+        passwordHash: row.passwordHash,
+        workspaceIds: [],
+        createdAt: now,
+      });
+      return { ok: true, userId, slug: null };
+    }
 
     const timezone = row.timezone && isValidTimezone(row.timezone) ? row.timezone : undefined;
     const indian = isIndian({ timezone });

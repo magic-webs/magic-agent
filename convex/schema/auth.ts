@@ -83,7 +83,12 @@ export const authTables = {
     expiresAt: v.number(),
     lastUsedAt: v.number(),
     source: v.optional(
-      v.union(v.literal("web"), v.literal("app"), v.literal("mcp"))
+      v.union(
+        v.literal("web"),
+        v.literal("app"),
+        v.literal("mcp"),
+        v.literal("magicwebs")
+      )
     ),
     device: v.optional(v.string()),
     endedAt: v.optional(v.number()),
@@ -108,7 +113,12 @@ export const authTables = {
     workspaceId: v.optional(v.id("workspaces")),
     memberId: v.optional(v.id("teamMembers")),
     userId: v.optional(v.id("users")),
-    source: v.union(v.literal("web"), v.literal("app"), v.literal("mcp")),
+    source: v.union(
+      v.literal("web"),
+      v.literal("app"),
+      v.literal("mcp"),
+      v.literal("magicwebs")
+    ),
     device: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
@@ -119,7 +129,8 @@ export const authTables = {
     tokenHash: v.string(),
     email: v.string(),
     name: v.string(),
-    businessName: v.string(),
+    /** Unset for an account opened from Magicwebs, which gets a workspace per website instead. */
+    businessName: v.optional(v.string()),
     passwordHash: v.string(),
     timezone: v.optional(v.string()),
     locale: v.optional(v.string()),

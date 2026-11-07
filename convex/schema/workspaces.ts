@@ -45,8 +45,8 @@ export const workspacesTables = {
     status: v.union(v.literal("active"), v.literal("archived")),
     stage: v.optional(storedWorkspaceStage),
     stageLabel: v.optional(v.string()),
-    /** Set when the company signed itself up on the website. */
-    source: v.optional(v.literal("signup")),
+    /** Set when the company signed itself up on the website, or a Magicwebs site made it. */
+    source: v.optional(v.union(v.literal("signup"), v.literal("magicwebs"))),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_slug", ["slug"]),

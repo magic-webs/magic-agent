@@ -13,6 +13,7 @@ import {
   AuthError,
   requireModify,
   requireScopedWorkspace,
+  requireSignedIn,
   requireStaff,
   requireWorkspace,
 } from "./lib/auth";
@@ -20,6 +21,7 @@ import { logoSrcFor } from "./lib/branding";
 import { deleteFile, requireOwnKey, uploadUrlFor } from "./lib/files";
 import { orderRecords, statusForStage } from "./lib/ordersBook";
 import { grantWelcomeBonus } from "./lib/wallet";
+import { isIndian } from "./lib/currency";
 import { ensureOwnerMember } from "./team";
 import {
   isValidCurrency,
@@ -561,6 +563,70 @@ export const remove = mutation({
 
     await ctx.db.delete(args.workspaceId);
     return { success: true };
+  },
+});
+
+/** The signed-in user's own workspaces, for their switcher. Empty for anyone else. */
+export const mine = query({
+  args: {},
+  handler: async (ctx) => {
+    const principal = await requireSignedIn(ctx);
+    if (principal.role !== "user") return [];
+    const rows = await Promise.all(
+      principal.workspaceIds.map((id) => ctx.db.get("workspaces", id))
+    );
+    return await Promise.all(
+      rows
+        .filter((row): row is Doc<"workspaces"> => row !== null && row.status !== "archived")
+        .map(async (row) => ({
+          _id: row._id,
+          slug: row.slug,
+          name: row.name,
+          logoSrc: await logoSrcFor(ctx, row),
+        }))
+    );
+  },
+});
+
+/**
+ * A workspace for one website the signed-in user builds on Magicwebs, added
+ * to their own list so it shows in their switcher. Called by Magicwebs as the
+ * user, so nothing here trusts the caller beyond who they are.
+ */
+export const createForUser = mutation({
+  args: {
+    name: v.string(),
+    website: v.optional(v.string()),
+    description: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const principal = await requireSignedIn(ctx);
+    if (principal.role !== "user") {
+      throw new ConvexError("Only a personal account can add a workspace this way.");
+    }
+    const user = await ctx.db.get("users", principal.userId);
+    if (!user) throw new ConvexError("Sign in again to continue.");
+    const name = args.name.trim().slice(0, 80);
+    if (!name) throw new ConvexError("Give the workspace a name.");
+
+    const timezone =
+      args.timezone && isValidTimezone(args.timezone) ? args.timezone : undefined;
+    const indian = isIndian({ timezone });
+    const { workspaceId, slug } = await insertWorkspace(ctx, {
+      name,
+      ownerName: user.name,
+      website: args.website?.trim() || undefined,
+      description: args.description?.trim().slice(0, 2000) || undefined,
+      timezone,
+      locale: indian ? "en-IN" : undefined,
+      currency: indian ? "INR" : "USD",
+      source: "magicwebs",
+    });
+    await ctx.db.patch("users", user._id, {
+      workspaceIds: [...user.workspaceIds, workspaceId],
+    });
+    return { slug };
   },
 });
 

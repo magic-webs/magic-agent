@@ -41,9 +41,11 @@ function signedIn(
   const redirectTo =
     (role === "workspace" || role === "member" || role === "user") && workspaceSlug
       ? `/w/${workspaceSlug}`
-      : role === "member"
-        ? DESK_PATH
-        : "/admin";
+      : role === "user"
+        ? "/start"
+        : role === "member"
+          ? DESK_PATH
+          : "/admin";
 
   setSessionCookies(jar, sessionToken, role, workspaceSlug);
   return NextResponse.json({ ok: true, redirectTo });

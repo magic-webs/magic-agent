@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       setSessionCookies(jar, done.sessionToken, "user", done.workspaceSlug);
       return NextResponse.json({
         ok: true,
-        redirectTo: `/w/${done.workspaceSlug}/onboarding`,
+        redirectTo: done.workspaceSlug ? `/w/${done.workspaceSlug}/onboarding` : "/",
       });
     }
 

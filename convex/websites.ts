@@ -1,11 +1,12 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
 import { mutation } from "./functions";
 import { requireWorkspace } from "./lib/auth";
 import { ensureFollowUpDesk, ensureMarketingDesk, ensureRouter } from "./agents";
 import { queueSource } from "./knowledge";
+import { tidyWelcomeMenu } from "./lib/welcomeMenu";
 
 // The workspace of a website built on Magicwebs, set up from the site itself.
 // Magicwebs calls this as the site's owner when the workspace is made and
@@ -13,7 +14,13 @@ import { queueSource } from "./knowledge";
 // knowledge base in step with the pages: the company details and facts the
 // owner has not given yet (Magicwebs reads them from the site and from what
 // the original website declares about itself), a front desk, a follow-up desk
-// and a marketing desk, and one knowledge source per page.
+// and a marketing desk, a welcome menu, and one knowledge source per page.
+//
+// The welcome menu matters because these workspaces have no specialists, so
+// the automatic menu (built from specialists) is empty. Without one, a widget
+// visitor who gives their name and number gets no reply until they type a
+// question. Magicwebs sends options drawn from the site's pages; tapping one
+// sends its title, and the front desk answers it from the knowledge base.
 
 const WEBSITE_TAG = "website";
 const pageTag = (path: string) => `page:${path}`;
@@ -64,6 +71,13 @@ export const setUp = mutation({
     profile: profileShape,
     facts: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
     pages: v.array(v.object({ path: v.string(), title: v.string(), text: v.string() })),
+    /** Saved only while the workspace has no welcome menu, so the owner's own menu wins. */
+    welcomeMenu: v.optional(
+      v.object({
+        body: v.optional(v.string()),
+        options: v.array(v.object({ title: v.string(), description: v.optional(v.string()) })),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const workspace = await ctx.db
@@ -89,6 +103,11 @@ export const setUp = mutation({
       .map((fact) => ({ key: fact.key.trim().slice(0, 80), value: fact.value.trim().slice(0, 500) }))
       .filter((fact) => fact.key && fact.value && !known.has(fact.key.toLowerCase()));
     if (newFacts.length) patch.facts = [...workspace.facts, ...newFacts].slice(0, 60);
+    if (args.welcomeMenu && !workspace.welcomeMenu) {
+      // An empty body falls back to the default greeting when the menu is sent.
+      const menu = tidyWelcomeMenu({ enabled: true, body: args.welcomeMenu.body ?? "", options: args.welcomeMenu.options });
+      if (menu.options.length) patch.welcomeMenu = menu;
+    }
     if (Object.keys(patch).length) {
       await ctx.db.patch(workspace._id, { ...patch, updatedAt: Date.now() });
     }
@@ -152,7 +171,66 @@ export const setUp = mutation({
       frontDeskCreated: frontDesk.created,
       marketingCreated: marketing.created,
       followUpCreated: followUp.created,
+      welcomeMenuCreated: Boolean(patch.welcomeMenu),
       knowledge: { added, updated, removed },
     };
+  },
+});
+
+const CHAT_LEADS_SCAN = 500;
+const CHAT_LEAD_MESSAGE = 500;
+
+/**
+ * The website chat's leads, newest first, for Magicwebs to list beside its
+ * form submissions: every web visitor who left a name, number or email, with
+ * their conversation and the first thing they asked after the intake questions.
+ */
+export const chatLeads = query({
+  args: { workspaceSlug: v.string() },
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_slug", (q) => q.eq("slug", args.workspaceSlug))
+      .unique();
+    if (!workspace) throw new ConvexError("Workspace not found");
+    await requireWorkspace(ctx, workspace._id);
+
+    const contacts = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+      .order("desc")
+      .take(CHAT_LEADS_SCAN);
+
+    const leads = [];
+    for (const contact of contacts) {
+      if (contact.channelType !== "web" || !(contact.name || contact.phone || contact.email)) continue;
+      const conversation = await ctx.db
+        .query("conversations")
+        .withIndex("by_contact_agent", (q) => q.eq("contactId", contact._id))
+        .first();
+      let message: string | undefined;
+      if (conversation) {
+        const messages = await ctx.db
+          .query("messages")
+          .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+          .take(20);
+        // The intake's own answers (name, number) are not what they came for.
+        const asked = messages.find(
+          (m) => m.role === "user" && (conversation.intakeAt === undefined || m.createdAt > conversation.intakeAt)
+        );
+        message = asked?.text?.slice(0, CHAT_LEAD_MESSAGE);
+      }
+      leads.push({
+        contactId: contact._id,
+        conversationId: conversation?._id ?? null,
+        name: contact.name ?? null,
+        phone: contact.phone ?? null,
+        email: contact.email ?? null,
+        company: contact.company ?? null,
+        message: message ?? null,
+        createdAt: contact.createdAt,
+      });
+    }
+    return leads;
   },
 });

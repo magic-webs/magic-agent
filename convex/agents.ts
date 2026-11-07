@@ -316,7 +316,7 @@ export async function ensureRouter(
  * desk nobody switched on would silently stop the pipeline moving. It borrows
  * the front desk's tone so its nudges sound like the same company.
  */
-async function ensureFollowUpDesk(
+export async function ensureFollowUpDesk(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">
 ): Promise<{ agentId: Id<"agents">; created: boolean }> {

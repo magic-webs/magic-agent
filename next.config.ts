@@ -9,6 +9,9 @@ const convexSite = (
 const proxiedPrefixes = [
   "/whatsapp",
   "/notify",
+  // A record book's incoming URL (recordIntake.ts inboundUrl), which Magicwebs
+  // posts its sites' form leads to. The dashboard's books are under /w/<slug>/records.
+  "/records",
   "/apps",
   "/l",
   "/integrations/google",

@@ -1640,9 +1640,13 @@ function ChannelSetup({
                 Moves the launcher to the bottom-left. Defaults to
                 the right.
               </OptionRow>
-              <OptionRow attribute={'data-icon="chat"'}>
-                Swaps the WhatsApp glyph for a neutral speech
-                bubble — use it when the widget is not WhatsApp.
+              <OptionRow attribute={'data-icon="chat-dots"'}>
+                Swaps the WhatsApp glyph for another icon: chat,
+                chat-dots, sparkles, bot, headset, smile or help.
+              </OptionRow>
+              <OptionRow attribute={'data-animation="pulse"'}>
+                Animates the launcher to catch the eye: pulse, bounce,
+                wiggle or breathe. Pauses while the chat is open.
               </OptionRow>
               <OptionRow attribute={'data-teaser="Need a hand?"'}>
                 A one-line bubble beside the launcher before anyone

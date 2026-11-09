@@ -1522,14 +1522,13 @@ export const principalProfile = internalQuery({
     if (args.role === "user") {
       const user = args.userId ? await ctx.db.get("users", args.userId) : null;
       if (!user) return generic;
+      // A person with no workspace yet still signs in: Magic Agent sends them
+      // to /start to make one, and Magicwebs makes one per website for them.
       const slugs = await userWorkspaceSlugs(ctx, user.workspaceIds);
-      if (slugs.length === 0) {
-        return { ok: false, error: "No workspace has been assigned to this login yet." };
-      }
       return {
         ok: true,
         label: user.name?.trim() || user.email,
-        workspaceSlug: slugs[0]!,
+        workspaceSlug: slugs[0] ?? null,
         mustChangePassword: false,
       };
     }

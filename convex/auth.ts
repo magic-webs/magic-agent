@@ -1084,6 +1084,48 @@ export const mintAccessToken = action({
   },
 });
 
+/**
+ * Opens a `magicwebs` session for the person signed in to the app, so the
+ * app can open their websites on Magicwebs without asking for the password
+ * again. The live app session is the credential, as it is for
+ * `mintAccessToken`. Only a personal account has websites, and a magicwebs
+ * session is shared: it never signs the app out.
+ */
+export const openMagicwebsSession = action({
+  args: { sessionToken: v.string(), device: v.optional(v.string()) },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ sessionToken: string; expiresAt: number } | null> => {
+    const session: Doc<"authSessions"> | null = await ctx.runQuery(
+      internal.authDb.sessionByHash,
+      { tokenHash: await sha256Hex(args.sessionToken) }
+    );
+    if (
+      !session ||
+      session.expiresAt < Date.now() ||
+      session.endedAt !== undefined ||
+      session.role !== "user" ||
+      !session.userId
+    ) {
+      return null;
+    }
+    const profile = await ctx.runQuery(internal.authDb.principalProfile, {
+      role: "user",
+      userId: session.userId,
+    });
+    if (!profile.ok) return null;
+
+    const opened = await openSession(
+      ctx,
+      { role: "user", userId: session.userId },
+      { source: "magicwebs", device: cleanDevice(args.device), mode: "shared" }
+    );
+    if (!opened.ok) return null;
+    return { sessionToken: opened.sessionToken, expiresAt: opened.expiresAt };
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Workspace access management (admin)
 // ---------------------------------------------------------------------------

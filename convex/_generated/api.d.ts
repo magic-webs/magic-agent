@@ -169,6 +169,7 @@ import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 import type * as wallet from "../wallet.js";
 import type * as webhooks from "../webhooks.js";
+import type * as websites from "../websites.js";
 import type * as welcomeMenu from "../welcomeMenu.js";
 import type * as whatsapp from "../whatsapp.js";
 import type * as whatsappImages from "../whatsappImages.js";
@@ -343,6 +344,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   wallet: typeof wallet;
   webhooks: typeof webhooks;
+  websites: typeof websites;
   welcomeMenu: typeof welcomeMenu;
   whatsapp: typeof whatsapp;
   whatsappImages: typeof whatsappImages;

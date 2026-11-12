@@ -466,103 +466,142 @@ export const remove = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
     await requireEveryWorkspace(ctx);
-    const conversations = await ctx.db
-      .query("conversations")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-
-    for (const conversation of conversations) {
-      const messages = await ctx.db
-        .query("messages")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", conversation._id)
-        )
-        .collect();
-      for (const message of messages) await deleteMessage(ctx, message);
-      await ctx.db.delete(conversation._id);
-    }
-
-    const sources = await ctx.db
-      .query("knowledgeSources")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-    for (const source of sources) {
-      const chunks = await ctx.db
-        .query("knowledgeChunks")
-        .withIndex("by_source", (q) => q.eq("sourceId", source._id))
-        .collect();
-      for (const chunk of chunks) await ctx.db.delete(chunk._id);
-      await deleteFile(ctx, source.fileKey, source.storageId);
-      await ctx.db.delete(source._id);
-    }
-
-    // Uploaded product images live in storage, not in the row, so the bulk
-    // table sweep below would leave the files behind.
-    const products = await ctx.db
-      .query("products")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-    for (const product of products) {
-      for (const image of product.images ?? []) {
-        await deleteFile(ctx, image.fileKey, image.storageId);
-      }
-    }
-
-    const tables = [
-      "agents",
-      "agentStats",
-      "channels",
-      "products",
-      "orders",
-      "tools",
-      "contacts",
-      "webhookEvents",
-      "pushInbox",
-      "knowledgeGaps",
-    ] as const;
-
-    for (const table of tables) {
-      const rows = await ctx.db
-        .query(table)
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-        .collect();
-      for (const row of rows) await ctx.db.delete(row._id);
-    }
-
-    const counts = await ctx.db
-      .query("inboxCounts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .unique();
-    if (counts) await ctx.db.delete(counts._id);
-
-    const days = await ctx.db
-      .query("dailyStats")
-      .withIndex("by_workspace_day", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-    for (const row of days) await ctx.db.delete(row._id);
-
-    // The account's own rate card goes; its billing ledger stays. What a
-    // company was charged is a record the platform still has to answer for
-    // after the company is gone — the admin billing page reports it as a
-    // deleted workspace, the way the usage page does for model spend.
-    const rateCard = await ctx.db
-      .query("billingRates")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .first();
-    if (rateCard) await ctx.db.delete(rateCard._id);
-    const markups = await ctx.db
-      .query("billingMarkups")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .first();
-    if (markups) await ctx.db.delete(markups._id);
-
-    const workspace = await ctx.db.get("workspaces", args.workspaceId);
-    if (workspace) {
-      await deleteFile(ctx, workspace.logoKey, workspace.logoStorageId);
-    }
-
-    await ctx.db.delete(args.workspaceId);
+    await deleteWorkspace(ctx, args.workspaceId);
     return { success: true };
+  },
+});
+
+async function deleteWorkspace(ctx: MutationCtx, workspaceId: Id<"workspaces">) {
+  const conversations = await ctx.db
+    .query("conversations")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+
+  for (const conversation of conversations) {
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", conversation._id)
+      )
+      .collect();
+    for (const message of messages) await deleteMessage(ctx, message);
+    await ctx.db.delete(conversation._id);
+  }
+
+  const sources = await ctx.db
+    .query("knowledgeSources")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  for (const source of sources) {
+    const chunks = await ctx.db
+      .query("knowledgeChunks")
+      .withIndex("by_source", (q) => q.eq("sourceId", source._id))
+      .collect();
+    for (const chunk of chunks) await ctx.db.delete(chunk._id);
+    await deleteFile(ctx, source.fileKey, source.storageId);
+    await ctx.db.delete(source._id);
+  }
+
+  // Uploaded product images live in storage, not in the row, so the bulk
+  // table sweep below would leave the files behind.
+  const products = await ctx.db
+    .query("products")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  for (const product of products) {
+    for (const image of product.images ?? []) {
+      await deleteFile(ctx, image.fileKey, image.storageId);
+    }
+  }
+
+  const tables = [
+    "agents",
+    "agentStats",
+    "channels",
+    "products",
+    "orders",
+    "tools",
+    "contacts",
+    "webhookEvents",
+    "pushInbox",
+    "knowledgeGaps",
+  ] as const;
+
+  for (const table of tables) {
+    const rows = await ctx.db
+      .query(table)
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+      .collect();
+    for (const row of rows) await ctx.db.delete(row._id);
+  }
+
+  const counts = await ctx.db
+    .query("inboxCounts")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .unique();
+  if (counts) await ctx.db.delete(counts._id);
+
+  const days = await ctx.db
+    .query("dailyStats")
+    .withIndex("by_workspace_day", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+  for (const row of days) await ctx.db.delete(row._id);
+
+  // The account's own rate card goes; its billing ledger stays. What a
+  // company was charged is a record the platform still has to answer for
+  // after the company is gone — the admin billing page reports it as a
+  // deleted workspace, the way the usage page does for model spend.
+  const rateCard = await ctx.db
+    .query("billingRates")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .first();
+  if (rateCard) await ctx.db.delete(rateCard._id);
+  const markups = await ctx.db
+    .query("billingMarkups")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .first();
+  if (markups) await ctx.db.delete(markups._id);
+
+  const workspace = await ctx.db.get("workspaces", workspaceId);
+  if (workspace) {
+    await deleteFile(ctx, workspace.logoKey, workspace.logoStorageId);
+  }
+
+  await ctx.db.delete(workspaceId);
+}
+
+/**
+ * Delete a website's workspace when its owner deletes the website on
+ * Magicwebs. Called by Magicwebs as the user, so it only reaches a workspace
+ * Magicwebs made that is on the caller's own list. A workspace already gone
+ * is not an error: the website is being deleted either way.
+ */
+export const removeForUser = mutation({
+  args: { workspaceSlug: v.string() },
+  handler: async (ctx, args) => {
+    const principal = await requireSignedIn(ctx);
+    if (principal.role !== "user") {
+      throw new ConvexError("Only a personal account can delete a workspace this way.");
+    }
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_slug", (q) => q.eq("slug", args.workspaceSlug))
+      .unique();
+    if (!workspace) return { deleted: false };
+    if (!principal.workspaceIds.includes(workspace._id)) {
+      throw new AuthError("You do not have access to this workspace.");
+    }
+    if (workspace.source !== "magicwebs") {
+      throw new ConvexError("Only a workspace made for a Magicwebs website can be deleted from Magicwebs.");
+    }
+    await deleteWorkspace(ctx, workspace._id);
+    const user = await ctx.db.get("users", principal.userId);
+    if (user) {
+      await ctx.db.patch("users", user._id, {
+        workspaceIds: user.workspaceIds.filter((id) => id !== workspace._id),
+      });
+    }
+    return { deleted: true };
   },
 });
 

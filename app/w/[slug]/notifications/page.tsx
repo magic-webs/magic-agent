@@ -10,6 +10,7 @@ import { placeholderPaths } from "@/convex/lib/notifications";
 import { useWorkspace } from "@/components/workspace-provider";
 import { SelectField } from "@/components/select-field";
 import { RuleDialog } from "@/components/notifications/rule-dialog";
+import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import {
   fail,
   statusVariant,
@@ -779,6 +780,7 @@ const LOG_VARIANT = {
 } as const;
 
 function LogDialog({ log, onClose }: { log: NotificationLog; onClose: () => void }) {
+  const workspace = useWorkspace();
   const rows: Array<[string, string | undefined]> = [
     ["Alert", log.ruleName ?? (log.kind === "manual" ? "Sent by hand" : "Test")],
     ["Channel", log.channel === "whatsapp" ? "WhatsApp" : "Email"],
@@ -814,7 +816,9 @@ function LogDialog({ log, onClose }: { log: NotificationLog; onClose: () => void
             <AlertDescription className="break-words">{log.error}</AlertDescription>
           </Alert>
         ) : null}
-        {log.preview ? (
+        {log.preview && log.channel === "whatsapp" ? (
+          <WhatsAppPreview size="card" body={log.preview} business={workspace.name} />
+        ) : log.preview ? (
           <div className="rounded-md border border-border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
             {log.preview}
           </div>

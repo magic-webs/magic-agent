@@ -15,6 +15,7 @@ import { channelType, escalationDepartment, kvPair } from "./schema";
 import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
+import { carriedChunkIds } from "./lib/knowledgeCarry";
 import { recordAgentReply, REPLY_PREVIEW_CHARS } from "./lib/agentStats";
 import { chargeAiReply } from "./lib/charge";
 import {
@@ -1234,6 +1235,15 @@ export const startTurn = internalMutation({
       humanHandling = false;
     }
 
+    let historyLimit = args.historyLimit;
+    const activeId = conversation.activeAgentId ?? conversation.agentId;
+    if (activeId && activeId !== args.agentId) {
+      const active = await ctx.db.get("agents", activeId);
+      if (active && active.status !== "paused") {
+        historyLimit = Math.max(historyLimit, active.historyLimit);
+      }
+    }
+
     // History must be read before the new message is inserted.
     const priorMessages = await ctx.db
       .query("messages")
@@ -1241,7 +1251,7 @@ export const startTurn = internalMutation({
         q.eq("conversationId", conversation!._id)
       )
       .order("desc")
-      .take(args.historyLimit * 2);
+      .take(historyLimit * 2);
 
     const lastSaid = priorMessages.find((m) => m.role === "user" || m.role === "assistant");
     const repliesToMarketing =
@@ -1258,7 +1268,7 @@ export const startTurn = internalMutation({
           (m.role === "user" || m.role === "assistant")
       )
       .reverse()
-      .slice(-args.historyLimit);
+      .slice(-historyLimit);
 
     const teamNames = new Map<Id<"teamMembers">, string>();
     for (const m of replayed) {
@@ -1458,6 +1468,7 @@ export const startTurn = internalMutation({
         attributes: contact.attributes,
       },
       history,
+      carriedChunkIds: carriedChunkIds(priorMessages),
       quoted: replyTo ? { text: replyTo.text, fromCustomer: replyTo.fromCustomer } : null,
       isFirstTurn: conversation.messageCount === 0,
       lastActivityAt,

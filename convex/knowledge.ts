@@ -434,7 +434,10 @@ export const CORRECTION_TAG = "correction";
 
 // Hydrates vector-search hits. Vector search only returns ids and scores.
 export const hydrateChunks = internalQuery({
-  args: { chunkIds: v.array(v.id("knowledgeChunks")) },
+  args: {
+    chunkIds: v.array(v.id("knowledgeChunks")),
+    scopeKeys: v.optional(v.array(v.string())),
+  },
   handler: async (ctx, args) => {
     const out: Array<{
       text: string;
@@ -448,6 +451,7 @@ export const hydrateChunks = internalQuery({
     for (const id of args.chunkIds) {
       const chunk = await ctx.db.get("knowledgeChunks", id);
       if (!chunk) continue;
+      if (args.scopeKeys && !args.scopeKeys.includes(chunk.scopeKey)) continue;
       if (!sources.has(chunk.sourceId)) {
         sources.set(chunk.sourceId, await ctx.db.get("knowledgeSources", chunk.sourceId));
       }

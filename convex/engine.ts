@@ -60,6 +60,7 @@ import {
 import { fileUrl } from "./lib/files";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { sendOnChannel } from "./lib/channelSend";
+import { mergePassages } from "./lib/knowledgeCarry";
 import { channelType } from "./schema";
 import {
   parametersToJsonSchema,
@@ -2444,7 +2445,7 @@ ${message}`
       let knowledgeContext = "";
       if (agent.knowledgeEnabled) {
         try {
-          const passages = await retrieveKnowledge(ctx, {
+          const fresh = await retrieveKnowledge(ctx, {
             apiKey,
             workspaceId: workspace._id,
             agentId: agent._id,
@@ -2453,6 +2454,13 @@ ${message}`
             channelType: turn.channelType,
             conversationId: turn.conversationId,
           });
+          const carried = session.carriedChunkIds.length
+            ? await ctx.runQuery(internal.knowledge.hydrateChunks, {
+                chunkIds: session.carriedChunkIds,
+                scopeKeys: [`${workspace._id}|*`, `${workspace._id}|${agent._id}`],
+              })
+            : [];
+          const passages = mergePassages(fresh, carried, agent.knowledgeTopK * 2);
           noteSources(turn, passages);
           knowledgeContext = formatKnowledge(passages);
         } catch (error) {

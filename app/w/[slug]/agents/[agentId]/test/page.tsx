@@ -30,11 +30,38 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowLeft02Icon,
+  Mic01Icon,
+  PauseIcon,
   RefreshIcon,
   SentIcon,
   SlidersVerticalIcon,
+  StopIcon,
+  VolumeHighIcon,
 } from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
+import {
+  useAutoSpeak,
+  usePlayer,
+  useRecorder,
+  useStoredFlag,
+  useTypewriter,
+} from "@/hooks/use-voice";
+
+function StreamingReply({ text }: { text: string }) {
+  const shown = useTypewriter(text);
+  return (
+    <Message align="start">
+      <MessageContent>
+        <Bubble variant="outline">
+          <BubbleContent className="whitespace-pre-wrap">
+            {shown}
+            <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-foreground/50 align-text-bottom" />
+          </BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
+  );
+}
 
 // One browser session == one contact, so the playground behaves like a real
 // returning customer across reloads. localStorage is an external store rather
@@ -104,6 +131,29 @@ export default function AgentTestPage({
   });
   const respond = useAction(api.engine.respondAsUser);
   const resetConversation = useMutation(api.conversations.reset);
+  const draft = useQuery(api.drafts.forConversation, {
+    conversationId: conversation?._id,
+  });
+  const transcribe = useAction(api.voice.transcribeAsUser);
+  const speak = useAction(api.voice.speakAsUser);
+  const recorder = useRecorder();
+  const [speakReplies, setSpeakReplies] = useStoredFlag("magic-ai-bot:playground-speak", false);
+  const [heard, setHeard] = useState<{ text: string; ms: number } | null>(null);
+  const [listening, setListening] = useState<"idle" | "recording" | "transcribing">("idle");
+  const spokeLast = useRef(false);
+  const player = usePlayer((id) => speak({ messageId: id as Id<"messages"> }));
+  useAutoSpeak(
+    messages?.map((m) => ({ id: m._id, role: m.kind === "text" ? m.role : "other" })),
+    () => {
+      const wanted = speakReplies || spokeLast.current;
+      spokeLast.current = false;
+      return wanted;
+    },
+    (id) =>
+      void player.play(id).catch((error: unknown) =>
+        toast.add({ title: "Could not play the reply", description: friendlyError(error), type: "error" })
+      )
+  );
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -133,6 +183,38 @@ export default function AgentTestPage({
     } finally {
       setSending(false);
       inputRef.current?.focus();
+    }
+  };
+
+  const toggleMic = async () => {
+    if (listening === "recording") {
+      const audio = await recorder.stop();
+      if (!audio) {
+        setListening("idle");
+        return;
+      }
+      setListening("transcribing");
+      const started = performance.now();
+      try {
+        const { text } = await transcribe({ agentId: typedAgentId, audio });
+        setHeard({ text, ms: performance.now() - started });
+        if (text) {
+          spokeLast.current = true;
+          await send(text);
+        }
+      } catch (error) {
+        toast.add({ title: "Could not transcribe", description: friendlyError(error), type: "error" });
+      } finally {
+        setListening("idle");
+      }
+      return;
+    }
+    player.stop();
+    try {
+      await recorder.start();
+      setListening("recording");
+    } catch {
+      toast.add({ title: "Microphone blocked", description: "Allow microphone access to talk to the agent.", type: "error" });
     }
   };
 
@@ -187,6 +269,17 @@ export default function AgentTestPage({
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Switch
+              id="speak-replies"
+              size="sm"
+              checked={speakReplies}
+              onCheckedChange={setSpeakReplies}
+            />
+            <Label htmlFor="speak-replies" className="text-xs">
+              Speak replies
+            </Label>
+          </div>
           <div className="flex items-center gap-1.5">
             <Switch
               id="show-tools"
@@ -252,6 +345,30 @@ export default function AgentTestPage({
         showTools={showTools}
         agents={agent ? [agent] : undefined}
         onPick={(text) => void send(text)}
+        messageActions={(message) =>
+          message.role === "assistant" && message.kind === "text" && message.text ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              className="-mt-1.5 self-start text-muted-foreground"
+              onClick={() =>
+                void Promise.resolve(player.toggle(message._id)).catch((error: unknown) =>
+                  toast.add({ title: "Could not play", description: friendlyError(error), type: "error" })
+                )
+              }
+            >
+              {player.loadingId === message._id ? (
+                <Spinner />
+              ) : (
+                <HugeiconsIcon
+                  icon={player.playingId === message._id ? PauseIcon : VolumeHighIcon}
+                  strokeWidth={2}
+                />
+              )}
+              {player.playingId === message._id ? "Stop" : "Listen"}
+            </Button>
+          ) : null
+        }
         leading={
           <>
             <TranscriptItem messageId="greeting">
@@ -294,7 +411,11 @@ export default function AgentTestPage({
         trailing={
           sending ? (
             <TranscriptItem messageId="typing">
-              <TypingBubble label="The agent is typing" />
+              {draft?.text ? (
+                <StreamingReply text={draft.text} />
+              ) : (
+                <TypingBubble label="The agent is typing" />
+              )}
             </TranscriptItem>
           ) : null
         }
@@ -317,6 +438,21 @@ export default function AgentTestPage({
               }
             }}
           />
+          {recorder.supported ? (
+            <Button
+              size="icon-lg"
+              variant={listening === "recording" ? "destructive" : "outline"}
+              aria-label={listening === "recording" ? "Stop and send" : "Talk to the agent"}
+              disabled={!sessionId || sending || listening === "transcribing"}
+              onClick={() => void toggleMic()}
+            >
+              {listening === "transcribing" ? (
+                <Spinner />
+              ) : (
+                <HugeiconsIcon icon={listening === "recording" ? StopIcon : Mic01Icon} strokeWidth={2} />
+              )}
+            </Button>
+          ) : null}
           <Button
             size="icon-lg"
             aria-label="Send message"
@@ -327,7 +463,11 @@ export default function AgentTestPage({
           </Button>
         </div>
         <p className="mx-auto mt-1.5 w-full max-w-3xl text-xs text-muted-foreground">
-          Enter to send · Shift+Enter for a new line.
+          {listening === "recording"
+            ? "Listening… press stop to send."
+            : heard
+              ? `Heard "${heard.text || "nothing"}" · transcribed in ${(heard.ms / 1000).toFixed(1)}s`
+              : "Enter to send · Shift+Enter for a new line · mic to talk."}
         </p>
       </div>
     </div>

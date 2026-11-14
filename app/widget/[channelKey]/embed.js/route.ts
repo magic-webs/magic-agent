@@ -256,7 +256,7 @@ function loader(config: string): string {
     frame = document.createElement("iframe");
     frame.src = frameSrc();
     frame.title = label;
-    frame.setAttribute("allow", "clipboard-write");
+    frame.setAttribute("allow", "clipboard-write; microphone; autoplay");
     panel.appendChild(frame);
   }
 

@@ -230,6 +230,7 @@ export function TranscriptView({
   agents,
   onPick,
   onMarkWrong,
+  messageActions,
 }: {
   /** `undefined` while the query is in flight. */
   messages: Doc<"messages">[] | undefined;
@@ -260,6 +261,7 @@ export function TranscriptView({
   onPick?: (text: string) => void;
   /** Flags an agent's reply as wrong, or opens the fix for one already flagged. */
   onMarkWrong?: (message: Doc<"messages">) => void;
+  messageActions?: (message: Doc<"messages">) => React.ReactNode;
 }) {
   const visible = (messages ?? []).filter((message) =>
     message.kind === "tool" ? showTools : true
@@ -528,6 +530,7 @@ export function TranscriptView({
                 </Button>
               </div>
             ) : null}
+            {messageActions ? messageActions(message) : null}
             {showFooter ? (
               <MessageFooter>
                 {/* Only when the header above has not already said so:

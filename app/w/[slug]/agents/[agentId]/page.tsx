@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { BUILTIN_TOOLS } from "@/convex/lib/shared";
@@ -78,6 +78,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { PAYMENT_TOOLS } from "@/convex/lib/payments";
 import { friendlyError } from "@/lib/errors";
+import { VOICES, voiceIdFor } from "@/convex/lib/voices";
 
 const INTEGRATION_ICONS: Record<
   string,
@@ -119,6 +120,8 @@ type Draft = {
   botName: string;
   /** Absent on an agent saved before the field existed, until one is picked. */
   gender: AgentGender | undefined;
+  voiceEnabled: boolean;
+  voiceId: string | undefined;
   role: string;
   routingDescription: string;
   acceptsHandoff: boolean;
@@ -209,6 +212,8 @@ export default function AgentConfigPage({
       name: agent.name,
       botName: agent.botName,
       gender: agent.gender,
+      voiceEnabled: agent.voiceEnabled ?? false,
+      voiceId: agent.voiceId,
       role: agent.role,
       routingDescription: agent.routingDescription ?? "",
       // Absent means "yes": every agent is a handoff target unless it has been
@@ -276,6 +281,8 @@ export default function AgentConfigPage({
         name: draft.name,
         botName: draft.botName,
         gender: draft.gender,
+        voiceEnabled: draft.voiceEnabled,
+        voiceId: draft.voiceId,
         role: draft.role,
         routingDescription: draft.routingDescription || undefined,
         acceptsHandoff: draft.acceptsHandoff,
@@ -591,6 +598,13 @@ export default function AgentConfigPage({
                 </div>
               </CardContent>
             </Card>
+            <VoiceCard
+              agentId={typedAgentId}
+              enabled={draft.voiceEnabled}
+              voiceId={draft.voiceId ?? voiceIdFor({ gender: draft.gender })}
+              onEnabled={(next) => set("voiceEnabled", next)}
+              onVoice={(next) => set("voiceId", next)}
+            />
           </TabsContent>
 
           {/* ----------------------------------------------------- Routing */}
@@ -1498,5 +1512,79 @@ export default function AgentConfigPage({
         </Tabs>
       </div>
     </div>
+  );
+}
+
+function VoiceCard({
+  agentId,
+  enabled,
+  voiceId,
+  onEnabled,
+  onVoice,
+}: {
+  agentId: Id<"agents">;
+  enabled: boolean;
+  voiceId: string;
+  onEnabled: (enabled: boolean) => void;
+  onVoice: (voiceId: string) => void;
+}) {
+  const preview = useAction(api.voice.previewVoice);
+  const [playing, setPlaying] = useState(false);
+
+  const play = async () => {
+    setPlaying(true);
+    try {
+      const { url } = await preview({ agentId, voiceId });
+      const audio = new Audio(url);
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => setPlaying(false);
+      await audio.play();
+    } catch (error) {
+      setPlaying(false);
+      toast.add({ title: "Could not play the sample", description: friendlyError(error), type: "error" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Voice</CardTitle>
+        <CardDescription>
+          Lets customers talk to the agent on the website chat and hear its
+          replies, using ElevenLabs. You can try it in the playground first.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <Label htmlFor="f-voice-enabled">Voice on the website chat</Label>
+            <p className="text-xs text-muted-foreground">
+              Shows a mic and a Listen button in the widget. Set it on the
+              agent the widget opens with.
+            </p>
+          </div>
+          <Switch id="f-voice-enabled" checked={enabled} onCheckedChange={onEnabled} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="f-voice">Voice</Label>
+          <div className="flex items-center gap-2">
+            <SelectField
+              id="f-voice"
+              className="w-full"
+              value={voiceId}
+              onValueChange={onVoice}
+              options={VOICES.map((voice) => ({
+                value: voice.id,
+                label: `${voice.name} · ${voice.gender === "female" ? "Female" : "Male"}, ${voice.accent}`,
+              }))}
+            />
+            <Button variant="outline" disabled={playing} onClick={() => void play()}>
+              {playing ? <Spinner /> : null}
+              Preview
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

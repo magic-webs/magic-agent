@@ -32,6 +32,7 @@ import { fileUrl } from "./lib/files";
 import { insertConversation, refreshContactSearch } from "./lib/inbox";
 import { summarise } from "./lib/whatsappSend";
 import { INTAKE_ASK_NAME, intakeAskPhone } from "./lib/widgetIntake";
+import { liveDraft } from "./drafts";
 
 const MAX_SESSION_ID_CHARS = 64;
 const MAX_FIELD_CHARS = 120;
@@ -99,6 +100,7 @@ export const bootstrap = query({
         greeting: resolveGreeting(agent, workspace.name),
       },
       welcome: welcome ? welcomeOutbound(welcome, workspace.name, fileUrl) : null,
+      voice: agent.voiceEnabled === true,
     };
   },
 });
@@ -222,6 +224,63 @@ const visible = rows.filter(
         createdAt: row.createdAt,
       })),
     };
+  },
+});
+
+async function widgetConversation(
+  ctx: QueryCtx,
+  channel: Doc<"channels">,
+  sessionId: string
+): Promise<Doc<"conversations"> | null> {
+  const contact = await ctx.db
+    .query("contacts")
+    .withIndex("by_workspace_external", (q) =>
+      q.eq("workspaceId", channel.workspaceId).eq("externalId", sessionId)
+    )
+    .unique();
+  if (!contact) return null;
+  return await ctx.db
+    .query("conversations")
+    .withIndex("by_contact_agent", (q) =>
+      q.eq("contactId", contact._id).eq("agentId", channel.agentId)
+    )
+    .unique();
+}
+
+export const draft = query({
+  args: { channelKey: v.string(), sessionId: v.string() },
+  handler: async (ctx, args) => {
+    const channel = await channelByKey(ctx, args.channelKey);
+    const sessionId = normalizeSessionId(args.sessionId);
+    if (!channel || !sessionId) return null;
+    const conversation = await widgetConversation(ctx, channel, sessionId);
+    if (!conversation) return null;
+    const row = await ctx.db
+      .query("replyDrafts")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+      .first();
+    const live = liveDraft(row);
+    return live ? { text: live.text, updatedAt: live.updatedAt } : null;
+  },
+});
+
+export const resolveForVoice = internalQuery({
+  args: {
+    channelKey: v.string(),
+    sessionId: v.string(),
+    messageId: v.optional(v.id("messages")),
+  },
+  handler: async (ctx, args) => {
+    const channel = await channelByKey(ctx, args.channelKey);
+    const sessionId = normalizeSessionId(args.sessionId);
+    if (!channel || channel.status !== "active" || !sessionId) return null;
+    const entry = await ctx.db.get("agents", channel.agentId);
+    if (!entry?.voiceEnabled) return null;
+    if (!args.messageId) return { workspaceId: channel.workspaceId, message: null };
+    const conversation = await widgetConversation(ctx, channel, sessionId);
+    const message = await ctx.db.get("messages", args.messageId);
+    if (!conversation || !message || message.conversationId !== conversation._id) return null;
+    return { workspaceId: channel.workspaceId, message: args.messageId };
   },
 });
 

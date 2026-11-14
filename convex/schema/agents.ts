@@ -18,6 +18,8 @@ export const agentsTables = {
     name: v.string(),
     botName: v.string(),
     gender: v.optional(v.union(v.literal("male"), v.literal("female"))),
+    voiceEnabled: v.optional(v.boolean()),
+    voiceId: v.optional(v.string()),
     role: v.string(),
     objective: v.string(),
     jobDescription: v.string(),

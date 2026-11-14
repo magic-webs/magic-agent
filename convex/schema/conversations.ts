@@ -283,10 +283,18 @@ export const conversationsTables = {
     knowledgeChunkIds: v.optional(v.array(v.id("knowledgeChunks"))),
     review: v.optional(v.union(v.literal("wrong"), v.literal("corrected"))),
     knowledgeGapId: v.optional(v.id("knowledgeGaps")),
+    audioKey: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_workspace", ["workspaceId"]),
+
+  replyDrafts: defineTable({
+    conversationId: v.id("conversations"),
+    agentId: v.id("agents"),
+    text: v.string(),
+    updatedAt: v.number(),
+  }).index("by_conversation", ["conversationId"]),
 
   crmImports: defineTable({
     workspaceId: v.id("workspaces"),

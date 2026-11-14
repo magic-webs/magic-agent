@@ -27,6 +27,7 @@ import {
 } from "./lib/integrations";
 import { APP_TOOL_NAMES, findApp } from "./lib/apps";
 import { PAYMENT_TOOL_NAMES } from "./lib/payments";
+import { isVoiceId } from "./lib/voices";
 import { assertSeat } from "./lib/account";
 import { ensureOrdersBook } from "./lib/ordersBook";
 import { compileSystemPrompt, type TeammateShape } from "./lib/prompt";
@@ -68,6 +69,8 @@ const agentFields = {
   acceptsHandoff: v.optional(v.boolean()),
   botName: v.optional(v.string()),
   gender: v.optional(genderValidator),
+  voiceEnabled: v.optional(v.boolean()),
+  voiceId: v.optional(v.string()),
   role: v.optional(v.string()),
   objective: v.optional(v.string()),
   jobDescription: v.optional(v.string()),
@@ -663,6 +666,10 @@ export const update = mutation({
     // posted the agent's own model straight back.
     if (patch.model !== undefined && !(await mayChooseModel(ctx))) {
       delete patch.model;
+    }
+
+    if (typeof patch.voiceId === "string" && !isVoiceId(patch.voiceId)) {
+      throw new ConvexError("Pick a voice from the list.");
     }
 
     // Only names the catalogue defines. Anything else is inert at runtime —

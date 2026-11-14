@@ -11,6 +11,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { aiGateway, gatewayModelId, gatewayOptions, EMBEDDING_MODEL } from "./lib/gateway";
 import {
   generateText,
+  streamText,
   embed,
   tool,
   dynamicTool,
@@ -341,6 +342,45 @@ type Passage = {
   chunkId: Id<"knowledgeChunks">;
   correction: boolean;
 };
+
+const DRAFT_WRITE_MS = 150;
+
+function draftWriter(
+  ctx: ActionCtx,
+  conversationId: Id<"conversations">,
+  agentId: Id<"agents">,
+  enabled: boolean
+) {
+  let text = "";
+  let written = "";
+  let lastWrite = 0;
+  let pending: Promise<unknown> = Promise.resolve();
+
+  const send = (value: string) => {
+    if (!enabled || value === written) return pending;
+    written = value;
+    lastWrite = Date.now();
+    pending = pending
+      .then(() => ctx.runMutation(internal.drafts.write, { conversationId, agentId, text: value }))
+      .catch((error) => console.warn("[engine] draft write failed", error));
+    return pending;
+  };
+
+  return {
+    push(delta: string) {
+      text += delta;
+      if (Date.now() - lastWrite >= DRAFT_WRITE_MS) void send(text);
+    },
+    reset() {
+      text = "";
+    },
+    flush: () => send(text),
+    clear() {
+      text = "";
+      return send("");
+    },
+  };
+}
 
 function noteSources(turn: TurnContext, passages: Passage[]) {
   for (const p of passages) {
@@ -2529,9 +2569,10 @@ ${message}`
       });
 
       let stepText = "";
+      const draft = draftWriter(ctx, turn.conversationId, agent._id, args.channelType === "web");
       try {
         const model = gatewayModelId(agent.model);
-        const result = await generateText({
+        const streamed = streamText({
           model: aiGateway()(model),
           providerOptions: await gatewayOptions(ctx, model),
           instructions: system,
@@ -2545,6 +2586,19 @@ ${message}`
           ],
           temperature: agent.temperature,
         });
+
+        for await (const part of streamed.stream) {
+          if (part.type === "start-step") draft.reset();
+          else if (part.type === "text-delta") draft.push(part.text);
+          else if (part.type === "error") throw part.error;
+        }
+        await draft.flush();
+
+        const result = {
+          text: await streamed.text,
+          usage: await streamed.usage,
+          steps: await streamed.steps,
+        };
 
         stepText = result.text.trim();
 
@@ -2584,6 +2638,7 @@ ${message}`
 
       const requested = turn.pendingTransfer;
       turn.pendingTransfer = null;
+      if (requested) await draft.clear();
 
       // A transfer that came back after the budget was spent is ignored: the
       // agent holding the conversation has to answer it.

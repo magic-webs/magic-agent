@@ -42,8 +42,13 @@ import {
   AlertCircleIcon,
   ArrowRight02Icon,
   Cancel01Icon,
+  Mic01Icon,
+  PauseIcon,
   SentIcon,
+  StopIcon,
   UserIcon,
+  VolumeHighIcon,
+  VolumeMute01Icon,
 } from "@hugeicons/core-free-icons";
 import { toast } from "@/components/ui/toast";
 import {
@@ -71,6 +76,14 @@ import {
 } from "@/lib/dial-codes";
 import { friendlyError } from "@/lib/errors";
 import { INTAKE_ASK_NAME, intakeAskPhone } from "@/convex/lib/widgetIntake";
+import type { Id } from "@/convex/_generated/dataModel";
+import {
+  useAutoSpeak,
+  usePlayer,
+  useRecorder,
+  useStoredFlag,
+  useTypewriter,
+} from "@/hooks/use-voice";
 
 // One browser == one contact, so a returning visitor keeps their conversation.
 // localStorage is an external store rather than React state, so it is read
@@ -423,12 +436,14 @@ function WidgetShell({
   logoSrc,
   embedded,
   typing = false,
+  speaker,
   children,
 }: {
   title: string;
   logoSrc: string | null;
   embedded: boolean;
   typing?: boolean;
+  speaker?: { on: boolean; onChange: (on: boolean) => void };
   children: React.ReactNode;
 }) {
   return (
@@ -464,6 +479,18 @@ function WidgetShell({
             {typing ? "typing…" : "Online · replies instantly"}
           </p>
         </div>
+        {speaker ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={speaker.on ? "Stop reading replies aloud" : "Read replies aloud"}
+            aria-pressed={speaker.on}
+            className="shrink-0 text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={() => speaker.onChange(!speaker.on)}
+          >
+            <HugeiconsIcon icon={speaker.on ? VolumeHighIcon : VolumeMute01Icon} strokeWidth={2} />
+          </Button>
+        ) : null}
         {embedded ? (
           <Button
             size="icon"
@@ -491,6 +518,10 @@ export default function WidgetPage({
   const embedded = useEmbedded();
   const accent = useAccent();
   const [typing, setTyping] = useState(false);
+  const [speakReplies, setSpeakReplies] = useStoredFlag(
+    `magic-ai-bot:widget-speak:${channelKey}`,
+    false
+  );
   useWidgetDocument(accent, embedded);
 
   const widget = useQuery(api.widget.bootstrap, { channelKey });
@@ -563,6 +594,7 @@ export default function WidgetPage({
       logoSrc={widget.logoSrc}
       embedded={embedded}
       typing={typing}
+      speaker={widget.voice ? { on: speakReplies, onChange: setSpeakReplies } : undefined}
     >
       <WidgetChat
         channelKey={channelKey}
@@ -573,6 +605,8 @@ export default function WidgetPage({
         messages={session.messages}
         intake={session.intake}
         onTyping={setTyping}
+        voice={widget.voice}
+        speakReplies={widget.voice && speakReplies}
       />
     </WidgetShell>
   );
@@ -1109,15 +1143,63 @@ function FollowOutbox({ signal }: { signal: string | undefined }) {
   return null;
 }
 
+function ListenButton({
+  state,
+  onClick,
+}: {
+  state: "idle" | "loading" | "playing";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-1 text-[0.6875rem] font-medium text-muted-foreground hover:text-foreground hover:underline"
+      onClick={onClick}
+    >
+      {state === "loading" ? (
+        <Spinner className="size-3.5" />
+      ) : (
+        <HugeiconsIcon
+          icon={state === "playing" ? PauseIcon : VolumeHighIcon}
+          strokeWidth={2}
+          className="size-3.5"
+        />
+      )}
+      {state === "playing" ? "Stop" : "Listen"}
+    </button>
+  );
+}
+
+function StreamingBubble({ text }: { text: string }) {
+  const shown = useTypewriter(text);
+  return (
+    <Message align="start">
+      <MessageContent>
+        <Bubble variant="outline">
+          <BubbleContent className="whitespace-pre-wrap">
+            <WhatsAppText text={shown} />
+            <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-foreground/50 align-text-bottom" />
+          </BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
+  );
+}
+
+type MicState = "idle" | "recording" | "transcribing";
+
 function Composer({
   value,
   onChange,
   onSend,
+  mic,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  mic?: { state: MicState; onStart: () => void; onStop: () => void; onCancel: () => void };
 }) {
+  const showMic = mic && (!value.trim() || mic.state !== "idle");
   return (
     <div className="shrink-0 bg-(--chat-ground) px-2 pt-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
       <form
@@ -1128,6 +1210,29 @@ function Composer({
         }}
       >
         <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-3xl bg-background px-4 shadow-xs">
+          {mic && mic.state !== "idle" ? (
+            <div className="flex w-full items-center gap-2 py-2.5 text-[0.9375rem]">
+              {mic.state === "recording" ? (
+                <>
+                  <span className="size-2.5 animate-pulse rounded-full bg-red-500" />
+                  <span className="flex-1 text-muted-foreground">Listening… tap to send</span>
+                  <button
+                    type="button"
+                    aria-label="Cancel recording"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={mic.onCancel}
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Spinner className="size-4" />
+                  <span className="text-muted-foreground">Transcribing…</span>
+                </>
+              )}
+            </div>
+          ) : (
           <textarea
             rows={1}
             value={value}
@@ -1148,7 +1253,19 @@ function Composer({
               }
             }}
           />
+          )}
         </div>
+        {showMic ? (
+          <button
+            type="button"
+            aria-label={mic.state === "recording" ? "Stop and send voice message" : "Record a voice message"}
+            disabled={mic.state === "transcribing"}
+            className={`grid size-11 shrink-0 place-items-center rounded-full shadow-xs transition-[opacity,transform] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60 ${mic.state === "recording" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground"}`}
+            onClick={mic.state === "recording" ? mic.onStop : mic.onStart}
+          >
+            <HugeiconsIcon icon={mic.state === "recording" ? StopIcon : Mic01Icon} strokeWidth={2} className="size-5" />
+          </button>
+        ) : (
         <button
           type="submit"
           aria-label="Send message"
@@ -1157,6 +1274,7 @@ function Composer({
         >
           <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
         </button>
+        )}
       </form>
       <PoweredBy className="pt-1" />
     </div>
@@ -1172,6 +1290,8 @@ function WidgetChat({
   messages,
   intake,
   onTyping,
+  voice,
+  speakReplies,
 }: {
   channelKey: string;
   sessionId: string;
@@ -1182,8 +1302,68 @@ function WidgetChat({
   /** The thread opens with the stored sign-up questions and welcome menu. */
   intake: boolean;
   onTyping: (typing: boolean) => void;
+  voice: boolean;
+  speakReplies: boolean;
 }) {
   const respond = useAction(api.engine.respondFromWidget);
+  const transcribe = useAction(api.voice.transcribeFromWidget);
+  const speak = useAction(api.voice.speakFromWidget);
+  const draft = useQuery(api.widget.draft, { channelKey, sessionId });
+  const recorder = useRecorder();
+  const [micState, setMicState] = useState<MicState>("idle");
+  const spokeLast = useRef(false);
+  const player = usePlayer((id) =>
+    speak({ channelKey, sessionId, messageId: id as Id<"messages"> })
+  );
+  const playSafely = (id: string) =>
+    void Promise.resolve(player.toggle(id)).catch((error: unknown) =>
+      toast.add({ title: "Could not play", description: friendlyError(error), type: "error" })
+    );
+  useAutoSpeak(
+    messages,
+    () => {
+      const wanted = speakReplies || spokeLast.current;
+      spokeLast.current = false;
+      return voice && wanted;
+    },
+    (id) => void player.play(id).catch(() => undefined)
+  );
+
+  const startRecording = async () => {
+    player.stop();
+    try {
+      await recorder.start();
+      setMicState("recording");
+    } catch {
+      toast.add({
+        title: "Microphone blocked",
+        description: "Allow microphone access to send a voice message.",
+        type: "error",
+      });
+    }
+  };
+
+  const stopRecording = async () => {
+    const audio = await recorder.stop();
+    if (!audio) {
+      setMicState("idle");
+      return;
+    }
+    setMicState("transcribing");
+    try {
+      const { text } = await transcribe({ channelKey, sessionId, audio });
+      if (text) {
+        spokeLast.current = true;
+        send(text);
+      } else {
+        toast.add({ title: "Didn't catch that", description: "Try speaking again.", type: "error" });
+      }
+    } catch (error) {
+      toast.add({ title: "Could not hear that", description: friendlyError(error), type: "error" });
+    } finally {
+      setMicState("idle");
+    }
+  };
 
   const [input, setInput] = useState("");
   const [outbox, setOutbox] = useState<Outgoing[]>([]);
@@ -1305,6 +1485,7 @@ function WidgetChat({
                   );
                 } else if (row.type === "message") {
                   const mine = row.message.role === "user";
+                  const id = row.message.id;
                   body = (
                     <ChatBubble
                       mine={mine}
@@ -1312,6 +1493,20 @@ function WidgetChat({
                       rich={row.rich}
                       quote={row.quote}
                       onPick={send}
+                      footer={
+                        voice && !mine && !row.rich && row.message.text.trim() ? (
+                          <ListenButton
+                            state={
+                              player.loadingId === id
+                                ? "loading"
+                                : player.playingId === id
+                                  ? "playing"
+                                  : "idle"
+                            }
+                            onClick={() => playSafely(id)}
+                          />
+                        ) : null
+                      }
                       meta={{
                         time: clockTime(row.at),
                         ticks: mine ? (
@@ -1374,7 +1569,7 @@ function WidgetChat({
 
               {typing ? (
                 <MessageScrollerItem messageId="typing">
-                  <TypingBubble />
+                  {draft?.text ? <StreamingBubble text={draft.text} /> : <TypingBubble />}
                 </MessageScrollerItem>
               ) : null}
             </MessageScrollerContent>
@@ -1390,6 +1585,19 @@ function WidgetChat({
             setInput("");
             send(input);
           }}
+          mic={
+            voice && recorder.supported
+              ? {
+                  state: micState,
+                  onStart: () => void startRecording(),
+                  onStop: () => void stopRecording(),
+                  onCancel: () => {
+                    recorder.cancel();
+                    setMicState("idle");
+                  },
+                }
+              : undefined
+          }
         />
       </MessageScrollerProvider>
     </div>

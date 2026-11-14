@@ -16,6 +16,7 @@ import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
 import { carriedChunkIds } from "./lib/knowledgeCarry";
+import { clearDraft } from "./drafts";
 import { recordAgentReply, REPLY_PREVIEW_CHARS } from "./lib/agentStats";
 import { chargeAiReply } from "./lib/charge";
 import {
@@ -1606,6 +1607,8 @@ export const finishTurn = internalMutation({
         });
       }
     }
+
+    await clearDraft(ctx, args.conversationId);
 
     return { success: true, replyMessageId, aiEventId };
   },

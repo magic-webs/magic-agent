@@ -62,10 +62,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { ChannelQr } from "@/components/channel-qr";
-import { InstagramLogo, RcsLogo, TelegramLogo } from "@/components/brand-icons";
+import { InstagramLogo } from "@/components/brand-icons";
 import {
   CHANNEL_LABEL,
-  ChannelGlyph,
+  ChannelMark,
   type ChannelKind,
 } from "@/components/channel-mark";
 import { CardGridSkeleton } from "@/components/skeletons";
@@ -73,14 +73,11 @@ import { VoiceChannelDialog, VoiceSetup, DEFAULT_VOICE_SETTINGS } from "@/compon
 import { PhoneChannelDialog, PhoneSetup } from "@/components/phone-channel";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  AiVoiceIcon,
   Alert02Icon,
-  Call02Icon,
   ArrowDataTransferVerticalIcon,
   Comment01Icon,
   Copy01Icon,
   DashboardSquare01Icon,
-  Globe02Icon,
   InformationCircleIcon,
   Menu01Icon,
   MoreHorizontalIcon,
@@ -1137,18 +1134,6 @@ function InstagramDialog({
   );
 }
 
-function ConnectInstagramButton() {
-  return (
-    <InstagramDialog
-      trigger={
-        <Button className={`${INSTAGRAM_GRADIENT} text-white hover:opacity-90`}>
-          <InstagramLogo /> Connect Instagram
-        </Button>
-      }
-    />
-  );
-}
-
 /**
  * A row's action menu.
  *
@@ -1950,13 +1935,11 @@ function ChannelCard({
           below the fold is now either in a tab or behind the overflow menu. */}
       <CardHeader className="gap-0">
         <div className="flex flex-wrap items-start gap-4">
-          <span
-            className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
-              live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <ChannelGlyph type={links.kind} className="size-5" />
-          </span>
+          <ChannelMark
+            type={links.kind}
+            size={44}
+            className={cn("rounded-xl", !live && "opacity-40 grayscale")}
+          />
 
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <CardTitle className="flex flex-wrap items-center gap-2">
@@ -2038,13 +2021,11 @@ function ChannelTile({
   return (
     <Card size="sm" className="flex flex-col">
       <CardHeader className="flex items-start gap-3">
-        <span
-          className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
-            live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-          }`}
-        >
-          <ChannelGlyph type={links.kind} className="size-5" />
-        </span>
+        <ChannelMark
+          type={links.kind}
+          size={40}
+          className={cn("rounded-xl", !live && "opacity-40 grayscale")}
+        />
         <div className="min-w-0 flex-1">
           <CardTitle className="truncate" title={channel.name}>
             {channel.name}
@@ -2154,54 +2135,41 @@ function ChannelTile({
   );
 }
 
+const CONNECT_ACTIONS: { kind: ChannelKind; label: string }[] = [
+  { kind: "whatsapp", label: "Connect WhatsApp" },
+  { kind: "instagram", label: "Connect Instagram" },
+  { kind: "rcs", label: "Connect RCS" },
+  { kind: "telegram", label: "Connect Telegram" },
+  { kind: "phone", label: "Connect Phone Line" },
+  { kind: "voice", label: "Create AI Voice Widget" },
+  { kind: "web", label: "Create Web Widget" },
+];
+
 function ConnectButtons() {
   return (
     <>
-      <ChannelDialog
-        trigger={
+      {CONNECT_ACTIONS.map(({ kind, label }) => {
+        const trigger = (
           <Button variant="outline">
-            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} /> Connect WhatsApp
+            <ChannelMark type={kind} size={20} className="rounded-md" /> {label}
           </Button>
+        );
+        switch (kind) {
+          case "whatsapp":
+            return <ChannelDialog key={kind} trigger={trigger} />;
+          case "instagram":
+            return <InstagramDialog key={kind} trigger={trigger} />;
+          case "rcs":
+          case "telegram":
+            return <ProviderChannelDialog key={kind} kind={kind} trigger={trigger} />;
+          case "phone":
+            return <PhoneChannelDialog key={kind} trigger={trigger} />;
+          case "voice":
+            return <VoiceChannelDialog key={kind} trigger={trigger} />;
+          default:
+            return <WebChannelDialog key={kind} trigger={trigger} />;
         }
-      />
-      <ConnectInstagramButton />
-      <ProviderChannelDialog
-        kind="rcs"
-        trigger={
-          <Button variant="outline">
-            <RcsLogo /> Connect RCS
-          </Button>
-        }
-      />
-      <ProviderChannelDialog
-        kind="telegram"
-        trigger={
-          <Button variant="outline">
-            <TelegramLogo /> Connect Telegram
-          </Button>
-        }
-      />
-      <PhoneChannelDialog
-        trigger={
-          <Button variant="outline">
-            <HugeiconsIcon icon={Call02Icon} strokeWidth={2} /> Connect Phone Line
-          </Button>
-        }
-      />
-      <VoiceChannelDialog
-        trigger={
-          <Button variant="outline">
-            <HugeiconsIcon icon={AiVoiceIcon} strokeWidth={2} /> Create AI Voice Widget
-          </Button>
-        }
-      />
-      <WebChannelDialog
-        trigger={
-          <Button>
-            <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} /> Create Web Widget
-          </Button>
-        }
-      />
+      })}
     </>
   );
 }

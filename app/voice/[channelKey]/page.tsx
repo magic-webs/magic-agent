@@ -61,14 +61,17 @@ function useTransparentDocument(embedded: boolean) {
       root: root.style.background,
       body: document.body.style.background,
       scheme: root.style.colorScheme,
+      overflow: root.style.overflow,
     };
     root.style.background = "transparent";
     document.body.style.background = "transparent";
     root.style.colorScheme = "normal";
+    root.style.overflow = "hidden";
     return () => {
       root.style.background = previous.root;
       document.body.style.background = previous.body;
       root.style.colorScheme = previous.scheme;
+      root.style.overflow = previous.overflow;
     };
   }, [embedded]);
 }
@@ -179,7 +182,7 @@ export default function VoiceWidgetPage({
           {caption.text}
         </p>
       ) : null}
-      <span className="rounded-full bg-neutral-900/75 px-2.5 py-1 text-[11px] font-medium text-white shadow backdrop-blur-md">
+      <span className="whitespace-nowrap rounded-full bg-neutral-900/75 px-2.5 py-1 text-[11px] font-medium text-white shadow backdrop-blur-md">
         {call.supported ? (call.state === "idle" ? `Talk to ${widget.botName}` : STATUS[call.state]) : "Voice is not supported in this browser"}
       </span>
     </div>
@@ -198,7 +201,7 @@ export default function VoiceWidgetPage({
   return (
     <div
       ref={box}
-      className={cn("inline-flex flex-col gap-1 p-2", align, top ? "" : "flex-col-reverse")}
+      className={cn("absolute top-0 left-0 flex w-max flex-col gap-1 p-2", align, top ? "" : "flex-col-reverse")}
     >
       {orb}
       {label}

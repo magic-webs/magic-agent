@@ -61,7 +61,7 @@ import {
   welcomeOutbound,
   worthClassifying,
 } from "./lib/welcomeMenu";
-import { fileUrl } from "./lib/files";
+import { fileUrl, newFileKey, r2 } from "./lib/files";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { sendOnChannel } from "./lib/channelSend";
 import { citedFirst, mergePassages } from "./lib/knowledgeCarry";
@@ -1395,7 +1395,7 @@ function buildRecordTools(
           agentId: agent._id,
           conversationId: turn.conversationId,
           contactId: turn.contactId,
-          source: turn.channelType === "voice" ? "web" : turn.channelType,
+          source: turn.channelType === "voice" || turn.channelType === "phone" ? "web" : turn.channelType,
           person:
             person ??
             (turn.contact.name || turn.contact.phone
@@ -2547,7 +2547,7 @@ ${message}`
         agentId: agent._id,
       });
 
-      const spoken = args.channelType === "voice";
+      const spoken = args.channelType === "voice" || args.channelType === "phone";
       const toolset: ToolSet = {
         ...buildBuiltinTools(ctx, turn, apiKey, {
           team,
@@ -2885,6 +2885,82 @@ export const respondFromVoice = action({
     }
     const { bytes, mediaType } = await toSpeech(reply, voiceId);
     return { heard, reply, audio: toBuffer(bytes), mediaType };
+  },
+});
+
+async function storeSpeech(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">,
+  text: string,
+  voiceId: string
+): Promise<string> {
+  const { bytes, mediaType } = await toSpeech(text, voiceId);
+  const key = await r2.store(ctx, bytes, { key: newFileKey("speech", workspaceId), type: mediaType });
+  return fileUrl(key);
+}
+
+async function fetchRecording(url: string): Promise<ArrayBuffer> {
+  const id = process.env.PLIVO_AUTH_ID;
+  const token = process.env.PLIVO_AUTH_TOKEN;
+  const headers: Record<string, string> = id && token ? { Authorization: `Basic ${btoa(`${id}:${token}`)}` } : {};
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const response = await fetch(url, { headers });
+    if (response.ok) return await response.arrayBuffer();
+    if (response.status !== 404) throw new Error(`recording fetch ${response.status}`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error("recording not ready");
+}
+
+export const greetPhone = internalAction({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args): Promise<{ url: string } | null> => {
+    const line = await ctx.runQuery(internal.phone.voiceFor, args);
+    if (!line) return null;
+    return { url: await storeSpeech(ctx, line.workspaceId, line.greeting, line.voiceId) };
+  },
+});
+
+export const respondFromPhone = internalAction({
+  args: { callId: v.id("phoneCalls"), recordUrl: v.string() },
+  handler: async (ctx, args): Promise<void> => {
+    const call = await ctx.runQuery(internal.phone.getCall, { callId: args.callId });
+    if (!call) return;
+    const line = await ctx.runQuery(internal.phone.voiceFor, { channelId: call.channelId });
+    const fail = async (): Promise<void> => {
+      await ctx.runMutation(internal.phone.setStatus, { callId: args.callId, status: "failed" });
+    };
+    if (!line) return await fail();
+    try {
+      const heard = (await toText(await fetchRecording(args.recordUrl))).slice(0, MAX_WIDGET_MESSAGE_CHARS);
+      if (!heard) {
+        await ctx.runMutation(internal.phone.setStatus, { callId: args.callId, status: "silent", silence: true });
+        return;
+      }
+      const result = await runTurn(ctx, {
+        agentId: line.agentId,
+        channelType: "phone",
+        channelId: line.channelId,
+        externalId: call.caller,
+        contactPhone: call.caller,
+        text: heard,
+      });
+      const reply = result.ok ? result.text?.trim() : null;
+      if (!reply) {
+        if (!result.ok) console.error("[phone] turn failed", result.error);
+        return await fail();
+      }
+      let voiceId = line.voiceId;
+      if (!line.fixedVoice && result.agentId && result.agentId !== line.agentId) {
+        const speaker = await ctx.runQuery(internal.agents.getInternal, { agentId: result.agentId });
+        if (speaker) voiceId = voiceIdFor(speaker.agent);
+      }
+      const replyUrl = await storeSpeech(ctx, line.workspaceId, reply, voiceId);
+      await ctx.runMutation(internal.phone.setStatus, { callId: args.callId, status: "ready", replyUrl });
+    } catch (error) {
+      console.error("[phone] turn error", error);
+      await fail();
+    }
   },
 });
 

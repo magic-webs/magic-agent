@@ -1163,7 +1163,7 @@ export const startTurn = internalMutation({
         name: args.contactName,
         phone: args.contactPhone,
         attributes: [],
-        source: args.channelType === "voice" ? "web" : args.channelType,
+        source: args.channelType === "voice" || args.channelType === "phone" ? "web" : args.channelType,
         lastSeenAt: now,
         lastInboundAt: now,
         createdAt: now,

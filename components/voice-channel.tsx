@@ -182,7 +182,7 @@ function StylePicker({
 
 const AGENT_VOICE = "agent";
 
-function VoicePicker({
+export function VoicePicker({
   agentId,
   value,
   onChange,

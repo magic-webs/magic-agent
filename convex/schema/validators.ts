@@ -145,6 +145,12 @@ export const voicePosition = v.union(
   v.literal("bottom-right")
 );
 
+export const phoneLineSettings = v.object({
+  number: v.string(),
+  voiceId: v.optional(v.string()),
+  greeting: v.optional(v.string()),
+});
+
 export const voiceOrbStyle = v.union(v.literal("orb"), v.literal("siri"), v.literal("aurora"));
 
 export const voiceWidgetSettings = v.object({
@@ -168,6 +174,7 @@ export const channelType = v.union(
   v.literal("whatsapp"),
   v.literal("web"),
   v.literal("voice"),
+  v.literal("phone"),
   v.literal("instagram"),
   v.literal("rcs"),
   v.literal("telegram")

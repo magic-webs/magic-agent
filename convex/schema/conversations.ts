@@ -5,6 +5,7 @@ import {
   deliveryStatus,
   escalationDepartment,
   kvPair,
+  phoneLineSettings,
   voiceWidgetSettings,
   widgetIntake,
 } from "./validators";
@@ -19,6 +20,7 @@ export const conversationsTables = {
     externalId: v.optional(v.string()),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
+    phoneLine: v.optional(phoneLineSettings),
     whatsapp: v.optional(
       v.object({
         apiBaseUrl: v.string(),
@@ -297,6 +299,27 @@ export const conversationsTables = {
     text: v.string(),
     updatedAt: v.number(),
   }).index("by_conversation", ["conversationId"]),
+
+  phoneCalls: defineTable({
+    workspaceId: v.id("workspaces"),
+    channelId: v.id("channels"),
+    callUuid: v.string(),
+    caller: v.string(),
+    status: v.union(
+      v.literal("listening"),
+      v.literal("thinking"),
+      v.literal("ready"),
+      v.literal("silent"),
+      v.literal("failed"),
+      v.literal("ended")
+    ),
+    replyUrl: v.optional(v.string()),
+    silences: v.number(),
+    turns: v.number(),
+    thinkingSince: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_callUuid", ["callUuid"]),
 
   crmImports: defineTable({
     workspaceId: v.id("workspaces"),

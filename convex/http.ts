@@ -10,6 +10,7 @@ import { parseSignedRequest, validSignature } from "./lib/instagram";
 import { fetchMedia, signMedia } from "./lib/whatsappMedia";
 import { RAZORPAY_LINK_EVENTS } from "./lib/payments";
 import type { Id } from "./_generated/dataModel";
+import { callerNumber, formFields, plivoSignatureValid, plivoXml } from "./lib/plivo";
 import {
   paymentFields,
   subscriptionFields,
@@ -1163,6 +1164,114 @@ http.route({
     return done
       ? unsubscribePage("You are unsubscribed", "You will no longer receive offers from us.")
       : unsubscribePage("Link not valid", "This unsubscribe link has expired or is not valid.");
+  }),
+});
+
+const PLIVO_THINKING_LIMIT_MS = 45_000;
+const PLIVO_MAX_SILENCES = 2;
+
+function plivoBase(): string {
+  return (process.env.CONVEX_SITE_URL ?? "").replace(/\/+$/, "");
+}
+
+async function plivoRequest(request: Request) {
+  const token = process.env.PLIVO_AUTH_TOKEN;
+  const form = formFields(await request.text());
+  if (!token) return null;
+  const path = new URL(request.url);
+  const urls = [request.url, `${plivoBase()}${path.pathname}${path.search}`];
+  const valid = await plivoSignatureValid(
+    token,
+    request.method,
+    urls,
+    form,
+    request.headers.get("x-plivo-signature-v3"),
+    request.headers.get("x-plivo-signature-v3-nonce")
+  );
+  if (!valid) return null;
+  return (key: string) => form.get(key)?.[0];
+}
+
+const plivoListen = (callId: string) =>
+  plivoXml.record(`${plivoBase()}/plivo/recorded/${callId}`);
+
+const plivoWaitForReply = (callId: string) =>
+  [plivoXml.wait(1), plivoXml.redirect(`${plivoBase()}/plivo/poll/${callId}`)];
+
+function plivoSilence(callId: string, silences: number) {
+  if (silences >= PLIVO_MAX_SILENCES) {
+    return plivoXml.respond(plivoXml.speak("I can't hear anything, so I'll end the call here. Goodbye."), plivoXml.hangup());
+  }
+  return plivoXml.respond(plivoXml.speak("Are you still there?"), plivoListen(callId));
+}
+
+http.route({
+  pathPrefix: "/plivo/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const field = await plivoRequest(request);
+    if (!field) return new Response("Forbidden", { status: 403 });
+    const [, , kind, id] = new URL(request.url).pathname.split("/");
+
+    if (kind === "answer") {
+      const line = await ctx.runQuery(internal.phone.lineByKey, { channelKey: id ?? "" });
+      const callUuid = field("CallUUID");
+      if (!line || !callUuid) {
+        return plivoXml.respond(plivoXml.speak("Sorry, this line is not available right now."), plivoXml.hangup());
+      }
+      const callId = await ctx.runMutation(internal.phone.startCall, {
+        channelId: line.channelId,
+        workspaceId: line.workspaceId,
+        callUuid,
+        caller: callerNumber(field("From")) ?? `call-${callUuid}`,
+      });
+      const greeting = await ctx.runAction(internal.engine.greetPhone, { channelId: line.channelId }).catch(() => null);
+      return plivoXml.respond(
+        greeting ? plivoXml.play(greeting.url) : plivoXml.speak("Hello, how can I help you?"),
+        plivoListen(callId)
+      );
+    }
+
+    if (kind === "hangup") {
+      const callUuid = field("CallUUID");
+      if (callUuid) await ctx.runMutation(internal.phone.endCall, { callUuid });
+      return new Response("ok");
+    }
+
+    const callId = id as Id<"phoneCalls">;
+    const call = await ctx.runQuery(internal.phone.getCall, { callId }).catch(() => null);
+    if (!call || call.status === "ended") return plivoXml.respond(plivoXml.hangup());
+
+    if (kind === "recorded") {
+      const recordUrl = field("RecordUrl");
+      const duration = Number(field("RecordingDuration") ?? "0");
+      if (!recordUrl || !(duration >= 1)) {
+        const state = await ctx.runMutation(internal.phone.setStatus, { callId, status: "listening", silence: true });
+        return plivoSilence(callId, state?.silences ?? PLIVO_MAX_SILENCES);
+      }
+      await ctx.runMutation(internal.phone.setStatus, { callId, status: "thinking" });
+      await ctx.scheduler.runAfter(0, internal.engine.respondFromPhone, { callId, recordUrl });
+      return plivoXml.respond(...plivoWaitForReply(callId));
+    }
+
+    if (kind === "poll") {
+      if (call.status === "ready" && call.replyUrl) {
+        await ctx.runMutation(internal.phone.setStatus, { callId, status: "listening" });
+        return plivoXml.respond(plivoXml.play(call.replyUrl), plivoListen(callId));
+      }
+      if (call.status === "silent") {
+        await ctx.runMutation(internal.phone.setStatus, { callId, status: "listening" });
+        return plivoSilence(callId, call.silences);
+      }
+      const stuck = call.status === "thinking" && Date.now() - (call.thinkingSince ?? 0) > PLIVO_THINKING_LIMIT_MS;
+      if (call.status === "failed" || stuck || call.status !== "thinking") {
+        await ctx.runMutation(internal.phone.setStatus, { callId, status: "listening" });
+        return plivoXml.respond(plivoXml.speak("Sorry, I had trouble with that. Could you say it again?"), plivoListen(callId));
+      }
+      return plivoXml.respond(...plivoWaitForReply(callId));
+    }
+
+    return new Response("Not found", { status: 404 });
   }),
 });
 

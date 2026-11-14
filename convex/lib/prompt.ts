@@ -429,7 +429,8 @@ export function compileSystemPrompt(opts: {
 
 function spokenOutput(website: string | undefined, now: string | undefined, timezone: string): string {
   return [
-    "This is a live voice call on the website. Your reply is converted to speech and played aloud, and the customer cannot see any text.",
+    "This is a live voice call. Your reply is converted to speech and played aloud, and the customer cannot see any text.",
+    "Keep every reply under about 250 characters. Never read out a list or numbered steps; offer the most useful point and ask if they want more.",
     "Answer in one to three short spoken sentences, the way a person talks on the phone. Ask at most one question at a time.",
     "No markdown, lists, emojis, symbols or URLs. Say numbers and prices the way they are spoken.",
     website

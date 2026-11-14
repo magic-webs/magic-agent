@@ -7,7 +7,7 @@ import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";
-import { voiceWidgetSettings, widgetIntake } from "./schema";
+import { phoneLineSettings, voiceWidgetSettings, widgetIntake } from "./schema";
 import { ensureRouter } from "./agents";
 import { DEFAULT_VOICE_WIDGET } from "./voiceWidget";
 import { isVoiceId } from "./lib/voices";
@@ -41,6 +41,7 @@ const DEFAULT_NAME = {
   whatsapp: "WhatsApp",
   web: "Web chat",
   voice: "AI voice",
+  phone: "Phone line",
   rcs: "RCS",
   telegram: "Telegram",
 } as const;
@@ -54,6 +55,17 @@ function cleanVoiceWidget(input: Infer<typeof voiceWidgetSettings>) {
   const greeting = input.greeting?.trim().slice(0, MAX_GREETING_CHARS) || undefined;
   if (input.voiceId && !isVoiceId(input.voiceId)) throw new ConvexError("Pick a voice from the list.");
   return { ...input, colors, greeting, voiceId: input.voiceId || undefined };
+}
+
+function cleanPhoneLine(input: Infer<typeof phoneLineSettings>) {
+  const digits = input.number.replace(/[^0-9]/g, "");
+  if (digits.length < 8) throw new ConvexError("Enter the Plivo number with its country code");
+  if (input.voiceId && !isVoiceId(input.voiceId)) throw new ConvexError("Pick a voice from the list.");
+  return {
+    number: `+${digits}`,
+    voiceId: input.voiceId || undefined,
+    greeting: input.greeting?.trim().slice(0, MAX_GREETING_CHARS) || undefined,
+  };
 }
 
 function keepSecret(incoming: string | undefined, stored: string | undefined) {
@@ -183,12 +195,14 @@ export const create = mutation({
       v.literal("whatsapp"),
       v.literal("web"),
       v.literal("voice"),
+      v.literal("phone"),
       v.literal("rcs"),
       v.literal("telegram")
     ),
     name: v.string(),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
+    phoneLine: v.optional(phoneLineSettings),
     whatsapp: v.optional(whatsappInput),
     rcs: v.optional(rcsInput),
     telegram: v.optional(telegramInput),
@@ -230,6 +244,7 @@ export const create = mutation({
         args.type === "voice"
           ? cleanVoiceWidget(args.voiceWidget ?? DEFAULT_VOICE_WIDGET)
           : undefined,
+      phoneLine: args.type === "phone" ? cleanPhoneLine(args.phoneLine ?? { number: "" }) : undefined,
       whatsapp:
         args.type === "whatsapp" && args.whatsapp
           ? {
@@ -318,6 +333,7 @@ export const update = mutation({
     agentId: v.optional(v.id("agents")),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
+    phoneLine: v.optional(phoneLineSettings),
     whatsapp: v.optional(whatsappInput),
     rcs: v.optional(rcsInput),
     telegram: v.optional(telegramInput),
@@ -343,6 +359,10 @@ export const update = mutation({
     if (args.voiceWidget !== undefined) {
       if (existing.type !== "voice") throw new ConvexError("This is not a voice widget");
       patch.voiceWidget = cleanVoiceWidget(args.voiceWidget);
+    }
+    if (args.phoneLine !== undefined) {
+      if (existing.type !== "phone") throw new ConvexError("This is not a phone line");
+      patch.phoneLine = cleanPhoneLine(args.phoneLine);
     }
 
     if (args.whatsapp) {

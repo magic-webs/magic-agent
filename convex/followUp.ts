@@ -146,6 +146,7 @@ export const review = internalAction({
       budgetLeft &&
       windowOpen &&
       context.channelType !== "voice" &&
+      context.channelType !== "phone" &&
       (context.channelType === "web" ||
         (context.channelActive && Boolean(context.channelId)));
 

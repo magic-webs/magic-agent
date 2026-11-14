@@ -70,10 +70,12 @@ import {
 } from "@/components/channel-mark";
 import { CardGridSkeleton } from "@/components/skeletons";
 import { VoiceChannelDialog, VoiceSetup, DEFAULT_VOICE_SETTINGS } from "@/components/voice-channel";
+import { PhoneChannelDialog, PhoneSetup } from "@/components/phone-channel";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiVoiceIcon,
   Alert02Icon,
+  Call02Icon,
   ArrowDataTransferVerticalIcon,
   Comment01Icon,
   Copy01Icon,
@@ -1162,6 +1164,7 @@ function ConnectInstagramButton() {
 const GONE_WHEN_DELETED: Record<ChannelKind, string> = {
   web: "the widget on your website stops loading.",
   voice: "the voice sphere on your website stops loading.",
+  phone: "calls to this number stop being answered.",
   instagram: "direct messages to this Instagram account stop being answered.",
   whatsapp: "inbound WhatsApp messages to this number stop being answered.",
   rcs: "inbound RCS messages to this sender stop being answered.",
@@ -1171,6 +1174,7 @@ const GONE_WHEN_DELETED: Record<ChannelKind, string> = {
 const AFTER_ROTATE: Record<ChannelKind, string> = {
   web: "The script tag already on your website stops loading the moment this changes. You will need to paste the new one in its place.",
   voice: "The script tag already on your website stops loading the moment this changes. You will need to paste the new one in its place.",
+  phone: "Calls stop being answered until you paste the new Answer and Hangup URLs into your Plivo application.",
   instagram: "",
   whatsapp: "Inbound messages stop until you set the new URL in Meta and verify it again. Conversations already received are untouched.",
   rcs: "Inbound messages stop until you set the new URL with your RCS provider. Conversations already received are untouched.",
@@ -1275,6 +1279,7 @@ const FILTERS = [
   { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
   { value: "voice", label: "AI voice" },
+  { value: "phone", label: "Phone" },
   { value: "inactive", label: "Inactive" },
 ] as const;
 
@@ -1471,6 +1476,19 @@ function ChannelControls({
             open
             onOpenChange={setEditing}
           />
+        ) : kind === "phone" ? (
+          <PhoneChannelDialog
+            channelId={channel._id}
+            initial={{
+              name: channel.name,
+              agentId: channel.agentId,
+              number: channel.phoneLine?.number ?? "",
+              voiceId: channel.phoneLine?.voiceId,
+              greeting: channel.phoneLine?.greeting,
+            }}
+            open
+            onOpenChange={setEditing}
+          />
         ) : kind === "voice" ? (
           <VoiceChannelDialog
             channelId={channel._id}
@@ -1537,6 +1555,9 @@ function ChannelSetup({
 
   if (isInstagram) return <InstagramSetup channel={channel} links={links} />;
   if (kind === "telegram") return <TelegramSetup channel={channel} links={links} />;
+  if (kind === "phone") {
+    return <PhoneSetup channelKey={channel.channelKey} number={channel.phoneLine?.number} />;
+  }
   if (kind === "voice") {
     return <VoiceSetup settings={channel.voiceWidget} embedCode={embedCode} pageUrl={widgetUrl} />;
   }
@@ -2039,6 +2060,8 @@ function ChannelTile({
               `@${channel.instagram.username}`
             ) : channel.telegram?.botUsername ? (
               `@${channel.telegram.botUsername}`
+            ) : channel.phoneLine?.number ? (
+              <span className="font-mono">{channel.phoneLine.number}</span>
             ) : links.kind === "voice" ? (
               "AI voice on your website"
             ) : isWeb ? (
@@ -2158,6 +2181,13 @@ function ConnectButtons() {
           </Button>
         }
       />
+      <PhoneChannelDialog
+        trigger={
+          <Button variant="outline">
+            <HugeiconsIcon icon={Call02Icon} strokeWidth={2} /> Connect Phone Line
+          </Button>
+        }
+      />
       <VoiceChannelDialog
         trigger={
           <Button variant="outline">
@@ -2237,6 +2267,7 @@ export default function ChannelsPage() {
     telegram: all.filter((c) => c.type === "telegram").length,
     web: all.filter((c) => c.type === "web").length,
     voice: all.filter((c) => c.type === "voice").length,
+    phone: all.filter((c) => c.type === "phone").length,
     // Anything not currently taking messages, whichever way it got there —
     // paused by hand or knocked into error by a failed delivery. They are the
     // same question when you open this page: what is not working?

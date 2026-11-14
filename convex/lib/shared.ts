@@ -436,7 +436,7 @@ export function hasReplyWindow(channelType: string): boolean {
 }
 
 export function isInPage(channelType: string): boolean {
-  return channelType === "web" || channelType === "voice";
+  return channelType === "web" || channelType === "voice" || channelType === "phone";
 }
 
 /**

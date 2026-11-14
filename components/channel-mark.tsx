@@ -1,7 +1,7 @@
 "use client";
 
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiVoiceIcon, Globe02Icon } from "@hugeicons/core-free-icons";
+import { AiVoiceIcon, Call02Icon, Globe02Icon } from "@hugeicons/core-free-icons";
 import {
   InstagramLogo,
   RcsLogo,
@@ -10,7 +10,7 @@ import {
 } from "@/components/brand-icons";
 import { cn } from "@/lib/utils";
 
-export type ChannelKind = "whatsapp" | "instagram" | "rcs" | "telegram" | "web" | "voice";
+export type ChannelKind = "whatsapp" | "instagram" | "rcs" | "telegram" | "web" | "voice" | "phone";
 
 export const CHANNEL_LABEL: Record<ChannelKind, string> = {
   whatsapp: "WhatsApp",
@@ -19,6 +19,7 @@ export const CHANNEL_LABEL: Record<ChannelKind, string> = {
   telegram: "Telegram",
   web: "Web chat",
   voice: "AI voice",
+  phone: "Phone",
 };
 
 export const CHANNEL_TILE: Record<ChannelKind, string> = {
@@ -29,6 +30,7 @@ export const CHANNEL_TILE: Record<ChannelKind, string> = {
   telegram: "bg-[#229ED9]",
   web: "bg-sky-500",
   voice: "bg-[linear-gradient(135deg,#7c3aed,#06b6d4)]",
+  phone: "bg-emerald-600",
 };
 
 /** The channel's glyph alone, in `currentColor`. */
@@ -48,6 +50,8 @@ export function ChannelGlyph({
       return <RcsLogo className={className} />;
     case "telegram":
       return <TelegramLogo className={className} />;
+    case "phone":
+      return <HugeiconsIcon icon={Call02Icon} strokeWidth={2} className={cn("size-4 shrink-0", className)} />;
     case "voice":
       return <HugeiconsIcon icon={AiVoiceIcon} strokeWidth={2} className={cn("size-4 shrink-0", className)} />;
     default:

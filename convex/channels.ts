@@ -10,6 +10,7 @@ import { randomKey, maskSecret } from "./lib/shared";
 import { voiceWidgetSettings, widgetIntake } from "./schema";
 import { ensureRouter } from "./agents";
 import { DEFAULT_VOICE_WIDGET } from "./voiceWidget";
+import { isVoiceId } from "./lib/voices";
 import {
   requireChannel,
   requireWorkspace,
@@ -51,7 +52,8 @@ function cleanVoiceWidget(input: Infer<typeof voiceWidgetSettings>) {
   const colors = input.colors.map((c) => c.trim()).filter((c) => HEX_COLOR.test(c)).slice(0, 3);
   if (colors.length === 0) throw new ConvexError("Pick at least one colour for the sphere");
   const greeting = input.greeting?.trim().slice(0, MAX_GREETING_CHARS) || undefined;
-  return { ...input, colors, greeting };
+  if (input.voiceId && !isVoiceId(input.voiceId)) throw new ConvexError("Pick a voice from the list.");
+  return { ...input, colors, greeting, voiceId: input.voiceId || undefined };
 }
 
 function keepSecret(incoming: string | undefined, stored: string | undefined) {

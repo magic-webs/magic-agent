@@ -149,6 +149,7 @@ export const voiceOrbStyle = v.union(v.literal("orb"), v.literal("siri"), v.lite
 
 export const voiceWidgetSettings = v.object({
   style: v.optional(voiceOrbStyle),
+  voiceId: v.optional(v.string()),
   position: voicePosition,
   size: v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
   colors: v.array(v.string()),

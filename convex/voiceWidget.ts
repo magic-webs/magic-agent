@@ -3,7 +3,7 @@ import { query, internalQuery, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { resolveGreeting } from "./lib/prompt";
 import { logoSrcFor } from "./lib/branding";
-import { voiceIdFor } from "./lib/voices";
+import { isVoiceId, voiceIdFor } from "./lib/voices";
 
 export const DEFAULT_VOICE_WIDGET: NonNullable<Doc<"channels">["voiceWidget"]> = {
   style: "orb",
@@ -73,12 +73,15 @@ export const resolve = internalQuery({
     const agent = await ctx.db.get("agents", channel.agentId);
     const workspace = await ctx.db.get("workspaces", channel.workspaceId);
     if (!agent || !workspace || agent.status === "paused") return null;
+    const chosen = channel.voiceWidget?.voiceId;
+    const channelVoice = chosen && isVoiceId(chosen) ? chosen : undefined;
     return {
       sessionId,
       channelId: channel._id,
       agentId: agent._id,
       workspaceId: workspace._id,
-      voiceId: voiceIdFor(agent),
+      voiceId: channelVoice ?? voiceIdFor(agent),
+      fixedVoice: channelVoice !== undefined,
       greeting: channel.voiceWidget?.greeting?.trim() || resolveGreeting(agent, workspace.name),
     };
   },

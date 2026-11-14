@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiVoiceIcon, Copy01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
+import { AiVoiceIcon, Copy01Icon, InformationCircleIcon, PlayIcon } from "@hugeicons/core-free-icons";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -29,6 +29,7 @@ import { ORB_STYLES, VoiceOrb, type OrbState } from "@/components/voice-orb";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { VOICES } from "@/convex/lib/voices";
 
 type Settings = NonNullable<Doc<"channels">["voiceWidget"]>;
 type Position = Settings["position"];
@@ -179,6 +180,73 @@ function StylePicker({
   );
 }
 
+const AGENT_VOICE = "agent";
+
+function VoicePicker({
+  agentId,
+  value,
+  onChange,
+}: {
+  agentId: string;
+  value: string | undefined;
+  onChange: (voiceId: string | undefined) => void;
+}) {
+  const preview = useAction(api.voice.previewVoice);
+  const [playing, setPlaying] = useState(false);
+  const agents = useQuery(api.agents.listByWorkspace, { workspaceId: useWorkspace()._id });
+  const agent = agents?.find((a) => a._id === agentId);
+  const sampleVoice = value ?? agent?.voiceId ?? (agent?.gender === "male" ? "JBFqnCBsd6RMkjVDRZzb" : "21m00Tcm4TlvDq8ikWAM");
+
+  const play = async () => {
+    if (!agentId) return;
+    setPlaying(true);
+    try {
+      const { url } = await preview({ agentId: agentId as Id<"agents">, voiceId: sampleVoice });
+      const audio = new Audio(url);
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => setPlaying(false);
+      await audio.play();
+    } catch (error) {
+      setPlaying(false);
+      toast.add({ title: "Could not play the sample", description: friendlyError(error), type: "error" });
+    }
+  };
+
+  const options = [
+    { value: AGENT_VOICE, label: "Agent's own voice (set on each agent)" },
+    ...(["female", "male"] as const).flatMap((gender) =>
+      VOICES.filter((voice) => voice.gender === gender).map((voice) => ({
+        value: voice.id,
+        label: `${voice.name} · ${gender === "female" ? "Female" : "Male"}, ${voice.accent}`,
+      }))
+    ),
+  ];
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="v-voice">Voice</Label>
+      <div className="flex items-center gap-2">
+        <SelectField
+          id="v-voice"
+          className="w-full"
+          value={value ?? AGENT_VOICE}
+          onValueChange={(next) => onChange(next === AGENT_VOICE ? undefined : next)}
+          options={options}
+        />
+        <Button variant="outline" disabled={playing || !agentId} onClick={() => void play()}>
+          {playing ? <Spinner /> : <HugeiconsIcon icon={PlayIcon} strokeWidth={2} />}
+          Preview
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {value
+          ? "The whole call uses this voice, even after the front desk hands over to another agent."
+          : "Each agent speaks in the voice chosen on its Voice card."}
+      </p>
+    </div>
+  );
+}
+
 export function VoiceChannelDialog({
   channelId,
   initial,
@@ -291,10 +359,13 @@ export function VoiceChannelDialog({
                       : `${agent.botName} (${agent.name})`,
                 }))}
               />
-              <p className="text-xs text-muted-foreground">
-                Each agent speaks in the voice chosen on its Voice card.
-              </p>
             </div>
+
+            <VoicePicker
+              agentId={agentId}
+              value={settings.voiceId}
+              onChange={(voiceId) => setSettings({ voiceId })}
+            />
 
             <StylePicker
               value={settings.style ?? "orb"}

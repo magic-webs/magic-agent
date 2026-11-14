@@ -2879,7 +2879,7 @@ export const respondFromVoice = action({
     if (!reply) return { heard, reply: null, audio: null, mediaType: null };
 
     let voiceId = resolved.voiceId;
-    if (result.agentId && result.agentId !== resolved.agentId) {
+    if (!resolved.fixedVoice && result.agentId && result.agentId !== resolved.agentId) {
       const speaker = await ctx.runQuery(internal.agents.getInternal, { agentId: result.agentId });
       if (speaker) voiceId = voiceIdFor(speaker.agent);
     }

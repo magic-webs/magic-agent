@@ -32,6 +32,7 @@ import {
   DEFAULT_CHAT_MODEL,
   WHATSAPP_FREE_FORM_WINDOW_HOURS,
   hasReplyWindow,
+  isInPage,
 } from "./lib/shared";
 
 const reviewSchema = z.object({
@@ -144,6 +145,7 @@ export const review = internalAction({
     const deliverable =
       budgetLeft &&
       windowOpen &&
+      context.channelType !== "voice" &&
       (context.channelType === "web" ||
         (context.channelActive && Boolean(context.channelId)));
 
@@ -308,7 +310,7 @@ export const review = internalAction({
     let followedUp = false;
     let sent: { wamid?: string } | undefined;
     if (shouldSend) {
-      if (context.channelType !== "web" && context.channelId && context.externalId) {
+      if (!isInPage(context.channelType) && context.channelId && context.externalId) {
         const result = await sendOnChannel(ctx, context.channelType, {
           channelId: context.channelId,
           to: context.externalId,

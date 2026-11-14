@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import {
   query,
   internalQuery,
@@ -7,8 +7,9 @@ import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";
-import { widgetIntake } from "./schema";
+import { voiceWidgetSettings, widgetIntake } from "./schema";
 import { ensureRouter } from "./agents";
+import { DEFAULT_VOICE_WIDGET } from "./voiceWidget";
 import {
   requireChannel,
   requireWorkspace,
@@ -38,9 +39,20 @@ const DEFAULT_RCS_BASE = "https://crmapi.com.bot/api/v1";
 const DEFAULT_NAME = {
   whatsapp: "WhatsApp",
   web: "Web chat",
+  voice: "AI voice",
   rcs: "RCS",
   telegram: "Telegram",
 } as const;
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+const MAX_GREETING_CHARS = 300;
+
+function cleanVoiceWidget(input: Infer<typeof voiceWidgetSettings>) {
+  const colors = input.colors.map((c) => c.trim()).filter((c) => HEX_COLOR.test(c)).slice(0, 3);
+  if (colors.length === 0) throw new ConvexError("Pick at least one colour for the sphere");
+  const greeting = input.greeting?.trim().slice(0, MAX_GREETING_CHARS) || undefined;
+  return { ...input, colors, greeting };
+}
 
 function keepSecret(incoming: string | undefined, stored: string | undefined) {
   const token = incoming?.trim();
@@ -168,11 +180,13 @@ export const create = mutation({
     type: v.union(
       v.literal("whatsapp"),
       v.literal("web"),
+      v.literal("voice"),
       v.literal("rcs"),
       v.literal("telegram")
     ),
     name: v.string(),
     intake: v.optional(widgetIntake),
+    voiceWidget: v.optional(voiceWidgetSettings),
     whatsapp: v.optional(whatsappInput),
     rcs: v.optional(rcsInput),
     telegram: v.optional(telegramInput),
@@ -210,6 +224,10 @@ export const create = mutation({
       channelKey: randomKey(28),
       externalId: args.whatsapp?.phoneNumberId,
       intake: args.type === "web" ? args.intake : undefined,
+      voiceWidget:
+        args.type === "voice"
+          ? cleanVoiceWidget(args.voiceWidget ?? DEFAULT_VOICE_WIDGET)
+          : undefined,
       whatsapp:
         args.type === "whatsapp" && args.whatsapp
           ? {
@@ -297,6 +315,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     agentId: v.optional(v.id("agents")),
     intake: v.optional(widgetIntake),
+    voiceWidget: v.optional(voiceWidgetSettings),
     whatsapp: v.optional(whatsappInput),
     rcs: v.optional(rcsInput),
     telegram: v.optional(telegramInput),
@@ -318,6 +337,10 @@ export const update = mutation({
         throw new ConvexError("Only a web widget collects visitor details");
       }
       patch.intake = args.intake;
+    }
+    if (args.voiceWidget !== undefined) {
+      if (existing.type !== "voice") throw new ConvexError("This is not a voice widget");
+      patch.voiceWidget = cleanVoiceWidget(args.voiceWidget);
     }
 
     if (args.whatsapp) {

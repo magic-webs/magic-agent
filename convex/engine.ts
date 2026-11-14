@@ -27,6 +27,8 @@ import {
   type HandoffShape,
   type TeammateShape,
 } from "./lib/prompt";
+import { toSpeech, toText } from "./lib/speech";
+import { voiceIdFor } from "./lib/voices";
 import {
   DEFAULT_MESSAGES_PER_SESSION,
   MAX_HANDOFFS_PER_TURN,
@@ -36,6 +38,7 @@ import {
   randomKey,
   readableError,
   truncate,
+  isInPage,
 } from "./lib/shared";
 import {
   BUTTON_TEXT_MAX,
@@ -61,7 +64,7 @@ import {
 import { fileUrl } from "./lib/files";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { sendOnChannel } from "./lib/channelSend";
-import { mergePassages } from "./lib/knowledgeCarry";
+import { citedFirst, mergePassages } from "./lib/knowledgeCarry";
 import { channelType } from "./schema";
 import {
   parametersToJsonSchema,
@@ -778,7 +781,7 @@ function makeDeliver(ctx: ActionCtx, turn: TurnContext) {
     // Send first, record second. A payload the provider rejected must not sit
     // in the transcript as something the customer saw.
     let wamid: string | undefined;
-    if (channelType !== "web") {
+    if (!isInPage(channelType)) {
       if (!channelId || !externalId) {
         throw new ConvexError("This conversation has no channel to send on.");
       }
@@ -803,7 +806,7 @@ function makeDeliver(ctx: ActionCtx, turn: TurnContext) {
       agentId: agent._id,
       summary: summarise(message),
       payload: JSON.stringify(message),
-      sent: channelType !== "web" ? { wamid } : undefined,
+      sent: !isInPage(channelType) ? { wamid } : undefined,
     });
 
     return {
@@ -1392,7 +1395,7 @@ function buildRecordTools(
           agentId: agent._id,
           conversationId: turn.conversationId,
           contactId: turn.contactId,
-          source: turn.channelType,
+          source: turn.channelType === "voice" ? "web" : turn.channelType,
           person:
             person ??
             (turn.contact.name || turn.contact.phone
@@ -2500,7 +2503,12 @@ ${message}`
                 scopeKeys: [`${workspace._id}|*`, `${workspace._id}|${agent._id}`],
               })
             : [];
-          const passages = mergePassages(fresh, carried, agent.knowledgeTopK * 2);
+          const { cited, rest } = citedFirst(carried, session.recentReplies);
+          const passages = mergePassages(
+            [...cited.slice(0, agent.knowledgeTopK), ...fresh],
+            rest,
+            agent.knowledgeTopK * 2
+          );
           noteSources(turn, passages);
           knowledgeContext = formatKnowledge(passages);
         } catch (error) {
@@ -2539,6 +2547,7 @@ ${message}`
         agentId: agent._id,
       });
 
+      const spoken = args.channelType === "voice";
       const toolset: ToolSet = {
         ...buildBuiltinTools(ctx, turn, apiKey, {
           team,
@@ -2547,11 +2556,11 @@ ${message}`
         }),
         // Empty unless this agent has the key AND the conversation is on
         // WhatsApp, so the web playground never sees a tool it cannot honour.
-        ...(agent.builtinTools.includes("rich_messages")
+        ...(agent.builtinTools.includes("rich_messages") && !spoken
           ? buildRichMessageTools(ctx, turn)
           : {}),
         ...buildRecordTools(ctx, turn, books),
-        ...buildAppTools(ctx, turn, apps),
+        ...(spoken ? {} : buildAppTools(ctx, turn, apps)),
         ...buildPaymentTools(ctx, turn, paymentTools),
         ...buildCustomTools(ctx, turn, customTools),
       };
@@ -2566,6 +2575,7 @@ ${message}`
         handoff,
         recordBooks: books,
         now: new Date().toISOString(),
+        spoken,
       });
 
       let stepText = "";
@@ -2815,6 +2825,72 @@ export const respondFromWidget = action({
     return { ok: true, delivered: true };
   },
 });
+
+type VoiceReply = {
+  heard: string;
+  reply: string | null;
+  audio: ArrayBuffer | null;
+  mediaType: string | null;
+  error?: string;
+};
+
+const VOICE_UNAVAILABLE = "This voice assistant is not available right now.";
+
+export const greetFromVoice = action({
+  args: { channelKey: v.string(), sessionId: v.string() },
+  handler: async (ctx, args): Promise<VoiceReply> => {
+    const resolved = await ctx.runQuery(internal.voiceWidget.resolve, args);
+    if (!resolved) throw new ConvexError(VOICE_UNAVAILABLE);
+    const { bytes, mediaType } = await toSpeech(resolved.greeting, resolved.voiceId);
+    return { heard: "", reply: resolved.greeting, audio: toBuffer(bytes), mediaType };
+  },
+});
+
+export const respondFromVoice = action({
+  args: { channelKey: v.string(), sessionId: v.string(), audio: v.bytes() },
+  handler: async (ctx, args): Promise<VoiceReply> => {
+    const resolved = await ctx.runQuery(internal.voiceWidget.resolve, {
+      channelKey: args.channelKey,
+      sessionId: args.sessionId,
+    });
+    if (!resolved) throw new ConvexError(VOICE_UNAVAILABLE);
+
+    const heard = (await toText(args.audio)).slice(0, MAX_WIDGET_MESSAGE_CHARS);
+    if (!heard) return { heard, reply: null, audio: null, mediaType: null };
+
+    const result = await runTurn(ctx, {
+      agentId: resolved.agentId,
+      channelType: "voice",
+      channelId: resolved.channelId,
+      externalId: resolved.sessionId,
+      text: heard,
+    });
+    if (!result.ok) {
+      console.error("[voice] turn failed", result.error);
+      return {
+        heard,
+        reply: null,
+        audio: null,
+        mediaType: null,
+        error: "Something went wrong answering that. Please try again.",
+      };
+    }
+    const reply = result.text?.trim();
+    if (!reply) return { heard, reply: null, audio: null, mediaType: null };
+
+    let voiceId = resolved.voiceId;
+    if (result.agentId && result.agentId !== resolved.agentId) {
+      const speaker = await ctx.runQuery(internal.agents.getInternal, { agentId: result.agentId });
+      if (speaker) voiceId = voiceIdFor(speaker.agent);
+    }
+    const { bytes, mediaType } = await toSpeech(reply, voiceId);
+    return { heard, reply, audio: toBuffer(bytes), mediaType };
+  },
+});
+
+function toBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
 
 // How many passages to pin on a wrong answer whose reply predates chunk
 // tracking — the closest few from the sources it is known to have used.

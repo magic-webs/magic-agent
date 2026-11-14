@@ -4,34 +4,12 @@ import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { generateSpeech, transcribe } from "ai";
-import { aiGateway } from "./lib/gateway";
 import { fileUrl, newFileKey, r2 } from "./lib/files";
-import {
-  MAX_VOICE_NOTE_BYTES,
-  VOICE_SPEECH_MODEL,
-  VOICE_TRANSCRIPTION_MODEL,
-  isVoiceId,
-  spokenText,
-} from "./lib/voices";
+import { isVoiceId } from "./lib/voices";
+import { toSpeech, toText } from "./lib/speech";
 
 type Spoken = { url: string; mediaType: string };
 type Stored = Spoken & { key: string };
-
-async function toText(audio: ArrayBuffer): Promise<string> {
-  if (audio.byteLength === 0) throw new ConvexError("No audio was recorded.");
-  if (audio.byteLength > MAX_VOICE_NOTE_BYTES) {
-    throw new ConvexError("That recording is too long. Keep it under a minute.");
-  }
-  const result = await transcribe({
-    model: aiGateway().transcription(VOICE_TRANSCRIPTION_MODEL),
-    audio: new Uint8Array(audio),
-  }).catch((error: unknown) => {
-    console.error("[voice] transcription failed", error);
-    throw new ConvexError("Could not hear that. Please try again.");
-  });
-  return result.text.trim();
-}
 
 async function synthesise(
   ctx: ActionCtx,
@@ -39,19 +17,8 @@ async function synthesise(
   text: string,
   voiceId: string
 ): Promise<Stored> {
-  const spoken = spokenText(text);
-  if (!spoken) throw new ConvexError("There is nothing to read out.");
-  const result = await generateSpeech({
-    model: aiGateway().speech(VOICE_SPEECH_MODEL),
-    text: spoken,
-    voice: voiceId,
-    outputFormat: "mp3",
-  }).catch((error: unknown) => {
-    console.error("[voice] speech failed", error);
-    throw new ConvexError("The voice reply is not available right now.");
-  });
-  const mediaType = result.audio.mediaType || "audio/mpeg";
-  const key = await r2.store(ctx, new Uint8Array(result.audio.uint8Array), {
+  const { bytes, mediaType } = await toSpeech(text, voiceId);
+  const key = await r2.store(ctx, bytes, {
     key: newFileKey("speech", workspaceId),
     type: mediaType,
   });

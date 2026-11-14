@@ -32,6 +32,7 @@ export async function sendOnChannel(
     case "telegram":
       return await ctx.runAction(internal.telegram.sendOutbound, rest);
     case "web":
+    case "voice":
       return { ok: true };
   }
 }

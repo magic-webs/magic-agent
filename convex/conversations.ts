@@ -15,7 +15,7 @@ import { channelType, escalationDepartment, kvPair } from "./schema";
 import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
-import { carriedChunkIds } from "./lib/knowledgeCarry";
+import { carriedChunkIds, recentReplyTexts } from "./lib/knowledgeCarry";
 import { clearDraft } from "./drafts";
 import { recordAgentReply, REPLY_PREVIEW_CHARS } from "./lib/agentStats";
 import { chargeAiReply } from "./lib/charge";
@@ -43,6 +43,7 @@ import {
   WHATSAPP_TEXT_LIMIT,
   clampPause,
   pauseLabel,
+  isInPage,
 } from "./lib/shared";
 import {
   AuthError,
@@ -956,7 +957,7 @@ export const sendManualReply = action({
     }
 
     let sent: { wamid?: string } | undefined;
-    if (context.channelType !== "web") {
+    if (!isInPage(context.channelType)) {
       if (!context.channelId || !context.externalId) {
         return {
           ok: false,
@@ -1162,7 +1163,7 @@ export const startTurn = internalMutation({
         name: args.contactName,
         phone: args.contactPhone,
         attributes: [],
-        source: args.channelType,
+        source: args.channelType === "voice" ? "web" : args.channelType,
         lastSeenAt: now,
         lastInboundAt: now,
         createdAt: now,
@@ -1470,6 +1471,7 @@ export const startTurn = internalMutation({
       },
       history,
       carriedChunkIds: carriedChunkIds(priorMessages),
+      recentReplies: recentReplyTexts(priorMessages),
       quoted: replyTo ? { text: replyTo.text, fromCustomer: replyTo.fromCustomer } : null,
       isFirstTurn: conversation.messageCount === 0,
       lastActivityAt,
@@ -1571,7 +1573,7 @@ export const finishTurn = internalMutation({
         args.conversationId
       );
       const delivery =
-        conversation?.channelType !== "web" ? ("pending" as const) : undefined;
+        conversation && !isInPage(conversation.channelType) ? ("pending" as const) : undefined;
       replyMessageId = await ctx.db.insert("messages", {
         workspaceId: args.workspaceId,
         conversationId: args.conversationId,

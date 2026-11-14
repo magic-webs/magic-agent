@@ -432,7 +432,11 @@ export const WHATSAPP_FREE_FORM_WINDOW_HOURS = 24;
 
 /** Telegram and the web widget can be written to at any time. */
 export function hasReplyWindow(channelType: string): boolean {
-  return channelType !== "web" && channelType !== "telegram";
+  return !isInPage(channelType) && channelType !== "telegram";
+}
+
+export function isInPage(channelType: string): boolean {
+  return channelType === "web" || channelType === "voice";
 }
 
 /**

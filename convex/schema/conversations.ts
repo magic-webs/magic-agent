@@ -5,6 +5,7 @@ import {
   deliveryStatus,
   escalationDepartment,
   kvPair,
+  voiceWidgetSettings,
   widgetIntake,
 } from "./validators";
 
@@ -17,6 +18,7 @@ export const conversationsTables = {
     channelKey: v.string(),
     externalId: v.optional(v.string()),
     intake: v.optional(widgetIntake),
+    voiceWidget: v.optional(voiceWidgetSettings),
     whatsapp: v.optional(
       v.object({
         apiBaseUrl: v.string(),

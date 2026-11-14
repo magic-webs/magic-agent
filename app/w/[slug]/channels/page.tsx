@@ -69,8 +69,10 @@ import {
   type ChannelKind,
 } from "@/components/channel-mark";
 import { CardGridSkeleton } from "@/components/skeletons";
+import { VoiceChannelDialog, VoiceSetup, DEFAULT_VOICE_SETTINGS } from "@/components/voice-channel";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  AiVoiceIcon,
   Alert02Icon,
   ArrowDataTransferVerticalIcon,
   Comment01Icon,
@@ -1159,6 +1161,7 @@ function ConnectInstagramButton() {
  */
 const GONE_WHEN_DELETED: Record<ChannelKind, string> = {
   web: "the widget on your website stops loading.",
+  voice: "the voice sphere on your website stops loading.",
   instagram: "direct messages to this Instagram account stop being answered.",
   whatsapp: "inbound WhatsApp messages to this number stop being answered.",
   rcs: "inbound RCS messages to this sender stop being answered.",
@@ -1167,6 +1170,7 @@ const GONE_WHEN_DELETED: Record<ChannelKind, string> = {
 
 const AFTER_ROTATE: Record<ChannelKind, string> = {
   web: "The script tag already on your website stops loading the moment this changes. You will need to paste the new one in its place.",
+  voice: "The script tag already on your website stops loading the moment this changes. You will need to paste the new one in its place.",
   instagram: "",
   whatsapp: "Inbound messages stop until you set the new URL in Meta and verify it again. Conversations already received are untouched.",
   rcs: "Inbound messages stop until you set the new URL with your RCS provider. Conversations already received are untouched.",
@@ -1188,7 +1192,7 @@ function ChannelMenu({
 }) {
   const [rotating, setRotating] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const isWeb = kind === "web";
+  const isWeb = kind === "web" || kind === "voice";
   const isInstagram = kind === "instagram";
 
   return (
@@ -1270,6 +1274,7 @@ const FILTERS = [
   { value: "rcs", label: "RCS" },
   { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
+  { value: "voice", label: "AI voice" },
   { value: "inactive", label: "Inactive" },
 ] as const;
 
@@ -1358,17 +1363,17 @@ function channelLinks(
 ): ChannelLinks {
   return {
     kind: channel.type,
-    isWeb: channel.type === "web",
+    isWeb: channel.type === "web" || channel.type === "voice",
     isInstagram: channel.type === "instagram",
     igLink: channel.instagram
       ? `https://ig.me/m/${channel.instagram.username}`
       : null,
     live: channel.status === "active",
     webhookUrl: `${webhookBase}/${channel.type === "rcs" ? "rcs" : "whatsapp"}/${channel.channelKey}`,
-    widgetUrl: `${appOrigin}/widget/${channel.channelKey}`,
+    widgetUrl: `${appOrigin}/${channel.type === "voice" ? "voice" : "widget"}/${channel.channelKey}`,
     // A script, not a bare iframe: the launcher button has to live in the host
     // page, because an iframe cannot resize itself there.
-    embedCode: `<script src="${appOrigin}/widget/${channel.channelKey}/embed.js" async></script>`,
+    embedCode: `<script src="${appOrigin}/${channel.type === "voice" ? "voice" : "widget"}/${channel.channelKey}/embed.js" async></script>`,
     chatLink: chatLinkFor(channel),
   };
 }
@@ -1466,6 +1471,17 @@ function ChannelControls({
             open
             onOpenChange={setEditing}
           />
+        ) : kind === "voice" ? (
+          <VoiceChannelDialog
+            channelId={channel._id}
+            initial={{
+              name: channel.name,
+              agentId: channel.agentId,
+              settings: channel.voiceWidget ?? DEFAULT_VOICE_SETTINGS,
+            }}
+            open
+            onOpenChange={setEditing}
+          />
         ) : isWeb ? (
           <WebChannelDialog
             channelId={channel._id}
@@ -1521,6 +1537,9 @@ function ChannelSetup({
 
   if (isInstagram) return <InstagramSetup channel={channel} links={links} />;
   if (kind === "telegram") return <TelegramSetup channel={channel} links={links} />;
+  if (kind === "voice") {
+    return <VoiceSetup settings={channel.voiceWidget} embedCode={embedCode} pageUrl={widgetUrl} />;
+  }
 
   return (
     <>
@@ -2020,6 +2039,8 @@ function ChannelTile({
               `@${channel.instagram.username}`
             ) : channel.telegram?.botUsername ? (
               `@${channel.telegram.botUsername}`
+            ) : links.kind === "voice" ? (
+              "AI voice on your website"
             ) : isWeb ? (
               "Website widget"
             ) : (
@@ -2137,6 +2158,13 @@ function ConnectButtons() {
           </Button>
         }
       />
+      <VoiceChannelDialog
+        trigger={
+          <Button variant="outline">
+            <HugeiconsIcon icon={AiVoiceIcon} strokeWidth={2} /> Create AI Voice Widget
+          </Button>
+        }
+      />
       <WebChannelDialog
         trigger={
           <Button>
@@ -2208,6 +2236,7 @@ export default function ChannelsPage() {
     rcs: all.filter((c) => c.type === "rcs").length,
     telegram: all.filter((c) => c.type === "telegram").length,
     web: all.filter((c) => c.type === "web").length,
+    voice: all.filter((c) => c.type === "voice").length,
     // Anything not currently taking messages, whichever way it got there —
     // paused by hand or knocked into error by a failed delivery. They are the
     // same question when you open this page: what is not working?

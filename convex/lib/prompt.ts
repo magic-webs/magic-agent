@@ -134,6 +134,7 @@ export function compileSystemPrompt(opts: {
    * membership is made of.
    */
   recordBooks?: BookShape[];
+  spoken?: boolean;
 }): string {
   const { workspace: w, agent: a, contact } = opts;
   const tone = a.tone;
@@ -303,7 +304,10 @@ export function compileSystemPrompt(opts: {
           ? '- A customer message that starts with "[Form submitted" or "[Played the offer" was not typed by them: it is what they did on the page you sent. Reply to it as that — thank them, confirm what they gave or what they won, and say what happens next. Never ask them to fill it in or play it again.'
           : null,
         opts.toolNames.includes("search_knowledge")
-          ? "- Your own earlier replies are not a source. Before stating a fact, figure, price, result or policy, check it against the retrieved knowledge; if it is not there, call search_knowledge, and if the search does not confirm it, do not state it — even if you said it earlier in this conversation."
+          ? "- Your own earlier replies are not a source. Before stating a new fact, figure, price, result or policy, check it against the retrieved knowledge; if it is not there, call search_knowledge, and if the search does not confirm it, do not state it — even if you said it earlier in this conversation."
+          : null,
+        opts.toolNames.includes("search_knowledge")
+          ? "- Never take back, correct or apologise for something you said earlier unless the retrieved knowledge or a search_knowledge result shows it is wrong. A figure missing from this turn's passages is not wrong, only not retrieved: leave it alone, or search for it if you need it again."
           : null,
         opts.toolNames.includes(KNOWLEDGE_GAP_TOOL)
           ? `- When the customer asks something about ${w.name} that neither the retrieved knowledge nor your tools answer, call ${KNOWLEDGE_GAP_TOOL} before saying the team will confirm. Once per question, and never for out-of-scope requests.`
@@ -407,7 +411,7 @@ export function compileSystemPrompt(opts: {
     section("Additional instructions", a.promptOverride),
     section(
       "Output",
-      [
+      opts.spoken ? spokenOutput(w.website, opts.now, w.timezone) : [
         "Reply with plain conversational text only — the customer sees it verbatim in a chat window.",
         "No markdown of any kind. No headings, no code fences, no JSON, and in particular no markdown links or images: WhatsApp renders none of it, so `![Tee](https://…)` reaches the customer as those literal characters.",
         sendsMedia
@@ -421,6 +425,21 @@ export function compileSystemPrompt(opts: {
   ].filter(Boolean);
 
   return parts.join("\n\n");
+}
+
+function spokenOutput(website: string | undefined, now: string | undefined, timezone: string): string {
+  return [
+    "This is a live voice call on the website. Your reply is converted to speech and played aloud, and the customer cannot see any text.",
+    "Answer in one to three short spoken sentences, the way a person talks on the phone. Ask at most one question at a time.",
+    "No markdown, lists, emojis, symbols or URLs. Say numbers and prices the way they are spoken.",
+    website
+      ? `If they need a page, say the website's name in words (${website}) rather than reading out an address.`
+      : "Never read out a web address.",
+    "If you did not catch what they said, ask them to repeat it.",
+    now ? `The current date and time is ${now} (${timezone}).` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // Used for the very first assistant turn on a fresh conversation.

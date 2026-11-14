@@ -136,6 +136,26 @@ export const storedWorkspaceStage = v.union(
 
 export const widgetIntake = v.union(v.literal("chat"), v.literal("form"));
 
+export const voicePosition = v.union(
+  v.literal("top-left"),
+  v.literal("top-center"),
+  v.literal("top-right"),
+  v.literal("bottom-left"),
+  v.literal("bottom-center"),
+  v.literal("bottom-right")
+);
+
+export const voiceOrbStyle = v.union(v.literal("orb"), v.literal("siri"), v.literal("aurora"));
+
+export const voiceWidgetSettings = v.object({
+  style: v.optional(voiceOrbStyle),
+  position: voicePosition,
+  size: v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
+  colors: v.array(v.string()),
+  captions: v.boolean(),
+  greeting: v.optional(v.string()),
+});
+
 export const escalationDepartment = v.union(
   v.literal("sales"),
   v.literal("support"),
@@ -146,6 +166,7 @@ export const escalationDepartment = v.union(
 export const channelType = v.union(
   v.literal("whatsapp"),
   v.literal("web"),
+  v.literal("voice"),
   v.literal("instagram"),
   v.literal("rcs"),
   v.literal("telegram")

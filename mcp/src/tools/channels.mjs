@@ -10,6 +10,28 @@ import { findAgent, findChannel } from "../lookup.mjs";
 import { handler, ok } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
+const widgetArg = z
+  .object({
+    icon: z.enum(["chat", "chat-dots", "sparkles", "bot", "headset", "smile", "help"]).optional(),
+    color: z.string().optional().describe("Hex colour, e.g. #2563eb"),
+    position: z.enum(["bottom-left", "bottom-right"]).optional(),
+    size: z.enum(["small", "medium", "large"]).optional(),
+    animation: z.enum(["none", "pulse", "bounce", "wiggle", "breathe"]).optional(),
+    label: z.string().optional().describe("Tooltip on the button"),
+    teaser: z.string().optional().describe("One-line bubble beside the button; empty for none"),
+    autoOpenSeconds: z.number().optional().describe("Open the chat by itself after this many seconds"),
+  })
+  .optional()
+  .describe("Web only: how the chat button looks on the website. Omitted fields keep their current value.");
+
+const WIDGET_DEFAULTS = {
+  icon: "chat",
+  color: "#2563eb",
+  position: "bottom-right",
+  size: "medium",
+  animation: "none",
+};
+
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
 export function register(server) {
   server.registerTool(
@@ -98,6 +120,7 @@ export function register(server) {
           .describe(
             "Web only, required: how the widget gets the visitor's name and number. chat asks for them inside the conversation; form shows a sign-in page before the chat opens."
           ),
+        widget: widgetArg,
         phoneNumberId: z.string().optional().describe("WhatsApp only, required"),
         accessToken: z.string().optional().describe("WhatsApp and RCS, required"),
         botToken: z.string().optional().describe("Telegram only, required: the token from @BotFather"),
@@ -114,7 +137,7 @@ export function register(server) {
         apiVersion: z.string().optional(),
       },
     },
-    handler(async ({ workspace, type, name, agent, intake, ...wa }) => {
+    handler(async ({ workspace, type, name, agent, intake, widget, ...wa }) => {
       const found = await resolveWorkspace(workspace);
 
       let agentId;
@@ -138,6 +161,7 @@ export function register(server) {
         type,
         name,
         intake: type === "web" ? intake : undefined,
+        webWidget: type === "web" ? { ...WIDGET_DEFAULTS, ...widget } : undefined,
         whatsapp:
           type === "whatsapp"
             ? {
@@ -180,7 +204,7 @@ export function register(server) {
     {
       title: "Update channel",
       description:
-        "Rename a channel, repoint it at a different agent, or take it live / pause it. A paused channel silently ignores inbound messages. On a WhatsApp channel, also change its connection — the WABA ID notification templates sync from, the display number, a new access token. On an RCS channel, the access token, sender number or API base URL; on a Telegram channel, a new bot token (the webhook is re-registered). Omitted connection fields keep their stored value.",
+        "Rename a channel, repoint it at a different agent, or take it live / pause it. On a website widget, change how its chat button looks (widget). A paused channel silently ignores inbound messages. On a WhatsApp channel, also change its connection — the WABA ID notification templates sync from, the display number, a new access token. On an RCS channel, the access token, sender number or API base URL; on a Telegram channel, a new bot token (the webhook is re-registered). Omitted connection fields keep their stored value.",
       inputSchema: {
         ...workspaceArg,
         channel: z.string().describe("Channel name or id"),
@@ -193,6 +217,7 @@ export function register(server) {
           .describe(
             "Web only: chat asks for name and number inside the conversation; form shows a sign-in page first"
           ),
+        widget: widgetArg,
         wabaId: z
           .string()
           .optional()
@@ -208,7 +233,7 @@ export function register(server) {
         apiVersion: z.string().optional().describe("WhatsApp only"),
       },
     },
-    handler(async ({ workspace, channel, name, agent, status, intake, ...connection }) => {
+    handler(async ({ workspace, channel, name, agent, status, intake, widget, ...connection }) => {
       const found = await resolveWorkspace(workspace);
       const target = await findChannel(found._id, channel);
       const agentId = agent ? (await findAgent(found._id, agent))._id : undefined;
@@ -254,6 +279,7 @@ export function register(server) {
         agentId,
         status,
         intake,
+        ...(widget ? { webWidget: { ...WIDGET_DEFAULTS, ...target.webWidget, ...widget } } : {}),
         ...(whatsapp ? { whatsapp } : {}),
         ...provider,
       });

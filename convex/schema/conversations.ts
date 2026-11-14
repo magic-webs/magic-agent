@@ -7,6 +7,7 @@ import {
   kvPair,
   phoneLineSettings,
   voiceWidgetSettings,
+  webWidgetSettings,
   widgetIntake,
 } from "./validators";
 
@@ -20,6 +21,7 @@ export const conversationsTables = {
     externalId: v.optional(v.string()),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
+    webWidget: v.optional(webWidgetSettings),
     phoneLine: v.optional(phoneLineSettings),
     whatsapp: v.optional(
       v.object({

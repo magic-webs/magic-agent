@@ -70,6 +70,13 @@ import {
 } from "@/components/channel-mark";
 import { CardGridSkeleton } from "@/components/skeletons";
 import { VoiceChannelDialog, VoiceSetup, DEFAULT_VOICE_SETTINGS } from "@/components/voice-channel";
+import {
+  DEFAULT_WEB_WIDGET_SETTINGS,
+  WebWidgetAppearance,
+  WebWidgetLauncher,
+  WebWidgetPreview,
+  type WebWidgetSettings,
+} from "@/components/web-widget-appearance";
 import { PhoneChannelDialog, PhoneSetup } from "@/components/phone-channel";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -202,50 +209,6 @@ function MetaField({
           <CopyButton value={value} label={label} size="icon" />
         ) : null}
       </div>
-    </div>
-  );
-}
-
-/** The long-form guidance, moved off the card and behind a button. */
-function GuideDialog({
-  title,
-  description,
-  trigger,
-  children,
-}: {
-  title: string;
-  description: string;
-  trigger: React.ReactElement;
-  children: React.ReactNode;
-}) {
-  return (
-    <Dialog>
-      <DialogTrigger render={trigger} />
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto text-sm">
-          {children}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** A `data-` attribute of the embed script, in the options dialog. */
-function OptionRow({
-  attribute,
-  children,
-}: {
-  attribute: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-0.5 border-b border-border pb-2 last:border-0">
-      <code className="font-mono text-xs text-foreground">{attribute}</code>
-      <p className="text-xs text-muted-foreground">{children}</p>
     </div>
   );
 }
@@ -771,15 +734,17 @@ type WebChannelForm = {
   name: string;
   agentId: string;
   intake: "chat" | "form" | "";
+  widget: WebWidgetSettings;
 };
 
 const emptyWebForm: WebChannelForm = {
   name: "Website Widget",
   agentId: "",
   intake: "",
+  widget: DEFAULT_WEB_WIDGET_SETTINGS,
 };
 
-type InstagramChannelForm = Omit<WebChannelForm, "intake">;
+type InstagramChannelForm = Omit<WebChannelForm, "intake" | "widget">;
 
 const INTAKE_OPTIONS = [
   {
@@ -843,12 +808,18 @@ function WebChannelDialog({
 
     setBusy(true);
     try {
+      const webWidget = {
+        ...form.widget,
+        label: form.widget.label?.trim() || undefined,
+        teaser: form.widget.teaser?.trim() || undefined,
+      };
       if (channelId) {
         await updateChannel({
           channelId,
           name: form.name,
           agentId: selectedAgentId as Id<"agents">,
           intake: form.intake,
+          webWidget,
         });
         toast.add({ title: "Channel updated", type: "success" });
       } else {
@@ -858,6 +829,7 @@ function WebChannelDialog({
           type: "web",
           name: form.name,
           intake: form.intake,
+          webWidget,
         });
         toast.add({
           title: "Channel created",
@@ -881,7 +853,7 @@ function WebChannelDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? <DialogTrigger render={trigger} /> : null}
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {channelId ? "Edit Web Widget" : "Create a Web Widget"}
@@ -891,6 +863,7 @@ function WebChannelDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid max-h-[65vh] gap-5 overflow-y-auto md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -950,6 +923,22 @@ function WebChannelDialog({
               })}
             </div>
           </div>
+
+          <Separator />
+          <WebWidgetAppearance
+            settings={form.widget}
+            onChange={(patch) => setForm((prev) => ({ ...prev, widget: { ...prev.widget, ...patch } }))}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>Preview</Label>
+          <WebWidgetPreview settings={form.widget} />
+          <p className="text-xs text-muted-foreground">
+            Websites already using the embed code pick up changes within a few
+            minutes. Nothing to re-paste.
+          </p>
+        </div>
         </div>
 
         <DialogFooter>
@@ -1492,6 +1481,7 @@ function ChannelControls({
               name: channel.name,
               agentId: channel.agentId,
               intake: channel.intake ?? "form",
+              widget: { ...DEFAULT_WEB_WIDGET_SETTINGS, ...channel.webWidget },
             }}
             open
             onOpenChange={setEditing}
@@ -1638,50 +1628,16 @@ function ChannelSetup({
               <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
               What your visitors see
             </p>
-            <p className="text-xs text-muted-foreground">
-              A round chat button in the bottom-right corner.
-              Clicking it slides the chat open; on a phone it fills
-              the screen. Colour, side, icon and teaser are all set
-              on the script tag.
-            </p>
-            <GuideDialog
-              title="Customising the widget"
-              description="Add any of these to the script tag. All optional."
-              trigger={
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-1 self-start bg-background"
-                >
-                  <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} /> View customisation options
-                </Button>
-              }
-            >
-              <OptionRow attribute={'data-color="#25D366"'}>
-                Recolours the launcher and the chat header
-                together. Any CSS colour.
-              </OptionRow>
-              <OptionRow attribute={'data-position="left"'}>
-                Moves the launcher to the bottom-left. Defaults to
-                the right.
-              </OptionRow>
-              <OptionRow attribute={'data-icon="chat-dots"'}>
-                Swaps the WhatsApp glyph for another icon: chat,
-                chat-dots, sparkles, bot, headset, smile or help.
-              </OptionRow>
-              <OptionRow attribute={'data-animation="pulse"'}>
-                Animates the launcher to catch the eye: pulse, bounce,
-                wiggle or breathe. Pauses while the chat is open.
-              </OptionRow>
-              <OptionRow attribute={'data-teaser="Need a hand?"'}>
-                A one-line bubble beside the launcher before anyone
-                clicks it.
-              </OptionRow>
-              <OptionRow attribute={'data-auto-open="5000"'}>
-                Opens the chat itself after this many
-                milliseconds. Leave it off unless you mean it.
-              </OptionRow>
-            </GuideDialog>
+            <div className="flex items-center gap-3">
+              <WebWidgetLauncher settings={{ ...DEFAULT_WEB_WIDGET_SETTINGS, ...channel.webWidget }} scale={0.8} />
+              <p className="text-xs text-muted-foreground">
+                A round chat button at the{" "}
+                {(channel.webWidget?.position ?? "bottom-right") === "bottom-left" ? "bottom left" : "bottom right"}{" "}
+                of the page. Clicking it slides the chat open; on a phone it
+                fills the screen. Change the icon, colour and position under
+                Edit.
+              </p>
+            </div>
           </div>
         ) : null}
       </div>

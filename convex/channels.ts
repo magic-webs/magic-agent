@@ -7,9 +7,10 @@ import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";
-import { phoneLineSettings, voiceWidgetSettings, widgetIntake } from "./schema";
+import { phoneLineSettings, voiceWidgetSettings, webWidgetSettings, widgetIntake } from "./schema";
 import { ensureRouter } from "./agents";
 import { DEFAULT_VOICE_WIDGET } from "./voiceWidget";
+import { DEFAULT_WEB_WIDGET } from "./widget";
 import { isVoiceId } from "./lib/voices";
 import {
   requireChannel,
@@ -55,6 +56,22 @@ function cleanVoiceWidget(input: Infer<typeof voiceWidgetSettings>) {
   const greeting = input.greeting?.trim().slice(0, MAX_GREETING_CHARS) || undefined;
   if (input.voiceId && !isVoiceId(input.voiceId)) throw new ConvexError("Pick a voice from the list.");
   return { ...input, colors, greeting, voiceId: input.voiceId || undefined };
+}
+
+function cleanWebWidget(input: Infer<typeof webWidgetSettings>) {
+  const color = input.color.trim();
+  if (!HEX_COLOR.test(color)) throw new ConvexError("Pick a colour for the chat button");
+  const seconds = input.autoOpenSeconds;
+  return {
+    ...input,
+    color,
+    label: input.label?.trim().slice(0, 60) || undefined,
+    teaser: input.teaser?.trim().slice(0, 120) || undefined,
+    autoOpenSeconds:
+      seconds !== undefined && Number.isFinite(seconds) && seconds >= 0
+        ? Math.min(Math.round(seconds), 600)
+        : undefined,
+  };
 }
 
 function cleanPhoneLine(input: Infer<typeof phoneLineSettings>) {
@@ -202,6 +219,7 @@ export const create = mutation({
     name: v.string(),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
+    webWidget: v.optional(webWidgetSettings),
     phoneLine: v.optional(phoneLineSettings),
     whatsapp: v.optional(whatsappInput),
     rcs: v.optional(rcsInput),
@@ -243,6 +261,10 @@ export const create = mutation({
       voiceWidget:
         args.type === "voice"
           ? cleanVoiceWidget(args.voiceWidget ?? DEFAULT_VOICE_WIDGET)
+          : undefined,
+      webWidget:
+        args.type === "web"
+          ? cleanWebWidget(args.webWidget ?? DEFAULT_WEB_WIDGET)
           : undefined,
       phoneLine: args.type === "phone" ? cleanPhoneLine(args.phoneLine ?? { number: "" }) : undefined,
       whatsapp:
@@ -318,6 +340,7 @@ export const websiteWidget = mutation({
       channelKey,
       // Asked inside the conversation, so a visitor can start typing at once.
       intake: "chat",
+      webWidget: DEFAULT_WEB_WIDGET,
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -333,6 +356,7 @@ export const update = mutation({
     agentId: v.optional(v.id("agents")),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
+    webWidget: v.optional(webWidgetSettings),
     phoneLine: v.optional(phoneLineSettings),
     whatsapp: v.optional(whatsappInput),
     rcs: v.optional(rcsInput),
@@ -359,6 +383,10 @@ export const update = mutation({
     if (args.voiceWidget !== undefined) {
       if (existing.type !== "voice") throw new ConvexError("This is not a voice widget");
       patch.voiceWidget = cleanVoiceWidget(args.voiceWidget);
+    }
+    if (args.webWidget !== undefined) {
+      if (existing.type !== "web") throw new ConvexError("This is not a web widget");
+      patch.webWidget = cleanWebWidget(args.webWidget);
     }
     if (args.phoneLine !== undefined) {
       if (existing.type !== "phone") throw new ConvexError("This is not a phone line");

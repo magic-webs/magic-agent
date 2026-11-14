@@ -163,6 +163,35 @@ export const voiceWidgetSettings = v.object({
   greeting: v.optional(v.string()),
 });
 
+export const webWidgetIcon = v.union(
+  v.literal("chat"),
+  v.literal("chat-dots"),
+  v.literal("sparkles"),
+  v.literal("bot"),
+  v.literal("headset"),
+  v.literal("smile"),
+  v.literal("help")
+);
+
+export const webWidgetAnimation = v.union(
+  v.literal("none"),
+  v.literal("pulse"),
+  v.literal("bounce"),
+  v.literal("wiggle"),
+  v.literal("breathe")
+);
+
+export const webWidgetSettings = v.object({
+  icon: webWidgetIcon,
+  color: v.string(),
+  position: v.union(v.literal("bottom-left"), v.literal("bottom-right")),
+  size: v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
+  animation: webWidgetAnimation,
+  label: v.optional(v.string()),
+  teaser: v.optional(v.string()),
+  autoOpenSeconds: v.optional(v.number()),
+});
+
 export const escalationDepartment = v.union(
   v.literal("sales"),
   v.literal("support"),

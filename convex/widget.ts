@@ -34,6 +34,23 @@ import { summarise } from "./lib/whatsappSend";
 import { INTAKE_ASK_NAME, intakeAskPhone } from "./lib/widgetIntake";
 import { liveDraft } from "./drafts";
 
+export const DEFAULT_WEB_WIDGET: NonNullable<Doc<"channels">["webWidget"]> = {
+  icon: "chat",
+  color: "#2563eb",
+  position: "bottom-right",
+  size: "medium",
+  animation: "none",
+};
+
+export const embedConfig = query({
+  args: { channelKey: v.string() },
+  handler: async (ctx, args) => {
+    const channel = await channelByKey(ctx, args.channelKey);
+    if (!channel || channel.status !== "active") return null;
+    return { ...DEFAULT_WEB_WIDGET, ...channel.webWidget };
+  },
+});
+
 const MAX_SESSION_ID_CHARS = 64;
 const MAX_FIELD_CHARS = 120;
 

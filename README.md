@@ -521,10 +521,15 @@ A web channel is a chat bubble for any website, added with one line:
 
 The loader (`app/widget/[channelKey]/embed.js/route.ts`) places a launcher
 button on the host page and opens `/widget/<channelKey>?embed=1` in an iframe
-on the first click. These `data-` attributes configure it:
+on the first click. Its look is stored on the channel (`webWidget`: icon,
+colour, position, size, animation, tooltip, teaser, auto-open delay), edited in
+the channel's dialog and read by the loader through `widget.embedConfig`, so a
+change reaches sites within the script's five-minute cache. Any of it can be
+overridden on one page with `data-` attributes:
 
-- `data-position` (left or right) and `data-z-index`
-- `data-color`, `data-icon` (whatsapp or chat) and `data-label`
+- `data-position` (left or right), `data-size` and `data-z-index`
+- `data-color`, `data-icon` (chat, chat-dots, sparkles, bot, headset, smile,
+  help), `data-animation` and `data-label`
 - `data-teaser`, and `data-auto-open` (milliseconds, once per tab)
 
 The loader passes on the host page's `utm_name` and `utm_phone` parameters, so a

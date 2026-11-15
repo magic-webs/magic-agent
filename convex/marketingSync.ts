@@ -170,3 +170,11 @@ export const setMirror = internalMutation({
     return { workspaceId: args.workspaceId, mirror: args.on };
   },
 });
+
+export const setOnVm = internalMutation({
+  args: { workspaceId: v.id("workspaces"), on: v.boolean() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch("workspaces", args.workspaceId, { marketingOnVm: args.on || undefined });
+    return { workspaceId: args.workspaceId, marketingOnVm: args.on };
+  },
+});

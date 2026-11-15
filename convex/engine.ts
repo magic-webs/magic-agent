@@ -66,6 +66,7 @@ import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { sendOnChannel } from "./lib/channelSend";
 import { citedFirst, mergePassages } from "./lib/knowledgeCarry";
 import { channelType } from "./schema";
+import { claimReply } from "./marketingSync";
 import {
   parametersToJsonSchema,
   renderTemplate,
@@ -2341,7 +2342,18 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
     // Persist the inbound message and read back the replay history. The entry
     // agent's historyLimit governs the replay: it is the one agent guaranteed
     // to exist before the conversation is read.
+    const marketingReply =
+      args.channelType === "whatsapp" && workspace.marketingOnVm
+        ? await claimReply({
+            workspaceId: workspace._id,
+            externalId: args.externalId,
+            text: message,
+            at: Date.now(),
+          })
+        : null;
+
     const session = await ctx.runMutation(internal.conversations.startTurn, {
+      ...(marketingReply ? { marketingReply } : {}),
       workspaceId: workspace._id,
       agentId: entryAgent._id,
       channelId: args.channelId,

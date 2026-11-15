@@ -757,7 +757,16 @@ http.route({
     const target = isLinkBot(request.headers.get("user-agent"))
       ? await ctx.runQuery(internal.marketingTracking.target, { code })
       : await ctx.runMutation(internal.marketingTracking.click, { code });
-    if (!target) return new Response("This link has expired.", { status: 404 });
+    if (!target) {
+      const service = process.env.MARKETING_SERVICE_URL;
+      if (service) {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: `${service}/l/${code}`, "Cache-Control": "no-store" },
+        });
+      }
+      return new Response("This link has expired.", { status: 404 });
+    }
     return new Response(null, {
       status: 302,
       headers: { Location: target, "Cache-Control": "no-store" },

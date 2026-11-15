@@ -3,6 +3,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { internalMutation } from "./functions";
+import { marketingOnVm, queueSync } from "./lib/marketingSync";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { deliveryStatus } from "./schema";
@@ -79,6 +80,7 @@ export const applyStatuses = internalMutation({
     if (!workspaceId) return;
 
     const unmatched = [];
+    const onVm = !args.attempt && (await marketingOnVm(ctx.db, workspaceId));
     for (const status of args.statuses) {
       const event = await billingEventFor(ctx, status.wamid);
       if (event && event.workspaceId === workspaceId) {
@@ -90,6 +92,15 @@ export const applyStatuses = internalMutation({
       // A message can be billed before it is linked, or linked before it is
       // billed, so a receipt that found only one half waits for the other.
       if ((!link && !send) || !event) unmatched.push(status);
+      if (onVm && !link && !send) {
+        queueSync(ctx, `status:${status.wamid}:${status.status}`, {
+          type: "status",
+          at: Date.now(),
+          wamid: status.wamid,
+          status: status.status,
+          error: status.error,
+        });
+      }
       if (send && advances(send.delivery, status.status)) {
         await noteDelivery(ctx, send, status.status, Date.now(), status.error);
       }
@@ -132,6 +143,16 @@ export const resolveQueued = internalMutation({
 
     const link = await linkFor(ctx, args.queueId);
     const send = link ? null : await unthreadedSend(ctx, args.queueId, workspaceId);
+    if (!args.attempt && !link && !send && (await marketingOnVm(ctx.db, workspaceId))) {
+      queueSync(ctx, `queued:${args.queueId}`, {
+        type: "queued",
+        at: Date.now(),
+        queueId: args.queueId,
+        wamid: args.wamid,
+        failed: args.failed,
+        error: args.error,
+      });
+    }
     if (send) {
       if (args.wamid) await ctx.db.patch("marketingSends", send._id, { wamid: args.wamid });
       if (args.failed) {

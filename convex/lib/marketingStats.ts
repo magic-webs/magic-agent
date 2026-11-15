@@ -5,6 +5,7 @@ import { noteContactActivity, noteContactRead } from "./contactActivity";
 import { zonedParts } from "./marketing";
 import { failureClass, failureCode } from "./metaErrors";
 import { pauseRollout } from "./rolloutPause";
+import { marketingOnVm, queueSync } from "./marketingSync";
 
 // Receipts for one send land within seconds of each other, so the counters are
 // spread over shards to keep them from contending on a single document.
@@ -294,7 +295,13 @@ async function latestSend(ctx: MutationCtx, contactId: Id<"contacts">, since: nu
     .first();
 }
 
+async function onVm(ctx: MutationCtx, contactId: Id<"contacts">) {
+  const contact = await ctx.db.get("contacts", contactId);
+  return contact ? await marketingOnVm(ctx.db, contact.workspaceId) : false;
+}
+
 export async function noteReply(ctx: MutationCtx, contactId: Id<"contacts">, at: number) {
+  if (await onVm(ctx, contactId)) return null;
   const send = await latestSend(ctx, contactId, at - REPLY_WINDOW_MS);
   if (!send) return null;
   if (send.repliedAt) return send;
@@ -318,6 +325,7 @@ export async function noteReply(ctx: MutationCtx, contactId: Id<"contacts">, at:
 }
 
 export async function noteOptOut(ctx: MutationCtx, contactId: Id<"contacts">, at: number) {
+  if (await onVm(ctx, contactId)) return;
   const send = await latestSend(ctx, contactId, at - OPT_OUT_WINDOW_MS);
   if (!send || send.optedOutAt) return;
   await ctx.db.patch("marketingSends", send._id, { optedOutAt: at });
@@ -325,6 +333,10 @@ export async function noteOptOut(ctx: MutationCtx, contactId: Id<"contacts">, at
 }
 
 export async function noteConversion(ctx: MutationCtx, contactId: Id<"contacts">, at: number) {
+  if (await onVm(ctx, contactId)) {
+    queueSync(ctx, `conversion:${contactId}`, { type: "conversion", at, contactId });
+    return;
+  }
   const send = await latestSend(ctx, contactId, at - CONVERSION_WINDOW_MS);
   if (!send || send.convertedAt) return;
   await ctx.db.patch("marketingSends", send._id, { convertedAt: at });

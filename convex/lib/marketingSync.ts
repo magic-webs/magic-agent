@@ -6,7 +6,16 @@ export type SyncEvent =
   | { type: "send"; at: number; doc: Doc<"marketingSends"> }
   | { type: "send.deleted"; at: number; id: string }
   | { type: "contact"; at: number; doc: Doc<"contacts"> }
-  | { type: "contact.deleted"; at: number; id: string };
+  | { type: "contact.deleted"; at: number; id: string }
+  | {
+      type: "status";
+      at: number;
+      wamid: string;
+      status: "pending" | "sent" | "delivered" | "read" | "failed";
+      error?: string;
+    }
+  | { type: "queued"; at: number; queueId: string; wamid?: string; failed: boolean; error?: string }
+  | { type: "conversion"; at: number; contactId: string };
 
 export type SyncState = {
   events: Map<string, SyncEvent>;
@@ -52,4 +61,15 @@ const CONTACT_FIELDS: Array<keyof Doc<"contacts">> = [
 export function contactChanged(before: Doc<"contacts"> | null, after: Doc<"contacts"> | null) {
   if (!before || !after) return true;
   return CONTACT_FIELDS.some((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+}
+
+export async function marketingOnVm(db: GenericDatabaseReader<DataModel>, workspaceId: Id<"workspaces">) {
+  return (await db.get("workspaces", workspaceId))?.marketingOnVm === true;
+}
+
+/** Hands an event to the marketing service when the mutation commits. */
+export function queueSync(ctx: object, key: string, event: SyncEvent) {
+  const sync = (ctx as { sync?: SyncState }).sync;
+  if (!sync) throw new Error("queueSync needs a mutation from convex/functions.ts");
+  sync.events.set(key, event);
 }

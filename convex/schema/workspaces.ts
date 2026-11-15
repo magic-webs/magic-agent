@@ -21,6 +21,7 @@ export const welcomeMenuShape = v.object({
 export const workspacesTables = {
   workspaces: defineTable({
     marketingMirror: v.optional(v.boolean()),
+    marketingOnVm: v.optional(v.boolean()),
     name: v.string(),
     slug: v.string(),
     ownerName: v.optional(v.string()),

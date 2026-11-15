@@ -57,7 +57,7 @@ import { friendlySendError } from "./lib/sendErrors";
 import { sendOnChannel } from "./lib/channelSend";
 import { assignConversation } from "./lib/assignment";
 import { pickHandover } from "./handover";
-import { seedThread } from "./marketing";
+import { seedFromVm, seedThread } from "./marketing";
 import { memberInWorkspace } from "./team";
 
 // ---------------------------------------------------------------------------
@@ -1144,6 +1144,28 @@ export const startTurn = internalMutation({
     ),
     historyLimit: v.number(),
     messageLimit: v.optional(v.number()),
+    marketingReply: v.optional(
+      v.object({
+        seed: v.array(
+          v.object({
+            text: v.string(),
+            createdAt: v.number(),
+            agentId: v.union(v.string(), v.null()),
+            delivery: v.union(
+              v.literal("pending"),
+              v.literal("sent"),
+              v.literal("delivered"),
+              v.literal("read"),
+              v.literal("failed"),
+              v.null()
+            ),
+            shown: v.any(),
+          })
+        ),
+        replyAgentId: v.union(v.string(), v.null()),
+        campaign: v.union(v.string(), v.null()),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -1221,6 +1243,13 @@ export const startTurn = internalMutation({
         lastActivityAt = await seedThread(ctx, conversation, now);
         conversation = (await ctx.db.get("conversations", conversationId))!;
       }
+    }
+
+    if (args.marketingReply && args.marketingReply.seed.length > 0 && !conversation.markedBot) {
+      const fresh = conversation.messageCount === 0;
+      const seededAt = await seedFromVm(ctx, conversation, args.marketingReply);
+      if (fresh) lastActivityAt = seededAt;
+      conversation = (await ctx.db.get("conversations", conversation._id))!;
     }
 
     if (conversation.markedBot) {

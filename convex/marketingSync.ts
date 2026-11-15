@@ -18,7 +18,23 @@ const event = v.union(
   v.object({ type: v.literal("send"), at: v.number(), doc: v.any() }),
   v.object({ type: v.literal("send.deleted"), at: v.number(), id: v.string() }),
   v.object({ type: v.literal("contact"), at: v.number(), doc: v.any() }),
-  v.object({ type: v.literal("contact.deleted"), at: v.number(), id: v.string() })
+  v.object({ type: v.literal("contact.deleted"), at: v.number(), id: v.string() }),
+  v.object({
+    type: v.literal("status"),
+    at: v.number(),
+    wamid: v.string(),
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("delivered"), v.literal("read"), v.literal("failed")),
+    error: v.optional(v.string()),
+  }),
+  v.object({
+    type: v.literal("queued"),
+    at: v.number(),
+    queueId: v.string(),
+    wamid: v.optional(v.string()),
+    failed: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  v.object({ type: v.literal("conversion"), at: v.number(), contactId: v.string() })
 );
 
 async function signature(secret: string, body: string) {
@@ -33,6 +49,54 @@ async function signature(secret: string, body: string) {
   const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${at}.${body}`));
   const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
   return `t=${at},v1=${hex}`;
+}
+
+const CLAIM_TIMEOUT_MS = 2_500;
+
+export type ClaimedReply = {
+  seed: Array<{
+    text: string;
+    createdAt: number;
+    agentId: string | null;
+    delivery: "pending" | "sent" | "delivered" | "read" | "failed" | null;
+    shown: unknown;
+  }>;
+  replyAgentId: string | null;
+  campaign: string | null;
+};
+
+/**
+ * Asks the marketing service which campaign a WhatsApp reply answers. A slow
+ * or absent service never holds a customer's message up: it answers null and
+ * the turn goes on without the campaign context.
+ */
+export async function claimReply(input: {
+  workspaceId: string;
+  externalId: string;
+  text: string;
+  at: number;
+}): Promise<ClaimedReply | null> {
+  const url = process.env.MARKETING_SERVICE_URL;
+  const secret = process.env.MARKETING_SERVICE_SECRET;
+  if (!url || !secret) return null;
+  const body = JSON.stringify(input);
+  try {
+    const res = await fetch(`${url}/internal/replies`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-signature": await signature(secret, body) },
+      body,
+      signal: AbortSignal.timeout(CLAIM_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      console.warn(`marketing reply claim: HTTP ${res.status}`);
+      return null;
+    }
+    const claimed = (await res.json()) as ClaimedReply & { contactId: string | null };
+    return { seed: claimed.seed, replyAgentId: claimed.replyAgentId, campaign: claimed.campaign };
+  } catch (err) {
+    console.warn(`marketing reply claim failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
 }
 
 export const forward = internalAction({

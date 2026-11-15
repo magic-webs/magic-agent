@@ -37,6 +37,7 @@ import { recordAgentReply } from "./lib/agentStats";
 import { noteMessage } from "./lib/inbox";
 import { ensureMarketingDesk } from "./agents";
 import { takesHandoffs } from "./lib/shared";
+import { marketingOnVm } from "./lib/marketingSync";
 import {
   festivalsBetween,
   isLocalDate,
@@ -1348,6 +1349,7 @@ export async function seedThread(
   thread: Doc<"conversations">,
   now: number
 ): Promise<number> {
+  if (await marketingOnVm(ctx.db, thread.workspaceId)) return 0;
   const recent = await ctx.db
     .query("marketingSends")
     .withIndex("by_contactId_and_createdAt", (q) =>
@@ -1391,6 +1393,56 @@ export async function seedThread(
   const latest = sends[sends.length - 1];
   const reply = await replyAgentOf(ctx, thread.workspaceId, latest.eventId);
   if (reply) await handOver(ctx, thread, reply, latest.createdAt + 1);
+  return latest.createdAt;
+}
+
+export type VmReply = {
+  seed: Array<{
+    text: string;
+    createdAt: number;
+    agentId: string | null;
+    delivery: "pending" | "sent" | "delivered" | "read" | "failed" | null;
+    shown: unknown;
+  }>;
+  replyAgentId: string | null;
+  campaign: string | null;
+};
+
+/**
+ * Opens (or continues) a thread with the campaign messages the marketing
+ * service says this reply is answering. Their wamids stay unlinked, so later
+ * receipts keep going to the service that owns the sends.
+ */
+export async function seedFromVm(
+  ctx: MutationCtx,
+  thread: Doc<"conversations">,
+  reply: VmReply
+): Promise<number> {
+  if (reply.seed.length === 0) return 0;
+  for (const send of reply.seed) {
+    const shown = send.shown && typeof send.shown === "object" ? send.shown : null;
+    const agentId = send.agentId ? ctx.db.normalizeId("agents", send.agentId) : null;
+    await ctx.db.insert("messages", {
+      workspaceId: thread.workspaceId,
+      conversationId: thread._id,
+      role: "assistant",
+      kind: shown ? "rich" : "text",
+      text: send.text,
+      ...(shown ? { payload: JSON.stringify({ ...shown, preview: send.text }) } : {}),
+      ...(agentId ? { agentId } : {}),
+      ...(send.delivery ? { delivery: send.delivery, deliveryAt: send.createdAt } : {}),
+      createdAt: send.createdAt,
+    });
+  }
+  await ctx.db.patch("conversations", thread._id, { messageCount: thread.messageCount + reply.seed.length });
+
+  const latest = reply.seed[reply.seed.length - 1];
+  const replyAgentId = reply.replyAgentId ? ctx.db.normalizeId("agents", reply.replyAgentId) : null;
+  const agent = replyAgentId ? await ctx.db.get("agents", replyAgentId) : null;
+  if (agent && agent.workspaceId === thread.workspaceId && takesHandoffs(agent)) {
+    const fresh = (await ctx.db.get("conversations", thread._id))!;
+    await handOver(ctx, fresh, { agent, campaign: reply.campaign ?? "" }, latest.createdAt + 1);
+  }
   return latest.createdAt;
 }
 

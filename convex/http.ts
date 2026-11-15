@@ -1,4 +1,5 @@
-import { httpRouter, type FunctionArgs } from "convex/server";
+import { httpRouter, makeFunctionReference, type FunctionArgs } from "convex/server";
+import { ConvexError } from "convex/values";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { verifySignature } from "./marketingSync";
@@ -775,6 +776,34 @@ http.route({
       body as FunctionArgs<typeof internal.marketingService.context>
     );
     return Response.json(context);
+  }),
+});
+
+http.route({
+  path: "/marketing-service/call",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await serviceRequest(request);
+    if (body instanceof Response) return body;
+    const { kind, name, args } = body as { kind: string; name: string; args: Record<string, unknown> };
+    if (typeof name !== "string" || !/^marketingVm\/[A-Za-z]+:[A-Za-z]+$/.test(name)) {
+      return Response.json({ error: "Unknown function" }, { status: 404 });
+    }
+    if (kind !== "query" && kind !== "mutation" && kind !== "action") {
+      return Response.json({ error: "Unknown kind" }, { status: 400 });
+    }
+    try {
+      const result =
+        kind === "query"
+          ? await ctx.runQuery(makeFunctionReference<"query">(name), args ?? {})
+          : kind === "mutation"
+            ? await ctx.runMutation(makeFunctionReference<"mutation">(name), args ?? {})
+            : await ctx.runAction(makeFunctionReference<"action">(name), args ?? {});
+      return Response.json({ result: result ?? null });
+    } catch (err) {
+      if (err instanceof ConvexError) return Response.json({ error: err.data }, { status: 422 });
+      throw err;
+    }
   }),
 });
 

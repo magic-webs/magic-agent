@@ -3,7 +3,8 @@
 // Reached over the signed /marketing-service/* routes in http.ts.
 
 import { v } from "convex/values";
-import { internalQuery } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
+import { requireWorkspace } from "./lib/auth";
 import { internalMutation } from "./functions";
 import { sendingChannel } from "./marketing";
 import { deskBlock } from "./lib/account";
@@ -70,5 +71,13 @@ export const charges = internalMutation({
       });
     }
     return { charged };
+  },
+});
+
+export const access = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const principal = await requireWorkspace(ctx, args.workspaceId);
+    return { label: principal.label };
   },
 });

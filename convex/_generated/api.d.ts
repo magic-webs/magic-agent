@@ -133,6 +133,8 @@ import type * as marketingService from "../marketingService.js";
 import type * as marketingSync from "../marketingSync.js";
 import type * as marketingTemplates from "../marketingTemplates.js";
 import type * as marketingTracking from "../marketingTracking.js";
+import type * as marketingVm_ai from "../marketingVm/ai.js";
+import type * as marketingVm_workspace from "../marketingVm/workspace.js";
 import type * as migrations from "../migrations.js";
 import type * as models from "../models.js";
 import type * as notifications from "../notifications.js";
@@ -322,6 +324,8 @@ declare const fullApi: ApiFromModules<{
   marketingSync: typeof marketingSync;
   marketingTemplates: typeof marketingTemplates;
   marketingTracking: typeof marketingTracking;
+  "marketingVm/ai": typeof marketingVm_ai;
+  "marketingVm/workspace": typeof marketingVm_workspace;
   migrations: typeof migrations;
   models: typeof models;
   notifications: typeof notifications;

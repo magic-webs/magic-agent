@@ -114,7 +114,11 @@ export async function claimReply(input: {
       return null;
     }
     const claimed = (await res.json()) as ClaimedReply & { contactId: string | null };
-    return { seed: claimed.seed, replyAgentId: claimed.replyAgentId, campaign: claimed.campaign };
+    return {
+      seed: claimed.seed.map(({ text, createdAt, agentId, delivery, shown }) => ({ text, createdAt, agentId, delivery, shown })),
+      replyAgentId: claimed.replyAgentId,
+      campaign: claimed.campaign,
+    };
   } catch (err) {
     console.warn(`marketing reply claim failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;

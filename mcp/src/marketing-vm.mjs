@@ -78,4 +78,5 @@ export const VM_FUNCTIONS = new Set([
   "audienceImports:acceptAll",
   "audienceImports:save",
   "audienceImports:discard",
+  "contacts:exportPage",
 ]);

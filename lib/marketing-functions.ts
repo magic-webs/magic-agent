@@ -74,4 +74,5 @@ export const VM_FUNCTIONS: ReadonlySet<string> = new Set([
   "audienceImports:acceptAll",
   "audienceImports:save",
   "audienceImports:discard",
+  "contacts:exportPage",
 ]);

@@ -8,6 +8,8 @@ import { customCtx, customMutation } from "convex-helpers/server/customFunctions
 import { Triggers } from "convex-helpers/server/triggers";
 import { getPrincipal, type Principal } from "./lib/auth";
 import { LOGGED_TABLES, logChange, type ActivityCtx } from "./lib/activity";
+import { reviewDueAt } from "./lib/reviewDue";
+import { bumpAudienceCounts, tally } from "./lib/audienceCounts";
 
 const triggers = new Triggers<DataModel, ActivityCtx>();
 for (const table of Object.keys(LOGGED_TABLES) as TableNames[]) {
@@ -15,6 +17,25 @@ for (const table of Object.keys(LOGGED_TABLES) as TableNames[]) {
     logChange(ctx, table, change as Parameters<typeof logChange>[2])
   );
 }
+
+triggers.register("conversations", async (ctx, change) => {
+  if (!change.newDoc) return;
+  const due = reviewDueAt(change.newDoc);
+  if (due !== change.newDoc.reviewDueAt) {
+    await ctx.innerDb.patch(change.id, { reviewDueAt: due });
+  }
+});
+
+triggers.register("contacts", async (ctx, change) => {
+  const before = tally(change.oldDoc);
+  const after = tally(change.newDoc);
+  const workspaceId = (change.newDoc ?? change.oldDoc)!.workspaceId;
+  await bumpAudienceCounts(ctx.innerDb, workspaceId, {
+    whatsapp: after.whatsapp - before.whatsapp,
+    optedOut: after.optedOut - before.optedOut,
+    withBirthday: after.withBirthday - before.withBirthday,
+  });
+});
 
 function withActivity(ctx: MutationCtx) {
   let principal: Promise<Principal | null> | undefined;

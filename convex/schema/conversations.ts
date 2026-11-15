@@ -186,6 +186,7 @@ export const conversationsTables = {
     leadTagIds: v.optional(v.array(v.id("leadTags"))),
     leadTagsPinned: v.optional(v.boolean()),
     reviewedAt: v.optional(v.number()),
+    reviewDueAt: v.optional(v.number()),
     followUpCount: v.optional(v.number()),
     lastFollowUpAt: v.optional(v.number()),
     marketingOnly: v.optional(v.boolean()),
@@ -208,7 +209,7 @@ export const conversationsTables = {
     .index("by_workspace_stage_lastMessageAt", ["workspaceId", "leadStageId", "lastMessageAt"])
     .index("by_humanHandlingAt", ["humanHandlingAt"])
     .index("by_humanHandlingUntil", ["humanHandlingUntil"])
-    .index("by_marketingOnly_and_lastMessageAt", ["marketingOnly", "lastMessageAt"])
+    .index("by_reviewDueAt", ["reviewDueAt"])
     .index("by_workspace_marketingOnly_lastMessageAt", ["workspaceId", "marketingOnly", "lastMessageAt"])
     .index("by_workspace_status_marketingOnly_lastMessageAt", [
       "workspaceId",

@@ -32,6 +32,10 @@ import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { buildSearchBlob } from "./lib/shared";
+import { reviewDueAt } from "./lib/reviewDue";
+import { eventKey, READ_HOUR_BUCKETS, readHourOf } from "./lib/marketingStats";
+import { failureCode } from "./lib/metaErrors";
+import { tally } from "./lib/audienceCounts";
 import { REPLY_PREVIEW_CHARS } from "./lib/agentStats";
 import { dayKey } from "./lib/dailyStats";
 import { addToUsageDaily } from "./lib/usageDaily";
@@ -1292,5 +1296,198 @@ export const audienceOnlyContacts = internalMutation({
         cursor: page.continueCursor,
       });
     }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Review due
+//
+//   bunx convex run migrations:reviewDue
+//
+// Fills `reviewDueAt` on conversations written before the trigger existed.
+// ---------------------------------------------------------------------------
+
+const REVIEW_DUE_BATCH = 200;
+
+export const reviewDue = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("conversations")
+      .paginate({ numItems: REVIEW_DUE_BATCH, cursor: args.cursor ?? null });
+    let set = 0;
+    for (const row of page.page) {
+      const due = reviewDueAt(row);
+      if (due === row.reviewDueAt) continue;
+      await ctx.db.patch("conversations", row._id, { reviewDueAt: due });
+      set++;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.reviewDue, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { set, done: page.isDone };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Report counters
+//
+//   bunx convex run migrations:reportCounters
+//
+// Fills the read-hour and failure-reason counters on each event's stats rows
+// from its sends, so the campaign report reads counters instead of sends.
+// Safe to run twice: each event's totals are recomputed, not added.
+// ---------------------------------------------------------------------------
+
+const REPORT_EVENT_BATCH = 50;
+const REPORT_SEND_BATCH = 500;
+
+export const reportCounters = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("marketingEvents")
+      .paginate({ numItems: REPORT_EVENT_BATCH, cursor: args.cursor ?? null });
+    for (const event of page.page) {
+      if (event.status === "draft") continue;
+      await ctx.scheduler.runAfter(0, internal.migrations.reportCountersForEvent, {
+        eventId: event._id,
+        cursor: null,
+        readHours: new Array<number>(READ_HOUR_BUCKETS).fill(0),
+        reasons: [],
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.reportCounters, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { events: page.page.length, done: page.isDone };
+  },
+});
+
+export const reportCountersForEvent = internalMutation({
+  args: {
+    eventId: v.id("marketingEvents"),
+    cursor: v.union(v.string(), v.null()),
+    readHours: v.array(v.number()),
+    reasons: v.array(v.object({ code: v.string(), count: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get("marketingEvents", args.eventId);
+    if (!event) return;
+    const key = eventKey(event._id);
+    const page = await ctx.db
+      .query("marketingSends")
+      .withIndex("by_key_and_createdAt", (q) => q.eq("key", key))
+      .paginate({ numItems: REPORT_SEND_BATCH, cursor: args.cursor });
+
+    const readHours = args.readHours.slice();
+    const reasons = new Map(args.reasons.map((r) => [r.code, r.count]));
+    for (const send of page.page) {
+      if (send.status === "failed" || send.delivery === "failed") {
+        const code = failureCode(send.error);
+        reasons.set(code, (reasons.get(code) ?? 0) + 1);
+      }
+      if (send.readAt) readHours[readHourOf(send.createdAt, send.readAt)]++;
+    }
+    const reasonRows = [...reasons.entries()].map(([code, count]) => ({ code, count }));
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.reportCountersForEvent, {
+        eventId: args.eventId,
+        cursor: page.continueCursor,
+        readHours,
+        reasons: reasonRows,
+      });
+      return;
+    }
+
+    const shards = await ctx.db
+      .query("marketingStats")
+      .withIndex("by_key_and_shard", (q) => q.eq("key", key))
+      .take(16);
+    const [first, ...rest] = shards;
+    if (first) {
+      await ctx.db.patch("marketingStats", first._id, { readHours, reasons: reasonRows });
+      for (const shard of rest) {
+        await ctx.db.patch("marketingStats", shard._id, { readHours: undefined, reasons: undefined });
+      }
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Audience counts
+//
+//   bunx convex run migrations:audienceCounts
+//
+// Counts every workspace's contacts into `audienceCounts`, which a trigger
+// keeps current from then on. Safe to run twice: each workspace is recounted
+// and its shards replaced.
+// ---------------------------------------------------------------------------
+
+const AUDIENCE_COUNT_BATCH = 1000;
+
+export const audienceCounts = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("workspaces")
+      .paginate({ numItems: WORKSPACE_BATCH, cursor: args.cursor ?? null });
+    for (const workspace of page.page) {
+      await ctx.scheduler.runAfter(0, internal.migrations.audienceCountsForWorkspace, {
+        workspaceId: workspace._id,
+        cursor: null,
+        whatsapp: 0,
+        optedOut: 0,
+        withBirthday: 0,
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.audienceCounts, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { workspaces: page.page.length, done: page.isDone };
+  },
+});
+
+export const audienceCountsForWorkspace = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    cursor: v.union(v.string(), v.null()),
+    whatsapp: v.number(),
+    optedOut: v.number(),
+    withBirthday: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .paginate({ numItems: AUDIENCE_COUNT_BATCH, cursor: args.cursor });
+    const total = { whatsapp: args.whatsapp, optedOut: args.optedOut, withBirthday: args.withBirthday };
+    for (const contact of page.page) {
+      const one = tally(contact);
+      total.whatsapp += one.whatsapp;
+      total.optedOut += one.optedOut;
+      total.withBirthday += one.withBirthday;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.audienceCountsForWorkspace, {
+        workspaceId: args.workspaceId,
+        cursor: page.continueCursor,
+        ...total,
+      });
+      return;
+    }
+    const shards = await ctx.db
+      .query("audienceCounts")
+      .withIndex("by_workspaceId_and_shard", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(16);
+    for (const shard of shards) await ctx.db.delete("audienceCounts", shard._id);
+    await ctx.db.insert("audienceCounts", { workspaceId: args.workspaceId, shard: 0, ...total });
   },
 });

@@ -3,7 +3,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Delivery } from "./delivery";
 import { noteContactActivity, noteContactRead } from "./contactActivity";
 import { zonedParts } from "./marketing";
-import { failureClass } from "./metaErrors";
+import { failureClass, failureCode } from "./metaErrors";
 import { pauseRollout } from "./rolloutPause";
 
 // Receipts for one send land within seconds of each other, so the counters are
@@ -42,12 +42,38 @@ export const EMPTY_COUNTS: MarketingCounts = {
   unreachable: 0,
 };
 
+export type ReportDelta = { readHour?: number; reasons?: Map<string, number> };
+
+export const READ_HOUR_BUCKETS = 25;
+
+export function readHourOf(sentAt: number, readAt: number) {
+  return Math.min(READ_HOUR_BUCKETS - 1, Math.max(0, Math.floor((readAt - sentAt) / HOUR_MS)));
+}
+
+function withReport(
+  row: Pick<Doc<"marketingStats">, "readHours" | "reasons"> | null,
+  report: ReportDelta
+): Pick<Doc<"marketingStats">, "readHours" | "reasons"> {
+  const patch: Pick<Doc<"marketingStats">, "readHours" | "reasons"> = {};
+  if (report.readHour !== undefined) {
+    const hours = row?.readHours?.slice() ?? new Array<number>(READ_HOUR_BUCKETS).fill(0);
+    hours[report.readHour] = (hours[report.readHour] ?? 0) + 1;
+    patch.readHours = hours;
+  }
+  if (report.reasons && report.reasons.size > 0) {
+    const reasons = new Map((row?.reasons ?? []).map((r) => [r.code, r.count]));
+    for (const [code, count] of report.reasons) reasons.set(code, (reasons.get(code) ?? 0) + count);
+    patch.reasons = [...reasons.entries()].map(([code, count]) => ({ code, count }));
+  }
+  return patch;
+}
+
 export async function bumpStats(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">,
   key: string,
   delta: Partial<MarketingCounts>,
-  options: { rollup?: boolean } = {}
+  options: { rollup?: boolean; report?: ReportDelta } = {}
 ) {
   const shard = Math.floor(Math.random() * SHARDS);
   const add = (row: Partial<MarketingCounts>) => {
@@ -57,13 +83,22 @@ export async function bumpStats(
     }
     return patch;
   };
+  const report = options.report ?? {};
 
   const row = await ctx.db
     .query("marketingStats")
     .withIndex("by_key_and_shard", (q) => q.eq("key", key).eq("shard", shard))
     .unique();
-  if (row) await ctx.db.patch("marketingStats", row._id, add(row));
-  else await ctx.db.insert("marketingStats", { workspaceId, key, shard, ...EMPTY_COUNTS, ...delta });
+  if (row) await ctx.db.patch("marketingStats", row._id, { ...add(row), ...withReport(row, report) });
+  else
+    await ctx.db.insert("marketingStats", {
+      workspaceId,
+      key,
+      shard,
+      ...EMPTY_COUNTS,
+      ...delta,
+      ...withReport(null, report),
+    });
   if (options.rollup === false) return;
 
   if (delta.sent) {
@@ -129,6 +164,30 @@ export async function statsFor(ctx: QueryCtx, key: string): Promise<MarketingCou
   return total;
 }
 
+export async function reportFor(ctx: QueryCtx, key: string) {
+  const rows = await ctx.db
+    .query("marketingStats")
+    .withIndex("by_key_and_shard", (q) => q.eq("key", key))
+    .take(SHARDS);
+  const stats = { ...EMPTY_COUNTS };
+  const readHours = new Array<number>(READ_HOUR_BUCKETS).fill(0);
+  const reasons = new Map<string, number>();
+  for (const row of rows) {
+    for (const field of Object.keys(stats) as Array<keyof MarketingCounts>) {
+      stats[field] += row[field] ?? 0;
+    }
+    row.readHours?.forEach((count, hour) => (readHours[hour] += count));
+    for (const r of row.reasons ?? []) reasons.set(r.code, (reasons.get(r.code) ?? 0) + r.count);
+  }
+  return {
+    stats,
+    readHours,
+    reasons: [...reasons.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([code, count]) => ({ code, count })),
+  };
+}
+
 export function eventKey(eventId: Id<"marketingEvents">) {
   return `event:${eventId}`;
 }
@@ -157,9 +216,10 @@ export async function hourlySent(
 async function bumpSend(
   ctx: MutationCtx,
   send: Doc<"marketingSends">,
-  delta: Partial<MarketingCounts>
+  delta: Partial<MarketingCounts>,
+  report?: ReportDelta
 ) {
-  await bumpStats(ctx, send.workspaceId, send.key, delta);
+  await bumpStats(ctx, send.workspaceId, send.key, delta, { report });
   if (send.wave !== undefined) {
     await bumpStats(ctx, send.workspaceId, waveKey(send.key, send.wave), delta, { rollup: false });
   }
@@ -208,7 +268,12 @@ export async function noteDelivery(
   }
   await ctx.db.patch("marketingSends", send._id, patch);
   if (patch.readAt) await noteContactRead(ctx, send.contactId, at);
-  if (Object.keys(delta).length > 0) await bumpSend(ctx, send, delta);
+  if (Object.keys(delta).length > 0) {
+    await bumpSend(ctx, send, delta, {
+      readHour: patch.readAt ? readHourOf(send.createdAt, patch.readAt) : undefined,
+      reasons: delivery === "failed" ? new Map([[failureCode(error), 1]]) : undefined,
+    });
+  }
   if (kind === "blocked" && send.eventId && send.wave !== undefined) {
     await pauseRollout(
       ctx,
@@ -244,7 +309,9 @@ export async function noteReply(ctx: MutationCtx, contactId: Id<"contacts">, at:
     delta.delivered = 1;
   }
   await ctx.db.patch("marketingSends", send._id, patch);
-  await bumpSend(ctx, send, delta);
+  await bumpSend(ctx, send, delta, {
+    readHour: patch.readAt ? readHourOf(send.createdAt, patch.readAt) : undefined,
+  });
   await noteContactActivity(ctx, contactId, "lastRepliedAt", at);
   if (patch.readAt) await noteContactRead(ctx, contactId, at);
   return send;

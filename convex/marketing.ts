@@ -52,7 +52,7 @@ import {
   waveKey,
   type MarketingCounts,
 } from "./lib/marketingStats";
-import { failureClass } from "./lib/metaErrors";
+import { failureClass, failureCode } from "./lib/metaErrors";
 import { pauseRollout } from "./lib/rolloutPause";
 import { validPlan } from "./lib/rollout";
 import {
@@ -68,6 +68,7 @@ import {
   reachable,
   withBuiltIns,
 } from "./lib/audience";
+import { audienceCountsFor } from "./lib/audienceCounts";
 import {
   cardRatio as cardRatioValidator,
   headerMedia as headerMediaValidator,
@@ -89,7 +90,6 @@ const PLAN_BATCH = 200;
 const FIELD_SCAN = 1000;
 const PREVIEW_SCAN = 400;
 /** How far the audience count looks before it says "at least". */
-const AUDIENCE_SCAN_CAP = 2000;
 /** The longest window the calendar query answers for — a month and a bit. */
 const MAX_CALENDAR_DAYS = 62;
 const DEFAULT_BIRTHDAY_HOUR = 9;
@@ -214,18 +214,7 @@ export const overview = query({
     const settings = await settingsFor(ctx, args.workspaceId);
     const channel = await sendingChannel(ctx, args.workspaceId);
 
-    // Counted up to a cap rather than exactly: Convex has no count, and "at
-    // least 2,000 people" is as useful on this screen as the precise figure.
-    const scanned = await ctx.db
-      .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(AUDIENCE_SCAN_CAP);
-    const withBirthday = await ctx.db
-      .query("contacts")
-      .withIndex("by_workspace_and_birthday", (q) =>
-        q.eq("workspaceId", args.workspaceId).gte("birthday", "01-01")
-      )
-      .take(AUDIENCE_SCAN_CAP);
+    const audience = await audienceCountsFor(ctx, args.workspaceId);
 
     return {
       timezone: workspace.timezone,
@@ -243,13 +232,7 @@ export const overview = query({
             phone: channel.whatsapp?.displayPhoneNumber ?? null,
           }
         : null,
-      audience: {
-        whatsapp: scanned.filter(reachable).length,
-        optedOut: scanned.filter((c) => c.channelType === "whatsapp" && c.optedOutAt)
-          .length,
-        capped: scanned.length >= AUDIENCE_SCAN_CAP,
-        withBirthday: withBirthday.filter(reachable).length,
-      },
+      audience: { ...audience, capped: false },
       weeklyCap: settings?.weeklyCap ?? 0,
       categories: withBuiltIns(settings?.categories),
       rolloutDefaults: settings?.rolloutDefaults ?? null,
@@ -1539,6 +1522,7 @@ export const recordBatch = internalMutation({
     let failed = 0;
     let lastError: string | undefined;
     const classes: Partial<MarketingCounts> = {};
+    const reasons = new Map<string, number>();
     const shown = await shownTemplate(ctx, args.workspaceId, args.templateName);
     const reply = await replyAgentOf(ctx, args.workspaceId, args.eventId);
 
@@ -1564,6 +1548,8 @@ export const recordBatch = internalMutation({
       if (!result.ok) {
         failed++;
         lastError = result.error;
+        const code = failureCode(result.error);
+        reasons.set(code, (reasons.get(code) ?? 0) + 1);
         const kind = failureClass(result.error);
         if (kind) classes[kind] = (classes[kind] ?? 0) + 1;
         continue;
@@ -1602,7 +1588,7 @@ export const recordBatch = internalMutation({
     }
 
     if (sent > 0 || failed > 0) {
-      await bumpStats(ctx, args.workspaceId, args.key, { sent, failed, ...classes });
+      await bumpStats(ctx, args.workspaceId, args.key, { sent, failed, ...classes }, { report: { reasons } });
       if (args.rolloutWave !== undefined) {
         await bumpStats(
           ctx,

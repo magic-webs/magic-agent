@@ -23,8 +23,7 @@ import {
   type AudienceTotals,
 } from "./lib/audience";
 import { isLocalDate, templateBlocker, zonedToInstant } from "./lib/marketing";
-import { eventKey, statsFor } from "./lib/marketingStats";
-import { failureCode } from "./lib/metaErrors";
+import { eventKey, reportFor, statsFor } from "./lib/marketingStats";
 import { audienceSelection, variableFill } from "./schema/marketing";
 import { cleanFills, fillProblems } from "./lib/personalise";
 import { clampHour, startEvent, templateInWorkspace } from "./marketing";
@@ -32,7 +31,6 @@ import { resumeRollout } from "./marketingRollout";
 import { normaliseTier, validPlan } from "./lib/rollout";
 import { takesHandoffs } from "./lib/shared";
 
-const REPORT_SCAN = 3000;
 const RETARGET_BATCH = 200;
 const MIN_RATE = 10;
 const MAX_RATE = 1000;
@@ -411,31 +409,8 @@ export const report = query({
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event) return null;
     await requireWorkspace(ctx, event.workspaceId);
-    const key = eventKey(event._id);
-    const sends = await ctx.db
-      .query("marketingSends")
-      .withIndex("by_key_and_createdAt", (q) => q.eq("key", key))
-      .take(REPORT_SCAN);
-
-    const reasons = new Map<string, number>();
-    const readHours = new Array(25).fill(0) as number[];
-    let first: number | null = null;
-    let last: number | null = null;
-    for (const send of sends) {
-      first = first === null ? send.createdAt : Math.min(first, send.createdAt);
-      last = last === null ? send.createdAt : Math.max(last, send.createdAt);
-      if (send.status === "failed" || send.delivery === "failed") {
-        const code = failureCode(send.error);
-        reasons.set(code, (reasons.get(code) ?? 0) + 1);
-      }
-      if (send.readAt) {
-        const hours = Math.floor((send.readAt - send.createdAt) / 3_600_000);
-        readHours[Math.min(24, Math.max(0, hours))]++;
-      }
-    }
-
+    const { stats, readHours, reasons } = await reportFor(ctx, eventKey(event._id));
     const template = event.templateId ? await ctx.db.get("marketingTemplates", event.templateId) : null;
-    const stats = await statsFor(ctx, key);
     const priced = await quote(ctx, {
       workspaceId: event.workspaceId,
       market: await homeMarket(ctx, event.workspaceId),
@@ -445,13 +420,8 @@ export const report = query({
     return {
       stats,
       skipped: event.skippedCount ?? 0,
-      reasons: [...reasons.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([code, count]) => ({ code, count })),
+      reasons,
       readHours,
-      firstSentAt: first,
-      lastSentAt: last,
-      partial: sends.length >= REPORT_SCAN,
       currency: priced.currency,
       costMicros: priced.amountMicros * stats.sent,
     };

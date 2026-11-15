@@ -293,6 +293,8 @@ export const marketingTables = {
     key: v.string(),
     shard: v.number(),
     ...counters,
+    readHours: v.optional(v.array(v.number())),
+    reasons: v.optional(v.array(v.object({ code: v.string(), count: v.number() }))),
   }).index("by_key_and_shard", ["key", "shard"]),
 
   marketingDaily: defineTable({
@@ -371,6 +373,14 @@ export const marketingTables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),
+
+  audienceCounts: defineTable({
+    workspaceId: v.id("workspaces"),
+    shard: v.number(),
+    whatsapp: v.number(),
+    optedOut: v.number(),
+    withBirthday: v.number(),
+  }).index("by_workspaceId_and_shard", ["workspaceId", "shard"]),
 
   audienceMembers: defineTable({
     workspaceId: v.id("workspaces"),

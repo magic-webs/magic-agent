@@ -535,41 +535,15 @@ export const dueForReview = internalQuery({
   handler: async (ctx, args) => {
     const cutoff = args.now - DORMANT_AFTER_MINUTES * 60_000;
 
-    // The most recently quiet conversations first, across the deployment, in
-    // one index range — and capped: a sweep is a background job and must not
-    // become a full table read. Threads the marketing desk opened that nobody
-    // has answered (`marketingOnly`) sit outside the range altogether, so a
-    // campaign opening thousands of them cannot crowd a real conversation out
-    // of the window, nor have a greeting filed as a lead.
-    //
-    // It used to read the first 2,000 rows of by_workspace_lastMessageAt,
-    // which is the first few workspaces by id: past 2,000 conversations the
-    // rest were never reviewed at all.
-    const candidates = await ctx.db
+    // `reviewDueAt` is kept by a trigger in functions.ts, so only due rows
+    // are in this range and the read is the size of the answer.
+    const rows = await ctx.db
       .query("conversations")
-      .withIndex("by_marketingOnly_and_lastMessageAt", (q) =>
-        q.eq("marketingOnly", undefined).lte("lastMessageAt", cutoff)
-      )
+      .withIndex("by_reviewDueAt", (q) => q.gt("reviewDueAt", 0).lte("reviewDueAt", cutoff))
       .order("desc")
-      .take(2000);
+      .take(args.limit ?? 25);
 
-    const due: Array<{
-      conversationId: Id<"conversations">;
-      workspaceId: Id<"workspaces">;
-    }> = [];
-
-    for (const row of candidates) {
-      if (due.length >= (args.limit ?? 25)) break;
-      // Escalated belongs to a person and closed is finished; neither wants a
-      // machine writing into it.
-      if (row.status !== "open") continue;
-      if (row.markedBot) continue;
-      if ((row.reviewedAt ?? 0) >= row.lastMessageAt) continue;
-      if (row.messageCount === 0) continue;
-      due.push({ conversationId: row._id, workspaceId: row.workspaceId });
-    }
-
-    return due;
+    return rows.map((row) => ({ conversationId: row._id, workspaceId: row.workspaceId }));
   },
 });
 

@@ -63,6 +63,18 @@ triggers.register("marketingSends", async (ctx, change) => {
   );
 });
 
+triggers.register("marketingTemplates", async (ctx, change) => {
+  const workspaceId = (change.newDoc ?? change.oldDoc)!.workspaceId;
+  if (!(await isMirrored(ctx.innerDb, ctx.sync, workspaceId))) return;
+  const at = Date.now();
+  ctx.sync.events.set(
+    `template:${change.id}`,
+    change.newDoc
+      ? { type: "template", at, doc: change.newDoc }
+      : { type: "template.deleted", at, id: change.id }
+  );
+});
+
 async function flushSync(ctx: MutationCtx, state: SyncState) {
   if (state.events.size === 0) return;
   const events = [...state.events.values()];

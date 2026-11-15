@@ -15,7 +15,9 @@ export type SyncEvent =
       error?: string;
     }
   | { type: "queued"; at: number; queueId: string; wamid?: string; failed: boolean; error?: string }
-  | { type: "conversion"; at: number; contactId: string };
+  | { type: "conversion"; at: number; contactId: string }
+  | { type: "template"; at: number; doc: Doc<"marketingTemplates"> }
+  | { type: "template.deleted"; at: number; id: string };
 
 export type SyncState = {
   events: Map<string, SyncEvent>;

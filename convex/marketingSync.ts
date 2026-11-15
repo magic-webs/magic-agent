@@ -34,7 +34,9 @@ const event = v.union(
     failed: v.boolean(),
     error: v.optional(v.string()),
   }),
-  v.object({ type: v.literal("conversion"), at: v.number(), contactId: v.string() })
+  v.object({ type: v.literal("conversion"), at: v.number(), contactId: v.string() }),
+  v.object({ type: v.literal("template"), at: v.number(), doc: v.any() }),
+  v.object({ type: v.literal("template.deleted"), at: v.number(), id: v.string() })
 );
 
 const MAX_SKEW_SECONDS = 300;

@@ -969,10 +969,14 @@ export const claimDueEvents = internalMutation({
       .take(25);
     // Staggered, so a festival every workspace has on the calendar at 9am
     // does not put all of them through Meta in the same second.
-    for (const [index, event] of due.entries()) {
-      await startEvent(ctx, event, index * 2000);
+    let claimed = 0;
+    for (const event of due) {
+      // A workspace the marketing service runs sends from there, never from here.
+      if (await marketingOnVm(ctx.db, event.workspaceId)) continue;
+      await startEvent(ctx, event, claimed * 2000);
+      claimed++;
     }
-    return { claimed: due.length };
+    return { claimed };
   },
 });
 
@@ -993,6 +997,7 @@ export const claimBirthdays = internalMutation({
     for (const settings of enabled) {
       if (!settings.birthdayTemplateId) continue;
       const workspace = await ctx.db.get("workspaces", settings.workspaceId);
+      if (workspace?.marketingOnVm) continue;
       if (!workspace || workspace.status !== "active") continue;
 
       const local = zonedParts(now, workspace.timezone);

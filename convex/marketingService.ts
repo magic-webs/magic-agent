@@ -7,7 +7,7 @@ import { internalQuery } from "./_generated/server";
 import { internalMutation } from "./functions";
 import { sendingChannel } from "./marketing";
 import { deskBlock } from "./lib/account";
-import { charge } from "./lib/charge";
+import { billingEventFor, charge } from "./lib/charge";
 import { templateBlock } from "./lib/wallet";
 
 const category = v.union(v.literal("marketing"), v.literal("utility"), v.literal("authentication"));
@@ -53,7 +53,11 @@ export const charges = internalMutation({
     items: v.array(v.object({ to: v.string(), wamid: v.optional(v.string()), preview: v.string() })),
   },
   handler: async (ctx, args) => {
+    let charged = 0;
     for (const item of args.items) {
+      // Retried deliveries must not bill the same message twice.
+      if (item.wamid && (await billingEventFor(ctx, item.wamid))) continue;
+      charged++;
       await charge(ctx, {
         workspaceId: args.workspaceId,
         channelId: args.channelId,
@@ -65,6 +69,6 @@ export const charges = internalMutation({
         wamid: item.wamid,
       });
     }
-    return { charged: args.items.length };
+    return { charged };
   },
 });

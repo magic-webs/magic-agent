@@ -693,7 +693,8 @@ export function register(server) {
       },
       annotations: { openWorldHint: true },
     },
-    handler(async ({ entryId }) => {
+    handler(async ({ workspace, entryId }) => {
+      await resolveWorkspace(workspace);
       await call.mutation(api.marketing.sendEventNow, { eventId: entryId });
       return ok("Sending now. list_marketing_calendar shows the count as it goes.");
     })
@@ -747,7 +748,8 @@ export function register(server) {
       },
       annotations: { destructiveHint: true },
     },
-    handler(async ({ entryId }) => {
+    handler(async ({ workspace, entryId }) => {
+      await resolveWorkspace(workspace);
       await call.mutation(api.marketing.removeEvent, { eventId: entryId });
       return ok("Removed from the calendar.");
     })

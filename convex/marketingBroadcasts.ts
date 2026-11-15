@@ -349,6 +349,7 @@ export const pause = mutation({
   args: { eventId: v.id("marketingEvents") },
   handler: async (ctx, args) => {
     const event = await requireBroadcast(ctx, args.eventId);
+    await refuseOnVm(ctx.db, event.workspaceId);
     if (event.status !== "sending" && event.status !== "scheduled") {
       throw new ConvexError("Only a campaign that is scheduled or sending can be paused.");
     }
@@ -389,6 +390,7 @@ export const cancel = mutation({
   args: { eventId: v.id("marketingEvents") },
   handler: async (ctx, args) => {
     const event = await requireBroadcast(ctx, args.eventId);
+    await refuseOnVm(ctx.db, event.workspaceId);
     if (event.status === "sent" || event.status === "failed" || event.status === "cancelled") {
       throw new ConvexError("This campaign has already finished.");
     }
@@ -519,6 +521,7 @@ export const retarget = mutation({
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event) throw new ConvexError("Campaign not found");
     await requireWorkspace(ctx, event.workspaceId);
+    await refuseOnVm(ctx.db, event.workspaceId);
     const name = args.name.trim().slice(0, 80);
     if (!name) throw new ConvexError("Give the list a name.");
     const now = Date.now();

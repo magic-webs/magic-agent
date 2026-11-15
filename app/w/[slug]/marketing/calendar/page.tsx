@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -34,6 +34,7 @@ import {
   Calendar03Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 const FESTIVAL_WIDTHS = ["w-2/3", "w-1/2", "w-3/4", "w-2/5", "w-3/5", "w-1/2", "w-2/3", "w-1/3"];
 
@@ -76,14 +77,14 @@ export default function MarketingCalendarPage() {
   const from = ymd(cursor.year, cursor.month, 1);
   const to = ymd(cursor.year, cursor.month, daysInMonth(cursor.year, cursor.month));
 
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
-  const calendar = useQuery(api.marketing.calendar, { workspaceId: workspace._id, from, to });
-  const upcoming = useQuery(api.marketing.upcomingFestivals, {
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const calendar = useMarketingQuery(api.marketing.calendar, { workspaceId: workspace._id, from, to });
+  const upcoming = useMarketingQuery(api.marketing.upcomingFestivals, {
     workspaceId: workspace._id,
     today,
     days: 120,
   });
-  const openCampaign = useQuery(
+  const openCampaign = useMarketingQuery(
     api.marketingCampaigns.get,
     touch ? { campaignId: touch.campaignId } : "skip"
   );

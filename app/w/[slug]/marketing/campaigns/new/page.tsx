@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft02Icon } from "@hugeicons/core-free-icons";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 export default function NewCampaignPage() {
   const workspace = useWorkspace();
@@ -38,8 +39,8 @@ export default function NewCampaignPage() {
   const fromBook = params.get("book") as Id<"recordBooks"> | null;
   const mode = params.get("mode") as CampaignMode | null;
 
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
-  const source = useQuery(api.marketingBroadcasts.get, sourceId ? { eventId: sourceId } : "skip");
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const source = useMarketingQuery(api.marketingBroadcasts.get, sourceId ? { eventId: sourceId } : "skip");
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
 
   if (!sourceId && !followUpList && !fromBook && mode !== "manual" && mode !== "smart") {

@@ -68,7 +68,7 @@ export async function verifySignature(header: string | null, body: string) {
   return diff === 0;
 }
 
-async function signature(secret: string, body: string) {
+export async function signature(secret: string, body: string) {
   const at = Math.floor(Date.now() / 1000);
   return `t=${at},v1=${await hmacHex(secret, `${at}.${body}`)}`;
 }

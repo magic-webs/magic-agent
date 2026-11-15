@@ -1,3 +1,4 @@
+import { refuseOnVm } from "./lib/marketingSync";
 import { ConvexError, v, type Infer } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
@@ -163,6 +164,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    await refuseOnVm(ctx.db, args.workspaceId);
     const now = Date.now();
     return await ctx.db.insert("audienceImports", {
       workspaceId: args.workspaceId,
@@ -203,6 +205,7 @@ export const addRows = mutation({
   },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
+    await refuseOnVm(ctx.db, importDoc.workspaceId);
     if (importDoc.status !== "uploading" || importDoc.mode === "recheck") {
       throw new ConvexError("This import is already being sorted.");
     }
@@ -277,6 +280,7 @@ export const startSorting = mutation({
   args: { importId: v.id("audienceImports") },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
+    await refuseOnVm(ctx.db, importDoc.workspaceId);
     if (importDoc.status !== "uploading" || importDoc.mode === "recheck") return { success: true };
     if (importDoc.total === 0) throw new ConvexError("There is nobody in this file to import.");
     await beginSorting(ctx, importDoc);
@@ -309,6 +313,7 @@ export const recheck = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    await refuseOnVm(ctx.db, args.workspaceId);
     if (args.audienceId && args.category) throw new ConvexError("Pick a list or a category, not both.");
     let target = "Everyone";
     if (args.audienceId) {
@@ -823,6 +828,7 @@ export const updateRow = mutation({
   },
   handler: async (ctx, args) => {
     const { row, importDoc } = await requireRow(ctx, args.rowId);
+    await refuseOnVm(ctx.db, importDoc.workspaceId);
     reviewable(importDoc);
     const now = Date.now();
 
@@ -916,6 +922,7 @@ export const setRowsStatus = mutation({
     for (const rowId of args.rowIds) {
       const found = await requireRow(ctx, rowId);
       importDoc = found.importDoc;
+      await refuseOnVm(ctx.db, importDoc.workspaceId);
       reviewable(importDoc);
       const { row } = found;
       if (row.status === args.status || row.status === "saved") continue;
@@ -943,6 +950,7 @@ export const acceptAll = mutation({
   args: { importId: v.id("audienceImports"), from: v.union(v.literal("check"), v.literal("skipped")) },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
+    await refuseOnVm(ctx.db, importDoc.workspaceId);
     reviewable(importDoc);
     await ctx.scheduler.runAfter(0, internal.audienceImports.moveAll, {
       importId: args.importId,
@@ -994,6 +1002,7 @@ export const save = mutation({
   },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
+    await refuseOnVm(ctx.db, importDoc.workspaceId);
     reviewable(importDoc);
     if (importDoc.counts.ready === 0) throw new ConvexError("Nobody is ready to save yet.");
     const now = Date.now();
@@ -1184,6 +1193,7 @@ export const discard = mutation({
   args: { importId: v.id("audienceImports") },
   handler: async (ctx, args) => {
     const importDoc = await requireImport(ctx, args.importId);
+    await refuseOnVm(ctx.db, importDoc.workspaceId);
     if (importDoc.status === "saving") throw new ConvexError("This import is saving right now.");
     await ctx.db.patch("audienceImports", importDoc._id, {
       status: "discarded",

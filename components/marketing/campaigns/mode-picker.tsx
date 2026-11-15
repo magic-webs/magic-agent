@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { defaultPlan, isRecommended } from "@/convex/lib/rollout";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -17,6 +17,7 @@ import {
   SlidersHorizontalIcon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 function ModeCard({
   href,
@@ -60,7 +61,7 @@ function ModeCard({
 
 export function CampaignModePicker({ base }: { base: string }) {
   const workspace = useWorkspace();
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
   const [editing, setEditing] = useState(false);
   const plan = defaultPlan(overview?.rolloutDefaults);
 

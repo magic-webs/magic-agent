@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
+
 import type { FunctionReturnType } from "convex/server";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { api } from "@/convex/_generated/api";
@@ -42,6 +42,7 @@ import {
   StopCircleIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingClient, useMarketingMutation, useMarketingPaginatedQuery, useMarketingQuery } from "@/lib/marketing-backend";
 
 type Outcome = "all" | "delivered" | "read" | "replied" | "clicked" | "failed" | "not_read" | "optedOut";
 
@@ -124,12 +125,12 @@ export function CampaignReport({
   onReengage: (audienceId: Id<"audiences">) => void;
 }) {
   const now = useHourBucket();
-  const campaign = useQuery(api.marketingBroadcasts.get, { eventId });
-  const report = useQuery(api.marketingBroadcasts.report, { eventId, now });
-  const pause = useMutation(api.marketingBroadcasts.pause);
-  const resume = useMutation(api.marketingBroadcasts.resume);
-  const cancel = useMutation(api.marketingBroadcasts.cancel);
-  const retarget = useMutation(api.marketingBroadcasts.retarget);
+  const campaign = useMarketingQuery(api.marketingBroadcasts.get, { eventId });
+  const report = useMarketingQuery(api.marketingBroadcasts.report, { eventId, now });
+  const pause = useMarketingMutation(api.marketingBroadcasts.pause);
+  const resume = useMarketingMutation(api.marketingBroadcasts.resume);
+  const cancel = useMarketingMutation(api.marketingBroadcasts.cancel);
+  const retarget = useMarketingMutation(api.marketingBroadcasts.retarget);
   const [busy, setBusy] = useState(false);
 
   const act = async (task: () => Promise<unknown>, title: string) => {
@@ -357,13 +358,13 @@ export function CampaignReport({
 }
 
 function Recipients({ eventId, title }: { eventId: Id<"marketingEvents">; title: string }) {
-  const convex = useConvex();
+  const convex = useMarketingClient();
   const [outcome, setOutcome] = useState<Outcome>("all");
   const [listName, setListName] = useState("");
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const retarget = useMutation(api.marketingBroadcasts.retarget);
-  const { results, status, loadMore } = usePaginatedQuery(
+  const retarget = useMarketingMutation(api.marketingBroadcasts.retarget);
+  const { results, status, loadMore } = useMarketingPaginatedQuery(
     api.marketingBroadcasts.recipients,
     { eventId, outcome },
     { initialNumItems: 50 }

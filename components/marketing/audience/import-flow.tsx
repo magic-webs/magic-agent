@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
@@ -69,6 +69,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { categoryLabel, categoryTone, fail, formatPhone, plural, type Category } from "./shared";
 import { ColumnMapping, ImportPreview } from "./column-mapping";
+import { useMarketingMutation, useMarketingPaginatedQuery, useMarketingQuery } from "@/lib/marketing-backend";
 
 const CHUNK = 500;
 /** What one import holds; the server refuses more. */
@@ -104,9 +105,9 @@ export function ImportUpload({
   onClose: () => void;
 }) {
   const workspace = useWorkspace();
-  const create = useMutation(api.audienceImports.create);
-  const addRows = useMutation(api.audienceImports.addRows);
-  const startSorting = useMutation(api.audienceImports.startSorting);
+  const create = useMarketingMutation(api.audienceImports.create);
+  const addRows = useMarketingMutation(api.audienceImports.addRows);
+  const startSorting = useMarketingMutation(api.audienceImports.startSorting);
 
   const [source, setSource] = useState<Source>("csv");
   const [name, setName] = useState("");
@@ -416,7 +417,7 @@ export function ImportProgress({
   importId: Id<"audienceImports">;
   onClose: () => void;
 }) {
-  const data = useQuery(api.audienceImports.get, { importId });
+  const data = useMarketingQuery(api.audienceImports.get, { importId });
 
   if (data === undefined) return <ImportSkeleton />;
 
@@ -569,9 +570,9 @@ function Review({
   subject: string;
   onClose: () => void;
 }) {
-  const save = useMutation(api.audienceImports.save);
-  const discard = useMutation(api.audienceImports.discard);
-  const acceptAll = useMutation(api.audienceImports.acceptAll);
+  const save = useMarketingMutation(api.audienceImports.save);
+  const discard = useMarketingMutation(api.audienceImports.discard);
+  const acceptAll = useMarketingMutation(api.audienceImports.acceptAll);
   const [bucket, setBucket] = useState<Bucket>(data.counts.check > 0 ? "check" : "ready");
   const [listName, setListName] = useState(data.name);
   const [makeList, setMakeList] = useState(true);
@@ -716,13 +717,13 @@ function RowsTable({
   categories: Category[];
   recheck: boolean;
 }) {
-  const { results, status, loadMore } = usePaginatedQuery(
+  const { results, status, loadMore } = useMarketingPaginatedQuery(
     api.audienceImports.rows,
     { importId, status: bucket },
     { initialNumItems: 25 }
   );
-  const updateRow = useMutation(api.audienceImports.updateRow);
-  const setRowsStatus = useMutation(api.audienceImports.setRowsStatus);
+  const updateRow = useMarketingMutation(api.audienceImports.updateRow);
+  const setRowsStatus = useMarketingMutation(api.audienceImports.setRowsStatus);
   const options = categories.map((category) => ({ value: category.key, label: category.label }));
 
   if (status === "LoadingFirstPage") return <RowsSkeleton bucket={bucket} />;
@@ -1097,8 +1098,8 @@ function PhoneFix({
 export function RecheckButton({ categories }: { categories: Category[] }) {
   const workspace = useWorkspace();
   const router = useRouter();
-  const recheck = useMutation(api.audienceImports.recheck);
-  const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
+  const recheck = useMarketingMutation(api.audienceImports.recheck);
+  const audiences = useMarketingQuery(api.audience.list, { workspaceId: workspace._id });
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState("everyone");
   const [busy, setBusy] = useState(false);

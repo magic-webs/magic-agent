@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
@@ -90,6 +90,7 @@ import {
   SparklesIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingAction, useMarketingMutation, useMarketingQuery } from "@/lib/marketing-backend";
 
 /**
  * The Events tab: the business's own events, each with the reminders the
@@ -393,11 +394,11 @@ export function EventCard({
   const template = templates.find((t) => t._id === campaign.templateId);
   const waiting = campaign.touches.some(isPending);
   const sentKeys = campaign.touches.filter((t) => t.startedAt).map((t) => `event:${t._id}`);
-  const stats = useQuery(
+  const stats = useMarketingQuery(
     api.marketing.stats,
     sentKeys.length ? { workspaceId: workspace._id, keys: sentKeys } : "skip"
   );
-  const guests = useQuery(api.eventGuests.summary, { campaignId: campaign._id });
+  const guests = useMarketingQuery(api.eventGuests.summary, { campaignId: campaign._id });
 
   return (
     <Card size="sm">
@@ -539,8 +540,8 @@ export function CampaignDialog({
 }) {
   const workspace = useWorkspace();
   const now = useHourBucket();
-  const save = useMutation(api.marketingCampaigns.save);
-  const remove = useMutation(api.marketingCampaigns.remove);
+  const save = useMarketingMutation(api.marketingCampaigns.save);
+  const remove = useMarketingMutation(api.marketingCampaigns.remove);
   const [busy, setBusy] = useState<"save" | "remove" | null>(null);
   const [audienceValid, setAudienceValid] = useState(true);
 
@@ -897,10 +898,10 @@ export function TouchDialog({
   onClose: () => void;
 }) {
   const workspace = useWorkspace();
-  const updateMessage = useMutation(api.marketingCampaigns.updateMessage);
-  const rewrite = useAction(api.marketingAi.rewriteTouches);
-  const sendNow = useMutation(api.marketing.sendEventNow);
-  const removeEvent = useMutation(api.marketing.removeEvent);
+  const updateMessage = useMarketingMutation(api.marketingCampaigns.updateMessage);
+  const rewrite = useMarketingAction(api.marketingAi.rewriteTouches);
+  const sendNow = useMarketingMutation(api.marketing.sendEventNow);
+  const removeEvent = useMarketingMutation(api.marketing.removeEvent);
   // Null until the owner types, so a rewrite that lands shows straight away.
   const [edited, setEdited] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "write" | "send" | "remove" | null>(null);

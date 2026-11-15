@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AddContactsDialog } from "@/components/marketing/add-contacts-dialog";
@@ -12,10 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GiftIcon } from "@hugeicons/core-free-icons";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 export default function MarketingAudiencePage() {
   const workspace = useWorkspace();
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
   const [adding, setAdding] = useState(0);
   const [addOpen, setAddOpen] = useState(false);

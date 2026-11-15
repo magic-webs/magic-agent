@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import {
   ASSUMED_LIMIT,
@@ -34,6 +34,7 @@ import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { useMarketingMutation } from "@/lib/marketing-backend";
 
 export const gapLabel = (days: number) => (days === 1 ? "Every day" : `Every ${days} days`);
 
@@ -139,7 +140,7 @@ export function WaveFields({
 
 export function WaveDefaultsDialog({ initial, onClose }: { initial: WavePlan; onClose: () => void }) {
   const workspace = useWorkspace();
-  const saveDefaults = useMutation(api.marketing.saveRolloutDefaults);
+  const saveDefaults = useMarketingMutation(api.marketing.saveRolloutDefaults);
   const [plan, setPlan] = useState<WavePlan>(initial);
   const [busy, setBusy] = useState(false);
   const problem = validPlan(plan);

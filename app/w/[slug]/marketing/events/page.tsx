@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -11,6 +11,7 @@ import { localDate } from "@/components/marketing/calendar";
 import { EventsTab, EventsTabSkeleton, TouchDialog } from "@/components/marketing/events";
 import { EVENT_TEMPLATE_BODY } from "@/components/marketing/format";
 import { TemplateDialog, type TemplateDraft } from "@/components/marketing/template-dialog";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 export default function MarketingEventsPage() {
   const workspace = useWorkspace();
@@ -18,8 +19,8 @@ export default function MarketingEventsPage() {
   const now = useHourBucket();
   const today = localDate(now, workspace.timezone);
   const startNew = useSearchParams().get("new") === "1";
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
-  const campaigns = useQuery(api.marketingCampaigns.list, { workspaceId: workspace._id });
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const campaigns = useMarketingQuery(api.marketingCampaigns.list, { workspaceId: workspace._id });
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
   const [touchId, setTouchId] = useState<Id<"marketingEvents"> | null>(null);
   const [templateDraft, setTemplateDraft] = useState<TemplateDraft | null>(null);

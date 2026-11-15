@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { isBuiltIn } from "@/convex/lib/audience";
 import { ConfirmButton } from "@/components/marketing/calendar";
@@ -25,6 +25,7 @@ import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { fail, type Category } from "./shared";
+import { useMarketingMutation } from "@/lib/marketing-backend";
 
 export const MAX_CATEGORIES = 10;
 
@@ -54,7 +55,7 @@ function keyFor(label: string, taken: Set<string>): string {
 
 function useSaveSettings() {
   const workspace = useWorkspace();
-  const saveSettings = useMutation(api.marketing.saveAudienceSettings);
+  const saveSettings = useMarketingMutation(api.marketing.saveAudienceSettings);
   const [busy, setBusy] = useState(false);
   const save = async (weeklyCap: number, categories: Category[], done: string) => {
     setBusy(true);

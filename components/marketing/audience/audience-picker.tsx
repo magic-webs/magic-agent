@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { SEGMENTS } from "@/convex/lib/segments";
@@ -14,6 +14,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { MinusSignCircleIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 import { plural, type Category } from "./shared";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 export type AudienceChoice = {
   audienceIds: Id<"audiences">[];
@@ -91,9 +92,9 @@ export function AudiencePicker({
   onValidChange?: (valid: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
-  const summary = useQuery(api.audience.tags, { workspaceId: workspace._id });
-  const books = useQuery(api.records.listBooks, { workspaceId: workspace._id });
+  const audiences = useMarketingQuery(api.audience.list, { workspaceId: workspace._id });
+  const summary = useMarketingQuery(api.audience.tags, { workspaceId: workspace._id });
+  const books = useMarketingQuery(api.records.listBooks, { workspaceId: workspace._id });
   const [mode, setMode] = useState<"everyone" | "some">(isEveryone(value) ? "everyone" : "some");
   const everyone = mode === "everyone";
   const nobody = !everyone && isEveryone(value);
@@ -313,7 +314,7 @@ export function AudiencePicker({
 export function AudienceCount({ value }: { value: AudienceChoice }) {
   const workspace = useWorkspace();
   const now = useHourBucket();
-  const size = useQuery(api.audience.size, { workspaceId: workspace._id, audience: value, now });
+  const size = useMarketingQuery(api.audience.size, { workspaceId: workspace._id, audience: value, now });
   if (!size) return <Spinner />;
   return (
     <span className="flex flex-wrap items-center gap-2 text-sm">

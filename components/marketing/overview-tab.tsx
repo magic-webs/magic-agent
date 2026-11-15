@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useAction, useQuery } from "convex/react";
+
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { formatMoney } from "@/convex/lib/billing";
@@ -31,6 +31,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { QUALITY, fail, pct, rate, shortTime } from "@/components/marketing/format";
 import { cn } from "@/lib/utils";
+import { useMarketingAction, useMarketingQuery } from "@/lib/marketing-backend";
 
 type Summary = FunctionReturnType<typeof api.marketingOverview.summary>;
 
@@ -70,8 +71,8 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 
 function NumberHealth({ now }: { now: number }) {
   const workspace = useWorkspace();
-  const health = useQuery(api.marketingRollout.health, { workspaceId: workspace._id, now });
-  const refresh = useAction(api.marketingRollout.refreshHealth);
+  const health = useMarketingQuery(api.marketingRollout.health, { workspaceId: workspace._id, now });
+  const refresh = useMarketingAction(api.marketingRollout.refreshHealth);
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
@@ -380,7 +381,7 @@ export function OverviewTab({ onGo }: { onGo: (tab: string) => void }) {
   const workspace = useWorkspace();
   const now = useHourBucket();
   const [days, setDays] = useState("30");
-  const data = useQuery(api.marketingOverview.summary, {
+  const data = useMarketingQuery(api.marketingOverview.summary, {
     workspaceId: workspace._id,
     days: Number(days),
     now,

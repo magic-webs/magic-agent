@@ -30,7 +30,7 @@ export async function resolveWorkspace(slug) {
     // resolved for one company must not be handed to the next request, which
     // would be returning a workspace nobody checked this caller may read.
     const cached = st.workspaces.get(wanted);
-    if (cached) return cached;
+    if (cached) return (st.current = cached);
     const found = await call.query(api.workspaces.getBySlug, { slug: wanted });
     if (!found) {
       throw new Error(
@@ -38,14 +38,14 @@ export async function resolveWorkspace(slug) {
       );
     }
     st.workspaces.set(found.slug, found);
-    return found;
+    return (st.current = found);
   }
 
   // An admin with no default: pick for them only when the choice is obvious.
   const all = await reachableWorkspaces();
   if (all.length === 1) {
     state().workspaces.set(all[0].slug, all[0]);
-    return all[0];
+    return (state().current = all[0]);
   }
   throw new Error(
     `Which workspace? Pass "workspace" with one of: ${all

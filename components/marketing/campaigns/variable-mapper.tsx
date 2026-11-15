@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { variablesIn } from "@/convex/lib/marketing";
 import {
@@ -15,6 +14,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { SelectField } from "@/components/select-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 const LABEL: Record<Exclude<VariableSource, "attribute">, string> = {
   first_name: "First name",
@@ -67,7 +67,7 @@ export function VariableMapper({
   onChange: (fills: VariableFill[]) => void;
 }) {
   const workspace = useWorkspace();
-  const fields = useQuery(api.marketing.contactFields, { workspaceId: workspace._id });
+  const fields = useMarketingQuery(api.marketing.contactFields, { workspaceId: workspace._id });
   const variables = variablesIn(body);
   if (variables.length === 0) return null;
 

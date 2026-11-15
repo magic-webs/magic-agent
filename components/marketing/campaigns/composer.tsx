@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
@@ -61,6 +61,7 @@ import {
   ArrowRight02Icon,
   SentIcon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingAction, useMarketingMutation, useMarketingQuery } from "@/lib/marketing-backend";
 
 type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
@@ -125,8 +126,8 @@ function useFullEstimate(args: {
   audience: AudienceChoice;
   now: number;
 }): { estimate: Estimate | undefined; counting: boolean } {
-  const quick = useQuery(api.marketingBroadcasts.estimate, args);
-  const countAudience = useAction(api.marketingBroadcasts.countAudience);
+  const quick = useMarketingQuery(api.marketingBroadcasts.estimate, args);
+  const countAudience = useMarketingAction(api.marketingBroadcasts.countAudience);
   const [full, setFull] = useState<{ key: string; value: Estimate } | null>(null);
   const key = JSON.stringify(args);
   const partial = quick?.partial ?? false;
@@ -320,7 +321,7 @@ export function CampaignComposer({
 }) {
   const workspace = useWorkspace();
   const now = useHourBucket();
-  const save = useMutation(api.marketingBroadcasts.save);
+  const save = useMarketingMutation(api.marketingBroadcasts.save);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [reviewing, setReviewing] = useState(startInReview && initial.mode === "smart");
@@ -336,11 +337,11 @@ export function CampaignComposer({
     audience: draft.audience,
     now,
   });
-  const people = useQuery(
+  const people = useMarketingQuery(
     api.marketing.previewContacts,
     template && audienceValid ? { workspaceId: workspace._id, audience: draft.audience, now } : "skip"
   );
-  const replyTargets = useQuery(api.agents.replyTargets, { workspaceId: workspace._id });
+  const replyTargets = useMarketingQuery(api.agents.replyTargets, { workspaceId: workspace._id });
   const replyAgent = replyTargets?.find((agent) => agent._id === draft.replyAgentId);
   const replyAgentGone = Boolean(draft.replyAgentId && replyTargets && !replyAgent);
   const fills = template ? fillsFor(template.body, draft.variables, draft.message) : [];

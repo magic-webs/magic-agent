@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAction } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { VariableFill } from "@/convex/lib/personalise";
@@ -20,6 +20,7 @@ import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { TestTube01Icon } from "@hugeicons/core-free-icons";
+import { useMarketingAction } from "@/lib/marketing-backend";
 
 /** Where the last number tested with is kept, per browser. */
 const LAST_NUMBER_KEY = "marketing:test-number";
@@ -60,7 +61,7 @@ export function TestSendButton({
   /** Why it cannot be tested yet, when it cannot. */
   disabledReason?: string | null;
 }) {
-  const sendTest = useAction(api.marketingSend.sendTest);
+  const sendTest = useMarketingAction(api.marketingSend.sendTest);
   const [open, setOpen] = useState(false);
   const [number, setNumber] = useState("");
   const [busy, setBusy] = useState(false);

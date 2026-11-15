@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { normaliseBirthday } from "@/convex/lib/marketing";
 import { downloadCsv } from "@/lib/csv";
@@ -41,6 +41,7 @@ import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Download01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
+import { useMarketingMutation } from "@/lib/marketing-backend";
 
 type Mode = "one" | "list" | "csv";
 
@@ -89,7 +90,7 @@ export function AddContactsDialog({
   onClose: () => void;
 }) {
   const workspace = useWorkspace();
-  const addMany = useMutation(api.contacts.addMany);
+  const addMany = useMarketingMutation(api.contacts.addMany);
   const [mode, setMode] = useState<Mode>("one");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");

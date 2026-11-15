@@ -1,3 +1,4 @@
+import { refuseOnVm } from "./lib/marketingSync";
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import {
@@ -136,6 +137,7 @@ export const setRsvp = mutation({
   },
   handler: async (ctx, args) => {
     const campaign = await requireEvent(ctx, args.campaignId);
+    await refuseOnVm(ctx.db, campaign.workspaceId);
     await upsertGuest(ctx, campaign, args.contactId, {
       rsvp: args.rsvp ?? undefined,
       rsvpSource: args.rsvp ? "manual" : undefined,
@@ -153,6 +155,7 @@ export const setAttended = mutation({
   },
   handler: async (ctx, args) => {
     const campaign = await requireEvent(ctx, args.campaignId);
+    await refuseOnVm(ctx.db, campaign.workspaceId);
     if (args.contactIds.length > BULK) throw new ConvexError(`Pick at most ${BULK} people.`);
     const now = Date.now();
     for (const contactId of args.contactIds) {
@@ -174,6 +177,7 @@ export const checkIn = mutation({
   },
   handler: async (ctx, args) => {
     const campaign = await requireEvent(ctx, args.campaignId);
+    await refuseOnVm(ctx.db, campaign.workspaceId);
     const digits = normalisePhone(args.phone, args.countryCode ?? "91");
     if (!digits) throw new ConvexError("That is not a phone number.");
     const now = Date.now();
@@ -208,6 +212,7 @@ export const markInterestedAttended = mutation({
   args: { campaignId: v.id("marketingCampaigns") },
   handler: async (ctx, args) => {
     const campaign = await requireEvent(ctx, args.campaignId);
+    await refuseOnVm(ctx.db, campaign.workspaceId);
     await ctx.scheduler.runAfter(0, internal.eventGuests.markBatch, {
       campaignId: campaign._id,
       cursor: null,

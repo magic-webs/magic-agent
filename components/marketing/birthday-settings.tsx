@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { templateBlocker } from "@/convex/lib/marketing";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -29,7 +29,7 @@ import { toast } from "@/components/ui/toast";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AlertCircleIcon, GiftIcon } from "@hugeicons/core-free-icons";
 import type { Template } from "@/components/marketing/calendar";
-
+import { useMarketingMutation } from "@/lib/marketing-backend";
 
 // --------------------------------------------------------------- birthdays
 
@@ -55,7 +55,7 @@ export function BirthdaySettings({
   withBirthday: number;
 }) {
   const workspace = useWorkspace();
-  const saveSettings = useMutation(api.marketing.saveSettings);
+  const saveSettings = useMarketingMutation(api.marketing.saveSettings);
   const [enabled, setEnabled] = useState(settings.birthdayEnabled);
   const [initialTemplateId] = useState<string>(
     () =>

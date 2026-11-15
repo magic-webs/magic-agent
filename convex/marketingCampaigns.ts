@@ -302,6 +302,7 @@ export const updateMessage = mutation({
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event?.campaignId) throw new ConvexError("Reminder not found");
     await requireWorkspace(ctx, event.workspaceId);
+    await refuseOnVm(ctx.db, event.workspaceId);
     if (!isPending(event)) throw new ConvexError("This one has already gone out.");
 
     const message = asParameter(args.message);
@@ -321,6 +322,7 @@ export const remove = mutation({
   args: { campaignId: v.id("marketingCampaigns") },
   handler: async (ctx, args) => {
     const campaign = await requireCampaign(ctx, args.campaignId);
+    await refuseOnVm(ctx.db, campaign.workspaceId);
     const touches = await touchesOf(ctx, campaign._id);
     if (touches.some((row) => row.status === "sending")) {
       throw new ConvexError("A reminder for this event is sending right now. Wait for it to finish.");
@@ -371,7 +373,7 @@ export const writingContext = internalMutation({
     const campaign = await ctx.db.get("marketingCampaigns", args.campaignId);
     if (!campaign) return null;
     const workspace = await ctx.db.get("workspaces", campaign.workspaceId);
-    if (!workspace) return null;
+    if (!workspace || workspace.marketingOnVm) return null;
     const { agentId } = await ensureMarketingDesk(ctx, campaign.workspaceId);
     const agent = await ctx.db.get("agents", agentId);
     if (!agent) return null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useConvex } from "convex/react";
+
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -23,6 +23,7 @@ import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowDown01Icon, FileExportIcon } from "@hugeicons/core-free-icons";
+import { useMarketingClient } from "@/lib/marketing-backend";
 
 /** How many contacts one export call reads. */
 const PAGE = 500;
@@ -65,7 +66,7 @@ export function ExportContactsButton({
   lists?: Array<{ id: Id<"audiences">; name: string; count: string }>;
 }) {
   const workspace = useWorkspace();
-  const convex = useConvex();
+  const convex = useMarketingClient();
   const [busy, setBusy] = useState(false);
 
   const run = async (target: Target) => {

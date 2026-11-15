@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft02Icon } from "@hugeicons/core-free-icons";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 export default function MarketingEventPage({
   params,
@@ -30,10 +31,10 @@ export default function MarketingEventPage({
   const workspace = useWorkspace();
   const router = useRouter();
   const back = `/w/${workspace.slug}/marketing/events`;
-  const campaign = useQuery(api.marketingCampaigns.get, {
+  const campaign = useMarketingQuery(api.marketingCampaigns.get, {
     campaignId: campaignId as Id<"marketingCampaigns">,
   });
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
   const templates = useMemo(() => overview?.templates ?? [], [overview]);
   const [touchId, setTouchId] = useState<Id<"marketingEvents"> | null>(null);
   const [draft, setDraft] = useState<CampaignDraft | null>(null);

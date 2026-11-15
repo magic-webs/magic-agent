@@ -30,6 +30,7 @@ import { readHealth } from "./lib/whatsappHealth";
 import { notifyRollout, pauseRollout } from "./lib/rolloutPause";
 import { healthQuality } from "./schema/marketing";
 import { sendingChannel } from "./marketing";
+import { marketingOnVm } from "./lib/marketingSync";
 
 const ASSIGN_BATCH = 400;
 const CHECK_HISTORY = 200;
@@ -663,6 +664,14 @@ export const applyHealthWebhook = internalMutation({
     }
 
     if (Object.keys(patch).length === 0) return;
+    if (await marketingOnVm(ctx.db, channel.workspaceId)) {
+      await ctx.scheduler.runAfter(0, internal.marketingVm.broadcasts.forwardHealth, {
+        workspaceId: channel.workspaceId,
+        channelId: channel._id,
+        patch: { quality: patch.quality, limitTier: patch.limitTier, alert: patch.alert },
+        attempt: 0,
+      });
+    }
     const row = await healthRow(ctx, channel._id);
     if (row) await ctx.db.patch("channelHealth", row._id, { ...patch, source: "webhook", checkedAt: now });
     else {

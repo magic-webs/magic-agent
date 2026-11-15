@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AgentAvatar } from "@/components/agent-avatar";
@@ -13,12 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AlertCircleIcon, SparklesIcon, WhatsappIcon } from "@hugeicons/core-free-icons";
+import { useMarketingMutation, useMarketingQuery } from "@/lib/marketing-backend";
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
-  const ensureDesk = useMutation(api.marketing.ensureDesk);
-  const deskBlocks = useQuery(api.subscriptions.deskBlocks, {
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const ensureDesk = useMarketingMutation(api.marketing.ensureDesk);
+  const deskBlocks = useMarketingQuery(api.subscriptions.deskBlocks, {
     workspaceId: workspace._id,
   });
   const [creatingDesk, setCreatingDesk] = useState(false);

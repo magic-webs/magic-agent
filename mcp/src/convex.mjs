@@ -14,7 +14,8 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ConvexHttpClient } from "convex/browser";
-import { anyApi } from "convex/server";
+import { anyApi, getFunctionName } from "convex/server";
+import { MARKETING_API_URL, VM_FUNCTIONS } from "./marketing-vm.mjs";
 import { CONVEX_URL, PASSWORD, USERNAME, assertConfigured } from "./config.mjs";
 
 // convex/_generated/api.js exports exactly this. Building it here instead of
@@ -45,6 +46,7 @@ function newState(identity) {
     session: null, // { sessionToken, role, label, workspaceSlug }
     access: null, // { token, expiresAt }
     workspaces: new Map(), // slug -> workspace document
+    current: null,
   };
 }
 
@@ -177,17 +179,37 @@ export function describeSession() {
   return session ? `${session.label} (${session.role})` : "not signed in";
 }
 
+function onVm(ref, args) {
+  const name = getFunctionName(ref);
+  if (!VM_FUNCTIONS.has(name)) return null;
+  const st = state();
+  const workspace = args?.workspaceId
+    ? [...st.workspaces.values()].find((doc) => doc._id === args.workspaceId)
+    : st.current;
+  return workspace?.marketingOnVm ? name : null;
+}
+
+async function callVm(name, args) {
+  const res = await fetch(`${MARKETING_API_URL}/v1/call/${encodeURIComponent(name)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${state().access.token}` },
+    body: JSON.stringify(args ?? {}),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error ?? `Marketing service: HTTP ${res.status}`);
+  return body?.value ?? null;
+}
+
+function route(kind) {
+  return async (ref, args) => {
+    await authorize();
+    const vm = onVm(ref, args);
+    return vm ? callVm(vm, args) : convex()[kind](ref, args);
+  };
+}
+
 export const call = {
-  query: async (ref, args) => {
-    await authorize();
-    return convex().query(ref, args);
-  },
-  mutation: async (ref, args) => {
-    await authorize();
-    return convex().mutation(ref, args);
-  },
-  action: async (ref, args) => {
-    await authorize();
-    return convex().action(ref, args);
-  },
+  query: route("query"),
+  mutation: route("mutation"),
+  action: route("action"),
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
-import { useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { templateBlocker } from "@/convex/lib/marketing";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
@@ -68,7 +68,7 @@ import {
   SentIcon,
   SparklesIcon,
 } from "@hugeicons/core-free-icons";
-
+import { useMarketingMutation } from "@/lib/marketing-backend";
 
 export type Template = Doc<"marketingTemplates"> & {
   metaBody: string;
@@ -493,9 +493,9 @@ export function EventDialog({
   audienceSize?: number;
 }) {
   const workspace = useWorkspace();
-  const saveEvent = useMutation(api.marketing.saveEvent);
-  const removeEvent = useMutation(api.marketing.removeEvent);
-  const sendNow = useMutation(api.marketing.sendEventNow);
+  const saveEvent = useMarketingMutation(api.marketing.saveEvent);
+  const removeEvent = useMarketingMutation(api.marketing.removeEvent);
+  const sendNow = useMarketingMutation(api.marketing.sendEventNow);
   const [busy, setBusy] = useState<string | null>(null);
 
   const run = async (key: string, title: string, work: () => Promise<unknown>, done: string) => {

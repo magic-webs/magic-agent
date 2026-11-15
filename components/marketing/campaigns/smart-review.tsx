@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useAction, useQuery } from "convex/react";
+
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -42,6 +42,7 @@ import {
   Rocket01Icon,
   SecurityCheckIcon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingAction, useMarketingQuery } from "@/lib/marketing-backend";
 
 export type Estimate = FunctionReturnType<typeof api.marketingBroadcasts.estimate>;
 
@@ -184,8 +185,8 @@ export function SmartReview({
 }) {
   const workspace = useWorkspace();
   const now = useHourBucket();
-  const health = useQuery(api.marketingRollout.health, { workspaceId: workspace._id, now });
-  const refresh = useAction(api.marketingRollout.refreshHealth);
+  const health = useMarketingQuery(api.marketingRollout.health, { workspaceId: workspace._id, now });
+  const refresh = useMarketingAction(api.marketingRollout.refreshHealth);
   const [checking, setChecking] = useState(false);
 
   const check = async () => {

@@ -250,6 +250,7 @@ export const saveRolloutDefaults = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    await refuseOnVm(ctx.db, args.workspaceId);
     const plan = { shares: args.shares, gapDays: args.gapDays, engagedFirst: args.engagedFirst };
     const problem = validPlan(plan);
     if (problem) throw new ConvexError(problem);
@@ -470,6 +471,7 @@ export const saveTemplate = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    await refuseOnVm(ctx.db, args.workspaceId);
     requireOwnKey(args.headerMedia?.key, "templates", args.workspaceId);
     for (const card of args.cards ?? []) requireOwnKey(card.media?.key, "templates", args.workspaceId);
     const name = args.name.trim();
@@ -588,6 +590,7 @@ export const removeTemplate = mutation({
     const template = await ctx.db.get("marketingTemplates", args.templateId);
     if (!template) return { success: true };
     await requireWorkspace(ctx, template.workspaceId);
+    await refuseOnVm(ctx.db, template.workspaceId);
 
     // Anything still waiting to go out on it goes back to draft rather than
     // sending with a template that is no longer there.
@@ -750,6 +753,7 @@ export const removeEvent = mutation({
   args: { eventId: v.id("marketingEvents") },
   handler: async (ctx, args) => {
     const event = await requireEvent(ctx, args.eventId);
+    await refuseOnVm(ctx.db, event.workspaceId);
     if (event.status === "sending") {
       throw new ConvexError("This is sending right now. Wait for it to finish.");
     }
@@ -822,6 +826,7 @@ export const saveAudienceSettings = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    await refuseOnVm(ctx.db, args.workspaceId);
     const categories = args.categories.map((category) => ({
       key: category.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").slice(0, 32),
       label: category.label.trim().slice(0, 40),
@@ -1263,7 +1268,7 @@ export const audiencePage = internalQuery({
  * the send log holds what they were sent until they answer, and the reply
  * opens the thread with it (`seedThread`).
  */
-async function marketingThread(
+export async function marketingThread(
   ctx: MutationCtx,
   args: {
     contactId: Id<"contacts">;
@@ -1502,7 +1507,7 @@ export function templateAsShown(template: Doc<"marketingTemplates">): ShownTempl
 }
 
 /** Writes one delivered marketing message into a thread, as the desk's. */
-async function writeMarketingMessage(
+export async function writeMarketingMessage(
   ctx: MutationCtx,
   thread: Doc<"conversations">,
   args: {
@@ -2050,7 +2055,10 @@ export const claimTemplateReviews = internalMutation({
       .query("marketingTemplates")
       .withIndex("by_metaStatus", (q) => q.eq("metaStatus", "PENDING"))
       .take(500);
-    const workspaces = [...new Set(waiting.map((t) => t.workspaceId))];
+    const workspaces: Id<"workspaces">[] = [];
+    for (const workspaceId of new Set(waiting.map((t) => t.workspaceId))) {
+      if (!(await marketingOnVm(ctx.db, workspaceId))) workspaces.push(workspaceId);
+    }
     for (const [index, workspaceId] of workspaces.entries()) {
       await ctx.scheduler.runAfter(
         index * 1000,

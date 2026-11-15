@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { CATEGORY_LABELS } from "@/convex/lib/billing";
 import { templateBlocker } from "@/convex/lib/marketing";
@@ -31,6 +31,7 @@ import {
   RefreshIcon,
   WhatsappIcon,
 } from "@hugeicons/core-free-icons";
+import { useMarketingAction, useMarketingQuery } from "@/lib/marketing-backend";
 
 const OCCASION_LABELS: Record<string, string> = {
   festival: "Festival",
@@ -72,13 +73,13 @@ function TemplateCardsSkeleton() {
 
 export default function MarketingTemplatesPage() {
   const workspace = useWorkspace();
-  const overview = useQuery(api.marketing.overview, { workspaceId: workspace._id });
+  const overview = useMarketingQuery(api.marketing.overview, { workspaceId: workspace._id });
   const templates = useMemo(
     () => [...(overview?.templates ?? [])].sort((a, b) => b.createdAt - a.createdAt),
     [overview]
   );
   const [draft, setDraft] = useState<TemplateDraft | null>(null);
-  const syncTemplates = useAction(api.marketingTemplates.sync);
+  const syncTemplates = useMarketingAction(api.marketingTemplates.sync);
   const [checking, setChecking] = useState(false);
 
   const unlinked = templates.filter((t) => !templateReady(t)).length;

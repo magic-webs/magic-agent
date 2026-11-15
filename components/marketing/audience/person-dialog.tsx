@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatDate } from "@/components/marketing/format";
@@ -28,6 +28,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Cancel01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { normaliseTag } from "@/convex/lib/audience";
 import { categoryLabel, fail, formatPhone, type Category } from "./shared";
+import { useMarketingMutation } from "@/lib/marketing-backend";
 
 export type Person = {
   _id: Id<"contacts">;
@@ -66,9 +67,9 @@ export function PersonDialog({
   onClose: () => void;
 }) {
   const workspace = useWorkspace();
-  const update = useMutation(api.contacts.update);
-  const updatePeople = useMutation(api.audience.updatePeople);
-  const setSubscribed = useMutation(api.contacts.setSubscribed);
+  const update = useMarketingMutation(api.contacts.update);
+  const updatePeople = useMarketingMutation(api.audience.updatePeople);
+  const setSubscribed = useMarketingMutation(api.contacts.setSubscribed);
 
   const [name, setName] = useState(person?.name ?? "");
   const [email, setEmail] = useState(person?.email ?? "");

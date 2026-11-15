@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { usePaginatedQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import {
   STATUS_VARIANT,
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Megaphone02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { useMarketingPaginatedQuery } from "@/lib/marketing-backend";
 
 const ROW_WIDTHS = [
   ["w-48", "w-64"],
@@ -82,7 +83,7 @@ function CampaignRowsSkeleton() {
 export function CampaignsTab() {
   const workspace = useWorkspace();
   const today = localDate(useHourBucket(), workspace.timezone);
-  const { results, status, loadMore } = usePaginatedQuery(
+  const { results, status, loadMore } = useMarketingPaginatedQuery(
     api.marketingBroadcasts.list,
     { workspaceId: workspace._id },
     { initialNumItems: 25 }

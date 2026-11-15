@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
-import { usePaginatedQuery } from "convex-helpers/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -79,6 +78,7 @@ import {
   plural,
   type Category,
 } from "./shared";
+import { useMarketingHelperPaginatedQuery, useMarketingMutation, useMarketingQuery } from "@/lib/marketing-backend";
 
 type View =
   | { kind: "all" }
@@ -154,7 +154,7 @@ export function AudienceTab({
   const busyRef = useRef(false);
   const [deleting, setDeleting] = useState(false);
   const [removeColumns, setRemoveColumns] = useState(true);
-  const listColumns = useQuery(
+  const listColumns = useMarketingQuery(
     api.audience.listColumns,
     deleting && view.kind === "audience" ? { audienceId: view.id } : "skip"
   );
@@ -163,10 +163,10 @@ export function AudienceTab({
   const [categoryDialog, setCategoryDialog] = useState<{ editing: Category | null } | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
 
-  const audiences = useQuery(api.audience.list, { workspaceId: workspace._id });
-  const imports = useQuery(api.audienceImports.list, { workspaceId: workspace._id });
-  const summary = useQuery(api.audience.tags, { workspaceId: workspace._id });
-  const fieldSummary = useQuery(api.marketing.contactFields, { workspaceId: workspace._id });
+  const audiences = useMarketingQuery(api.audience.list, { workspaceId: workspace._id });
+  const imports = useMarketingQuery(api.audienceImports.list, { workspaceId: workspace._id });
+  const summary = useMarketingQuery(api.audience.tags, { workspaceId: workspace._id });
+  const fieldSummary = useMarketingQuery(api.marketing.contactFields, { workspaceId: workspace._id });
   const hiddenStore = `marketing:audience-hidden-fields:${workspace._id}`;
   const [hiddenFields, setHiddenFields] = useState<string[]>(() => readHidden(hiddenStore));
   const fieldKeys = (fieldSummary?.attributes ?? []).map((row) => row.key);
@@ -183,7 +183,7 @@ export function AudienceTab({
     return () => clearTimeout(timer);
   }, [searchDraft]);
 
-  const people = usePaginatedQuery(
+  const people = useMarketingHelperPaginatedQuery(
     api.audience.people,
     {
       workspaceId: workspace._id,
@@ -211,11 +211,11 @@ export function AudienceTab({
     return () => observer.disconnect();
   }, [peopleStatus, loadMorePeople]);
 
-  const updatePeople = useMutation(api.audience.updatePeople);
-  const createAudience = useMutation(api.audience.create);
-  const addPeople = useMutation(api.audience.addPeople);
-  const removePeople = useMutation(api.audience.removePeople);
-  const removeAudience = useMutation(api.audience.remove);
+  const updatePeople = useMarketingMutation(api.audience.updatePeople);
+  const createAudience = useMarketingMutation(api.audience.create);
+  const addPeople = useMarketingMutation(api.audience.addPeople);
+  const removePeople = useMarketingMutation(api.audience.removePeople);
+  const removeAudience = useMarketingMutation(api.audience.remove);
 
   const choose = (next: View) => {
     setView(next);

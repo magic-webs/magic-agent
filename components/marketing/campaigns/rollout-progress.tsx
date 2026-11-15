@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { limitLabel } from "@/convex/lib/rollout";
@@ -17,6 +16,7 @@ import { useHourBucket } from "@/components/use-now";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useMarketingQuery } from "@/lib/marketing-backend";
 
 const DECISION: Record<Doc<"rolloutChecks">["decision"], { label: string; className: string }> = {
   launch: { label: "Sent a wave", className: APPROVED_TONE },
@@ -67,7 +67,7 @@ function Chip({ className, children }: { className: string; children: React.Reac
 
 export function RolloutProgress({ eventId }: { eventId: Id<"marketingEvents"> }) {
   const now = useHourBucket();
-  const progress = useQuery(api.marketingRollout.progress, { eventId, now });
+  const progress = useMarketingQuery(api.marketingRollout.progress, { eventId, now });
   if (progress === undefined) return <ProgressSkeleton />;
   if (progress === null) return null;
   const { rollout, waves, checks, health } = progress;

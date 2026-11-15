@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatPhone } from "@/components/marketing/audience/shared";
@@ -25,6 +25,7 @@ import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { CheckmarkCircle02Icon, UserCheck01Icon } from "@hugeicons/core-free-icons";
+import { useMarketingMutation, useMarketingPaginatedQuery, useMarketingQuery } from "@/lib/marketing-backend";
 
 type Filter = "all" | "going" | "maybe" | "declined" | "attended";
 
@@ -45,16 +46,16 @@ const RSVP_OPTIONS = [
 
 export function GuestsPanel({ campaign }: { campaign: Doc<"marketingCampaigns"> }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const summary = useQuery(api.eventGuests.summary, { campaignId: campaign._id });
-  const { results, status, loadMore } = usePaginatedQuery(
+  const summary = useMarketingQuery(api.eventGuests.summary, { campaignId: campaign._id });
+  const { results, status, loadMore } = useMarketingPaginatedQuery(
     api.eventGuests.list,
     { campaignId: campaign._id, filter },
     { initialNumItems: 50 }
   );
-  const setRsvp = useMutation(api.eventGuests.setRsvp);
-  const setAttended = useMutation(api.eventGuests.setAttended);
-  const checkIn = useMutation(api.eventGuests.checkIn);
-  const markInterested = useMutation(api.eventGuests.markInterestedAttended);
+  const setRsvp = useMarketingMutation(api.eventGuests.setRsvp);
+  const setAttended = useMarketingMutation(api.eventGuests.setAttended);
+  const checkIn = useMarketingMutation(api.eventGuests.checkIn);
+  const markInterested = useMarketingMutation(api.eventGuests.markInterestedAttended);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);

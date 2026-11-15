@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useAction, useMutation } from "convex/react";
+
 import { api } from "@/convex/_generated/api";
 import { CATEGORY_LABELS } from "@/convex/lib/billing";
 import {
@@ -78,6 +78,7 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import { fail, type Occasion, type Template } from "@/components/marketing/calendar";
+import { useMarketingAction, useMarketingMutation } from "@/lib/marketing-backend";
 
 type TemplateCategory = NonNullable<Doc<"marketingTemplates">["category"]>;
 type HeaderKind = "none" | "text" | HeaderMedia["type"];
@@ -219,11 +220,11 @@ export function TemplateDialog({
   templates: Template[];
 }) {
   const workspace = useWorkspace();
-  const saveTemplate = useMutation(api.marketing.saveTemplate);
-  const removeTemplate = useMutation(api.marketing.removeTemplate);
-  const draftTemplate = useAction(api.marketingAi.draft);
-  const applyTemplate = useAction(api.marketingTemplates.apply);
-  const generateUploadUrl = useMutation(api.marketing.generateTemplateUploadUrl);
+  const saveTemplate = useMarketingMutation(api.marketing.saveTemplate);
+  const removeTemplate = useMarketingMutation(api.marketing.removeTemplate);
+  const draftTemplate = useMarketingAction(api.marketingAi.draft);
+  const applyTemplate = useMarketingAction(api.marketingTemplates.apply);
+  const generateUploadUrl = useMarketingMutation(api.marketing.generateTemplateUploadUrl);
   const [busy, setBusy] = useState<string | null>(null);
   const mediaInput = useRef<HTMLInputElement>(null);
   const cardInput = useRef<HTMLInputElement>(null);

@@ -6,7 +6,7 @@ import { supportsPromptCaching } from "../lib/shared";
 
 export const model = internalAction({
   args: { model: v.optional(v.string()) },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ model: string; caching: boolean }> => {
     const id = gatewayModelId(args.model);
     const caching =
       supportsPromptCaching(id) && (await ctx.runQuery(internal.models.promptCaching, { modelId: id }));

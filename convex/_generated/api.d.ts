@@ -129,6 +129,7 @@ import type * as marketingCampaigns from "../marketingCampaigns.js";
 import type * as marketingOverview from "../marketingOverview.js";
 import type * as marketingRollout from "../marketingRollout.js";
 import type * as marketingSend from "../marketingSend.js";
+import type * as marketingService from "../marketingService.js";
 import type * as marketingSync from "../marketingSync.js";
 import type * as marketingTemplates from "../marketingTemplates.js";
 import type * as marketingTracking from "../marketingTracking.js";
@@ -317,6 +318,7 @@ declare const fullApi: ApiFromModules<{
   marketingOverview: typeof marketingOverview;
   marketingRollout: typeof marketingRollout;
   marketingSend: typeof marketingSend;
+  marketingService: typeof marketingService;
   marketingSync: typeof marketingSync;
   marketingTemplates: typeof marketingTemplates;
   marketingTracking: typeof marketingTracking;

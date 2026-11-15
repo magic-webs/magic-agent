@@ -37,8 +37,9 @@ const event = v.union(
   v.object({ type: v.literal("conversion"), at: v.number(), contactId: v.string() })
 );
 
-async function signature(secret: string, body: string) {
-  const at = Math.floor(Date.now() / 1000);
+const MAX_SKEW_SECONDS = 300;
+
+async function hmacHex(secret: string, message: string) {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -46,9 +47,28 @@ async function signature(secret: string, body: string) {
     false,
     ["sign"]
   );
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${at}.${body}`));
-  const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `t=${at},v1=${hex}`;
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** True when `header` signs `body` with MARKETING_SERVICE_SECRET within five minutes. */
+export async function verifySignature(header: string | null, body: string) {
+  const secret = process.env.MARKETING_SERVICE_SECRET;
+  if (!secret || !header) return false;
+  const parts = Object.fromEntries(header.split(",").map((part) => part.split("=", 2)));
+  const at = Number(parts.t);
+  if (!Number.isFinite(at) || Math.abs(Date.now() / 1000 - at) > MAX_SKEW_SECONDS) return false;
+  const expected = await hmacHex(secret, `${at}.${body}`);
+  const given = String(parts.v1 ?? "");
+  if (given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+async function signature(secret: string, body: string) {
+  const at = Math.floor(Date.now() / 1000);
+  return `t=${at},v1=${await hmacHex(secret, `${at}.${body}`)}`;
 }
 
 const CLAIM_TIMEOUT_MS = 2_500;

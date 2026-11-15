@@ -1,6 +1,7 @@
-import { httpRouter } from "convex/server";
+import { httpRouter, type FunctionArgs } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { verifySignature } from "./marketingSync";
 import { interpretEvent } from "./lib/apps";
 import { verifyDelivery } from "./lib/appWebhooks";
 import { isLinkBot } from "./lib/links";
@@ -747,6 +748,49 @@ function inboundResponse(status: number, body: unknown): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+// --- Marketing service ------------------------------------------------------
+// The marketing service (see marketingService.ts) asks for what it needs to
+// send and reports what it sent. Every request is signed with the shared secret.
+async function serviceRequest(request: Request): Promise<unknown | Response> {
+  const body = await request.text();
+  if (!(await verifySignature(request.headers.get("x-signature"), body))) {
+    return new Response("Bad signature", { status: 401 });
+  }
+  try {
+    return JSON.parse(body);
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+}
+
+http.route({
+  path: "/marketing-service/context",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await serviceRequest(request);
+    if (body instanceof Response) return body;
+    const context = await ctx.runQuery(
+      internal.marketingService.context,
+      body as FunctionArgs<typeof internal.marketingService.context>
+    );
+    return Response.json(context);
+  }),
+});
+
+http.route({
+  path: "/marketing-service/charges",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await serviceRequest(request);
+    if (body instanceof Response) return body;
+    const result = await ctx.runMutation(
+      internal.marketingService.charges,
+      body as FunctionArgs<typeof internal.marketingService.charges>
+    );
+    return Response.json(result);
+  }),
+});
 
 http.route({
   pathPrefix: "/l/",

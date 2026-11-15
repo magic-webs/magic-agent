@@ -37,7 +37,7 @@ import { recordAgentReply } from "./lib/agentStats";
 import { noteMessage } from "./lib/inbox";
 import { ensureMarketingDesk } from "./agents";
 import { takesHandoffs } from "./lib/shared";
-import { marketingOnVm } from "./lib/marketingSync";
+import { marketingOnVm, refuseOnVm } from "./lib/marketingSync";
 import {
   festivalsBetween,
   isLocalDate,
@@ -682,6 +682,7 @@ export const saveEvent = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    await refuseOnVm(ctx.db, args.workspaceId);
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
 
@@ -762,6 +763,7 @@ export const sendEventNow = mutation({
   args: { eventId: v.id("marketingEvents") },
   handler: async (ctx, args) => {
     const event = await requireEvent(ctx, args.eventId);
+    await refuseOnVm(ctx.db, event.workspaceId);
     if (!event.templateId) throw new ConvexError("Pick a template first.");
     if (event.status === "paused" || event.status === "cancelled") {
       throw new ConvexError(`This one is ${event.status}. Open it from Campaigns to resume it.`);
@@ -783,6 +785,7 @@ export const saveSettings = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    if (args.birthdayEnabled) await refuseOnVm(ctx.db, args.workspaceId);
     if (args.birthdayTemplateId) {
       await templateInWorkspace(ctx, args.workspaceId, args.birthdayTemplateId);
     }
@@ -1743,6 +1746,7 @@ export const testContext = internalQuery({
     const workspaceId = event?.workspaceId ?? template?.workspaceId;
     if (!workspaceId) throw new ConvexError("Template not found");
     await requireWorkspace(ctx, workspaceId);
+    await refuseOnVm(ctx.db, workspaceId);
 
     const context = await sendContext(ctx, workspaceId, templateId);
     if (!context) throw new ConvexError("Workspace not found");

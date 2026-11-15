@@ -10,6 +10,7 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
+import { refuseOnVm } from "./lib/marketingSync";
 import { homeMarket, quote } from "./lib/billing";
 import { walletFor } from "./lib/wallet";
 import {
@@ -237,6 +238,7 @@ export const save = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    if (!args.draft) await refuseOnVm(ctx.db, args.workspaceId);
     if (args.draft && args.sendNow) throw new ConvexError("A draft cannot be sent now.");
     if (args.rollout) {
       const problem = validPlan(args.rollout);
@@ -360,6 +362,7 @@ export const resume = mutation({
   handler: async (ctx, args) => {
     const event = await requireBroadcast(ctx, args.eventId);
     if (event.status !== "paused") throw new ConvexError("This campaign is not paused.");
+    await refuseOnVm(ctx.db, event.workspaceId);
     const now = Date.now();
     if (event.rollout && event.startedAt) {
       await resumeRollout(ctx, event);

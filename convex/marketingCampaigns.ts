@@ -23,6 +23,7 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireWorkspace } from "./lib/auth";
+import { refuseOnVm } from "./lib/marketingSync";
 import { ensureMarketingDesk } from "./agents";
 import { clampHour, templateInWorkspace } from "./marketing";
 import { audienceSelection, guestSegment } from "./schema/marketing";
@@ -136,6 +137,7 @@ export const save = mutation({
   },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
+    if (args.templateId) await refuseOnVm(ctx.db, args.workspaceId);
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
 

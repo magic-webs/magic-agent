@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { GenericDatabaseReader } from "convex/server";
+import { ConvexError } from "convex/values";
 import type { DataModel } from "../_generated/dataModel";
 
 export type SyncEvent =
@@ -67,6 +68,12 @@ export function contactChanged(before: Doc<"contacts"> | null, after: Doc<"conta
 
 export async function marketingOnVm(db: GenericDatabaseReader<DataModel>, workspaceId: Id<"workspaces">) {
   return (await db.get("workspaces", workspaceId))?.marketingOnVm === true;
+}
+
+export async function refuseOnVm(db: GenericDatabaseReader<DataModel>, workspaceId: Id<"workspaces">) {
+  if (await marketingOnVm(db, workspaceId)) {
+    throw new ConvexError("Marketing for this workspace is moving to the new sender. Sending from here is paused until it is ready.");
+  }
 }
 
 /** Hands an event to the marketing service when the mutation commits. */

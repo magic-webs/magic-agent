@@ -29,6 +29,7 @@ export const context = internalQuery({
       agentId: desk?._id ?? null,
       deskModel: desk?.model ?? null,
       channelId: channel?._id ?? null,
+      filesBaseUrl: process.env.R2_PUBLIC_URL ?? null,
       deskBlock: await deskBlock(ctx, args.workspaceId, "marketing"),
       walletBlock: await templateBlock(ctx, args.workspaceId, args.category),
       channel: channel?.whatsapp

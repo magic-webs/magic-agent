@@ -275,7 +275,7 @@ export async function ensureRouter(
     temperature: 0.2,
     // Routing is a one-decision job: greet, maybe search, transfer.
     maxSteps: 4,
-    historyLimit: 12,
+    historyLimit: 40,
     knowledgeEnabled: true,
     knowledgeTopK: 4,
     builtinTools: [...ROUTER_TOOLS],
@@ -560,7 +560,7 @@ async function insertSpecialist(
     model,
     temperature: 0.4,
     maxSteps: 6,
-    historyLimit: 16,
+    historyLimit: 40,
     knowledgeEnabled: true,
     knowledgeTopK: 6,
     builtinTools: args.builtinTools ?? [...DEFAULT_BUILTIN_TOOLS],

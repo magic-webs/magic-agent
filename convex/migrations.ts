@@ -1332,6 +1332,40 @@ export const reviewDue = internalMutation({
 });
 
 // ---------------------------------------------------------------------------
+// History limit
+//
+//   bunx convex run migrations:historyLimit
+//
+// Lifts every front desk and specialist to the 40-message replay default.
+// ---------------------------------------------------------------------------
+
+const HISTORY_LIMIT_DEFAULT = 40;
+
+export const historyLimit = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("agents")
+      .paginate({ numItems: 200, cursor: args.cursor ?? null });
+    let set = 0;
+    for (const agent of page.page) {
+      if (agent.kind !== "router" && agent.kind !== "specialist") continue;
+      if (agent.historyLimit >= HISTORY_LIMIT_DEFAULT) continue;
+      await ctx.db.patch("agents", agent._id, {
+        historyLimit: HISTORY_LIMIT_DEFAULT,
+      });
+      set++;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.historyLimit, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { set, done: page.isDone };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Report counters
 //
 //   bunx convex run migrations:reportCounters

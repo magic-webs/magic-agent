@@ -46,7 +46,6 @@ import {
   PlugSocketIcon,
   RefreshIcon,
   SentIcon,
-  ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { friendlyError } from "@/lib/errors";
 
@@ -239,16 +238,11 @@ export function McpConnectorCard({
         <CardTitle className="flex flex-wrap items-center gap-2">
           <HugeiconsIcon icon={PlugSocketIcon} strokeWidth={2} className="size-4" />
           Connect an AI assistant
-          <Badge variant="outline">
-            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} /> Read-only
-          </Badge>
-          <Badge variant="outline">
-            <HugeiconsIcon icon={SentIcon} strokeWidth={2} /> Can reply
-          </Badge>
+          <Badge variant="outline">Full access</Badge>
         </CardTitle>
         <CardDescription>
-          Lets an assistant read {workspaceName} and reply in its
-          conversations. It cannot change anything.
+          Lets an assistant read, configure and reply in {workspaceName},
+          with the same access as its dashboard.
         </CardDescription>
       </CardHeader>
 
@@ -258,7 +252,7 @@ export function McpConnectorCard({
             <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
             <AlertTitle>Copy this now — it is not shown again</AlertTitle>
             <AlertDescription className="flex flex-col gap-2">
-              <span>Anyone with this URL can read this workspace.</span>
+              <span>Anyone with this URL can read and change this workspace.</span>
               <div className="flex w-full gap-2">
                 <Input
                   readOnly

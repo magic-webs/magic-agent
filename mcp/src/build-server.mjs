@@ -7,7 +7,7 @@ import { registerAll } from "./tools/index.mjs";
 
 /**
  * Builds a server instance with the tools its scope allows — everything, or
- * for a company's connector only the reads and send_message.
+ * for a company's connector everything but platform administration.
  *
  * A factory rather than a singleton: an McpServer binds to exactly one
  * transport, and the HTTP transport needs a fresh one per client session.
@@ -19,22 +19,13 @@ import { registerAll } from "./tools/index.mjs";
 export function buildServer({ scope = "full" } = {}) {
   const server = new McpServer(
     { name: "magic-agent", version: "1.0.0" },
-    { instructions: scope === "workspace" ? WORKSPACE_INSTRUCTIONS : FULL_INSTRUCTIONS }
+    { instructions: FULL_INSTRUCTIONS }
   );
 
   registerAll(server, scope);
 
   return server;
 }
-
-const WORKSPACE_INSTRUCTIONS = [
-  "Read a Magic Agent workspace — its agents, catalogue, knowledge, channels, conversations, contacts, records, leads, notifications and marketing — and reply to customers in its conversations.",
-  "",
-  "This connector is read-only apart from send_message. It cannot create, change or delete anything; configuration is done in the dashboard.",
-  "- list_conversations finds a thread; read_conversation shows the transcript, with message ids to quote.",
-  "- send_message replies on the thread's own channel, as a person in the inbox would, and pauses the agent so it does not talk over the reply. WhatsApp refuses free text more than 24 hours after the customer's last message.",
-  "- Agents answer only about products in the catalogue and quote only stored prices, so list_products and list_knowledge are where to check what an agent would say.",
-].join("\n");
 
 const FULL_INSTRUCTIONS = [
         "Manage a Magic Agent workspace: agents, the front desk that routes between them, the product catalogue, the knowledge base, channels, custom tools and the marketing desk.",

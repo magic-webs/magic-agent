@@ -44,21 +44,8 @@ const GROUPS = [
   { title: "Platform administration", register: admin, admin: true },
 ];
 
-const WORKSPACE_SENDS = new Set(["send_message"]);
-const PLATFORM_READS = new Set([
-  "workspace_access_report",
-  "platform_usage",
-  "list_platform_notifications",
-]);
-
-/**
- * A company's connector reads, and replies in its conversations — nothing it
- * can configure, create or delete.
- */
-function allowed(scope, name, config) {
-  if (scope !== "workspace") return true;
-  if (WORKSPACE_SENDS.has(name)) return true;
-  return config.annotations?.readOnlyHint === true && !PLATFORM_READS.has(name);
+function groupsFor(scope) {
+  return scope === "workspace" ? GROUPS.filter((group) => !group.admin) : GROUPS;
 }
 
 /**
@@ -66,17 +53,7 @@ function allowed(scope, name, config) {
  * @param {"full" | "workspace"} [scope]
  */
 export function registerAll(server, scope = "full") {
-  const target =
-    scope === "full"
-      ? server
-      : {
-          registerTool(name, config, callback) {
-            if (allowed(scope, name, config)) {
-              server.registerTool(name, config, callback);
-            }
-          },
-        };
-  for (const group of GROUPS) group.register(target);
+  for (const group of groupsFor(scope)) group.register(server);
 }
 
 /**
@@ -85,11 +62,10 @@ export function registerAll(server, scope = "full") {
  * @param {"full" | "workspace"} [scope]
  */
 export function toolCatalogue(scope = "full") {
-  return GROUPS.map((group) => {
+  return groupsFor(scope).map((group) => {
     const tools = [];
     group.register({
       registerTool(name, config) {
-        if (!allowed(scope, name, config)) return;
         tools.push({
           name,
           title: config.title ?? name,

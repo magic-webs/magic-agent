@@ -28,11 +28,8 @@ account it was issued to — an administrator's from the platform console, a
 company's from their workspace settings. Only the hash is stored; rotating
 replaces it, revoking removes it.
 
-A company's connector token gets a narrower tool list than its sign-in: the
-read-only tools (less `workspace_access_report`, `platform_usage` and
-`list_platform_notifications`) and
-`send_message`, nothing that creates, changes or deletes. See
-`allowed()` in `src/tools/index.mjs`.
+A company's connector token gets every tool except the platform-administration
+group. See `groupsFor()` in `src/tools/index.mjs`.
 
 ## Configuration
 
@@ -362,7 +359,7 @@ it to storage, so agents can send it with `send_media`.
 Signed in as a workspace, the administration tools are still listed but fail
 with "Administrator access required" from the Convex guard — the same answer the
 dashboard gives. Through a company's connector token they are not listed at
-all, and neither is anything else that writes.
+all.
 
 ### Notes on a few of them
 

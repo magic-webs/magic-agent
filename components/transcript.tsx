@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { RichMessage, parseRichPayload } from "@/components/rich-message";
@@ -80,7 +80,7 @@ function dayLabelOf(createdAt: number): string {
 
 function DaySeparator({ label }: { label: string }) {
   return (
-    <div className="flex justify-center">
+    <div className="flex justify-center" data-day={label}>
       <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
         {label}
       </span>
@@ -268,6 +268,40 @@ export function TranscriptView({
   );
 
   const agentById = new Map((agents ?? []).map((agent) => [agent._id, agent]));
+
+  const viewport = useRef<HTMLDivElement>(null);
+  const touchedAt = useRef(0);
+  const hideDay = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [floatingDay, setFloatingDay] = useState<string | null>(null);
+  const [dayShown, setDayShown] = useState(false);
+
+  useEffect(
+    () => () => {
+      if (hideDay.current) clearTimeout(hideDay.current);
+    },
+    []
+  );
+
+  const markTouched = () => {
+    touchedAt.current = Date.now();
+  };
+
+  const trackDay = () => {
+    const pane = viewport.current;
+    if (!pane || Date.now() - touchedAt.current > 1000) return;
+    const top = pane.getBoundingClientRect().top + 8;
+    let current: string | null = null;
+    for (const node of pane.querySelectorAll<HTMLElement>("[data-day]")) {
+      if (current !== null && node.getBoundingClientRect().top > top) break;
+      current = node.dataset.day ?? null;
+    }
+    if (!current) return;
+    setFloatingDay(current);
+    setDayShown(true);
+    if (hideDay.current) clearTimeout(hideDay.current);
+    hideDay.current = setTimeout(() => setDayShown(false), 1500);
+  };
+
   const teamOnRight = perspective === "team";
 
   /**
@@ -560,7 +594,15 @@ export function TranscriptView({
         data-chat="whatsapp"
         className="min-h-0 min-w-0 flex-1"
       >
-        <MessageScrollerViewport aria-label="Conversation">
+        <MessageScrollerViewport
+          ref={viewport}
+          aria-label="Conversation"
+          onScroll={trackDay}
+          onWheel={markTouched}
+          onTouchMove={markTouched}
+          onPointerDown={markTouched}
+          onKeyDown={markTouched}
+        >
           {/* justify-end sits a short conversation just above the composer,
               the way a chat client does; once the content overflows,
               `h-max` wins and it scrolls normally. */}
@@ -608,6 +650,19 @@ export function TranscriptView({
             {trailing}
           </MessageScrollerContent>
         </MessageScrollerViewport>
+        {floatingDay ? (
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center transition-opacity",
+              dayShown ? "opacity-100 duration-150" : "opacity-0 duration-300"
+            )}
+          >
+            <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
+              {floatingDay}
+            </span>
+          </div>
+        ) : null}
         <MessageScrollerButton />
       </MessageScroller>
     </MessageScrollerProvider>

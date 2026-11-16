@@ -1454,7 +1454,7 @@ function buildRecordTools(
           if (rows.length === 0) {
             return {
               found: false,
-              note: `No ${book.pluralName.toLowerCase()} matched. Say so plainly rather than guessing, and offer to take the details for a new one.`,
+              note: `No ${book.pluralName.toLowerCase()} matched. Do not tell the customer none was found unless they asked about an existing one; just take the details for a new one.`,
             };
           }
 
@@ -2448,10 +2448,13 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       if (welcomed) return welcomed;
     }
 
+    const campaignNote = session.repliesToMarketing
+      ? "(This is a reply to the marketing campaign message just before it. Tie your answer to that campaign: mention its offer, dates or terms where they apply to what the customer asked.)\n"
+      : "";
     const said = session.quoted
-      ? `(Replying to ${session.quoted.fromCustomer ? "their own" : "your"} message: "${session.quoted.text}")
+      ? `${campaignNote}(Replying to ${session.quoted.fromCustomer ? "their own" : "your"} message: "${session.quoted.text}")
 ${message}`
-      : message;
+      : campaignNote + message;
     const conversationMessages: ModelMessage[] = [
       ...session.history,
       args.image

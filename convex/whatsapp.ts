@@ -437,7 +437,7 @@ export const handleInbound = internalAction({
         ...(message.context?.id ? { replyToWamid: message.context.id } : {}),
       },
       image,
-      ...(superseded ? { fileOnly: true } : {}),
+      ...(superseded || channel.humanOnly ? { fileOnly: true } : {}),
     });
 
     if (superseded) return { handled: true, reason: "image_superseded" };

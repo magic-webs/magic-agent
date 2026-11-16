@@ -244,6 +244,8 @@ function agentOptions(agents: AgentOption[] | undefined) {
   }));
 }
 
+const NO_AGENT = "none";
+
 type ChannelForm = {
   name: string;
   agentId: string;
@@ -304,7 +306,9 @@ function ChannelDialog({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const submit = async () => {
-    if (!selectedAgentId) {
+    const humanOnly = selectedAgentId === NO_AGENT;
+    const agentId = humanOnly ? defaultChannelAgentId(agents) : selectedAgentId;
+    if (!agentId) {
       toast.add({ title: "Pick the agent that answers here", type: "error" });
       return;
     }
@@ -333,14 +337,16 @@ function ChannelDialog({
         await updateChannel({
           channelId,
           name: form.name,
-          agentId: selectedAgentId as Id<"agents">,
+          ...(humanOnly ? {} : { agentId: agentId as Id<"agents"> }),
+          humanOnly,
           whatsapp,
         });
         toast.add({ title: "Channel updated", type: "success" });
       } else {
         await createChannel({
           workspaceId: workspace._id,
-          agentId: selectedAgentId as Id<"agents">,
+          agentId: agentId as Id<"agents">,
+          humanOnly,
           type: "whatsapp",
           name: form.name,
           whatsapp,
@@ -399,7 +405,13 @@ function ChannelDialog({
                 value={selectedAgentId}
                 placeholder="No agents yet"
                 onValueChange={(next) => set("agentId", next)}
-                options={agentOptions(agents)}
+                options={[
+                  ...agentOptions(agents),
+                  {
+                    value: NO_AGENT,
+                    label: "No agent — your team replies from the inbox",
+                  },
+                ]}
               />
             </div>
           </div>
@@ -1491,7 +1503,7 @@ function ChannelControls({
             channelId={channel._id}
             initial={{
               name: channel.name,
-              agentId: channel.agentId,
+              agentId: channel.humanOnly ? NO_AGENT : channel.agentId,
               apiBaseUrl:
                 channel.whatsapp?.apiBaseUrl ??
                 "https://graph.facebook.com",

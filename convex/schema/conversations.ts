@@ -15,6 +15,7 @@ export const conversationsTables = {
   channels: defineTable({
     workspaceId: v.id("workspaces"),
     agentId: v.id("agents"),
+    humanOnly: v.optional(v.boolean()),
     type: channelType,
     name: v.string(),
     channelKey: v.string(),

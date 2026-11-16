@@ -163,7 +163,9 @@ export const listByWorkspace = query({
 
     return channels.map((channel) => ({
       ...redact(channel),
-      agentName: agentNames.get(channel.agentId) ?? "— deleted agent —",
+      agentName: channel.humanOnly
+        ? "No agent"
+        : agentNames.get(channel.agentId) ?? "— deleted agent —",
       messageCount: messages.get(channel._id) ?? 0,
       contactCount: people.get(channel._id)?.size ?? 0,
     }));
@@ -217,6 +219,7 @@ export const create = mutation({
       v.literal("telegram")
     ),
     name: v.string(),
+    humanOnly: v.optional(v.boolean()),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
     webWidget: v.optional(webWidgetSettings),
@@ -253,6 +256,7 @@ export const create = mutation({
     const channelId = await ctx.db.insert("channels", {
       workspaceId: args.workspaceId,
       agentId: args.agentId,
+      humanOnly: args.type === "whatsapp" && args.humanOnly ? true : undefined,
       type: args.type,
       name: args.name.trim() || DEFAULT_NAME[args.type],
       channelKey: randomKey(28),
@@ -354,6 +358,7 @@ export const update = mutation({
     channelId: v.id("channels"),
     name: v.optional(v.string()),
     agentId: v.optional(v.id("agents")),
+    humanOnly: v.optional(v.boolean()),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
     webWidget: v.optional(webWidgetSettings),
@@ -373,6 +378,12 @@ export const update = mutation({
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.agentId !== undefined) patch.agentId = args.agentId;
+    if (args.humanOnly !== undefined) {
+      if (existing.type !== "whatsapp" && args.humanOnly) {
+        throw new ConvexError("Only a WhatsApp channel can run without an agent");
+      }
+      patch.humanOnly = args.humanOnly || undefined;
+    }
     if (args.status !== undefined) patch.status = args.status;
     if (args.intake !== undefined) {
       if (existing.type !== "web") {

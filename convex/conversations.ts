@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import type { ObjectType } from "convex/values";
+import { filter as filterRows } from "convex-helpers/server/filter";
 import {
   query,
   action,
@@ -133,6 +134,7 @@ export const inboxArgs = {
   channelId: v.optional(v.id("channels")),
   agentId: v.optional(v.id("agents")),
   stageId: v.optional(v.id("leadStages")),
+  tagId: v.optional(v.id("leadTags")),
   handling: v.optional(v.union(v.literal("team"), v.literal("agent"))),
   assignee: v.optional(v.union(v.literal("unassigned"), v.id("teamMembers"))),
   bots: v.optional(v.union(v.literal("hide"), v.literal("only"))),
@@ -197,37 +199,41 @@ export async function inboxPage(
             )
             .order("desc");
 
-  const result = await range
-    .filter((q) => {
-      // A thread a send opened stays out until the person answers it.
-      const all = [q.neq(q.field("marketingOnly"), true)];
-      if (term && since) all.push(q.gte(q.field("lastMessageAt"), since));
-      if (unread) {
-        if (term) all.push(q.eq(q.field("lastMessageRole"), "user"));
-        if (status) all.push(q.eq(q.field("status"), status));
-        else all.push(q.neq(q.field("status"), "closed"));
-        all.push(q.neq(q.field("markedBot"), true));
-      }
-      if (args.channelType && !term) {
-        all.push(q.eq(q.field("channelType"), args.channelType));
-      }
-      if (args.channelId && !term) {
-        all.push(q.eq(q.field("channelId"), args.channelId));
-      }
-      if (args.agentId) all.push(q.eq(q.field("activeAgentId"), args.agentId));
-      if (args.stageId) all.push(q.eq(q.field("leadStageId"), args.stageId));
-      if (args.handling === "team") all.push(q.eq(q.field("humanHandling"), true));
-      if (args.handling === "agent") all.push(q.neq(q.field("humanHandling"), true));
-      if (args.assignee === "unassigned") {
-        all.push(q.eq(q.field("assignedMemberId"), undefined));
-      } else if (args.assignee) {
-        all.push(q.eq(q.field("assignedMemberId"), args.assignee));
-      }
-      if (args.bots === "hide") all.push(q.neq(q.field("markedBot"), true));
-      if (args.bots === "only") all.push(q.eq(q.field("markedBot"), true));
-      return all.length > 0 ? q.and(...all) : true;
-    })
-    .paginate(args.paginationOpts);
+  const filtered = range.filter((q) => {
+    // A thread a send opened stays out until the person answers it.
+    const all = [q.neq(q.field("marketingOnly"), true)];
+    if (term && since) all.push(q.gte(q.field("lastMessageAt"), since));
+    if (unread) {
+      if (term) all.push(q.eq(q.field("lastMessageRole"), "user"));
+      if (status) all.push(q.eq(q.field("status"), status));
+      else all.push(q.neq(q.field("status"), "closed"));
+      all.push(q.neq(q.field("markedBot"), true));
+    }
+    if (args.channelType && !term) {
+      all.push(q.eq(q.field("channelType"), args.channelType));
+    }
+    if (args.channelId && !term) {
+      all.push(q.eq(q.field("channelId"), args.channelId));
+    }
+    if (args.agentId) all.push(q.eq(q.field("activeAgentId"), args.agentId));
+    if (args.stageId) all.push(q.eq(q.field("leadStageId"), args.stageId));
+    if (args.handling === "team") all.push(q.eq(q.field("humanHandling"), true));
+    if (args.handling === "agent") all.push(q.neq(q.field("humanHandling"), true));
+    if (args.assignee === "unassigned") {
+      all.push(q.eq(q.field("assignedMemberId"), undefined));
+    } else if (args.assignee) {
+      all.push(q.eq(q.field("assignedMemberId"), args.assignee));
+    }
+    if (args.bots === "hide") all.push(q.neq(q.field("markedBot"), true));
+    if (args.bots === "only") all.push(q.eq(q.field("markedBot"), true));
+    return all.length > 0 ? q.and(...all) : true;
+  });
+  const tagId = args.tagId;
+  const result = await (
+    tagId
+      ? filterRows(filtered, (row) => row.leadTagIds?.includes(tagId) ?? false)
+      : filtered
+  ).paginate(args.paginationOpts);
 
   return { ...result, page: await inboxRows(ctx, workspaceId, result.page) };
 }

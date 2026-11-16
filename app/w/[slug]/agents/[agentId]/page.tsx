@@ -432,7 +432,9 @@ export default function AgentConfigPage({
                 // Guarded, or picking the agent you are already on pushes the
                 // route you are already at and re-seeds the draft.
                 if (next && next !== typedAgentId) {
-                  router.push(`${base}/agents/${next}`);
+                  router.push(
+                    `${base}/agents/${next}${tab === "identity" ? "" : `?tab=${tab}`}`
+                  );
                 }
               }}
               options={

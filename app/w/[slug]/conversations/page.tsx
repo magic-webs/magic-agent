@@ -128,6 +128,7 @@ export default function ConversationsPage() {
   const pathname = usePathname();
 
   const stages = useQuery(api.leads.stageNames, { workspaceId: workspace._id });
+  const tags = useQuery(api.leads.listTags, { workspaceId: workspace._id });
   const team = useQuery(api.team.activeForReply, { workspaceId: workspace._id });
   const channels = useQuery(api.channels.inboxChannels, {
     workspaceId: workspace._id,
@@ -144,6 +145,7 @@ export default function ConversationsPage() {
   const [handlingFilter, setHandlingFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("all");
   const [activityFilter, setActivityFilter] = useState("any");
   const [botsFilter, setBotsFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -188,6 +190,7 @@ export default function ConversationsPage() {
         ? undefined
         : (channelFilter as Id<"channels">),
       stageId: stageFilter === "all" ? undefined : (stageFilter as Id<"leadStages">),
+      tagId: tagFilter === "all" ? undefined : (tagFilter as Id<"leadTags">),
       handling:
         handlingFilter === "you"
           ? "team"
@@ -213,6 +216,7 @@ export default function ConversationsPage() {
     handlingFilter !== "all" ||
     assigneeFilter !== "all" ||
     stageFilter !== "all" ||
+    tagFilter !== "all" ||
     activityFilter !== "any" ||
     botsFilter !== "all";
   const filtered = narrowed || agentFilter !== "all" || term !== "";
@@ -518,6 +522,26 @@ export default function ConversationsPage() {
                     ]}
                   />
                 </div>
+                {tags && tags.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="conv-tag" className="text-xs">
+                      Tag
+                    </Label>
+                    <SelectField
+                      id="conv-tag"
+                      size="sm"
+                      value={tagFilter}
+                      onValueChange={setTagFilter}
+                      options={[
+                        { value: "all", label: "Any tag" },
+                        ...tags.map((tag) => ({
+                          value: tag._id as string,
+                          label: tag.name,
+                        })),
+                      ]}
+                    />
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="conv-activity" className="text-xs">
                     Last message
@@ -556,6 +580,7 @@ export default function ConversationsPage() {
                       setHandlingFilter("all");
                       setAssigneeFilter("all");
                       setStageFilter("all");
+                      setTagFilter("all");
                       setActivityFilter("any");
                       setBotsFilter("all");
                     }}

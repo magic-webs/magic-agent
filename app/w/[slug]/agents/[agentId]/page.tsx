@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -154,12 +154,16 @@ type Draft = {
   status: "draft" | "active" | "paused";
 };
 
+const AGENT_TABS = ["identity", "routing", "tone", "rules", "capabilities", "model", "prompt"];
+
 export default function AgentConfigPage({
   params,
 }: PageProps<"/w/[slug]/agents/[agentId]">) {
   const { agentId } = use(params);
   const workspace = useWorkspace();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const base = `/w/${workspace.slug}`;
 
   const typedAgentId = agentId as Id<"agents">;
@@ -201,6 +205,18 @@ export default function AgentConfigPage({
   // on the way in for anyone else, so hiding the tab is presentation rather
   // than the permission itself.
   const choosesModel = useSession().canModify("models");
+
+  const requestedTab = searchParams.get("tab");
+  const tab =
+    requestedTab && AGENT_TABS.includes(requestedTab) && (requestedTab !== "model" || choosesModel)
+      ? requestedTab
+      : "identity";
+  const selectTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === "identity") next.delete("tab");
+    else next.set("tab", value);
+    window.history.replaceState(null, "", `${pathname}${next.size ? `?${next}` : ""}`);
+  };
 
   // Seed the editable draft from the server document, and re-seed if a
   // different agent is opened. Adjusting state during render rather than in an
@@ -477,7 +493,7 @@ export default function AgentConfigPage({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        <Tabs defaultValue="identity" className="gap-4">
+        <Tabs value={tab} onValueChange={selectTab} className="gap-4">
           <TabsList>
             <TabsTrigger value="identity">Identity</TabsTrigger>
             <TabsTrigger value="routing">Routing</TabsTrigger>

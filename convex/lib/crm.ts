@@ -47,15 +47,40 @@ export function listIn(body: unknown, depth = 0): Json[] {
 
 export function readChat(row: Json): CrmChat | null {
   const id = pick(row, ["_id", "id", "chat_id", "chatId"]);
-  const contact = isObject(row.contact) ? row.contact : {};
+  const contact = isObject(row.contact) ? row.contact : isObject(row.profile) ? row.profile : {};
+  const phoneKeys = ["whatsapp", "wa_id", "waId", "phone", "phone_number", "phoneNumber", "mobile", "number", "contact_number", "contact", "profile"];
+  const phoneLike = (value: string | undefined) =>
+    value && /^\+?[\d\s()-]{8,20}$/.test(value) && value.replace(/\D/g, "").length >= 8 ? value : undefined;
   const phone =
-    pick(row, ["whatsapp", "wa_id", "waId", "phone", "phone_number", "phoneNumber", "mobile", "number", "contact_number"]) ??
-    pick(contact, ["whatsapp", "wa_id", "phone", "phone_number", "mobile", "number"]);
-  if (!id || !phone) return null;
+    phoneLike(pick(row, phoneKeys)) ??
+    phoneLike(pick(contact, phoneKeys)) ??
+    phoneLike(id) ??
+    phoneLike(pick(row, ["name"]));
+  if (!id) return null;
+  const nameParts = isObject(row.name)
+    ? [str(row.name.first_name), str(row.name.last_name)].filter(Boolean).join(" ") || undefined
+    : undefined;
+  const whatsappProfile = isObject(contact.whatsapp) ? contact.whatsapp : {};
   const name =
+    nameParts ??
     pick(row, ["chat_name", "chatName", "name", "full_name", "display_name", "profile_name"]) ??
-    pick(contact, ["name", "full_name", "profile_name"]);
-  return { id, phone, name: name && name !== phone ? name : undefined };
+    pick(contact, ["name", "full_name", "profile_name", "pushname", "push_name"]) ??
+    pick(whatsappProfile, ["name", "wapp_username"]);
+  return { id, phone: phone ?? "", name: name && name !== phone ? name : undefined };
+}
+
+export function readCounterpart(row: Json, ownDigits: string): string | undefined {
+  const inner = isObject(row.message) ? row.message : isObject(row.data) ? row.data : row;
+  const own = ownDigits.slice(-9);
+  for (const source of [row, inner]) {
+    for (const key of ["wa_id", "waId", "from", "to", "sender", "recipient", "phone", "contact_number", "number"]) {
+      const value = source[key];
+      const raw = isObject(value) ? pick(value, ["phone", "wa_id", "number", "id"]) : str(value);
+      const digits = raw?.replace(/\D/g, "");
+      if (digits && digits.length >= 8 && digits.length <= 15 && !(own && digits.endsWith(own))) return digits;
+    }
+  }
+  return undefined;
 }
 
 function readTime(value: unknown): number | undefined {
@@ -107,6 +132,8 @@ function readText(row: Json, inner: Json): string | undefined {
     const text = source.text;
     if (isObject(text) && str(text.body)) return str(text.body);
     if (typeof text === "string" && text.trim()) return text.trim();
+    const body = source.body;
+    if (isObject(body) && str(body.text)) return str(body.text);
   }
   for (const source of sources) {
     const body = pick(source, ["body", "content", "message_text", "messageText", "caption"]);

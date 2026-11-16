@@ -105,14 +105,14 @@ export function CrmImportDialog() {
         </DialogHeader>
 
         {job ? (
-          <div className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-1 rounded-lg border p-3 text-sm">
             <p className="flex items-center gap-2 font-medium">
               {running ? <Spinner /> : null} {STATUS_LABEL[job.status]}
             </p>
             <p className="text-muted-foreground">
               {job.chats} chats · {job.messages} messages imported · {job.skipped} skipped
             </p>
-            {job.error ? <p className="text-destructive">{job.error}</p> : null}
+            {job.error ? <p className="max-h-40 overflow-y-auto break-all text-destructive">{job.error}</p> : null}
           </div>
         ) : null}
 

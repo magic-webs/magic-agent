@@ -10,14 +10,15 @@ import {
   listIn,
   normaliseBaseUrl,
   readChat,
+  readCounterpart,
   readMessage,
   type CrmChat,
   type CrmMessage,
 } from "./lib/crm";
 
 const CHATS_PER_PAGE = 25;
-const MESSAGES_PER_PAGE = 50;
-const MAX_MESSAGE_PAGES = 40;
+const MESSAGES_PER_PAGE = 20;
+const MAX_MESSAGE_PAGES = 100;
 const MAX_CHAT_PAGES = 4000;
 const SAVE_CHUNK = 100;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -125,6 +126,33 @@ export const job = internalQuery({
   args: { importId: v.id("crmImports") },
   handler: async (ctx, args) => await ctx.db.get("crmImports", args.importId),
 });
+
+export const ownNumber = internalQuery({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args): Promise<string> => {
+    const channel = await ctx.db.get("channels", args.channelId);
+    const raw = channel?.whatsapp?.displayPhoneNumber ?? channel?.name ?? "";
+    return raw.replace(/\D/g, "");
+  },
+});
+
+async function resolvePhone(
+  job: Doc<"crmImports"> & { apiKey: string },
+  chat: CrmChat,
+  own: string
+): Promise<{ phone?: string; sample?: unknown }> {
+  const body = await crmGet(
+    job.baseUrl,
+    job.apiKey,
+    `/crm/chat/${encodeURIComponent(chat.id)}/messages?page=1&limit=${MESSAGES_PER_PAGE}&sort=newest`
+  );
+  const rows = listIn(body);
+  for (const row of rows) {
+    const phone = readCounterpart(row, own);
+    if (phone) return { phone };
+  }
+  return rows.length > 0 ? { sample: rows[0] } : {};
+}
 
 async function findContact(
   ctx: { db: QueryCtx["db"] },
@@ -361,11 +389,17 @@ async function crmGet(baseUrl: string, apiKey: string, path: string): Promise<un
   if (!response.ok) {
     throw new Error(`The CRM answered ${response.status} for ${path.split("?")[0]}.`);
   }
+  let body: unknown;
   try {
-    return await response.json();
+    body = await response.json();
   } catch {
     throw new Error("The CRM did not answer with JSON. Check the API URL.");
   }
+  if (typeof body === "object" && body !== null && (body as { success?: unknown }).success === false) {
+    const { developer_message, message } = body as { developer_message?: unknown; message?: unknown };
+    throw new Error(`The CRM said: ${String(developer_message ?? message ?? "request failed")}.`);
+  }
+  return body;
 }
 
 async function fetchMessages(
@@ -432,6 +466,9 @@ export const runPage = internalAction({
         error: `Could not read the CRM's chats. The first one has: ${Object.keys(rows[0]).join(", ")}.`,
       });
     }
+    const own: string = await ctx.runQuery(internal.crmImports.ownNumber, { channelId: job.channelId });
+    let phoneFound = false;
+    let sample: unknown;
     const firstChatId = chats.find((chat) => chat !== null)?.id;
     if (firstChatId && firstChatId === current.lastFirstChatId) return await finish({});
 
@@ -442,6 +479,20 @@ export const runPage = internalAction({
         skipped++;
         continue;
       }
+      if (!chat.phone) {
+        try {
+          const resolved = await resolvePhone(job, chat, own);
+          if (resolved.phone) chat.phone = resolved.phone;
+          else sample ??= resolved.sample;
+        } catch (error) {
+          sample ??= error instanceof Error ? error.message : String(error);
+        }
+        if (!chat.phone) {
+          skipped++;
+          continue;
+        }
+      }
+      phoneFound = true;
       const state = await ctx.runQuery(internal.crmImports.chatState, {
         importId: args.importId,
         chatId: chat.id,
@@ -475,6 +526,13 @@ export const runPage = internalAction({
         if (!result.running) return null;
       }
       imported++;
+    }
+
+    if (job.page === 1 && !phoneFound && sample !== undefined) {
+      return await finish({
+        skipped,
+        error: `Could not find the customer's number in the CRM's chats or messages. A message looks like: ${JSON.stringify(sample ?? null).slice(0, 2000)}`,
+      });
     }
 
     const running: boolean = await ctx.runMutation(internal.crmImports.advance, {

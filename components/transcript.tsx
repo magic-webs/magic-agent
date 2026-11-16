@@ -81,7 +81,7 @@ function dayLabelOf(createdAt: number): string {
 function DaySeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center" data-day={label}>
-      <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
+      <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border/60">
         {label}
       </span>
     </div>
@@ -658,12 +658,12 @@ export function TranscriptView({
               dayShown ? "opacity-100 duration-150" : "opacity-0 duration-300"
             )}
           >
-            <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
+            <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border/60">
               {floatingDay}
             </span>
           </div>
         ) : null}
-        <MessageScrollerButton />
+        <MessageScrollerButton className="inset-s-auto end-3 translate-x-0 shadow-md rtl:translate-x-0" />
       </MessageScroller>
     </MessageScrollerProvider>
   );

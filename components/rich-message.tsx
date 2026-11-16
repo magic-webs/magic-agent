@@ -814,7 +814,7 @@ export function RichMessage({
         return (
           <div className="flex flex-col gap-1">
             <Body text={message.preview ?? `[${message.templateName}]`} />
-            <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-0.5 pb-1">
+            <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-0.5 pb-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
               {message.cards.map((cardData, index) => (
                 <div
                   key={index}
@@ -1155,7 +1155,7 @@ export function RichMessage({
           {message.bodyVariables?.length ? (
             <Body text={message.bodyVariables.join(" · ")} />
           ) : null}
-          <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-0.5 pb-1">
+          <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-0.5 pb-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
             {message.cards.map((cardData, index) => (
               <div
                 key={index}
@@ -1193,7 +1193,7 @@ export function RichMessage({
       return (
         <div className="flex flex-col gap-1">
           <Body text={message.body} />
-          <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-0.5 pb-1">
+          <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-0.5 pb-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
             {message.cards.map((cardData, index) => (
               <div
                 key={index}

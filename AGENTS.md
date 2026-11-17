@@ -22,6 +22,14 @@ Convex agent skills for common tasks can be installed by running
 
 <!-- convex-ai-end -->
 
+# Deployment
+
+There is no production Convex deployment. The live site, agent.magicwebs.ai,
+runs on the dev deployment (`dev:fine-pony-728` in `.env.local`). Run
+migrations and data commands without `--prod`, for example
+`bunx convex run migrations:campaignCosts`. Pushing functions with
+`bunx convex dev` changes what customers use straight away.
+
 # Comments
 
 Don't write unwanted comments. Add one only when the code cannot say it

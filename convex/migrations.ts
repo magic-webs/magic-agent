@@ -1527,17 +1527,7 @@ export const audienceCountsForWorkspace = internalMutation({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Campaign costs from the ledger
-//
-//   bunx convex run migrations:campaignCosts
-//
-// A campaign's cost was the home market's rate times the people sent to,
-// which is wrong for any recipient abroad and ignores refunds and Meta's
-// final price. Campaigns now carry the sum of their own ledger rows. This
-// links the rows of campaigns sent before that, and adds them up.
-// ---------------------------------------------------------------------------
-
+// bunx convex run migrations:campaignCosts — links pre-existing ledger rows to their campaigns.
 const COST_BATCH = 200;
 
 export const campaignCosts = internalMutation({

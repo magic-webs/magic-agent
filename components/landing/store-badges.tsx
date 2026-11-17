@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const PLAY_URL = "https://play.google.com/store/apps/details?id=ai.magicagent.app";
-const TESTFLIGHT_URL = "https://testflight.apple.com/join/e9h3wBhm";
+const APP_STORE_URL = "https://apps.apple.com/in/app/magic-agent-ai-business-chat/id6821866113";
 
 function AppleLogo() {
   return (
@@ -41,15 +41,15 @@ export function StoreBadges({ className }: { className?: string }) {
         </span>
       </a>
       <a
-        href={TESTFLIGHT_URL}
+        href={APP_STORE_URL}
         target="_blank"
         rel="noreferrer"
         className={cn(BADGE, "transition-transform duration-300 hover:-translate-y-0.5")}
       >
         <AppleLogo />
         <span className="flex flex-col leading-none">
-          <span className="text-[10px] tracking-wide text-white/70 uppercase">Get the beta on</span>
-          <span className="mt-1 text-[17px] font-medium">TestFlight</span>
+          <span className="text-[10px] tracking-wide text-white/70 uppercase">Download on the</span>
+          <span className="mt-1 text-[17px] font-medium">App Store</span>
         </span>
       </a>
     </div>

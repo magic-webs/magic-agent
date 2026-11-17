@@ -567,6 +567,19 @@ async function deleteWorkspace(ctx: MutationCtx, workspaceId: Id<"workspaces">) 
     await deleteFile(ctx, workspace.logoKey, workspace.logoStorageId);
   }
 
+  for (const user of await ctx.db.query("users").collect()) {
+    if (!user.workspaceIds.includes(workspaceId)) continue;
+    await ctx.db.patch("users", user._id, {
+      workspaceIds: user.workspaceIds.filter((id) => id !== workspaceId),
+    });
+  }
+  for (const admin of await ctx.db.query("admins").collect()) {
+    if (!admin.workspaceIds?.includes(workspaceId)) continue;
+    await ctx.db.patch("admins", admin._id, {
+      workspaceIds: admin.workspaceIds.filter((id) => id !== workspaceId),
+    });
+  }
+
   await ctx.db.delete(workspaceId);
 }
 

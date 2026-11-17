@@ -1606,3 +1606,35 @@ export const clearSentErrors = internalMutation({
     return { cleared, done: page.isDone };
   },
 });
+
+// bunx convex run migrations:dropDeletedWorkspaceIds — strips deleted workspaces from every login's list.
+export const dropDeletedWorkspaceIds = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const exists = new Map<Id<"workspaces">, boolean>();
+    const live = async (ids: Id<"workspaces">[]) => {
+      const kept: Id<"workspaces">[] = [];
+      for (const id of ids) {
+        if (!exists.has(id)) exists.set(id, (await ctx.db.get("workspaces", id)) !== null);
+        if (exists.get(id)) kept.push(id);
+      }
+      return kept;
+    };
+    let users = 0;
+    for (const user of await ctx.db.query("users").collect()) {
+      const kept = await live(user.workspaceIds);
+      if (kept.length === user.workspaceIds.length) continue;
+      await ctx.db.patch("users", user._id, { workspaceIds: kept });
+      users++;
+    }
+    let admins = 0;
+    for (const admin of await ctx.db.query("admins").collect()) {
+      if (!admin.workspaceIds) continue;
+      const kept = await live(admin.workspaceIds);
+      if (kept.length === admin.workspaceIds.length) continue;
+      await ctx.db.patch("admins", admin._id, { workspaceIds: kept });
+      admins++;
+    }
+    return { users, admins };
+  },
+});

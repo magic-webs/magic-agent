@@ -50,4 +50,5 @@ next-env.d.ts
 changes.md
 rcs-api.pdf
 magic-agent-test-contacts.csv
-/test-contacts//docs/
+/test-contacts/
+/docs/

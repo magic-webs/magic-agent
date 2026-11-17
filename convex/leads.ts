@@ -126,6 +126,35 @@ export const listStages = query({
   },
 });
 
+const NAV_COUNT_CAP = 1000;
+
+export const navCounts = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const stages = await ctx.db
+      .query("leadStages")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(200);
+    let leads = 0;
+    for (const stage of stages) {
+      if (leads >= NAV_COUNT_CAP) break;
+      const rows = await ctx.db
+        .query("conversations")
+        .withIndex("by_workspace_stage", (q) =>
+          q.eq("workspaceId", args.workspaceId).eq("leadStageId", stage._id)
+        )
+        .take(NAV_COUNT_CAP - leads);
+      leads += rows.length;
+    }
+    const contacts = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(NAV_COUNT_CAP);
+    return { leads, contacts: contacts.length };
+  },
+});
+
 export const createStage = mutation({
   args: {
     workspaceId: v.id("workspaces"),

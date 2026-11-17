@@ -37,6 +37,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import {
   Empty,
   EmptyDescription,
@@ -210,6 +211,17 @@ const NAV: Array<{
   { label: "Integrations", icon: ConnectIcon, href: "/integrations" },
 ];
 
+type NavBadge = { text: string; tone: "alert" | "count" };
+
+function countBadge(
+  count: number | null | undefined,
+  tone: NavBadge["tone"],
+  max = 99
+): NavBadge | null {
+  if (!count) return null;
+  return { text: count > max ? `${max}+` : String(count), tone };
+}
+
 /** Whether `pathname` is the row's page, or — unless `exact` — one below it. */
 function isOn(pathname: string, base: string, item: NavItem): boolean {
   const href = `${base}${item.href}`;
@@ -244,7 +256,7 @@ function NavSection({
   base: string;
   pathname: string;
   /** Counts keyed by an item's href, shown on that row. */
-  badges: Record<string, string | null>;
+  badges: Record<string, NavBadge | null>;
 }) {
   const [manual, setManual] = useState<{ path: string; open: boolean } | null>(
     null
@@ -273,7 +285,7 @@ function NavSection({
         >
           <HugeiconsIcon icon={icon} strokeWidth={2} />
           <span>{label}</span>
-          {!open && items.some((item) => badges[item.href]) ? (
+          {!open && items.some((item) => badges[item.href]?.tone === "alert") ? (
             <span className="ml-auto size-2 shrink-0 rounded-full bg-destructive" />
           ) : null}
           <HugeiconsIcon
@@ -298,8 +310,15 @@ function NavSection({
                     <HugeiconsIcon icon={item.icon} strokeWidth={2} />
                     <span>{item.label}</span>
                     {badge ? (
-                      <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-destructive/10 px-1 text-xs font-medium text-destructive tabular-nums">
-                        {badge}
+                      <span
+                        className={cn(
+                          "ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md px-1 text-xs font-medium tabular-nums",
+                          badge.tone === "alert"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        )}
+                      >
+                        {badge.text}
                       </span>
                     ) : null}
                   </SidebarMenuSubButton>
@@ -346,6 +365,10 @@ export default function WorkspaceLayout({
   // the sidebar is on every page.
   const escalated = useQuery(
     api.conversations.escalatedCount,
+    workspace ? { workspaceId: workspace._id } : "skip"
+  );
+  const leadCounts = useQuery(
+    api.leads.navCounts,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
   const openGaps = useQuery(
@@ -542,11 +565,15 @@ export default function WorkspaceLayout({
                         base={base}
                         pathname={pathname}
                         badges={{
-                          "/knowledge": openGaps
-                            ? openGaps > 99
-                              ? "99+"
-                              : String(openGaps)
-                            : null,
+                          "/knowledge": countBadge(openGaps, "alert"),
+                          "/leads": countBadge(leadCounts?.leads, "count", 999),
+                          "/contacts": countBadge(leadCounts?.contacts, "count", 999),
+                          ...Object.fromEntries(
+                            (books ?? []).map((book) => [
+                              `/records/${book._id}`,
+                              countBadge(book.recordCount, "count", 999),
+                            ])
+                          ),
                         }}
                       />
                     );

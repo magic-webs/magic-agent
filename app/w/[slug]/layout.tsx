@@ -367,10 +367,6 @@ export default function WorkspaceLayout({
     api.conversations.escalatedCount,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
-  const leadCounts = useQuery(
-    api.leads.navCounts,
-    workspace ? { workspaceId: workspace._id } : "skip"
-  );
   const openGaps = useQuery(
     api.knowledgeGaps.openCount,
     workspace ? { workspaceId: workspace._id } : "skip"
@@ -566,8 +562,6 @@ export default function WorkspaceLayout({
                         pathname={pathname}
                         badges={{
                           "/knowledge": countBadge(openGaps, "alert"),
-                          "/leads": countBadge(leadCounts?.leads, "count", 999),
-                          "/contacts": countBadge(leadCounts?.contacts, "count", 999),
                           ...Object.fromEntries(
                             (books ?? []).map((book) => [
                               `/records/${book._id}`,

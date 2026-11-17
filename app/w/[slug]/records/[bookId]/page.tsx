@@ -126,6 +126,29 @@ function personLine(row: Doc<"records">): string {
   return person.name || person.phone || person.email || person.company || "—";
 }
 
+function RowStage({ row, stages }: { row: RecordRow; stages: string[] }) {
+  const updateRecord = useMutation(api.records.updateRecord);
+  return (
+    <SelectField
+      size="sm"
+      className="w-40"
+      aria-label={`Stage for ${row.reference}`}
+      value={row.stage ?? ""}
+      placeholder="—"
+      options={stages.map((name) => ({ value: name, label: name }))}
+      onValueChange={async (stage) => {
+        if (!stage || stage === row.stage) return;
+        try {
+          await updateRecord({ recordId: row._id, stage });
+          toast.add({ title: `Moved to ${stage}.`, type: "success" });
+        } catch (error) {
+          toast.add({ title: friendlyError(error, "Failed."), type: "error" });
+        }
+      }}
+    />
+  );
+}
+
 // ---------------------------------------------------------------------------
 // One filed record
 // ---------------------------------------------------------------------------
@@ -1130,7 +1153,11 @@ export default function RecordBookPage({
                   <TableHead>Reference</TableHead>
                   <TableHead>About</TableHead>
                   {book.fields.slice(0, 2).map((field) => (
-                    <TableHead key={field.key} className="hidden lg:table-cell">
+                    <TableHead
+                      key={field.key}
+                      className="hidden max-w-48 truncate lg:table-cell"
+                      title={field.label}
+                    >
                       {field.label}
                     </TableHead>
                   ))}
@@ -1161,11 +1188,7 @@ export default function RecordBookPage({
                       ))}
                       {book.stages.length > 0 ? (
                         <TableCell>
-                          {row.stage ? (
-                            <Badge variant="outline">{row.stage}</Badge>
-                          ) : (
-                            "—"
-                          )}
+                          <RowStage row={row} stages={book.stages} />
                         </TableCell>
                       ) : null}
                       <TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">

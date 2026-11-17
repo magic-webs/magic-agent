@@ -886,6 +886,25 @@ function WebhooksTab({ book }: { book: Book }) {
   );
 }
 
+function Purpose({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 160;
+  return (
+    <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
+      <p className={open ? undefined : "line-clamp-2"}>{text}</p>
+      {long ? (
+        <button
+          type="button"
+          className="mt-0.5 text-xs font-medium text-foreground underline-offset-4 hover:underline"
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? "Less" : "More"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // The page
 // ---------------------------------------------------------------------------
@@ -998,9 +1017,7 @@ export default function RecordBookPage({
             <h1 className="font-heading text-2xl font-semibold tracking-tight">
               {book.pluralName}
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              {book.purpose || `Records of type “${book.name}”.`}
-            </p>
+            <Purpose text={book.purpose || `Records of type “${book.name}”.`} />
           </div>
 
           <div className="flex items-center gap-3">

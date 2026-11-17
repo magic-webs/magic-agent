@@ -1,0 +1,96 @@
+.pl {
+  & .ss-stage { --gutter: 24px; }
+
+  .pl-window {
+    position: absolute;
+    top: var(--gutter);
+    left: var(--gutter);
+    right: var(--gutter);
+    height: 460px;
+    box-shadow: var(--ss-shadow-hero);
+  }
+
+  .pl-window .ss-window__heading {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .pl-board {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 10px;
+    height: 100%;
+    padding: 12px;
+    background: var(--ss-surface);
+  }
+
+  .pl-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 12px;
+    background: var(--ss-ink-1);
+  }
+
+  .pl-col__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+  }
+
+  .pl-col__title { font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--ss-text-strong); }
+  .pl-col__count { font-size: 12px; line-height: 1.3; color: var(--ss-text-faint); }
+
+  .pl-col__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pl-col__list > .ss-slot[data-open] + * { margin-top: 0; }
+
+  .pl-card {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    padding: 14px 12px;
+    border-radius: 10px;
+    background: var(--ss-surface);
+    box-shadow: var(--ss-shadow-card), 0 0 0 1px var(--ss-line-faint);
+    will-change: transform;
+  }
+
+  .pl-card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .pl-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    align-self: stretch;
+    min-width: 0;
+  }
+
+  .pl-card__top > :last-child { flex: none; }
+
+  .pl-card__name { font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--ss-text-strong); white-space: nowrap; }
+  .pl-card__item { font-size: 11px; line-height: 1.3; color: var(--ss-text); white-space: nowrap; }
+
+  .pl-chip { flex: none; margin-top: 3px; }
+
+  & .ss-stage[data-layout="compact"] { --gutter: 16px; }
+  & .ss-stage[data-layout="compact"] .pl-board { gap: 8px; padding: 10px; }
+  & .ss-stage[data-layout="compact"] .pl-col { padding: 6px; }
+  & .ss-stage[data-layout="compact"] .pl-card { gap: 7px; padding: 14px 10px; }
+}

@@ -15,7 +15,9 @@ import {
   GoogleSheetsIcon,
 } from "@/components/integrations/google-icons";
 import { MaskLines } from "@/components/landing/mask-lines";
-import { ChatScene, EnquiryScene, InsightScene } from "@/components/landing/scenes";
+import { AnswersScene } from "@/components/landing/scenes/answers";
+import { CollectsScene } from "@/components/landing/scenes/collects";
+import { PipelineScene } from "@/components/landing/scenes/pipeline";
 import { TemplateRail } from "@/components/landing/template-rail";
 import { ClosingPanel } from "@/components/landing/closing-panel";
 import { StoreBadges } from "@/components/landing/store-badges";
@@ -46,7 +48,7 @@ const FEATURES = [
       "Lead times only from what you told it",
       "Your tone, your name, your rules",
     ],
-    Scene: ChatScene,
+    Scene: AnswersScene,
   },
   {
     eyebrow: "Collects",
@@ -57,7 +59,7 @@ const FEATURES = [
       "Orders, bookings, quotes and leads",
       "Handed over with a summary",
     ],
-    Scene: EnquiryScene,
+    Scene: CollectsScene,
   },
   {
     eyebrow: "Reports",
@@ -68,7 +70,7 @@ const FEATURES = [
       "Gentle follow-ups when a lead goes quiet",
       "Every channel in one inbox",
     ],
-    Scene: InsightScene,
+    Scene: PipelineScene,
   },
 ];
 
@@ -161,12 +163,7 @@ export default async function LandingPage() {
               </Reveal>
             </div>
 
-            <div className="stage-mesh relative flex min-h-[460px] items-center justify-center overflow-hidden rounded-[28px] border border-(--line) px-5 py-12 sm:px-10 sm:py-16">
-              <div className="bg-dots absolute inset-0" />
-              <div className="relative flex w-full justify-center">
-                <Scene />
-              </div>
-            </div>
+            <Scene />
           </div>
         ))}
       </section>

@@ -1,0 +1,21 @@
+.scene {
+  & .ss-stage {
+    --ss-accent: var(--ok);
+    --ss-font: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    overflow: hidden;
+    border-radius: 28px;
+    box-shadow: inset 0 0 0 1px var(--line);
+    background:
+      radial-gradient(ellipse 65% 60% at 12% 8%, var(--mesh-1), transparent 70%),
+      radial-gradient(ellipse 60% 65% at 92% 96%, var(--mesh-2), transparent 70%),
+      var(--stage);
+  }
+
+  & .ss-stage[data-layout="compact"] { border-radius: 22px; }
+
+  & .ss-stage[data-theme="dark"] { --ss-accent: #3a8f66; }
+
+  .scene-shadow {
+    box-shadow: var(--ss-shadow-satellite), 0 30px 60px -24px rgba(20, 40, 44, 0.4);
+  }
+}

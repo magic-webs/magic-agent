@@ -54,6 +54,17 @@ const NO_WABA =
   "The WhatsApp channel has no WABA ID. Add it on the channel under Channels, then apply again.";
 
 const UPLOAD_TIMEOUT_MS = 60_000;
+const RATE_LIMIT_WAITS_MS = [20_000, 40_000, 65_000];
+
+async function withRateLimitRetry<T extends { status: number }>(send: () => Promise<T>): Promise<T> {
+  let response = await send();
+  for (const wait of RATE_LIMIT_WAITS_MS) {
+    if (response.status !== 429) return response;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    response = await send();
+  }
+  return response;
+}
 
 /**
  * The sample Meta reviews a media header against: a handle from Meta's
@@ -68,27 +79,31 @@ async function mediaHandle(panel: PanelConfig, media: HeaderMedia): Promise<stri
     const file = await fetch(fileUrl(media.key));
     if (!file.ok) throw failed(`the file could not be read (HTTP ${file.status})`);
     const bytes = await file.arrayBuffer();
-    const session = await request(
-      `${panelRoot(panel)}/uploads?file_length=${bytes.byteLength}&file_type=${encodeURIComponent(media.mimeType)}`,
-      { method: "POST", headers: channelHeaders(panel) }
+    const session = await withRateLimitRetry(() =>
+      request(
+        `${panelRoot(panel)}/uploads?file_length=${bytes.byteLength}&file_type=${encodeURIComponent(media.mimeType)}`,
+        { method: "POST", headers: channelHeaders(panel) }
+      )
     );
     const id = ((session.body ?? {}) as Json).id;
     if (!session.ok || typeof id !== "string") {
       throw failed(providerError(session.status, session.body, session.text));
     }
-    const upload = await request(
-      `${panelRoot(panel)}/uploads/${id}`,
-      {
-        method: "POST",
-        headers: {
-          ...channelHeaders(panel),
-          Authorization: `OAuth ${panel.accessToken}`,
-          "Content-Type": media.mimeType,
-          "file-offset": "0",
+    const upload = await withRateLimitRetry(() =>
+      request(
+        `${panelRoot(panel)}/uploads/${id}`,
+        {
+          method: "POST",
+          headers: {
+            ...channelHeaders(panel),
+            Authorization: `OAuth ${panel.accessToken}`,
+            "Content-Type": media.mimeType,
+            "file-offset": "0",
+          },
+          body: bytes,
         },
-        body: bytes,
-      },
-      UPLOAD_TIMEOUT_MS
+        UPLOAD_TIMEOUT_MS
+      )
     );
     const handle = ((upload.body ?? {}) as Json).h;
     if (!upload.ok || typeof handle !== "string") {

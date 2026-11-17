@@ -629,7 +629,9 @@ export const reviewContext = internalQuery({
           team: row.sentByHuman === true,
           // Clamped as well as cleaned: a long thread of long messages is both
           // dearer to review and likelier to come back malformed.
-          text: (richText(row.kind, row.payload) ?? row.text ?? "").slice(0, 600),
+          text: Array.from(richText(row.kind, row.payload) ?? row.text ?? "")
+            .slice(0, 600)
+            .join(""),
         }))
         .filter((row) => row.text.length > 0)
         // The last forty turns are plenty to judge a stage on.

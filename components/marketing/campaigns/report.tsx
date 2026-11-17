@@ -61,14 +61,16 @@ const OUTCOMES: Array<{ value: Outcome; label: string }> = [
 
 const READ_CHART: ChartConfig = { reads: { label: "Reads", color: "var(--viz-series)" } };
 
-const TILES = ["Total", "Delivered", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Unsubscribed", "Cost"];
+const TILES = ["Total", "Sent", "Delivered", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Cost"];
 const FUNNEL = [
   ["w-10", "w-full", "w-12"],
   ["w-16", "w-11/12", "w-20"],
   ["w-10", "w-2/3", "w-20"],
   ["w-14", "w-1/3", "w-16"],
   ["w-14", "w-1/4", "w-16"],
+  ["w-14", "w-1/6", "w-14"],
   ["w-28", "w-1/12", "w-14"],
+  ["w-24", "w-1/12", "w-14"],
 ];
 const RECIPIENT_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36"];
 
@@ -245,13 +247,13 @@ export function CampaignReport({
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <StatTile label="Total" value={total} previous={null} />
+                <StatTile label="Sent" value={stats.sent} previous={null} />
                 <StatTile label="Delivered" value={stats.delivered} previous={null} />
                 <StatTile label="Read" value={pct(stats.read, sent)} previous={null} suffix="%" />
                 <StatTile label="Replied" value={pct(stats.replied, sent)} previous={null} suffix="%" />
                 <StatTile label="Clicked" value={pct(stats.clicked, sent)} previous={null} suffix="%" />
                 <StatTile label="Orders and bookings" value={stats.converted} previous={null} />
                 <StatTile label="Failed" value={stats.failed} previous={null} lowerIsBetter />
-                <StatTile label="Unsubscribed" value={stats.optedOut} previous={null} lowerIsBetter />
                 <StatTile
                   label="Cost"
                   value={report.currency ? report.costMicros : null}
@@ -272,6 +274,7 @@ export function CampaignReport({
                       { step: "Replied", value: stats.replied },
                       { step: "Clicked", value: stats.clicked },
                       { step: "Ordered or booked", value: stats.converted },
+                      { step: "Unsubscribed", value: stats.optedOut },
                     ]}
                     categoryKey="step"
                     valueKey="value"

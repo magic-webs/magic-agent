@@ -36,12 +36,14 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Copy01Icon,
   FileExportIcon,
+  Pdf01Icon,
   PauseIcon,
   PlayIcon,
   RefreshIcon,
   StopCircleIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
+import { useWorkspace } from "@/components/workspace-provider";
 import { useMarketingClient, useMarketingMutation, useMarketingPaginatedQuery, useMarketingQuery } from "@/lib/marketing-backend";
 
 type Outcome = "all" | "delivered" | "read" | "replied" | "clicked" | "failed" | "not_read" | "optedOut";
@@ -144,6 +146,40 @@ export function CampaignReport({
     }
   };
 
+  const workspace = useWorkspace();
+  const [exporting, setExporting] = useState(false);
+  const exportPdf = async () => {
+    if (!campaign || !report) return;
+    setExporting(true);
+    try {
+      const { campaignReportPdf } = await import("@/components/marketing/campaigns/report-pdf");
+      const blob = await campaignReportPdf({
+        business: { name: workspace.name, logoSrc: workspace.logoSrc, theme: workspace.theme },
+        campaign: {
+          title: campaign.title,
+          status: statusLabel(campaign.status, report.stats.sent),
+          templateName: campaign.template?.name ?? null,
+          startedLabel: campaign.startedAt ? `Started ${time(campaign.startedAt)}` : "",
+          audiences: campaign.audiences.map((a) => a.name),
+        },
+        stats: report.stats,
+        readHours: report.readHours,
+        reasons: report.reasons,
+        cost: report.currency ? { micros: report.costMicros, currency: report.currency } : null,
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${campaign.title.replace(/[^\w\- ]+/g, "").trim() || "campaign"} report.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      fail("Could not export the report", error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const stats = report?.stats;
   const sent = stats ? stats.sent : 0;
   const total = stats ? stats.sent + stats.failed : 0;
@@ -164,6 +200,7 @@ export function CampaignReport({
 
   return (
     <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
             {campaign ? campaign.title : <Skeleton className="my-1 h-5 w-48" aria-hidden />}
@@ -189,6 +226,12 @@ export function CampaignReport({
               <Skeleton className="h-3.5 w-96 max-w-full" />
             </div>
           )}
+        </div>
+        {campaign?.startedAt && report ? (
+          <Button variant="outline" disabled={exporting} onClick={() => void exportPdf()}>
+            {exporting ? <Spinner /> : <HugeiconsIcon icon={Pdf01Icon} strokeWidth={2} />} Export PDF
+          </Button>
+        ) : null}
         </div>
         <div className="flex flex-col gap-5">
           {campaign?.lastError ? (

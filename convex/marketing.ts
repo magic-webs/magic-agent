@@ -1677,7 +1677,7 @@ export const recordBatch = internalMutation({
           skippedCount: (event.skippedCount ?? 0) + (args.skipped ?? 0),
           cursor: args.nextCursor,
           ...(args.nextWave !== undefined ? { wave: args.nextWave } : {}),
-          lastError: lastError ?? event.lastError,
+          lastError: sent === 0 && failed > 0 ? lastError : event.lastError,
           updatedAt: now,
           ...(args.done
             ? {

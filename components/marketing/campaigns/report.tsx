@@ -59,7 +59,7 @@ const OUTCOMES: Array<{ value: Outcome; label: string }> = [
 
 const READ_CHART: ChartConfig = { reads: { label: "Reads", color: "var(--viz-series)" } };
 
-const TILES = ["Total", "Sent", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Unsubscribed", "Cost"];
+const TILES = ["Total", "Delivered", "Read", "Replied", "Clicked", "Orders and bookings", "Failed", "Unsubscribed", "Cost"];
 const FUNNEL = [
   ["w-10", "w-full", "w-12"],
   ["w-16", "w-11/12", "w-20"],
@@ -202,10 +202,10 @@ export function CampaignReport({
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <StatTile label="Total" value={total} previous={null} />
-                <StatTile label="Sent" value={stats.delivered} previous={null} />
-                <StatTile label="Read" value={pct(stats.read, total)} previous={null} suffix="%" />
-                <StatTile label="Replied" value={pct(stats.replied, total)} previous={null} suffix="%" />
-                <StatTile label="Clicked" value={pct(stats.clicked, total)} previous={null} suffix="%" />
+                <StatTile label="Delivered" value={stats.delivered} previous={null} />
+                <StatTile label="Read" value={pct(stats.read, sent)} previous={null} suffix="%" />
+                <StatTile label="Replied" value={pct(stats.replied, sent)} previous={null} suffix="%" />
+                <StatTile label="Clicked" value={pct(stats.clicked, sent)} previous={null} suffix="%" />
                 <StatTile label="Orders and bookings" value={stats.converted} previous={null} />
                 <StatTile label="Failed" value={stats.failed} previous={null} lowerIsBetter />
                 <StatTile label="Unsubscribed" value={stats.optedOut} previous={null} lowerIsBetter />
@@ -223,7 +223,8 @@ export function CampaignReport({
                   <RankedBars
                     data={[
                       { step: "Total", value: total },
-                      { step: "Sent", value: stats.delivered },
+                      { step: "Sent", value: stats.sent },
+                      { step: "Delivered", value: stats.delivered },
                       { step: "Read", value: stats.read },
                       { step: "Replied", value: stats.replied },
                       { step: "Clicked", value: stats.clicked },

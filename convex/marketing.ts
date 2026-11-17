@@ -1638,6 +1638,7 @@ export const recordBatch = internalMutation({
           preview: result.text,
           templateName: args.templateName,
           wamid: result.wamid,
+          marketingEventId: args.eventId,
         });
       }
       if (!thread) continue;

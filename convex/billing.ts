@@ -253,7 +253,7 @@ function addSpend(
 ) {
   const bucket = into.get(row.currency) ?? { amountMicros: 0, messages: 0 };
   bucket.amountMicros += row.amountMicros;
-  bucket.messages += 1;
+  if (row.status !== "refunded") bucket.messages += 1;
   into.set(row.currency, bucket);
 }
 
@@ -395,7 +395,7 @@ export const workspaceSummary = query({
     // any other channel.
     for (const row of rows) {
       const inCurrency = row.currency === currency;
-      const message = row.mergedInto === undefined ? 1 : 0;
+      const message = row.mergedInto === undefined && row.status !== "refunded" ? 1 : 0;
       if (row.createdAt < windowStart) {
         previous.messages += message;
         if (inCurrency) previous.amountMicros += row.amountMicros;
@@ -582,6 +582,7 @@ export const adminOverview = query({
     const totals = blank();
     const stats = new Map<Id<"workspaces">, Stats>();
     for (const row of rows) {
+      if (row.status === "refunded") continue;
       const entry = stats.get(row.workspaceId) ?? blank();
       entry.messages += 1;
       entry.byCategory[row.category] += 1;

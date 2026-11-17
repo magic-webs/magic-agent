@@ -285,6 +285,7 @@ export const billingTables = {
     metaCostMicros: v.optional(v.number()),
     markupMicros: v.optional(v.number()),
     wamid: v.optional(v.string()),
+    marketingEventId: v.optional(v.id("marketingEvents")),
     status: v.optional(
       v.union(v.literal("pending"), v.literal("settled"), v.literal("refunded"))
     ),

@@ -51,6 +51,7 @@ export const charges = internalMutation({
     channelId: v.optional(v.id("channels")),
     category,
     templateName: v.optional(v.string()),
+    eventId: v.optional(v.id("marketingEvents")),
     items: v.array(v.object({ to: v.string(), wamid: v.optional(v.string()), preview: v.string() })),
   },
   handler: async (ctx, args) => {
@@ -68,6 +69,7 @@ export const charges = internalMutation({
         preview: item.preview,
         templateName: args.templateName,
         wamid: item.wamid,
+        marketingEventId: args.eventId,
       });
     }
     return { charged };

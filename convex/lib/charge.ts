@@ -46,6 +46,7 @@ export async function charge(
     preview?: string;
     templateName?: string;
     wamid?: string;
+    marketingEventId?: Id<"marketingEvents">;
     /** The AI charge on the agent reply this message carries. */
     aiEventId?: Id<"billingEvents">;
   }
@@ -76,6 +77,7 @@ export async function charge(
     metaCostMicros: priced.metaCostMicros,
     markupMicros: priced.markupMicros,
     wamid: args.wamid,
+    marketingEventId: args.marketingEventId,
     status: args.wamid ? "pending" : "settled",
     createdAt: now,
   });
@@ -85,6 +87,7 @@ export async function charge(
     currency,
     amountMicros: priced.amountMicros,
   });
+  await bumpCampaignCost(ctx, args.marketingEventId, currency, priced.amountMicros);
   if (args.aiEventId) {
     await attachAi(ctx, args.workspaceId, eventId, args.aiEventId);
   }
@@ -187,6 +190,23 @@ export async function billingEventFor(
     .first();
 }
 
+/** Keeps a campaign's running cost equal to what its messages were charged. */
+export async function bumpCampaignCost(
+  ctx: MutationCtx,
+  marketingEventId: Id<"marketingEvents"> | undefined,
+  currency: string,
+  deltaMicros: number
+) {
+  if (!marketingEventId || deltaMicros === 0) return;
+  const campaign = await ctx.db.get("marketingEvents", marketingEventId);
+  if (!campaign) return;
+  if (campaign.costCurrency && campaign.costCurrency !== currency) return;
+  await ctx.db.patch("marketingEvents", campaign._id, {
+    costCurrency: currency,
+    costMicros: Math.max(0, (campaign.costMicros ?? 0) + deltaMicros),
+  });
+}
+
 /** Move the wallet by what a repriced message changed by. */
 async function rebill(
   ctx: MutationCtx,
@@ -196,6 +216,7 @@ async function rebill(
 ) {
   if (currency === event.currency) {
     const delta = amountMicros - event.amountMicros;
+    await bumpCampaignCost(ctx, event.marketingEventId, currency, delta);
     if (delta > 0) {
       await debitWallet(ctx, {
         workspaceId: event.workspaceId,
@@ -221,6 +242,8 @@ async function rebill(
     currency,
     amountMicros,
   });
+  await bumpCampaignCost(ctx, event.marketingEventId, event.currency, -event.amountMicros);
+  await bumpCampaignCost(ctx, event.marketingEventId, currency, amountMicros);
 }
 
 /**
@@ -272,6 +295,7 @@ export async function refund(
     currency: event.currency,
     amountMicros: event.amountMicros,
   });
+  await bumpCampaignCost(ctx, event.marketingEventId, event.currency, -event.amountMicros);
   await ctx.db.patch("billingEvents", event._id, {
     amountMicros: 0,
     metaCostMicros: 0,

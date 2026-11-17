@@ -54,6 +54,7 @@ import { ensureOwnerMember } from "./team";
 import { newFileKey, r2, type FileFolder } from "./lib/files";
 import { MEMBER_SCOPES } from "./lib/auth";
 import { templateAsShown } from "./marketing";
+import { billingEventFor } from "./lib/charge";
 
 const WORKSPACE_BATCH = 20;
 const ORDER_BATCH = 100;
@@ -1523,5 +1524,75 @@ export const audienceCountsForWorkspace = internalMutation({
       .take(16);
     for (const shard of shards) await ctx.db.delete("audienceCounts", shard._id);
     await ctx.db.insert("audienceCounts", { workspaceId: args.workspaceId, shard: 0, ...total });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Campaign costs from the ledger
+//
+//   bunx convex run migrations:campaignCosts
+//
+// A campaign's cost was the home market's rate times the people sent to,
+// which is wrong for any recipient abroad and ignores refunds and Meta's
+// final price. Campaigns now carry the sum of their own ledger rows. This
+// links the rows of campaigns sent before that, and adds them up.
+// ---------------------------------------------------------------------------
+
+const COST_BATCH = 200;
+
+export const campaignCosts = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("marketingEvents")
+      .paginate({ numItems: 50, cursor: args.cursor ?? null });
+    let scheduled = 0;
+    for (const event of page.page) {
+      if (!event.startedAt) continue;
+      await ctx.scheduler.runAfter(0, internal.migrations.campaignCost, { eventId: event._id });
+      scheduled++;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.campaignCosts, { cursor: page.continueCursor });
+    }
+    return { scheduled, done: page.isDone };
+  },
+});
+
+export const campaignCost = internalMutation({
+  args: { eventId: v.id("marketingEvents"), cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get("marketingEvents", args.eventId);
+    if (!event) return { linked: 0, done: true };
+    const page = await ctx.db
+      .query("marketingSends")
+      .withIndex("by_key_and_createdAt", (q) => q.eq("key", eventKey(event._id)))
+      .paginate({ numItems: COST_BATCH, cursor: args.cursor ?? null });
+
+    let currency = event.costCurrency;
+    let added = 0;
+    let linked = 0;
+    for (const send of page.page) {
+      if (!send.wamid) continue;
+      const row = await billingEventFor(ctx, send.wamid);
+      if (!row || row.workspaceId !== event.workspaceId || row.marketingEventId) continue;
+      await ctx.db.patch("billingEvents", row._id, { marketingEventId: event._id });
+      linked++;
+      currency ??= row.currency;
+      if (row.currency === currency) added += row.amountMicros;
+    }
+    if (currency) {
+      await ctx.db.patch("marketingEvents", event._id, {
+        costCurrency: currency,
+        costMicros: (event.costMicros ?? 0) + added,
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.campaignCost, {
+        eventId: event._id,
+        cursor: page.continueCursor,
+      });
+    }
+    return { linked, done: page.isDone };
   },
 });

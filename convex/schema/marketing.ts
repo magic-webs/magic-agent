@@ -203,6 +203,8 @@ export const marketingTables = {
     sentCount: v.number(),
     failedCount: v.number(),
     skippedCount: v.optional(v.number()),
+    costMicros: v.optional(v.number()),
+    costCurrency: v.optional(v.string()),
     cursor: v.optional(v.union(v.string(), v.null())),
     ratePerMinute: v.optional(v.number()),
     trackLinks: v.optional(v.boolean()),

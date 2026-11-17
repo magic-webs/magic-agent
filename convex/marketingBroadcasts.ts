@@ -415,6 +415,16 @@ export const report = query({
     if (!event) return null;
     await requireWorkspace(ctx, event.workspaceId);
     const { stats, readHours, reasons } = await reportFor(ctx, eventKey(event._id));
+    if (event.costCurrency) {
+      return {
+        stats,
+        skipped: event.skippedCount ?? 0,
+        reasons,
+        readHours,
+        currency: event.costCurrency,
+        costMicros: event.costMicros ?? 0,
+      };
+    }
     const template = event.templateId ? await ctx.db.get("marketingTemplates", event.templateId) : null;
     const priced = await quote(ctx, {
       workspaceId: event.workspaceId,

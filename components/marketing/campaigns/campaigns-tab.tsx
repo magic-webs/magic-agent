@@ -130,7 +130,7 @@ export function CampaignsTab() {
                 <TableHead>Campaign</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="hidden text-right md:table-cell">Sent</TableHead>
+                <TableHead className="hidden text-right md:table-cell">Delivered</TableHead>
                 <TableHead className="hidden text-right md:table-cell">Read</TableHead>
                 <TableHead className="hidden text-right lg:table-cell">Replied</TableHead>
                 <TableHead className="hidden text-right lg:table-cell">Failed</TableHead>
@@ -175,10 +175,10 @@ export function CampaignsTab() {
                     {row.stats.delivered.toLocaleString()}
                   </TableCell>
                   <TableCell className="hidden text-right tabular-nums md:table-cell">
-                    {rate(row.stats.read, row.stats.sent + row.stats.failed)}
+                    {rate(row.stats.read, row.stats.sent)}
                   </TableCell>
                   <TableCell className="hidden text-right tabular-nums lg:table-cell">
-                    {rate(row.stats.replied, row.stats.sent + row.stats.failed)}
+                    {rate(row.stats.replied, row.stats.sent)}
                   </TableCell>
                   <TableCell className="hidden text-right tabular-nums lg:table-cell">
                     {row.stats.failed ? row.stats.failed.toLocaleString() : "—"}

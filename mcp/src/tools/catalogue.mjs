@@ -21,8 +21,17 @@ const kindArg = z
 
 const fileArg = z.object(fileSourceArgs);
 
+const imageArg = z.object({
+  ...fileSourceArgs,
+  filename: z
+    .string()
+    .optional()
+    .describe("e.g. 'front.jpg'. Required with contentBase64; defaults to the URL's last segment."),
+  alt: z.string().optional().describe("What the image shows"),
+});
+
 async function copyFile(workspaceId, source) {
-  const file = await loadFile(source);
+  const file = source.bytes ? source : await loadFile(source);
   const target = await call.mutation(api.products.generateUploadUrl, {
     workspaceId,
   });
@@ -45,6 +54,19 @@ async function copyFile(workspaceId, source) {
 const copyFiles = async (workspaceId, files) => {
   const out = [];
   for (const file of files) out.push(await copyFile(workspaceId, file));
+  return out;
+};
+
+const copyImages = async (workspaceId, images) => {
+  const out = [];
+  for (const { alt, ...source } of images) {
+    const file = await loadFile(source);
+    if (!file.mimeType?.startsWith("image/")) {
+      throw new Error(`${file.filename} is not an image. Use a .png, .jpg, .webp or .gif file.`);
+    }
+    const stored = await copyFile(workspaceId, file);
+    out.push({ fileKey: stored.fileKey, alt: alt?.trim() || undefined });
+  }
   return out;
 };
 
@@ -102,7 +124,7 @@ export function register(server) {
       .array(z.string())
       .optional()
       .describe(
-        "Image URLs, first is the catalogue thumbnail. Uploading files is the dashboard's job; this takes addresses."
+        "Image addresses linked as they are. The first image overall is the catalogue thumbnail."
       ),
     exampleSpec: z.string().optional(),
     notes: z.string().optional().describe("Internal — never shown to customers"),
@@ -131,6 +153,13 @@ export function register(server) {
           .optional()
           .describe("Defaults to the workspace currency when a price is given"),
         ...productFields,
+        imageFiles: z
+          .array(imageArg)
+          .max(10)
+          .optional()
+          .describe(
+            "Images copied into storage, each a url to download or contentBase64 with filename, up to 25 MB. They come before imageUrls, so the first is the thumbnail."
+          ),
         files: z
           .array(fileArg)
           .max(10)
@@ -140,13 +169,14 @@ export function register(server) {
           ),
       },
     },
-    handler(async ({ workspace, imageUrls, files, ...fields }) => {
+    handler(async ({ workspace, imageUrls, imageFiles, files, ...fields }) => {
       const found = await resolveWorkspace(workspace);
+      const stored = imageFiles?.length ? await copyImages(found._id, imageFiles) : [];
       const productId = await call.mutation(api.products.create, {
         workspaceId: found._id,
         currency: fields.price !== undefined ? fields.currency ?? found.currency : undefined,
         ...fields,
-        images: toImages(imageUrls),
+        images: stored.length ? [...stored, ...(toImages(imageUrls) ?? [])] : toImages(imageUrls),
         files: files ? await copyFiles(found._id, files) : undefined,
       });
       return ok({ productId, name: fields.name });
@@ -158,7 +188,7 @@ export function register(server) {
     {
       title: "Update product",
       description:
-        "Change a catalogue entry. Omitted fields are left alone; arrays replace the whole list, except files, which change through addFiles and removeFiles. Omitting price therefore keeps the price it has — use clearPrice to take it off.",
+        "Change a catalogue entry. Omitted fields are left alone; arrays replace the whole list, except files, which change through addFiles and removeFiles, and addImages, which appends. Omitting price therefore keeps the price it has — use clearPrice to take it off.",
       inputSchema: {
         ...workspaceArg,
         product: z.string().describe("Product name, SKU, slug or id"),
@@ -172,6 +202,12 @@ export function register(server) {
             "Remove the price, so agents stop quoting it and take the enquiry instead. There is no value of price that means 'none', which is why this is its own flag."
           ),
         ...productFields,
+        addImages: z
+          .array(imageArg)
+          .optional()
+          .describe(
+            "Images to add after the current ones (or after imageUrls, when given), each a url to download or contentBase64 with filename, up to 25 MB"
+          ),
         addFiles: z
           .array(fileArg)
           .optional()
@@ -182,7 +218,7 @@ export function register(server) {
           .describe("Filenames of attached files to delete"),
       },
     },
-    handler(async ({ workspace, product, imageUrls, addFiles, removeFiles, ...fields }) => {
+    handler(async ({ workspace, product, imageUrls, addImages, addFiles, removeFiles, ...fields }) => {
       const found = await resolveWorkspace(workspace);
       const target = await findProduct(found._id, product);
       const removing = new Set((removeFiles ?? []).map((name) => name.trim()));
@@ -198,7 +234,12 @@ export function register(server) {
       await call.mutation(api.products.update, {
         productId: target._id,
         ...fields,
-        images: toImages(imageUrls),
+        images: addImages?.length
+          ? [
+              ...(toImages(imageUrls) ?? target.images ?? []),
+              ...(await copyImages(found._id, addImages)),
+            ]
+          : toImages(imageUrls),
         files,
       });
       return ok(`Updated ${target.name}.`);

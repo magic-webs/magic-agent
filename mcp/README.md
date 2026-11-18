@@ -307,6 +307,8 @@ the candidates.
 `product`, `service`, `brochure` or `other`. Files (a brochure's PDF, a price
 list) are passed as a public URL or as `contentBase64` with a `filename`, and
 the server uploads each one to storage, so agents can send it with `send_media`.
+Images work the same way through `imageFiles` on `create_product` and
+`addImages` on `update_product`; `imageUrls` still links addresses as they are.
 
 **Records** — `list_record_books`, `create_record_book`, `update_record_book`,
 `delete_record_book`, `list_records`, `list_record_webhooks`,

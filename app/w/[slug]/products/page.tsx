@@ -101,6 +101,7 @@ import {
   PlusSignIcon,
   Search01Icon,
   SparklesIcon,
+  ViewIcon,
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
 
@@ -874,6 +875,204 @@ function ProductFileLinks({
   );
 }
 
+function ViewSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function ProductViewDialog({
+  product,
+  currency,
+  trigger,
+}: {
+  product: CatalogueProduct;
+  currency: string;
+  trigger: React.ReactElement;
+}) {
+  const meta = KINDS[product.kind];
+  const pdf = product.resolvedFiles.find((file) =>
+    file.filename.toLowerCase().endsWith(".pdf"),
+  );
+  const price = !isOrderable(product.kind)
+    ? null
+    : product.price !== undefined
+      ? `${product.currency ?? currency} ${product.price.toFixed(2)}${product.unit ? ` ${product.unit}` : ""}`
+      : "On request";
+
+  return (
+    <Dialog>
+      <DialogTrigger render={trigger} />
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{product.name}</DialogTitle>
+          <DialogDescription className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="font-normal">
+              <HugeiconsIcon icon={meta.icon} strokeWidth={2} /> {meta.label}
+            </Badge>
+            <Badge variant="secondary">{product.category}</Badge>
+            {product.status === "archived" ? (
+              <Badge variant="outline">Archived</Badge>
+            ) : null}
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogBody>
+          {product.resolvedImages.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {product.resolvedImages.map((image) => (
+                <a
+                  key={image.url}
+                  href={image.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image.url}
+                    alt={image.alt ?? product.name}
+                    className="size-28 rounded-md border object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          ) : null}
+
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+            {price ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">Price</dt>
+                <dd className="tabular-nums">{price}</dd>
+              </div>
+            ) : null}
+            {product.sku ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">SKU</dt>
+                <dd>{product.sku}</dd>
+              </div>
+            ) : null}
+            {product.unit && price === null ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">Unit</dt>
+                <dd>{product.unit}</dd>
+              </div>
+            ) : null}
+          </dl>
+
+          <ViewSection title="Description">
+            <p className="text-sm whitespace-pre-wrap">
+              {product.description || (
+                <span className="text-muted-foreground">No description</span>
+              )}
+            </p>
+          </ViewSection>
+
+          {product.tags.length > 0 ? (
+            <ViewSection title="Tags">
+              <div className="flex flex-wrap gap-1">
+                {product.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="font-normal">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </ViewSection>
+          ) : null}
+
+          {product.attributes.length > 0 ? (
+            <ViewSection title="Details agents may state">
+              <dl className="grid grid-cols-[minmax(0,10rem)_1fr] gap-x-4 gap-y-1 text-sm">
+                {product.attributes.map((attribute) => (
+                  <div key={attribute.key} className="contents">
+                    <dt className="font-medium">{attribute.key}</dt>
+                    <dd className="text-muted-foreground">{attribute.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </ViewSection>
+          ) : null}
+
+          {product.requirementFields.length > 0 ? (
+            <ViewSection title="What agents ask before taking an order">
+              <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm">
+                {product.requirementFields.map((field) => (
+                  <li key={field.key}>
+                    {field.label}
+                    {field.required ? null : (
+                      <span className="text-muted-foreground"> (optional)</span>
+                    )}
+                    {field.options?.length ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {field.options.join(" · ")}
+                      </span>
+                    ) : field.example ? (
+                      <span className="block text-xs text-muted-foreground">
+                        e.g. {field.example}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </ViewSection>
+          ) : null}
+
+          {product.exampleSpec ? (
+            <ViewSection title="Example spec">
+              <p className="text-sm">{product.exampleSpec}</p>
+            </ViewSection>
+          ) : null}
+
+          {product.notes ? (
+            <ViewSection title="Internal notes">
+              <p className="text-sm whitespace-pre-wrap">{product.notes}</p>
+            </ViewSection>
+          ) : null}
+
+          {product.resolvedFiles.length > 0 ? (
+            <ViewSection title="Files">
+              <div className="flex flex-col gap-1">
+                {product.resolvedFiles.map((file) => (
+                  <a
+                    key={file.url}
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-w-0 items-center gap-1.5 text-sm hover:underline"
+                  >
+                    <FileGlyph filename={file.filename} />
+                    <span className="truncate">{file.filename}</span>
+                  </a>
+                ))}
+              </div>
+              {pdf ? (
+                <iframe
+                  src={pdf.url}
+                  title={pdf.filename}
+                  className="mt-2 h-96 w-full rounded-md border bg-white"
+                />
+              ) : null}
+            </ViewSection>
+          ) : null}
+        </DialogBody>
+
+        <DialogFooter showCloseButton />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ProductsPage() {
   const workspace = useWorkspace();
   const [search, setSearch] = useState("");
@@ -1013,7 +1212,7 @@ export default function ProductsPage() {
                 <TableHead>Category</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead className="hidden md:table-cell">Files</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-32" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1073,6 +1272,19 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      <ProductViewDialog
+                        product={product}
+                        currency={workspace.currency}
+                        trigger={
+                          <Button
+                            size="icon-lg"
+                            variant="ghost"
+                            aria-label={`View ${product.name}`}
+                          >
+                            <HugeiconsIcon icon={ViewIcon} strokeWidth={2} />
+                          </Button>
+                        }
+                      />
                       <ProductDialog
                         product={product}
                         trigger={

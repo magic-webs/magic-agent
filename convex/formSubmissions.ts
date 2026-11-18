@@ -570,3 +570,19 @@ export const removeForForm = internalMutation({
     return removed;
   },
 });
+
+export const removeOne = internalMutation({
+  args: { connectionId: v.id("appConnections"), submissionId: v.string() },
+  handler: async (ctx, args): Promise<null> => {
+    const connection = await ctx.db.get("appConnections", args.connectionId);
+    if (!connection) return null;
+    const row = await ctx.db
+      .query("formSubmissions")
+      .withIndex("by_submission", (q) =>
+        q.eq("workspaceId", connection.workspaceId).eq("submissionId", args.submissionId)
+      )
+      .unique();
+    if (row) await ctx.db.delete("formSubmissions", row._id);
+    return null;
+  },
+});

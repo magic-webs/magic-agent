@@ -111,6 +111,7 @@ export const APPS: AppSpec[] = [
     // keystroke buys nothing the stale-copy refresh does not.
     events: [
       "submission.created",
+      "submission.deleted",
       "form.published",
       "form.unpublished",
       "form.deleted",
@@ -427,6 +428,7 @@ export type AppEvent =
   | { kind: "ignore" }
   /** The app's forms changed, so the copy in `items` is stale. */
   | { kind: "catalogue" }
+  | { kind: "removed"; submissionId: string }
   | {
       kind: "result";
       ref: string | null;
@@ -462,6 +464,10 @@ export function interpretEvent(
       event === "form.deleted"
     ) {
       return { kind: "catalogue" };
+    }
+    if (event === "submission.deleted") {
+      const submissionId = asString(asObject(envelope.data).submissionId);
+      return submissionId ? { kind: "removed", submissionId } : { kind: "ignore" };
     }
     if (event !== "submission.created") return { kind: "ignore" };
 

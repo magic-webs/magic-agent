@@ -1024,6 +1024,13 @@ http.route({
       });
       return inboundResponse(200, { ok: true });
     }
+    if (meaning.kind === "removed") {
+      await ctx.runMutation(internal.formSubmissions.removeOne, {
+        connectionId: connection.connectionId,
+        submissionId: meaning.submissionId,
+      });
+      return inboundResponse(200, { ok: true });
+    }
 
     const status = await ctx.runMutation(internal.apps.acceptResult, {
       connectionId: connection.connectionId,

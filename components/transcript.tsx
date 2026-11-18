@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { AgentAvatar, type AgentGender } from "@/components/agent-avatar";
 import { DeliveryTicks } from "@/components/delivery-ticks";
+import { AdQuote } from "@/components/ad-referral";
 import {
   Message,
   MessageAvatar,
@@ -476,6 +477,7 @@ export function TranscriptView({
                   rich ? "min-w-56" : "whitespace-pre-wrap"
                 }
               >
+                {message.referral ? <AdQuote ad={message.referral} /> : null}
                 {message.replyTo ? (
                   <QuotedReply
                     text={message.replyTo.text}

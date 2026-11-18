@@ -13,6 +13,7 @@ import { FixAnswerDialog } from "@/components/knowledge/fix-answer-dialog";
 import { ManualReply } from "@/components/manual-reply";
 import { AssignMenu } from "@/components/assign-menu";
 import { ContactAvatar } from "@/components/contact-avatar";
+import { AdBadge, AdDetails } from "@/components/ad-referral";
 import { DeliveryTicks } from "@/components/delivery-ticks";
 import { WindowClock } from "@/components/window-clock";
 import { SelectField } from "@/components/select-field";
@@ -230,6 +231,7 @@ export function ConversationRow({
               {statusLabel(row.status)}
             </Badge>
           ) : null}
+          {row.adSource ? <AdBadge /> : null}
           {row.markedBot ? (
             <Badge variant="destructive" className="shrink-0">
               bot
@@ -493,6 +495,7 @@ export function ConversationDetail({
       arrivedAt={agent?.botName ?? "— deleted —"}
       holderName={holderName}
       assignee={detail.assignee}
+      adSource={detail.adSource}
       lastInboundAt={detail.lastInboundAt}
       editable={!onDesk}
       onResume={() => void resume()}
@@ -978,6 +981,7 @@ function ThreadDetails({
   arrivedAt,
   holderName,
   assignee,
+  adSource,
   lastInboundAt,
   editable,
   onResume,
@@ -990,6 +994,7 @@ function ThreadDetails({
   arrivedAt: string;
   holderName: string;
   assignee: Detail["assignee"];
+  adSource: Detail["adSource"];
   lastInboundAt: number | null;
   /** Off on the desk, which may read the notes but not change them. */
   editable: boolean;
@@ -1148,6 +1153,12 @@ function ThreadDetails({
               They have not written on {CHANNEL_LABEL[conversation.channelType]} yet.
             </p>
           )}
+        </DetailSection>
+      ) : null}
+
+      {adSource ? (
+        <DetailSection title="Came from an ad">
+          <AdDetails ad={adSource} />
         </DetailSection>
       ) : null}
 

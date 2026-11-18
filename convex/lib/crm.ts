@@ -51,9 +51,13 @@ export function readChat(row: Json): CrmChat | null {
   const phoneKeys = ["whatsapp", "wa_id", "waId", "phone", "phone_number", "phoneNumber", "mobile", "number", "contact_number", "contact", "profile"];
   const phoneLike = (value: string | undefined) =>
     value && /^\+?[\d\s()-]{8,20}$/.test(value) && value.replace(/\D/g, "").length >= 8 ? value : undefined;
+  const channelIdentifiers = Object.values(contact)
+    .filter(isObject)
+    .map((profile) => phoneLike(pick(profile, ["identifier", "wa_id", "phone", "number"])));
   const phone =
     phoneLike(pick(row, phoneKeys)) ??
     phoneLike(pick(contact, phoneKeys)) ??
+    channelIdentifiers.find(Boolean) ??
     phoneLike(id) ??
     phoneLike(pick(row, ["name"]));
   if (!id) return null;
@@ -134,6 +138,16 @@ function readText(row: Json, inner: Json): string | undefined {
     if (typeof text === "string" && text.trim()) return text.trim();
     const body = source.body;
     if (isObject(body) && str(body.text)) return str(body.text);
+    const content = source.content;
+    if (isObject(content)) {
+      const found = pick(content, ["body", "text", "caption"]);
+      if (found) return found;
+      for (const key of ["body", "button_reply", "list_reply", "button"]) {
+        const nested = content[key];
+        const label = isObject(nested) ? pick(nested, ["text", "title", "payload"]) : undefined;
+        if (label) return label;
+      }
+    }
   }
   for (const source of sources) {
     const body = pick(source, ["body", "content", "message_text", "messageText", "caption"]);
@@ -142,7 +156,7 @@ function readText(row: Json, inner: Json): string | undefined {
   }
   if (type !== "text") {
     for (const source of sources) {
-      const media = source[type];
+      const media = source[type] ?? source.content;
       if (isObject(media)) return mediaText(type, media);
     }
     for (const source of sources) {

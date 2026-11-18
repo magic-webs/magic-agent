@@ -334,8 +334,8 @@ function LoginForm() {
             <CardHeader>
               <CardTitle>Already signed in elsewhere</CardTitle>
               <CardDescription>
-                This login can only be open in one place at a time, and it is
-                open on another device right now.
+                This login can be open in one browser at a time, and it is
+                open in another browser right now.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">

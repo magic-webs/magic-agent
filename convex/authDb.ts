@@ -955,7 +955,7 @@ export const setCredentialStatus = internalMutation({
 });
 
 /**
- * Opens a session, keeping to one web or app session per login.
+ * Opens a session, keeping to one web and one app session per login.
  *
  * `exclusive` refuses when the login already has one open and says where, so
  * the person can be asked before anybody is signed out. `replace` is the
@@ -1002,8 +1002,11 @@ export const createSession = internalMutation({
     }
 
     if (args.mode !== "shared") {
-      const live = (await sessionsOf(ctx, args)).filter((session) =>
-        isInteractiveLive(session, now)
+      const platform = args.source ?? "app";
+      const live = (await sessionsOf(ctx, args)).filter(
+        (session) =>
+          isInteractiveLive(session, now) &&
+          (session.source ?? "app") === platform
       );
       if (live.length > 0 && args.mode === "exclusive") {
         // Left in place: the same challenge goes on to ask about this one.

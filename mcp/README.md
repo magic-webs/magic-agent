@@ -313,7 +313,7 @@ it to storage, so agents can send it with `send_media`.
 `create_record_webhook`, `update_record_webhook`, `delete_record_webhook`,
 `test_record_webhook`, `set_record_inbound_url`, `rotate_record_inbound_url`
 
-**Knowledge** — `list_knowledge`, `add_knowledge`, `delete_knowledge`
+**Knowledge** — `list_knowledge`, `add_knowledge`, `upload_knowledge_file`, `delete_knowledge`
 
 **Channels** — `list_channels`, `create_channel`, `update_channel`,
 `delete_channel`

@@ -553,3 +553,20 @@ export const storeImported = internalMutation({
     return added;
   },
 });
+
+export const removeForForm = internalMutation({
+  args: { workspaceId: v.id("workspaces"), formKey: v.string() },
+  handler: async (ctx, args): Promise<number> => {
+    const rows = await ctx.db
+      .query("formSubmissions")
+      .withIndex("by_account", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+    let removed = 0;
+    for (const row of rows) {
+      if (row.formKey !== args.formKey) continue;
+      await ctx.db.delete("formSubmissions", row._id);
+      removed += 1;
+    }
+    return removed;
+  },
+});

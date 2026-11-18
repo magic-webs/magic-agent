@@ -2229,6 +2229,11 @@ async function welcomeMenuTurn(
   });
   if (!menu) return null;
 
+  const picked = message.trim().toLowerCase();
+  if (menu.options.some((option) => option.title.trim().toLowerCase() === picked)) {
+    return null;
+  }
+
   const menuTurn: TurnContext = { ...turn, agent: frontDesk, trace: [] };
   const reason = isGreeting(message)
     ? "greeting"

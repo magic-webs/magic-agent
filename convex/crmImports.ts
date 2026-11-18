@@ -381,6 +381,29 @@ function onChannel(rows: Record<string, unknown>[], crmChannelId: string | undef
   return rows.filter((row) => row.channel === undefined || String(row.channel) === crmChannelId);
 }
 
+async function chatsOnChannel(
+  job: Doc<"crmImports"> & { apiKey: string },
+  chats: (CrmChat | null)[]
+): Promise<Set<string>> {
+  const found = new Set<string>();
+  await Promise.all(
+    chats.map(async (chat) => {
+      if (!chat) return;
+      try {
+        const body = await crmGet(
+          job.baseUrl,
+          job.apiKey,
+          `/crm/chat/${encodeURIComponent(chat.id)}/messages?page=1&limit=${MESSAGES_PER_PAGE}&sort=newest`
+        );
+        if (listIn(body).some((row) => String(row.channel) === job.crmChannelId)) found.add(chat.id);
+      } catch {
+        return;
+      }
+    })
+  );
+  return found;
+}
+
 async function crmGet(baseUrl: string, apiKey: string, path: string): Promise<unknown> {
   let response: Response;
   try {
@@ -480,10 +503,12 @@ export const runPage = internalAction({
     const firstChatId = chats.find((chat) => chat !== null)?.id;
     if (firstChatId && firstChatId === current.lastFirstChatId) return await finish({});
 
+    const onOurChannel = job.crmChannelId ? await chatsOnChannel(job, chats) : null;
+
     let imported = 0;
     let skipped = 0;
     for (const chat of chats) {
-      if (!chat) {
+      if (!chat || (onOurChannel && !onOurChannel.has(chat.id))) {
         skipped++;
         continue;
       }

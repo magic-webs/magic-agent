@@ -26,12 +26,14 @@ const imageArg = z.object({
   filename: z
     .string()
     .optional()
-    .describe("e.g. 'front.jpg'. Required with contentBase64; defaults to the URL's last segment."),
+    .describe("e.g. 'front.jpg'. Required with contentBase64 or fileKey; defaults to the URL's last segment."),
   alt: z.string().optional().describe("What the image shows"),
 });
 
-async function copyFile(workspaceId, source) {
-  const file = source.bytes ? source : await loadFile(source);
+async function storeFile(workspaceId, file) {
+  if (file.fileKey) {
+    return { fileKey: file.fileKey, filename: file.filename, mimeType: file.mimeType };
+  }
   const target = await call.mutation(api.products.generateUploadUrl, {
     workspaceId,
   });
@@ -53,9 +55,32 @@ async function copyFile(workspaceId, source) {
 
 const copyFiles = async (workspaceId, files) => {
   const out = [];
-  for (const file of files) out.push(await copyFile(workspaceId, file));
+  for (const file of files) out.push(await storeFile(workspaceId, await loadFile(file)));
   return out;
 };
+
+const uploadedKeys = (...lists) =>
+  lists.flatMap((list) => (list ?? []).map((file) => file.fileKey?.trim()).filter(Boolean));
+
+async function missingUploads(productId, keys) {
+  if (keys.length === 0) return [];
+  const product = await call.query(api.products.get, { productId });
+  const urls = [...(product?.resolvedFiles ?? []), ...(product?.resolvedImages ?? [])].map(
+    (file) => file.url
+  );
+  const missing = [];
+  for (const key of keys) {
+    const url = urls.find((candidate) => candidate.endsWith(`/${key}`));
+    const head = url ? await fetch(url, { method: "HEAD" }) : null;
+    if (!head?.ok) missing.push(key);
+  }
+  return missing;
+}
+
+const notArrived = (missing) =>
+  new Error(
+    `Nothing has been uploaded to ${missing.join(", ")}. Nothing was changed, and the uploads in this call were discarded: call create_upload_url again for each file, PUT it to the new uploadUrl, then retry.`
+  );
 
 const copyImages = async (workspaceId, images) => {
   const out = [];
@@ -64,7 +89,7 @@ const copyImages = async (workspaceId, images) => {
     if (!file.mimeType?.startsWith("image/")) {
       throw new Error(`${file.filename} is not an image. Use a .png, .jpg, .webp or .gif file.`);
     }
-    const stored = await copyFile(workspaceId, file);
+    const stored = await storeFile(workspaceId, file);
     out.push({ fileKey: stored.fileKey, alt: alt?.trim() || undefined });
   }
   return out;
@@ -158,14 +183,14 @@ export function register(server) {
           .max(10)
           .optional()
           .describe(
-            "Images copied into storage, each a url to download or contentBase64 with filename, up to 25 MB. They come before imageUrls, so the first is the thumbnail."
+            "Images copied into storage, each a url to download, a fileKey from create_upload_url, or contentBase64 for a small file, with filename, up to 25 MB. They come before imageUrls, so the first is the thumbnail."
           ),
         files: z
           .array(fileArg)
           .max(10)
           .optional()
           .describe(
-            "PDFs or documents agents can send — a brochure, price list or spec sheet. Each is a url to download or contentBase64 with filename, up to 25 MB."
+            "PDFs or documents agents can send — a brochure, price list or spec sheet. Each is a url to download, a fileKey from create_upload_url, or contentBase64 for a small file, with filename, up to 25 MB."
           ),
       },
     },
@@ -179,6 +204,11 @@ export function register(server) {
         images: stored.length ? [...stored, ...(toImages(imageUrls) ?? [])] : toImages(imageUrls),
         files: files ? await copyFiles(found._id, files) : undefined,
       });
+      const missing = await missingUploads(productId, uploadedKeys(imageFiles, files));
+      if (missing.length) {
+        await call.mutation(api.products.remove, { productId });
+        throw notArrived(missing);
+      }
       return ok({ productId, name: fields.name });
     })
   );
@@ -206,12 +236,12 @@ export function register(server) {
           .array(imageArg)
           .optional()
           .describe(
-            "Images to add after the current ones (or after imageUrls, when given), each a url to download or contentBase64 with filename, up to 25 MB"
+            "Images to add after the current ones (or after imageUrls, when given), each a url to download, a fileKey from create_upload_url, or contentBase64 for a small file, with filename, up to 25 MB"
           ),
         addFiles: z
           .array(fileArg)
           .optional()
-          .describe("Files to attach, each a url to download or contentBase64 with filename, up to 25 MB"),
+          .describe("Files to attach, each a url to download, a fileKey from create_upload_url, or contentBase64 for a small file, with filename, up to 25 MB"),
         removeFiles: z
           .array(z.string())
           .optional()
@@ -231,17 +261,28 @@ export function register(server) {
               ...(await copyFiles(found._id, addFiles ?? [])),
             ]
           : undefined;
-      await call.mutation(api.products.update, {
-        productId: target._id,
-        ...fields,
-        images: addImages?.length
-          ? [
-              ...(toImages(imageUrls) ?? target.images ?? []),
-              ...(await copyImages(found._id, addImages)),
-            ]
-          : toImages(imageUrls),
-        files,
-      });
+      const images = addImages?.length
+        ? [
+            ...(toImages(imageUrls) ?? target.images ?? []),
+            ...(await copyImages(found._id, addImages)),
+          ]
+        : toImages(imageUrls);
+      const keys = uploadedKeys(addImages, addFiles);
+      if (keys.length) {
+        await call.mutation(api.products.update, { productId: target._id, images, files });
+        const missing = await missingUploads(target._id, keys);
+        if (missing.length) {
+          await call.mutation(api.products.update, {
+            productId: target._id,
+            images: target.images ?? [],
+            files: target.files ?? [],
+          });
+          throw notArrived(missing);
+        }
+        await call.mutation(api.products.update, { productId: target._id, ...fields });
+      } else {
+        await call.mutation(api.products.update, { productId: target._id, ...fields, images, files });
+      }
       return ok(`Updated ${target.name}.`);
     })
   );

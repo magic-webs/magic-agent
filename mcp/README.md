@@ -305,10 +305,11 @@ the candidates.
 **Catalogue** — `list_products`, `create_product`, `update_product`,
 `delete_product`, `import_products`, `draft_catalogue`. Entries are a `kind`:
 `product`, `service`, `brochure` or `other`. Files (a brochure's PDF, a price
-list) are passed as a public URL or as `contentBase64` with a `filename`, and
-the server uploads each one to storage, so agents can send it with `send_media`.
-Images work the same way through `imageFiles` on `create_product` and
-`addImages` on `update_product`; `imageUrls` still links addresses as they are.
+list) are passed as a public URL, as a `fileKey` from `create_upload_url`, or
+as `contentBase64` for a small file, each with a `filename`, and end up in
+storage, so agents can send them with `send_media`. Images work the same way
+through `imageFiles` on `create_product` and `addImages` on `update_product`;
+`imageUrls` still links addresses as they are.
 
 **Records** — `list_record_books`, `create_record_book`, `update_record_book`,
 `delete_record_book`, `list_records`, `list_record_webhooks`,
@@ -316,6 +317,15 @@ Images work the same way through `imageFiles` on `create_product` and
 `test_record_webhook`, `set_record_inbound_url`, `rotate_record_inbound_url`
 
 **Knowledge** — `list_knowledge`, `add_knowledge`, `upload_knowledge_file`, `delete_knowledge`
+
+**Uploads** — `create_upload_url`. For a file too big to pass as base64,
+such as one attached in a claude.ai chat: it returns a signed `uploadUrl`,
+valid for 15 minutes, a `fileKey` and the `curl` command that PUTs the file.
+Pass the `fileKey` and `filename` to the catalogue tools or
+`upload_knowledge_file` afterwards; the catalogue tools check the file arrived
+and change nothing if it did not. The PUT goes to Cloudflare R2's host, named
+in `uploadHost`, which has to be reachable from wherever the command runs —
+in claude.ai, that means allowing it in the organisation's network settings.
 
 **Channels** — `list_channels`, `create_channel`, `update_channel`,
 `delete_channel`

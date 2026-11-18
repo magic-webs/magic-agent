@@ -30,11 +30,18 @@ const MIME_BY_EXTENSION = {
 
 export const fileSourceArgs = {
   url: z.string().optional().describe("Public address of the file to download"),
-  contentBase64: z.string().optional().describe("The file's bytes, base64-encoded"),
+  contentBase64: z
+    .string()
+    .optional()
+    .describe("The file's bytes, base64-encoded. Only for small files; use create_upload_url for anything over a few KB."),
+  fileKey: z
+    .string()
+    .optional()
+    .describe("The fileKey from create_upload_url, after the file has been PUT to its uploadUrl"),
   filename: z
     .string()
     .optional()
-    .describe("e.g. 'Brochure 2026.pdf'. Required with contentBase64; defaults to the URL's last segment."),
+    .describe("e.g. 'Brochure 2026.pdf'. Required with contentBase64 or fileKey; defaults to the URL's last segment."),
 };
 
 export function guessMime(filename, given) {
@@ -67,14 +74,22 @@ function checkSize(bytes, filename) {
 }
 
 /**
- * @param {{ url?: string, contentBase64?: string, filename?: string }} file
- * @returns {Promise<{ bytes: Uint8Array, filename: string, mimeType: string | undefined }>}
+ * A file already uploaded through create_upload_url comes back with its
+ * fileKey and no bytes.
+ *
+ * @param {{ url?: string, contentBase64?: string, fileKey?: string, filename?: string }} file
+ * @returns {Promise<{ bytes?: Uint8Array, fileKey?: string, filename: string, mimeType: string | undefined }>}
  */
-export async function loadFile({ url, contentBase64, filename }) {
-  if (!url === !contentBase64) {
-    throw new Error("Pass either url or contentBase64 for each file.");
+export async function loadFile({ url, contentBase64, fileKey, filename }) {
+  if ([url, contentBase64, fileKey].filter(Boolean).length !== 1) {
+    throw new Error("Pass exactly one of url, contentBase64 or fileKey for each file.");
   }
   let name = filename?.trim();
+
+  if (fileKey) {
+    if (!name) throw new Error("filename is required with fileKey.");
+    return { fileKey: fileKey.trim(), filename: name, mimeType: guessMime(name) };
+  }
 
   if (contentBase64) {
     if (!name) throw new Error("filename is required with contentBase64.");

@@ -16,6 +16,7 @@ import { register as catalogue } from "./catalogue.mjs";
 import { register as records } from "./records.mjs";
 import { register as payments } from "./payments.mjs";
 import { register as knowledge } from "./knowledge.mjs";
+import { register as uploads } from "./uploads.mjs";
 import { register as channels } from "./channels.mjs";
 import { register as customTools } from "./custom-tools.mjs";
 import { register as operations } from "./operations.mjs";
@@ -33,6 +34,7 @@ const GROUPS = [
   { title: "Records", register: records },
   { title: "Payments", register: payments },
   { title: "Knowledge", register: knowledge },
+  { title: "Uploads", register: uploads },
   { title: "Channels", register: channels },
   { title: "Custom tools", register: customTools },
   { title: "Operations", register: operations },

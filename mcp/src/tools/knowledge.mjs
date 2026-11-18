@@ -122,7 +122,7 @@ export function register(server) {
     {
       title: "Upload a knowledge file",
       description:
-        "Upload a PDF (or a .txt, .md, .csv, .json or .html file) to the knowledge base, the same as the dashboard's file upload: the file is stored, its text is extracted, chunked and embedded in the background. Pass either url, a public address the file is downloaded from, or contentBase64 with filename. Scanned image-only PDFs have no text to extract — use add_knowledge with the text instead. Check list_knowledge for status 'ready'.",
+        "Upload a PDF (or a .txt, .md, .csv, .json or .html file) to the knowledge base, the same as the dashboard's file upload: the file is stored, its text is extracted, chunked and embedded in the background. Pass url, a public address the file is downloaded from; fileKey with filename, after uploading the file through create_upload_url with destination 'knowledge'; or contentBase64 with filename for a small file. A missing upload shows as status 'failed'. Scanned image-only PDFs have no text to extract — use add_knowledge with the text instead. Check list_knowledge for status 'ready'.",
       inputSchema: {
         ...workspaceArg,
         ...fileSourceArgs,
@@ -134,8 +134,8 @@ export function register(server) {
         tags: z.array(z.string()).optional(),
       },
     },
-    handler(async ({ workspace, url, contentBase64, filename, title, agent, tags }) => {
-      const file = await loadFile({ url, contentBase64, filename });
+    handler(async ({ workspace, url, contentBase64, fileKey, filename, title, agent, tags }) => {
+      const file = await loadFile({ url, contentBase64, fileKey, filename });
       if (!file.mimeType || !(KNOWLEDGE_TYPES.has(file.mimeType) || file.mimeType.startsWith("text/"))) {
         throw new Error(
           `${file.filename} is not a supported file. Upload a PDF, .txt, .md, .csv, .json or .html file.`
@@ -144,31 +144,35 @@ export function register(server) {
       const found = await resolveWorkspace(workspace);
       const scoped = agent ? await findAgent(found._id, agent) : null;
 
-      const target = await call.mutation(api.knowledge.generateUploadUrl, {
-        workspaceId: found._id,
-      });
-      const put = await fetch(target.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.mimeType },
-        body: file.bytes,
-      });
-      if (!put.ok) throw new Error(`Uploading ${file.filename} failed with HTTP ${put.status}`);
+      let key = file.fileKey;
+      if (!key) {
+        const target = await call.mutation(api.knowledge.generateUploadUrl, {
+          workspaceId: found._id,
+        });
+        const put = await fetch(target.url, {
+          method: "PUT",
+          headers: { "Content-Type": file.mimeType },
+          body: file.bytes,
+        });
+        if (!put.ok) throw new Error(`Uploading ${file.filename} failed with HTTP ${put.status}`);
+        key = target.key;
+      }
 
       const sourceId = await call.mutation(api.knowledge.addSource, {
         workspaceId: found._id,
         agentId: scoped?._id,
         title: title?.trim() || file.filename,
         kind: "file",
-        fileKey: target.key,
+        fileKey: key,
         filename: file.filename,
         mimeType: file.mimeType,
-        size: file.bytes.byteLength,
+        size: file.bytes?.byteLength,
         tags,
       });
       return ok({
         sourceId,
         filename: file.filename,
-        size: file.bytes.byteLength,
+        size: file.bytes?.byteLength,
         note: "Text extraction and embedding run in the background. Check list_knowledge for status 'ready'.",
       });
     })

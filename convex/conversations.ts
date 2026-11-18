@@ -14,6 +14,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { adReferral, channelType, escalationDepartment, kvPair } from "./schema";
 import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
+import { fileUrl } from "./lib/files";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
 import { carriedChunkIds, recentReplyTexts } from "./lib/knowledgeCarry";
@@ -424,6 +425,10 @@ export const startFromContact = mutation({
   },
 });
 
+function withAdImageUrl<T extends { imageKey?: string }>(referral: T) {
+  return { ...referral, imageUrl: referral.imageKey ? fileUrl(referral.imageKey) : null };
+}
+
 export const listMessages = query({
   args: {
     conversationId: v.optional(v.id("conversations")),
@@ -433,13 +438,16 @@ export const listMessages = query({
     if (!args.conversationId) return [];
     // The desk reads transcripts too — see threadAccess.
     if (!(await threadAccess(ctx, args.conversationId))) return [];
-    return await ctx.db
+    const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", args.conversationId!)
       )
       .order("asc")
       .take(args.limit ?? 400);
+    return messages.map((message) =>
+      message.referral ? { ...message, referral: withAdImageUrl(message.referral) } : message
+    );
   },
 });
 
@@ -529,6 +537,7 @@ export const getWithContact = query({
       contact,
       agent,
       channel,
+      adSource: conversation.adSource ? withAdImageUrl(conversation.adSource) : null,
       assignee: assignee ? { name: assignee.name, by: assignedBy?.name ?? null } : null,
       lastInboundAt,
       freeFormWindowClosed,

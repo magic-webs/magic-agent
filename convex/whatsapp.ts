@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { newFileKey, r2 } from "./lib/files";
 import {
   buildMessage,
   providerMessageId,
@@ -24,7 +25,9 @@ import {
   fetchMedia,
   mediaLink,
   parseInbound,
+  parseReferral,
   withCaption,
+  type AdReferral,
   type InboundMessage,
 } from "./lib/whatsappMedia";
 
@@ -40,6 +43,30 @@ type WhatsAppConfig = {
   phoneNumberId: string;
   accessToken: string;
 };
+
+async function withAdImage(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">,
+  referral: AdReferral
+): Promise<AdReferral & { imageKey?: string }> {
+  const source = referral.mediaType === "video" ? referral.thumbnailUrl : referral.mediaUrl;
+  if (!source) return referral;
+  try {
+    const response = await fetch(source);
+    const type = response.headers.get("content-type") ?? "";
+    if (!response.ok || !type.startsWith("image/")) return referral;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_IMAGE_BYTES) return referral;
+    const imageKey = await r2.store(ctx, bytes, { key: newFileKey("inbox", workspaceId), type });
+    return { ...referral, imageKey };
+  } catch (error) {
+    console.error(
+      "[whatsapp] ad image copy failed",
+      error instanceof Error ? error.message : String(error)
+    );
+    return referral;
+  }
+}
 
 function messagesUrl(config: WhatsAppConfig): string {
   return `${config.apiBaseUrl.replace(/\/$/, "")}/${config.apiVersion}/${config.phoneNumberId}/messages`;
@@ -422,6 +449,11 @@ export const handleInbound = internalAction({
       };
     }
 
+    const adReferral = parseReferral(message);
+    const referral = adReferral
+      ? await withAdImage(ctx, channel.workspaceId, adReferral)
+      : undefined;
+
     const result: TurnOutcome = await ctx.runAction(internal.engine.respond, {
       agentId: channel.agentId,
       channelType: "whatsapp",
@@ -435,6 +467,7 @@ export const handleInbound = internalAction({
         preview: parsed.preview,
         wamid: messageId,
         ...(message.context?.id ? { replyToWamid: message.context.id } : {}),
+        ...(referral ? { referral } : {}),
       },
       image,
       ...(superseded || channel.humanOnly ? { fileOnly: true } : {}),

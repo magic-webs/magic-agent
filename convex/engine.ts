@@ -1,6 +1,6 @@
 "use node";
 
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import {
   action,
   internalAction,
@@ -65,7 +65,7 @@ import { fileUrl, newFileKey, r2 } from "./lib/files";
 import { summarise, type HeaderSpec, type Outbound } from "./lib/whatsappSend";
 import { sendOnChannel } from "./lib/channelSend";
 import { citedFirst, mergePassages } from "./lib/knowledgeCarry";
-import { channelType } from "./schema";
+import { adReferral, channelType } from "./schema";
 import { claimReply } from "./marketingSync";
 import {
   parametersToJsonSchema,
@@ -2124,6 +2124,7 @@ const inboundArgs = {
       preview: v.string(),
       wamid: v.optional(v.string()),
       replyToWamid: v.optional(v.string()),
+      referral: v.optional(adReferral),
     })
   ),
   image: v.optional(v.object({ data: v.bytes(), mediaType: v.string() })),
@@ -2143,6 +2144,7 @@ type TurnArgs = {
     preview: string;
     wamid?: string;
     replyToWamid?: string;
+    referral?: Infer<typeof adReferral>;
   };
   image?: { data: ArrayBuffer; mediaType: string };
   /** Record the message in the thread without the agent answering it. */

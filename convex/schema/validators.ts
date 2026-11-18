@@ -92,6 +92,19 @@ export const orderStatus = v.union(
   v.literal("cancelled")
 );
 
+export const adReferral = v.object({
+  sourceType: v.string(),
+  sourceId: v.optional(v.string()),
+  sourceUrl: v.optional(v.string()),
+  headline: v.optional(v.string()),
+  body: v.optional(v.string()),
+  mediaType: v.optional(v.string()),
+  mediaUrl: v.optional(v.string()),
+  thumbnailUrl: v.optional(v.string()),
+  imageKey: v.optional(v.string()),
+  ctwaClid: v.optional(v.string()),
+});
+
 export const deliveryStatus = v.union(
   v.literal("pending"),
   v.literal("sent"),

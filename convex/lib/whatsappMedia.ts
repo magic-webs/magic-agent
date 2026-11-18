@@ -32,6 +32,18 @@ export type InboundMessage = {
   from?: string;
   id?: string;
   context?: { id?: string };
+  referral?: {
+    source_type?: string;
+    source_id?: string;
+    source_url?: string;
+    headline?: string;
+    body?: string;
+    media_type?: string;
+    image_url?: string;
+    video_url?: string;
+    thumbnail_url?: string;
+    ctwa_clid?: string;
+  };
   text?: { body?: string };
   button?: { text?: string };
   interactive?: {
@@ -128,6 +140,37 @@ function contactCard(contact: InboundContact): ContactCard {
 
 export function withCaption(line: string, caption?: string): string {
   return caption?.trim() ? `${line}\n${caption.trim()}` : line;
+}
+
+export type AdReferral = {
+  sourceType: string;
+  sourceId?: string;
+  sourceUrl?: string;
+  headline?: string;
+  body?: string;
+  mediaType?: string;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  ctwaClid?: string;
+};
+
+export function parseReferral(message: InboundMessage): AdReferral | undefined {
+  const r = message.referral;
+  if (!r?.source_type && !r?.source_id && !r?.ctwa_clid) return undefined;
+  const fields = {
+    sourceType: r.source_type ?? "ad",
+    sourceId: r.source_id,
+    sourceUrl: r.source_url,
+    headline: r.headline?.trim(),
+    body: r.body?.trim(),
+    mediaType: r.media_type,
+    mediaUrl: r.image_url ?? r.video_url,
+    thumbnailUrl: r.thumbnail_url,
+    ctwaClid: r.ctwa_clid,
+  };
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value)
+  ) as AdReferral;
 }
 
 /**

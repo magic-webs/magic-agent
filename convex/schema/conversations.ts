@@ -1,6 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
+  adReferral,
   channelType,
   deliveryStatus,
   escalationDepartment,
@@ -197,6 +198,7 @@ export const conversationsTables = {
     assignedByMemberId: v.optional(v.id("teamMembers")),
     escalationDepartment: v.optional(escalationDepartment),
     importedAt: v.optional(v.number()),
+    adSource: v.optional(v.object({ ...adReferral.fields, at: v.number() })),
     createdAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])
@@ -286,6 +288,7 @@ export const conversationsTables = {
     ),
     reaction: v.optional(v.string()),
     teamReaction: v.optional(v.string()),
+    referral: v.optional(adReferral),
     knowledgeSourceIds: v.optional(v.array(v.id("knowledgeSources"))),
     // Ids only last until the source is re-embedded; a wrong answer copies the text.
     knowledgeChunkIds: v.optional(v.array(v.id("knowledgeChunks"))),

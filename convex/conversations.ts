@@ -12,7 +12,7 @@ import {
 import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { channelType, escalationDepartment, kvPair } from "./schema";
+import { adReferral, channelType, escalationDepartment, kvPair } from "./schema";
 import { deleteMessage, linkWamids, noteSent } from "./lib/delivery";
 import { historyText, type Outbound } from "./lib/whatsappSend";
 import { normaliseBirthday } from "./lib/marketing";
@@ -1148,6 +1148,7 @@ export const startTurn = internalMutation({
         preview: v.string(),
         wamid: v.optional(v.string()),
         replyToWamid: v.optional(v.string()),
+        referral: v.optional(adReferral),
       })
     ),
     historyLimit: v.number(),
@@ -1360,6 +1361,7 @@ export const startTurn = internalMutation({
       text: args.text,
       ...(inbound?.payload ? { payload: inbound.payload } : {}),
       ...(replyTo ? { replyTo } : {}),
+      ...(inbound?.referral ? { referral: inbound.referral } : {}),
       createdAt: now,
     });
     if (inbound?.wamid) {
@@ -1388,6 +1390,9 @@ export const startTurn = internalMutation({
       channelId: conversation.channelId ?? args.channelId,
       repeatText,
       repeatCount,
+      ...(inbound?.referral && !conversation.adSource
+        ? { adSource: { ...inbound.referral, at: now } }
+        : {}),
       ...(caughtAsBot ? { markedBot: true, markedBotAt: now } : {}),
       // A thread the marketing desk opened becomes a real conversation the
       // moment the customer answers it.

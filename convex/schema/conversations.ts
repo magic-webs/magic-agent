@@ -329,6 +329,7 @@ export const conversationsTables = {
     workspaceId: v.id("workspaces"),
     channelId: v.id("channels"),
     baseUrl: v.string(),
+    crmChannelId: v.optional(v.string()),
     apiKey: v.optional(v.string()),
     status: v.union(
       v.literal("running"),

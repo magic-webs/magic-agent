@@ -4,7 +4,8 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireOwner } from "./lib/auth";
-import { insertConversation, patchConversation, searchTextFor } from "./lib/inbox";
+import { deleteConversation, insertConversation, patchConversation, searchTextFor } from "./lib/inbox";
+import { deleteMessage } from "./lib/delivery";
 import { normalisePhone } from "./lib/notifications";
 import {
   listIn,
@@ -67,6 +68,7 @@ export const start = mutation({
     channelId: v.id("channels"),
     baseUrl: v.string(),
     apiKey: v.string(),
+    crmChannelId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireOwner(ctx, args.workspaceId);
@@ -90,6 +92,7 @@ export const start = mutation({
       workspaceId: args.workspaceId,
       channelId: args.channelId,
       baseUrl,
+      ...(args.crmChannelId?.trim() ? { crmChannelId: args.crmChannelId.trim() } : {}),
       apiKey,
       status: "running",
       page: 1,
@@ -146,7 +149,7 @@ async function resolvePhone(
     job.apiKey,
     `/crm/chat/${encodeURIComponent(chat.id)}/messages?page=1&limit=${MESSAGES_PER_PAGE}&sort=newest`
   );
-  const rows = listIn(body);
+  const rows = onChannel(listIn(body), job.crmChannelId);
   for (const row of rows) {
     const phone = readCounterpart(row, own);
     if (phone) return { phone };
@@ -373,6 +376,11 @@ export const advance = internalMutation({
   },
 });
 
+function onChannel(rows: Record<string, unknown>[], crmChannelId: string | undefined) {
+  if (!crmChannelId) return rows;
+  return rows.filter((row) => row.channel === undefined || String(row.channel) === crmChannelId);
+}
+
 async function crmGet(baseUrl: string, apiKey: string, path: string): Promise<unknown> {
   let response: Response;
   try {
@@ -417,7 +425,7 @@ async function fetchMessages(
     );
     const rows = listIn(body);
     if (rows.length === 0) break;
-    const parsed = rows
+    const parsed = onChannel(rows, job.crmChannelId)
       .map((row) => readMessage(row, chat.phone))
       .filter((message): message is CrmMessage => message !== null);
     const firstKey = parsed[0] ? `${parsed[0].id ?? ""}:${parsed[0].at}:${parsed[0].text}` : undefined;
@@ -509,7 +517,10 @@ export const runPage = internalAction({
         skipped++;
         continue;
       }
-      if (messages.length === 0) continue;
+      if (messages.length === 0) {
+        if (job.crmChannelId) skipped++;
+        continue;
+      }
       const chatArgs = chat.name
         ? { id: chat.id, phone: chat.phone, name: chat.name }
         : { id: chat.id, phone: chat.phone };
@@ -544,5 +555,38 @@ export const runPage = internalAction({
     });
     if (running) await ctx.scheduler.runAfter(0, internal.crmImports.runPage, args);
     return null;
+  },
+});
+
+export const undo = internalMutation({
+  args: { workspaceId: v.id("workspaces"), contactsSince: v.number() },
+  handler: async (ctx, args): Promise<{ removed: number; more: boolean }> => {
+    const mappings = await ctx.db
+      .query("crmImportedChats")
+      .withIndex("by_workspace_chat", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(20);
+    for (const mapping of mappings) {
+      const thread = await ctx.db.get("conversations", mapping.conversationId);
+      if (thread) {
+        const messages = await ctx.db
+          .query("messages")
+          .withIndex("by_conversation", (q) => q.eq("conversationId", thread._id))
+          .collect();
+        for (const message of messages) await deleteMessage(ctx, message);
+        await deleteConversation(ctx, thread);
+        const contact = await ctx.db.get("contacts", thread.contactId);
+        const other = await ctx.db
+          .query("conversations")
+          .withIndex("by_contact_agent", (q) => q.eq("contactId", thread.contactId))
+          .first();
+        if (contact && !other && contact.source === "import" && contact.createdAt >= args.contactsSince) {
+          await ctx.db.delete("contacts", contact._id);
+        }
+      }
+      await ctx.db.delete("crmImportedChats", mapping._id);
+    }
+    const more = mappings.length === 20;
+    if (more) await ctx.scheduler.runAfter(0, internal.crmImports.undo, args);
+    return { removed: mappings.length, more };
   },
 });

@@ -44,6 +44,7 @@ export function CrmImportDialog() {
   const [channelId, setChannelId] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [crmChannelId, setCrmChannelId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const chosenChannel = channelId || whatsapp[0]?._id || "";
@@ -58,6 +59,7 @@ export function CrmImportDialog() {
         channelId: chosenChannel as Id<"channels">,
         baseUrl,
         apiKey,
+        crmChannelId: crmChannelId.trim() || undefined,
       });
       setApiKey("");
       toast.add({
@@ -153,6 +155,15 @@ export function CrmImportDialog() {
                 autoComplete="off"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="crm-channel-id">CRM channel ID (optional)</Label>
+              <Input
+                id="crm-channel-id"
+                value={crmChannelId}
+                placeholder="Only chats on this CRM number"
+                onChange={(event) => setCrmChannelId(event.target.value)}
               />
             </div>
           </div>

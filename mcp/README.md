@@ -305,8 +305,8 @@ the candidates.
 **Catalogue** — `list_products`, `create_product`, `update_product`,
 `delete_product`, `import_products`, `draft_catalogue`. Entries are a `kind`:
 `product`, `service`, `brochure` or `other`. Files (a brochure's PDF, a price
-list) are passed as public URLs, and the server downloads each one and uploads
-it to storage, so agents can send it with `send_media`.
+list) are passed as a public URL or as `contentBase64` with a `filename`, and
+the server uploads each one to storage, so agents can send it with `send_media`.
 
 **Records** — `list_record_books`, `create_record_book`, `update_record_book`,
 `delete_record_book`, `list_records`, `list_record_webhooks`,

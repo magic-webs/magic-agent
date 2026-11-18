@@ -6,12 +6,12 @@
 import { z } from "zod";
 import { kvArg, requirementFieldArg, workspaceArg } from "../args.mjs";
 import { api, call } from "../convex.mjs";
+import { fileSourceArgs, loadFile } from "../files.mjs";
 import { findProduct } from "../lookup.mjs";
 import { handler, ok, productBrief } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
 const KINDS = ["product", "service", "brochure", "other"];
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 const kindArg = z
   .enum(KINDS)
@@ -19,56 +19,26 @@ const kindArg = z
     "product or service to sell; brochure or other for a document agents send rather than sell (price list, menu, spec sheet). Defaults to product."
   );
 
-const fileArg = z.object({
-  url: z.string().describe("Public address of the file; it is copied into storage"),
-  filename: z
-    .string()
-    .optional()
-    .describe("The name the customer sees, e.g. 'Brochure 2026.pdf'. Defaults to the URL's last segment."),
-});
+const fileArg = z.object(fileSourceArgs);
 
-const decoded = (text) => {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    return text;
-  }
-};
-
-function filenameFrom(response, url) {
-  const disposition = response.headers.get("content-disposition") ?? "";
-  const quoted = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  if (quoted) return decoded(quoted[1]);
-  const last = new URL(url).pathname.split("/").filter(Boolean).pop();
-  return last ? decoded(last) : "file";
-}
-
-async function copyFile(workspaceId, { url, filename }) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Fetching ${url} returned HTTP ${response.status}`);
-  }
-  const blob = await response.blob();
-  if (blob.size > MAX_FILE_BYTES) {
-    throw new Error(`${url} is over 25 MB`);
-  }
+async function copyFile(workspaceId, source) {
+  const file = await loadFile(source);
   const target = await call.mutation(api.products.generateUploadUrl, {
     workspaceId,
   });
-  const type = blob.type || "application/octet-stream";
   const put = await fetch(target.url, {
     method: "PUT",
-    headers: { "Content-Type": type },
-    body: blob,
+    headers: { "Content-Type": file.mimeType ?? "application/octet-stream" },
+    body: file.bytes,
   });
   if (!put.ok) {
-    throw new Error(`Uploading ${url} failed with HTTP ${put.status}`);
+    throw new Error(`Uploading ${file.filename} failed with HTTP ${put.status}`);
   }
   return {
     fileKey: target.key,
-    filename: filename?.trim() || filenameFrom(response, url),
-    mimeType: blob.type || undefined,
-    size: blob.size,
+    filename: file.filename,
+    mimeType: file.mimeType,
+    size: file.bytes.byteLength,
   };
 }
 
@@ -166,7 +136,7 @@ export function register(server) {
           .max(10)
           .optional()
           .describe(
-            "PDFs or documents agents can send — a brochure, price list or spec sheet. Each is downloaded and stored, up to 25 MB."
+            "PDFs or documents agents can send — a brochure, price list or spec sheet. Each is a url to download or contentBase64 with filename, up to 25 MB."
           ),
       },
     },
@@ -205,7 +175,7 @@ export function register(server) {
         addFiles: z
           .array(fileArg)
           .optional()
-          .describe("Files to attach, each downloaded and stored, up to 25 MB"),
+          .describe("Files to attach, each a url to download or contentBase64 with filename, up to 25 MB"),
         removeFiles: z
           .array(z.string())
           .optional()

@@ -5,63 +5,20 @@
 
 import { z } from "zod";
 import { workspaceArg } from "../args.mjs";
+import { fileSourceArgs, loadFile } from "../files.mjs";
 import { api, call } from "../convex.mjs";
 import { findAgent, findKnowledge, pickByName } from "../lookup.mjs";
 import { handler, ok } from "../results.mjs";
 import { resolveWorkspace } from "../workspaces.mjs";
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-
-const MIME_BY_EXTENSION = {
-  pdf: "application/pdf",
-  txt: "text/plain",
-  md: "text/markdown",
-  markdown: "text/markdown",
-  csv: "text/csv",
-  json: "application/json",
-  html: "text/html",
-  htm: "text/html",
-};
-
-function mimeFor(filename, given) {
-  const extension = filename.split(".").pop()?.toLowerCase() ?? "";
-  const known = MIME_BY_EXTENSION[extension];
-  if (known) return known;
-  if (given && given !== "application/octet-stream") return given.split(";")[0].trim();
-  throw new Error(
-    `${filename} is not a supported file. Upload a PDF, .txt, .md, .csv, .json or .html file.`
-  );
-}
-
-function checkSize(bytes, filename) {
-  if (bytes.byteLength === 0) throw new Error(`${filename} is empty.`);
-  if (bytes.byteLength > MAX_FILE_BYTES) throw new Error(`${filename} is over 25 MB.`);
-}
-
-async function downloadFile(url, filename) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Fetching ${url} returned HTTP ${response.status}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  let name = filename?.trim();
-  if (!name) {
-    const last = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "file";
-    try {
-      name = decodeURIComponent(last);
-    } catch {
-      name = last;
-    }
-  }
-  checkSize(bytes, name);
-  return { bytes, filename: name, mimeType: mimeFor(name, response.headers.get("content-type")) };
-}
-
-function fromBase64(content, filename) {
-  const name = filename?.trim();
-  if (!name) throw new Error("filename is required with contentBase64.");
-  const bytes = new Uint8Array(Buffer.from(content.replace(/^data:[^,]*,/, ""), "base64"));
-  checkSize(bytes, name);
-  return { bytes, filename: name, mimeType: mimeFor(name) };
-}
+const KNOWLEDGE_TYPES = new Set([
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+  "text/html",
+]);
 
 async function findGap(workspaceId, wanted) {
   const gaps = await call.query(api.knowledgeGaps.listByWorkspace, {
@@ -168,12 +125,7 @@ export function register(server) {
         "Upload a PDF (or a .txt, .md, .csv, .json or .html file) to the knowledge base, the same as the dashboard's file upload: the file is stored, its text is extracted, chunked and embedded in the background. Pass either url, a public address the file is downloaded from, or contentBase64 with filename. Scanned image-only PDFs have no text to extract — use add_knowledge with the text instead. Check list_knowledge for status 'ready'.",
       inputSchema: {
         ...workspaceArg,
-        url: z.string().optional().describe("Public address of the file to download"),
-        contentBase64: z.string().optional().describe("The file's bytes, base64-encoded"),
-        filename: z
-          .string()
-          .optional()
-          .describe("e.g. 'Price list 2026.pdf'. Required with contentBase64; defaults to the URL's last segment."),
+        ...fileSourceArgs,
         title: z.string().optional().describe("How the source is labelled in citations. Defaults to the filename."),
         agent: z
           .string()
@@ -183,15 +135,14 @@ export function register(server) {
       },
     },
     handler(async ({ workspace, url, contentBase64, filename, title, agent, tags }) => {
-      if (!url === !contentBase64) {
-        throw new Error("Pass either url or contentBase64, not both.");
+      const file = await loadFile({ url, contentBase64, filename });
+      if (!file.mimeType || !(KNOWLEDGE_TYPES.has(file.mimeType) || file.mimeType.startsWith("text/"))) {
+        throw new Error(
+          `${file.filename} is not a supported file. Upload a PDF, .txt, .md, .csv, .json or .html file.`
+        );
       }
       const found = await resolveWorkspace(workspace);
       const scoped = agent ? await findAgent(found._id, agent) : null;
-
-      const file = url
-        ? await downloadFile(url, filename)
-        : fromBase64(contentBase64, filename);
 
       const target = await call.mutation(api.knowledge.generateUploadUrl, {
         workspaceId: found._id,

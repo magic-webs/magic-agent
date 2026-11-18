@@ -278,7 +278,7 @@ type Keepers = {
   rollouts: Id<"marketingEvents">[];
 };
 
-async function keepersIn(ctx: QueryCtx, workspaceId: Id<"workspaces">): Promise<Keepers> {
+export async function keepersIn(ctx: QueryCtx, workspaceId: Id<"workspaces">): Promise<Keepers> {
   const links = await ctx.db
     .query("paymentLinks")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
@@ -359,7 +359,7 @@ async function keepReason(
   return null;
 }
 
-async function deleteContact(ctx: MutationCtx, contactId: Id<"contacts">, keepers: Keepers) {
+export async function deleteContact(ctx: MutationCtx, contactId: Id<"contacts">, keepers: Keepers) {
   const conversations = await ctx.db
     .query("conversations")
     .withIndex("by_contact_agent", (q) => q.eq("contactId", contactId))
@@ -391,6 +391,41 @@ async function deleteContact(ctx: MutationCtx, contactId: Id<"contacts">, keeper
   for (const list of lists) await ctx.db.delete("audienceMembers", list._id);
   await ctx.db.delete("contacts", contactId);
 }
+
+export async function deleteContactIfUnused(ctx: MutationCtx, contactId: Id<"contacts">): Promise<boolean> {
+  const contact = await ctx.db.get("contacts", contactId);
+  if (!contact) return false;
+  const thread = await ctx.db
+    .query("conversations")
+    .withIndex("by_contact_agent", (q) => q.eq("contactId", contactId))
+    .first();
+  if (thread) return false;
+  if (await ctx.db.query("records").withIndex("by_contact", (q) => q.eq("contactId", contactId)).first()) return false;
+  if (await ctx.db.query("orders").withIndex("by_contact", (q) => q.eq("contactId", contactId)).first()) return false;
+  await deleteContact(ctx, contactId, await keepersIn(ctx, contact.workspaceId));
+  return true;
+}
+
+export const purgeUnusedContacts = internalMutation({
+  args: { workspaceId: v.id("workspaces"), cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args): Promise<{ deleted: number; kept: number }> => {
+    const page = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .paginate({ numItems: CONTACT_PURGE_BATCH, cursor: args.cursor ?? null });
+    let deleted = 0;
+    for (const contact of page.page) {
+      if (await deleteContactIfUnused(ctx, contact._id)) deleted += 1;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.audience.purgeUnusedContacts, {
+        workspaceId: args.workspaceId,
+        cursor: page.continueCursor,
+      });
+    }
+    return { deleted, kept: page.page.length - deleted };
+  },
+});
 
 const PURGE_BATCH = 400;
 const CONTACT_PURGE_BATCH = 40;

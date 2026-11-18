@@ -3,7 +3,8 @@ import { paginationOptsValidator } from "convex/server";
 import { stream } from "convex-helpers/server/stream";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation } from "./functions";
+import { internal } from "./_generated/api";
+import { internalMutation, mutation } from "./functions";
 import { requireContact, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
 import { normaliseEmail } from "./lib/notifications";
@@ -471,5 +472,35 @@ export const setSubscribed = mutation({
       optOutReason: args.subscribed ? undefined : "manual",
     });
     return { success: true };
+  },
+});
+
+export const removeAttributes = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    keys: v.array(v.string()),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args): Promise<number> => {
+    const drop = new Set(args.keys);
+    const page = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .paginate({ numItems: 200, cursor: args.cursor ?? null });
+    let changed = 0;
+    for (const contact of page.page) {
+      const kept = contact.attributes.filter((attribute) => !drop.has(attribute.key));
+      if (kept.length === contact.attributes.length) continue;
+      await ctx.db.patch("contacts", contact._id, { attributes: kept });
+      changed += 1;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.contacts.removeAttributes, {
+        workspaceId: args.workspaceId,
+        keys: args.keys,
+        cursor: page.continueCursor,
+      });
+    }
+    return changed;
   },
 });

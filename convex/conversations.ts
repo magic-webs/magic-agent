@@ -58,6 +58,7 @@ import { friendlySendError } from "./lib/sendErrors";
 import { sendOnChannel } from "./lib/channelSend";
 import { assignConversation } from "./lib/assignment";
 import { pickHandover } from "./handover";
+import { deleteContactIfUnused } from "./audience";
 import { seedFromVm, seedThread } from "./marketing";
 import { memberInWorkspace } from "./team";
 
@@ -607,6 +608,7 @@ export const remove = mutation({
       .collect();
     for (const message of messages) await deleteMessage(ctx, message);
     await deleteConversation(ctx, conversation);
+    await deleteContactIfUnused(ctx, conversation.contactId);
     return { success: true };
   },
 });

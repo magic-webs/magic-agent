@@ -200,6 +200,7 @@ export const exportPage = query({
 });
 
 type BookCell = {
+  recordId: Id<"records">;
   stage: string | null;
   reference: string;
   count: number;
@@ -238,6 +239,7 @@ function groupRecords(
     // The latest one speaks for the contact; the rest only add to the count.
     if (!seen || record.updatedAt > seen.updatedAt) {
       books.set(record.bookId as string, {
+        recordId: record._id,
         stage: record.stage ?? null,
         reference: record.reference,
         count: (seen?.count ?? 0) + 1,
@@ -291,8 +293,10 @@ function rowOf(
     messageCount: latest?.messageCount ?? 0,
     conversationStatus: latest?.status ?? null,
     leadStage: stage ? { name: stage.name, outcome: stage.outcome } : null,
+    leadNote: latest?.leadStageNote ?? null,
     records: [...books].map(([bookId, row]) => ({
       bookId,
+      recordId: row.recordId,
       stage: row.stage,
       reference: row.reference,
       count: row.count,

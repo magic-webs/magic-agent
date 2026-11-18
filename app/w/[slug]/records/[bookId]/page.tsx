@@ -12,7 +12,7 @@ import {
   FieldListEditor,
   type CollectedField,
 } from "@/components/field-list-editor";
-import { StringListEditor, KeyValueEditor } from "@/components/editors";
+import { KeyValueEditor } from "@/components/editors";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -76,6 +76,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft02Icon,
   BubbleChatIcon,
+  Cancel01Icon,
   Delete02Icon,
   Download04Icon,
   FolderOpenIcon,
@@ -97,10 +98,11 @@ type BookDraft = {
   referencePrefix: string;
   referenceStyle: "random" | "serial";
   fields: CollectedField[];
-  stages: string[];
+  stages: StageDraft[];
   allowLookup: boolean;
   allowUpdate: boolean;
 };
+type StageDraft = { name: string; from: string | null };
 type RecordRow = Doc<"records"> & {
   filedBy: string | null;
   threadId: Id<"conversations"> | null;
@@ -135,7 +137,12 @@ function RowStage({ row, stages }: { row: RecordRow; stages: string[] }) {
       aria-label={`Stage for ${row.reference}`}
       value={row.stage ?? ""}
       placeholder="—"
-      options={stages.map((name) => ({ value: name, label: name }))}
+      options={[
+        ...(row.stage && !stages.includes(row.stage)
+          ? [{ value: row.stage, label: row.stage, disabled: true }]
+          : []),
+        ...stages.map((name) => ({ value: name, label: name })),
+      ]}
       onValueChange={async (stage) => {
         if (!stage || stage === row.stage) return;
         try {
@@ -905,6 +912,87 @@ function Purpose({ text }: { text: string }) {
   );
 }
 
+function StageListEditor({
+  value,
+  onChange,
+}: {
+  value: StageDraft[];
+  onChange: (next: StageDraft[]) => void;
+}) {
+  const [adding, setAdding] = useState("");
+
+  const add = () => {
+    const name = adding.trim();
+    if (!name) return;
+    onChange([...value, { name, from: null }]);
+    setAdding("");
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <Label className="text-sm font-medium">Stages</Label>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          What one of these moves through after it is filed. The first is where a
+          new one starts. Leave empty if it is simply a thing that happened.
+          Renaming a stage moves the records already at it.
+        </p>
+      </div>
+
+      {value.length > 0 ? (
+        <ul className="flex flex-col gap-1.5">
+          {value.map((stage, index) => (
+            <li key={index} className="flex items-center gap-2">
+              <Input
+                value={stage.name}
+                aria-label={`Stage ${index + 1}`}
+                onChange={(event) =>
+                  onChange(
+                    value.map((item, i) =>
+                      i === index ? { ...item, name: event.target.value } : item
+                    )
+                  )
+                }
+              />
+              {stage.from && stage.from !== stage.name.trim() ? (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  was {stage.from}
+                </span>
+              ) : null}
+              <Button
+                type="button"
+                size="icon-lg"
+                variant="ghost"
+                aria-label={`Remove ${stage.name}`}
+                onClick={() => onChange(value.filter((_, i) => i !== index))}
+              >
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="flex gap-2">
+        <Input
+          value={adding}
+          placeholder="Stage name"
+          onChange={(event) => setAdding(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              add();
+            }
+          }}
+        />
+        <Button type="button" variant="outline" onClick={add}>
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // The page
 // ---------------------------------------------------------------------------
@@ -955,7 +1043,7 @@ export default function RecordBookPage({
       referencePrefix: book.referencePrefix,
       referenceStyle: book.referenceStyle ?? "random",
       fields: book.fields as CollectedField[],
-      stages: book.stages,
+      stages: book.stages.map((name) => ({ name, from: name })),
       allowLookup: book.allowLookup,
       allowUpdate: book.allowUpdate,
     });
@@ -991,11 +1079,13 @@ export default function RecordBookPage({
     try {
       await updateBook(patch);
       toast.add({ title: "Saved.", type: "success" });
+      return true;
     } catch (error) {
       toast.add({
         title: friendlyError(error, "Could not save."),
         type: "error",
       });
+      return false;
     }
   };
 
@@ -1432,10 +1522,7 @@ export default function RecordBookPage({
 
               <Separator />
 
-              <StringListEditor
-                label="Stages"
-                description="What one of these moves through after it is filed. The first is where a new one starts. Leave empty if it is simply a thing that happened."
-                placeholder="Stage name"
+              <StageListEditor
                 value={draft.stages}
                 onChange={(next) => setDraft({ ...draft, stages: next })}
               />
@@ -1491,8 +1578,11 @@ export default function RecordBookPage({
 
             <Button
               size="lg"
-              onClick={() =>
-                void save({
+              onClick={async () => {
+                const stages = draft.stages
+                  .map((stage) => ({ ...stage, name: stage.name.trim() }))
+                  .filter((stage) => stage.name);
+                const saved = await save({
                   bookId: book._id,
                   name: draft.name,
                   pluralName: draft.pluralName,
@@ -1500,11 +1590,20 @@ export default function RecordBookPage({
                   referencePrefix: draft.referencePrefix,
                   referenceStyle: draft.referenceStyle,
                   fields: draft.fields.filter((field) => field.key.trim()),
-                  stages: draft.stages,
+                  stages: stages.map((stage) => stage.name),
+                  stageRenames: stages
+                    .filter((stage) => stage.from && stage.from !== stage.name)
+                    .map((stage) => ({ from: stage.from!, to: stage.name })),
                   allowLookup: draft.allowLookup,
                   allowUpdate: draft.allowUpdate,
-                })
-              }
+                });
+                if (saved) {
+                  setDraft({
+                    ...draft,
+                    stages: stages.map((stage) => ({ name: stage.name, from: stage.name })),
+                  });
+                }
+              }}
             >
               Save changes
             </Button>

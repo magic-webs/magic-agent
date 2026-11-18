@@ -268,6 +268,7 @@ export const listBookLinks = query({
         handle: book.handle,
         status: book.status,
         recordCount: book.recordCount ?? null,
+        stages: book.stages,
       }));
   },
 });
@@ -405,6 +406,7 @@ export const updateBook = mutation({
     purpose: v.optional(v.string()),
     fields: v.optional(v.array(requirementField)),
     stages: v.optional(v.array(v.string())),
+    stageRenames: v.optional(v.array(v.object({ from: v.string(), to: v.string() }))),
     referencePrefix: v.optional(v.string()),
     referenceStyle: v.optional(referenceStyle),
     allowLookup: v.optional(v.boolean()),
@@ -413,7 +415,7 @@ export const updateBook = mutation({
   },
   handler: async (ctx, args) => {
     await requireRecordBook(ctx, args.bookId);
-    const { bookId, ...rest } = args;
+    const { bookId, stageRenames, ...rest } = args;
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [key, value] of Object.entries(rest)) {
@@ -443,8 +445,27 @@ export const updateBook = mutation({
     }
 
     await ctx.db.patch(bookId, patch);
+    for (const rename of stageRenames ?? []) {
+      await moveStage(ctx, bookId, rename.from, rename.to);
+    }
     return { success: true };
   },
+});
+
+async function moveStage(ctx: MutationCtx, bookId: Id<"recordBooks">, from: string, to: string) {
+  const target = to.trim();
+  if (!target || from === target) return 0;
+  const rows = await ctx.db
+    .query("records")
+    .withIndex("by_book_stage", (q) => q.eq("bookId", bookId).eq("stage", from))
+    .collect();
+  for (const row of rows) await ctx.db.patch(row._id, { stage: target });
+  return rows.length;
+}
+
+export const renameRecordStage = internalMutation({
+  args: { bookId: v.id("recordBooks"), from: v.string(), to: v.string() },
+  handler: async (ctx, args) => ({ moved: await moveStage(ctx, args.bookId, args.from, args.to) }),
 });
 
 export const removeBook = mutation({

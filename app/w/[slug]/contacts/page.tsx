@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { usePaginatedQuery } from "convex-helpers/react";
@@ -78,9 +78,11 @@ type ContactRow = {
   conversationStatus: "open" | "escalated" | "closed" | null;
   /** Where the follow-up desk filed the latest conversation. */
   leadStage: { name: string; outcome: "open" | "won" | "lost" } | null;
+  leadNote: string | null;
   /** One entry per record book this person has something filed in. */
   records: Array<{
     bookId: string;
+    recordId: Id<"records">;
     stage: string | null;
     reference: string;
     count: number;
@@ -142,15 +144,43 @@ function StageBadge({ stage }: { stage: NonNullable<ContactRow["leadStage"]> }) 
  */
 function RecordCell({
   row,
+  stages,
 }: {
   row: ContactRow["records"][number] | undefined;
+  stages: string[];
 }) {
+  const updateRecord = useMutation(api.records.updateRecord);
   if (!row) return <Blank />;
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <Badge variant="outline" className="max-w-full truncate">
-        {row.stage ?? "Filed"}
-      </Badge>
+      {stages.length > 0 ? (
+        <SelectField
+          size="sm"
+          className="w-36 max-w-36"
+          aria-label={`Stage for ${row.reference}`}
+          value={row.stage ?? ""}
+          placeholder="—"
+          options={[
+            ...(row.stage && !stages.includes(row.stage)
+              ? [{ value: row.stage, label: row.stage, disabled: true }]
+              : []),
+            ...stages.map((name) => ({ value: name, label: name })),
+          ]}
+          onValueChange={async (stage) => {
+            if (!stage || stage === row.stage) return;
+            try {
+              await updateRecord({ recordId: row.recordId, stage });
+              toast.add({ title: `Moved to ${stage}.`, type: "success" });
+            } catch (error) {
+              toast.add({ title: friendlyError(error, "Failed."), type: "error" });
+            }
+          }}
+        />
+      ) : (
+        <Badge variant="outline" className="max-w-full truncate">
+          Filed
+        </Badge>
+      )}
       {row.count > 1 ? (
         <span className="text-xs tabular-nums text-muted-foreground">
           ×{row.count}
@@ -371,6 +401,21 @@ export default function ContactsPage() {
   const more = contacts.status === "CanLoadMore" || contacts.status === "LoadingMore";
   const loadMore = () => contacts.loadMore(PAGE_SIZE);
 
+  const sentinel = useRef<HTMLDivElement>(null);
+  const { status: pageStatus, loadMore: loadPage } = contacts;
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || pageStatus !== "CanLoadMore") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadPage(PAGE_SIZE);
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [pageStatus, loadPage]);
+
   const filtered =
     Boolean(searchDraft.trim()) ||
     channel !== "all" ||
@@ -527,7 +572,7 @@ export default function ContactsPage() {
                 <TableHead className="hidden lg:table-cell min-w-28">Handled by</TableHead>
                 <TableHead className="min-w-28">Lead stage</TableHead>
                 {columns.map((book) => (
-                  <TableHead key={book._id} className="hidden lg:table-cell min-w-32">
+                  <TableHead key={book._id} className="hidden lg:table-cell min-w-44">
                     {book.pluralName}
                   </TableHead>
                 ))}
@@ -609,12 +654,13 @@ export default function ContactsPage() {
                   {columns.map((book) => (
                     <TableCell
                       key={book._id}
-                      className="hidden lg:table-cell max-w-40 min-w-0"
+                      className="hidden lg:table-cell"
                     >
                       <RecordCell
                         row={contact.records.find(
                           (row) => row.bookId === book._id
                         )}
+                        stages={book.stages}
                       />
                     </TableCell>
                   ))}
@@ -626,6 +672,14 @@ export default function ContactsPage() {
                         title={contact.remark}
                       >
                         {contact.remark}
+                      </span>
+                    ) : contact.leadNote ? (
+                      <span
+                        className="flex min-w-0 items-start gap-1.5 text-sm text-muted-foreground italic"
+                        title={`Follow-up desk · ${contact.leadNote}`}
+                      >
+                        <HugeiconsIcon icon={SignpostIcon} strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
+                        <span className="line-clamp-2">{contact.leadNote}</span>
                       </span>
                     ) : (
                       <Blank />
@@ -685,15 +739,8 @@ export default function ContactsPage() {
             </TableBody>
           </Table>
           {more ? (
-            <div className="flex justify-center border-t p-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={contacts.status === "LoadingMore"}
-                onClick={loadMore}
-              >
-                {contacts.status === "LoadingMore" ? <Spinner /> : null} Show more
-              </Button>
+            <div ref={sentinel} className="flex justify-center border-t p-3">
+              <Spinner />
             </div>
           ) : null}
         </div>

@@ -17,7 +17,7 @@ type Body = {
    * needs no mode. `continue` answers whatever the first step asked — the
    * authenticator code, or whether to sign out the session already open.
    */
-  mode?: "setup" | "continue";
+  mode?: "setup" | "continue" | "passkey";
   username?: string;
   password?: string;
   /** Setup only. */
@@ -27,6 +27,8 @@ type Body = {
   code?: string;
   /** Continue only: sign out the other session and take its place. */
   replace?: boolean;
+  /** Passkey only: the browser's answer to the challenge. */
+  response?: unknown;
 };
 
 type Jar = Awaited<ReturnType<typeof cookies>>;
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
   }
 
   const password = typeof body.password === "string" ? body.password : "";
-  if (body.mode !== "continue" && !password) {
+  if (body.mode !== "continue" && body.mode !== "passkey" && !password) {
     return NextResponse.json({ error: "Enter your password." }, { status: 400 });
   }
 
@@ -78,7 +80,13 @@ export async function POST(request: NextRequest) {
     }
 
     let outcome;
-    if (body.mode === "continue") {
+    if (body.mode === "passkey") {
+      outcome = await convex.action(api.auth.finishPasskeyLogin, {
+        response: body.response,
+        client: "web",
+        device: describeUserAgent(request.headers.get("user-agent")),
+      });
+    } else if (body.mode === "continue") {
       // Held in a cookie rather than handed to the page, so script on it
       // never sees a token that can finish somebody's sign-in.
       const challenge = jar.get(CHALLENGE_COOKIE)?.value;

@@ -23,6 +23,8 @@
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@shadcn/react": "^0.3.0",
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.1.0",
     "@xyflow/react": "^12.11.6",
     "ai": "^7.0.83",
     "class-variance-authority": "^0.7.1",

@@ -1,9 +1,14 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
+import {
+  browserSupportsWebAuthn,
+  browserSupportsWebAuthnAutofill,
+  startAuthentication,
+} from "@simplewebauthn/browser";
 import { formatDistanceToNow } from "date-fns";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { api } from "@/convex/_generated/api";
@@ -31,6 +36,7 @@ import {
   Alert02Icon,
   ArrowRight02Icon,
   ComputerPhoneSyncIcon,
+  FingerPrintIcon,
   Logout01Icon,
   SecurityCheckIcon,
 } from "@hugeicons/core-free-icons";
@@ -53,9 +59,9 @@ class SignInError extends Error {
   }
 }
 
-async function post(
-  payload: Record<string, string | boolean | undefined>
-): Promise<Step> {
+type Payload = Record<string, unknown>;
+
+async function post(payload: Payload): Promise<Step> {
   const response = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -77,6 +83,8 @@ async function post(
   }
   return { step: "done", redirectTo: data.redirectTo ?? "/" };
 }
+
+const noop = () => () => {};
 
 function lastActive(timestamp: number): string {
   try {
@@ -110,7 +118,10 @@ function LoginForm() {
     setForm((prev) => ({ ...prev, password: "" }));
   };
 
-  const run = async (payload: Record<string, string | boolean | undefined>) => {
+  const beginPasskey = useAction(api.auth.beginPasskeyLogin);
+  const passkeys = useSyncExternalStore(noop, browserSupportsWebAuthn, () => false);
+
+  const run = async (payload: Payload) => {
     setBusy(true);
     setError(null);
     try {
@@ -152,6 +163,41 @@ function LoginForm() {
           }
         : { username: form.username, password: form.password }
     );
+
+  const signInWithPasskey = async (autofill: boolean) => {
+    if (!autofill) {
+      setBusy(true);
+      setError(null);
+    }
+    try {
+      const optionsJSON = await beginPasskey({});
+      const response = await startAuthentication({
+        optionsJSON,
+        useBrowserAutofill: autofill,
+      });
+      await run({ mode: "passkey", response });
+    } catch (caught) {
+      const name = caught instanceof Error ? caught.name : "";
+      if (name === "AbortError" || name === "NotAllowedError") {
+        if (!autofill) setBusy(false);
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (needsSetup !== false || pending) return;
+    let cancelled = false;
+    void browserSupportsWebAuthnAutofill().then((supported) => {
+      if (supported && !cancelled) void signInWithPasskey(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsSetup, pending]);
 
   const submitCode = (value = code) => {
     if (!value.trim() || busy) return;
@@ -398,7 +444,7 @@ function LoginForm() {
                 <Label htmlFor="username">Email or username</Label>
                 <Input
                   id="username"
-                  autoComplete="username"
+                  autoComplete="username webauthn"
                   autoFocus
                   value={form.username}
                   onChange={(event) =>
@@ -438,6 +484,16 @@ function LoginForm() {
               >
                 {busy ? <Spinner /> : <HugeiconsIcon icon={ArrowRight02Icon} strokeWidth={2} />} Sign in
               </Button>
+
+              {passkeys ? (
+                <Button
+                  variant="outline"
+                  onClick={() => void signInWithPasskey(false)}
+                  disabled={busy}
+                >
+                  <HugeiconsIcon icon={FingerPrintIcon} strokeWidth={2} /> Sign in with a passkey
+                </Button>
+              ) : null}
 
               <Separator />
               <p className="text-xs text-muted-foreground">

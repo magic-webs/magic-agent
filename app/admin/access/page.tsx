@@ -32,6 +32,7 @@ import {
 import { TableSkeleton } from "@/components/skeletons";
 import { WorkspaceAccessDialog } from "@/components/workspace-access";
 import { TwoFactorCard } from "@/components/two-factor-card";
+import { PasskeysCard } from "@/components/passkeys-card";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Key01Icon,
@@ -80,6 +81,7 @@ export default function AdminAccessPage() {
       {/* Your own, as the administrator signed in. shrink-0 for the same
           reason as the cards below. */}
       <TwoFactorCard className="shrink-0" />
+      <PasskeysCard className="shrink-0" />
 
       {/* shrink-0, or this page does not scroll. `Card` carries
           `overflow-hidden`, and a flex item whose overflow is not `visible`

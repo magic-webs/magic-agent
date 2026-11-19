@@ -11,6 +11,7 @@ import {
 import { useWorkspace } from "@/components/workspace-provider";
 import { WorkspaceAccessCard } from "@/components/workspace-access";
 import { TwoFactorCard } from "@/components/two-factor-card";
+import { PasskeysCard } from "@/components/passkeys-card";
 import { McpConnectorCard } from "@/components/mcp-connector-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -226,6 +227,7 @@ export default function WorkspaceSettingsPage() {
 
             {/* The signed-in login's own: the company's, or a human agent's. */}
             <TwoFactorCard />
+            <PasskeysCard />
           </TabsContent>
 
           <TabsContent value="conversations">

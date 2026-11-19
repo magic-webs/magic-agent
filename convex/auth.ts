@@ -1,6 +1,17 @@
 "use node";
 
 import { createHmac, randomInt } from "node:crypto";
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+  type AuthenticationResponseJSON,
+  type AuthenticatorTransport,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
+  type RegistrationResponseJSON,
+} from "@simplewebauthn/server";
 import { ConvexError, v } from "convex/values";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
@@ -1560,6 +1571,210 @@ export const disableTwoFactor = action({
 });
 
 // ---------------------------------------------------------------------------
+// Passkeys
+// ---------------------------------------------------------------------------
+
+function passkeyConfig() {
+  const site = publicSiteUrl();
+  const rpID = process.env.PASSKEY_RP_ID ?? (site ? new URL(site).hostname : "localhost");
+  const origins = (process.env.PASSKEY_ORIGINS ?? site)
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  // The Android app signs its passkey requests with this origin, not the site's.
+  for (const fingerprint of (process.env.ANDROID_CERT_SHA256 ?? "").split(",")) {
+    const hex = fingerprint.replace(/[^0-9a-f]/gi, "");
+    if (hex.length === 64) {
+      origins.push(`android:apk-key-hash:${Buffer.from(hex, "hex").toString("base64url")}`);
+    }
+  }
+  return { rpID, origins };
+}
+
+function challengeOf(clientDataJSON: string): string {
+  try {
+    const parsed = JSON.parse(Buffer.from(clientDataJSON, "base64url").toString("utf8"));
+    return typeof parsed.challenge === "string" ? parsed.challenge : "";
+  } catch {
+    return "";
+  }
+}
+
+export const beginPasskeyRegistration = action({
+  args: {},
+  handler: async (ctx): Promise<PublicKeyCredentialCreationOptionsJSON> => {
+    const caller: { key: string; account: string } = await ctx.runQuery(
+      internal.authDb.callerPrincipal,
+      {}
+    );
+    const own: { existing: { id: string; transports?: string[] }[] } =
+      await ctx.runQuery(internal.passkeysDb.passkeyCaller, {});
+    const { rpID } = passkeyConfig();
+    const options = await generateRegistrationOptions({
+      rpName: "Magic Agent",
+      rpID,
+      userName: caller.account,
+      userID: new TextEncoder().encode(caller.key),
+      attestationType: "none",
+      excludeCredentials: own.existing,
+      authenticatorSelection: {
+        residentKey: "required",
+        userVerification: "required",
+      },
+    });
+    await ctx.runMutation(internal.passkeysDb.putChallenge, {
+      challenge: options.challenge,
+      purpose: "register",
+      principal: caller.key,
+    });
+    return options;
+  },
+});
+
+export const finishPasskeyRegistration = action({
+  args: { response: v.any(), name: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<{ success: true }> => {
+    const response = args.response as RegistrationResponseJSON;
+    const caller: {
+      key: string;
+      fields: ReturnType<typeof principalFields>;
+    } = await ctx.runQuery(internal.passkeysDb.passkeyCaller, {});
+    const challenge = challengeOf(response?.response?.clientDataJSON ?? "");
+    const held = challenge
+      ? await ctx.runMutation(internal.passkeysDb.takeChallenge, { challenge })
+      : null;
+    if (!held || held.purpose !== "register" || held.principal !== caller.key) {
+      throw new ConvexError("This request has expired. Try adding the passkey again.");
+    }
+
+    const { rpID, origins } = passkeyConfig();
+    let verified;
+    try {
+      verified = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: challenge,
+        expectedOrigin: origins,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+      });
+    } catch {
+      throw new ConvexError("The passkey could not be verified.");
+    }
+    if (!verified.verified) throw new ConvexError("The passkey could not be verified.");
+
+    const credential = verified.registrationInfo.credential;
+    await ctx.runMutation(internal.passkeysDb.insertPasskey, {
+      principal: caller.key,
+      ...caller.fields,
+      credentialId: credential.id,
+      publicKey: Buffer.from(credential.publicKey).toString("base64url"),
+      counter: credential.counter,
+      transports: credential.transports,
+      name: cleanDevice(args.name) ?? "Passkey",
+    });
+    return { success: true };
+  },
+});
+
+export const beginPasskeyLogin = action({
+  args: {},
+  handler: async (ctx): Promise<PublicKeyCredentialRequestOptionsJSON> => {
+    const { rpID } = passkeyConfig();
+    const options = await generateAuthenticationOptions({
+      rpID,
+      userVerification: "required",
+    });
+    await ctx.runMutation(internal.passkeysDb.putChallenge, {
+      challenge: options.challenge,
+      purpose: "login",
+    });
+    return options;
+  },
+});
+
+/**
+ * A passkey is the device and its unlock together, so it stands in for both
+ * the password and the authenticator code; only "sign out the other one?" can
+ * still follow.
+ */
+export const finishPasskeyLogin = action({
+  args: {
+    response: v.any(),
+    client: sourceValidator,
+    device: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<LoginOutcome> => {
+    const generic = "This passkey could not sign you in.";
+    const response = args.response as AuthenticationResponseJSON;
+    const challenge = challengeOf(response?.response?.clientDataJSON ?? "");
+    const held = challenge
+      ? await ctx.runMutation(internal.passkeysDb.takeChallenge, { challenge })
+      : null;
+    if (!held || held.purpose !== "login") {
+      throw new ConvexError("This sign-in has expired. Try again.");
+    }
+
+    const passkey: Doc<"passkeys"> | null = await ctx.runQuery(
+      internal.passkeysDb.byCredentialId,
+      { credentialId: String(response.id ?? "") }
+    );
+    if (!passkey) throw new ConvexError(generic);
+
+    const { rpID, origins } = passkeyConfig();
+    let verified;
+    try {
+      verified = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: challenge,
+        expectedOrigin: origins,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+        credential: {
+          id: passkey.credentialId,
+          publicKey: new Uint8Array(Buffer.from(passkey.publicKey, "base64url")),
+          counter: passkey.counter,
+          transports: passkey.transports as AuthenticatorTransport[] | undefined,
+        },
+      });
+    } catch {
+      throw new ConvexError(generic);
+    }
+    if (!verified.verified) throw new ConvexError(generic);
+    await ctx.runMutation(internal.passkeysDb.markUsed, {
+      passkeyId: passkey._id,
+      counter: verified.authenticationInfo.newCounter,
+    });
+
+    const principal: LoginPrincipal | null =
+      passkey.role === "admin" && passkey.adminId
+        ? { role: "admin", adminId: passkey.adminId }
+        : passkey.role === "user" && passkey.userId
+          ? { role: "user", userId: passkey.userId }
+          : passkey.role === "member" && passkey.memberId && passkey.workspaceId
+            ? { role: "member", memberId: passkey.memberId, workspaceId: passkey.workspaceId }
+            : passkey.role === "workspace" && passkey.workspaceId
+              ? { role: "workspace", workspaceId: passkey.workspaceId }
+              : null;
+    if (!principal) throw new ConvexError(generic);
+    if (args.client === "mcp") throw new ConvexError(generic);
+    if (principal.role !== "user" && args.client === "magicwebs") {
+      throw new ConvexError(
+        "Magicwebs signs in with a personal account. Use the email you signed up with, not a company or team login."
+      );
+    }
+
+    const profile = await profileOf(ctx, principal);
+    return await finishSignIn(
+      ctx,
+      principal,
+      profile,
+      args.client,
+      cleanDevice(args.device)
+    );
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Sign-up from the website: a workspace and a user login, once the emailed
 // code comes back. The trial and welcome bonus come with the workspace.
 // ---------------------------------------------------------------------------
@@ -1690,6 +1905,7 @@ export const finishSignUp = action({
 export const purgeExpiredSessions = internalAction({
   args: {},
   handler: async (ctx): Promise<{ removed: number }> => {
+    await ctx.runMutation(internal.passkeysDb.deleteExpiredChallenges, {});
     return await ctx.runMutation(internal.authDb.deleteExpiredSessions, {});
   },
 });

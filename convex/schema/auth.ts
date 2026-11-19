@@ -157,6 +157,36 @@ export const authTables = {
     enabledAt: v.optional(v.number()),
   }).index("by_principal", ["principal"]),
 
+  passkeys: defineTable({
+    principal: v.string(),
+    role: v.union(
+      v.literal("admin"),
+      v.literal("workspace"),
+      v.literal("member"),
+      v.literal("user")
+    ),
+    adminId: v.optional(v.id("admins")),
+    workspaceId: v.optional(v.id("workspaces")),
+    memberId: v.optional(v.id("teamMembers")),
+    userId: v.optional(v.id("users")),
+    credentialId: v.string(),
+    publicKey: v.string(),
+    counter: v.number(),
+    transports: v.optional(v.array(v.string())),
+    name: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_principal", ["principal"])
+    .index("by_credentialId", ["credentialId"]),
+
+  passkeyChallenges: defineTable({
+    challenge: v.string(),
+    purpose: v.union(v.literal("register"), v.literal("login")),
+    principal: v.optional(v.string()),
+    expiresAt: v.number(),
+  }).index("by_challenge", ["challenge"]),
+
   mcpTokens: defineTable({
     workspaceId: v.id("workspaces"),
     tokenHash: v.string(),

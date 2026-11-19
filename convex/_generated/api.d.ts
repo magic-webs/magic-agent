@@ -74,6 +74,7 @@ import type * as lib_google from "../lib/google.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_instagram from "../lib/instagram.js";
 import type * as lib_integrations from "../lib/integrations.js";
+import type * as lib_invoices from "../lib/invoices.js";
 import type * as lib_jev from "../lib/jev.js";
 import type * as lib_knowledgeCarry from "../lib/knowledgeCarry.js";
 import type * as lib_links from "../lib/links.js";
@@ -272,6 +273,7 @@ declare const fullApi: ApiFromModules<{
   "lib/inbox": typeof lib_inbox;
   "lib/instagram": typeof lib_instagram;
   "lib/integrations": typeof lib_integrations;
+  "lib/invoices": typeof lib_invoices;
   "lib/jev": typeof lib_jev;
   "lib/knowledgeCarry": typeof lib_knowledgeCarry;
   "lib/links": typeof lib_links;

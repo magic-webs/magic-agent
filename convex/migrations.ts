@@ -38,6 +38,7 @@ import { failureCode } from "./lib/metaErrors";
 import { tally } from "./lib/audienceCounts";
 import { REPLY_PREVIEW_CHARS } from "./lib/agentStats";
 import { dayKey } from "./lib/dailyStats";
+import { nextInvoiceNumber } from "./lib/invoices";
 import { addToUsageDaily } from "./lib/usageDaily";
 import {
   deliveryText,
@@ -1636,5 +1637,21 @@ export const dropDeletedWorkspaceIds = internalMutation({
       admins++;
     }
     return { users, admins };
+  },
+});
+
+// bunx convex run migrations:numberPaidInvoices — gives every paid payment without one a serial invoice number, oldest first.
+export const numberPaidInvoices = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = (await ctx.db.query("billingPayments").collect())
+      .filter((row) => row.status === "paid" && !row.invoiceNumber)
+      .sort((a, b) => (a.paidAt ?? a.createdAt) - (b.paidAt ?? b.createdAt));
+    for (const row of rows) {
+      await ctx.db.patch("billingPayments", row._id, {
+        invoiceNumber: await nextInvoiceNumber(ctx, row.paidAt ?? row.createdAt),
+      });
+    }
+    return { numbered: rows.length };
   },
 });

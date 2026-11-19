@@ -18,6 +18,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { accountFor, ensureAccount } from "./lib/account";
 import { formatMoney } from "./lib/billing";
+import { nextInvoiceNumber } from "./lib/invoices";
 import { PLATFORM_LOCALE, fromPaise, planLine, roundToPaise } from "./lib/plans";
 import { creditWallet } from "./lib/wallet";
 
@@ -183,6 +184,7 @@ async function recordSubscriptionCharge(
     totalMicros,
     razorpayPaymentId: payment.razorpayPaymentId,
     razorpayInvoiceId: payment.invoiceId,
+    invoiceNumber: await nextInvoiceNumber(ctx, now),
     subscriptionId: subscription._id,
     periodStart: fresh?.currentStart,
     periodEnd: fresh?.currentEnd,
@@ -240,6 +242,7 @@ async function settlePayment(
       razorpayPaymentId: payment.razorpayPaymentId,
       method: payment.method ?? row.method,
       error: undefined,
+      invoiceNumber: row.invoiceNumber ?? (await nextInvoiceNumber(ctx, now)),
       paidAt: now,
       updatedAt: now,
     });

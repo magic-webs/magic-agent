@@ -83,6 +83,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowRight02Icon,
+  Download01Icon,
   FloppyDiskIcon,
   Invoice01Icon,
   MinusSignIcon,
@@ -231,7 +232,7 @@ export function PlanTab() {
         indian={data.pricing.currency === "INR"}
       />
 
-      <PaymentHistory />
+      <PaymentHistory profile={profile} />
     </div>
   );
 }
@@ -1354,9 +1355,52 @@ const STATUS: Record<
   failed: { label: "Failed", tone: "bg-destructive/10 text-destructive" },
 };
 
-function PaymentHistory() {
+function PaymentHistory({ profile }: { profile: Profile }) {
   const { money } = useMoney(useWorkspace()._id);
   const workspace = useWorkspace();
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const download = async (row: Doc<"billingPayments">, invoiceNumber: string) => {
+    setDownloading(row._id);
+    try {
+      const { invoicePdf } = await import("@/components/billing/invoice-pdf");
+      const blob = await invoicePdf({
+        theme: workspace.theme,
+        billedTo: {
+          name: profile.billingName,
+          gstin: profile.gstin,
+          email: profile.billingEmail,
+          phone: profile.billingPhone,
+          address: profile.billingAddress,
+          state: profile.billingState,
+        },
+        payment: {
+          invoiceNumber,
+          purpose: PURPOSE_LABEL[row.purpose],
+          description: row.description,
+          currency: row.currency,
+          subtotalMicros: row.subtotalMicros,
+          gstMicros: row.gstMicros,
+          totalMicros: row.totalMicros,
+          paidAt: row.paidAt ?? row.createdAt,
+          periodStart: row.periodStart,
+          periodEnd: row.periodEnd,
+          method: row.method,
+          razorpayPaymentId: row.razorpayPaymentId,
+        },
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice ${invoiceNumber.replaceAll("/", "-")}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      report("Could not download the invoice", error);
+    } finally {
+      setDownloading(null);
+    }
+  };
   const { results, status, loadMore } = usePaginatedQuery(
     api.subscriptions.payments,
     { workspaceId: workspace._id },
@@ -1399,6 +1443,9 @@ function PaymentHistory() {
                     </TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">Status</TableHead>
+                    <TableHead className="w-10">
+                      <span className="sr-only">Invoice</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1445,6 +1492,24 @@ function PaymentHistory() {
                           >
                             {state.label}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {row.status === "paid" && row.invoiceNumber ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Download invoice"
+                              title="Download invoice"
+                              disabled={downloading !== null}
+                              onClick={() => download(row, row.invoiceNumber!)}
+                            >
+                              {downloading === row._id ? (
+                                <Spinner />
+                              ) : (
+                                <HugeiconsIcon icon={Download01Icon} strokeWidth={2} />
+                              )}
+                            </Button>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     );

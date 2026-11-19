@@ -333,6 +333,7 @@ export const billingTables = {
     razorpayOrderId: v.optional(v.string()),
     razorpayPaymentId: v.optional(v.string()),
     razorpayInvoiceId: v.optional(v.string()),
+    invoiceNumber: v.optional(v.string()),
     subscriptionId: v.optional(v.id("billingSubscriptions")),
     periodStart: v.optional(v.number()),
     periodEnd: v.optional(v.number()),
@@ -345,6 +346,11 @@ export const billingTables = {
     .index("by_workspace_createdAt", ["workspaceId", "createdAt"])
     .index("by_order", ["razorpayOrderId"])
     .index("by_razorpay_payment", ["razorpayPaymentId"]),
+
+  invoiceCounters: defineTable({
+    series: v.string(),
+    next: v.number(),
+  }).index("by_series", ["series"]),
 
   wallets: defineTable({
     workspaceId: v.id("workspaces"),

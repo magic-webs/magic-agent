@@ -343,6 +343,7 @@ export const billingTables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_createdAt", ["createdAt"])
     .index("by_workspace_createdAt", ["workspaceId", "createdAt"])
     .index("by_order", ["razorpayOrderId"])
     .index("by_razorpay_payment", ["razorpayPaymentId"]),

@@ -166,6 +166,7 @@ export const send = mutation({
     threadId: v.optional(v.id("genieThreads")),
     text: v.string(),
     attachments: v.optional(v.array(genieAttachment)),
+    autoApprove: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const principal = await requireWorkspace(ctx, args.workspaceId);
@@ -199,7 +200,7 @@ export const send = mutation({
         subject: identity.subject,
         title: title.length > 60 ? `${title.slice(0, 59)}…` : title,
         status: "idle",
-        autoApprove: false,
+        autoApprove: args.autoApprove ?? false,
         run: 0,
         updatedAt: now,
       });

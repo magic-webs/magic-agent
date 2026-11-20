@@ -13,6 +13,7 @@ import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SidebarUser } from "@/components/sidebar-user";
 import { PlanGate } from "@/components/billing/plan-gate";
 import { HelpWidget } from "@/components/help-widget";
+import { GenieIcon } from "@/components/genie-mark";
 import {
   Sidebar,
   SidebarContent,
@@ -50,7 +51,6 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowRight01Icon,
-  SparklesIcon,
   Building06Icon,
   ChartUpIcon,
   ConnectIcon,
@@ -133,7 +133,7 @@ const NAV: Array<{
   items?: NavItem[];
 }> = [
   { label: "Dashboard", icon: Analytics02Icon, href: "" },
-  { label: "Genie", icon: SparklesIcon, href: "/genie" },
+  { label: "Genie", icon: GenieIcon, href: "/genie" },
   // A row of its own rather than a child of Build: it is the whole roster,
   // agents and people on one page, and "who answers for us" is a question you
   // should not have to open a section to ask. Build keeps the agent editors.
@@ -606,7 +606,9 @@ export default function WorkspaceLayout({
           </div>
         </SidebarInset>
       </SidebarProvider>
-      <HelpWidget workspaceId={workspace._id} supportHref={`${base}/support`} />
+      {pathname.startsWith(`${base}/genie`) ? null : (
+        <HelpWidget workspaceId={workspace._id} supportHref={`${base}/support`} />
+      )}
     </WorkspaceProvider>
   );
 }

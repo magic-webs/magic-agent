@@ -30,6 +30,7 @@ export const genieTables = {
     title: v.string(),
     status: genieStatus,
     autoApprove: v.boolean(),
+    pinned: v.optional(v.boolean()),
     run: v.number(),
     error: v.optional(v.string()),
     updatedAt: v.number(),

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
@@ -12,11 +11,20 @@ import {
   ArrowDown01Icon,
   ArrowUp02Icon,
   Attachment01Icon,
+  BubbleChatIcon,
   Cancel01Icon,
   Delete02Icon,
   File01Icon,
+  Link01Icon,
+  MoreHorizontalIcon,
+  PencilEdit02Icon,
+  PinIcon,
+  PinOffIcon,
+  RefreshIcon,
   PlusSignIcon,
+  Search01Icon,
   Shield01Icon,
+  SidebarLeft01Icon,
   StopIcon,
 } from "@hugeicons/core-free-icons";
 import { api } from "@/convex/_generated/api";
@@ -25,6 +33,24 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { WhatsAppText } from "@/components/whatsapp-text";
 import { GenieMark } from "@/components/genie-mark";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -35,12 +61,23 @@ type Turn = { kind: "user"; item: Item } | { kind: "genie"; items: Item[] };
 
 const SUGGESTIONS = [
   "Set up my business",
-  "Explain how my agents work",
+  "Explain my agents",
   "What can't my agents answer?",
   "How did this week go?",
   "Add a product",
   "Test my front desk",
+  "Rewrite an agent's prompt",
+  "Summarise today's chats",
+  "Set up an order alert",
+  "Fix wrong answers",
+  "Draft a festival greeting",
+  "Show unpaid orders",
+  "Create a record book",
+  "Tidy my lead stages",
+  "Add our refund policy",
+  "What's waiting on me?",
 ];
+const SHOWN = 4;
 
 function errorText(error: unknown) {
   if (error instanceof ConvexError && typeof error.data === "string") return error.data;
@@ -86,6 +123,67 @@ function toTurns(items: Item[]): Turn[] {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+const COLLAPSED_KEY = "genie.chatsCollapsed";
+const collapseListeners = new Set<() => void>();
+let collapsedInMemory: boolean | null = null;
+
+function readCollapsed() {
+  if (collapsedInMemory !== null) return collapsedInMemory;
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeCollapsed(value: boolean) {
+  collapsedInMemory = value;
+  try {
+    localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0");
+  } catch {
+    /* kept for this visit only */
+  }
+  for (const listener of collapseListeners) listener();
+}
+
+function subscribeCollapsed(listener: () => void) {
+  collapseListeners.add(listener);
+  return () => {
+    collapseListeners.delete(listener);
+  };
+}
+const DAY = 24 * 60 * 60 * 1000;
+
+type ThreadRow = FunctionReturnType<typeof api.genie.threads>[number];
+
+function shortTime(at: number, now: number) {
+  const minutes = Math.floor((now - at) / 60_000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function groupThreads(rows: ThreadRow[], now: number) {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const start = today.getTime();
+  const buckets: { label: string; after: number; rows: ThreadRow[] }[] = [
+    { label: "Today", after: start, rows: [] },
+    { label: "Yesterday", after: start - DAY, rows: [] },
+    { label: "Previous 7 days", after: start - 7 * DAY, rows: [] },
+    { label: "Previous 30 days", after: start - 30 * DAY, rows: [] },
+    { label: "Older", after: -Infinity, rows: [] },
+  ];
+  for (const row of rows) {
+    buckets.find((bucket) => row.updatedAt >= bucket.after)!.rows.push(row);
+  }
+  return buckets.filter((bucket) => bucket.rows.length > 0);
+}
+
 export default function GeniePage() {
   const workspace = useWorkspace();
   const router = useRouter();
@@ -93,66 +191,48 @@ export default function GeniePage() {
   const params = useSearchParams();
   const requested = params.get("chat") as Id<"genieThreads"> | null;
   const [threadId, setThreadId] = useState<Id<"genieThreads"> | null>(requested);
+  const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
+  const [drawer, setDrawer] = useState(false);
 
   const threads = useQuery(api.genie.threads, { workspaceId: workspace._id });
   const thread = useQuery(api.genie.thread, threadId ? { threadId } : "skip");
 
+  const collapse = writeCollapsed;
+
   const open = (id: Id<"genieThreads"> | null) => {
     setThreadId(id);
+    setDrawer(false);
     router.replace(id ? `${pathname}?chat=${id}` : pathname);
   };
 
+  const showChats = () => {
+    if (window.matchMedia("(min-width: 1024px)").matches) collapse(false);
+    else setDrawer(true);
+  };
+
+  const list = (
+    <ChatList threads={threads} activeId={threadId} onOpen={open} onCollapse={() => collapse(true)} />
+  );
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-muted/30 lg:flex">
-        <div className="p-3">
-          <Button variant="outline" className="w-full justify-start" onClick={() => open(null)}>
-            <HugeiconsIcon icon={PlusSignIcon} />
-            New chat
-          </Button>
-        </div>
-        <p className="px-4 pt-1 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          Recent
-        </p>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          {threads?.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-muted-foreground">
-              Your chats with Genie will be kept here.
-            </p>
-          ) : null}
-          {threads?.map((row) => (
-            <button
-              key={row._id}
-              onClick={() => open(row._id)}
-              className={cn(
-                "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted",
-                row._id === threadId && "bg-muted"
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="line-clamp-1 text-sm">{row.title}</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {row.status === "waiting"
-                    ? "Waiting for approval"
-                    : row.status === "working"
-                      ? "Working…"
-                      : formatDistanceToNow(row.updatedAt, { addSuffix: true })}
-                </span>
-              </span>
-              {row.status === "waiting" ? (
-                <span className="size-2 shrink-0 rounded-full bg-amber-500" />
-              ) : row.status === "working" ? (
-                <Spinner className="size-3 shrink-0" />
-              ) : null}
-            </button>
-          ))}
-        </div>
-      </aside>
+      {collapsed ? null : (
+        <aside className="hidden w-64 shrink-0 flex-col border-r bg-muted/30 lg:flex">{list}</aside>
+      )}
+
+      <Sheet open={drawer} onOpenChange={setDrawer}>
+        <SheetContent side="left" showCloseButton={false} className="w-72 gap-0 p-0">
+          <SheetTitle className="sr-only">Chats with Genie</SheetTitle>
+          {list}
+        </SheetContent>
+      </Sheet>
 
       <Conversation
         key={threadId ?? "new"}
         threadId={threadId}
         thread={threadId ? thread : null}
+        chatsHidden={collapsed}
+        onShowChats={showChats}
         onCreated={open}
         onNew={() => open(null)}
       />
@@ -160,14 +240,293 @@ export default function GeniePage() {
   );
 }
 
+function ChatList({
+  threads,
+  activeId,
+  onOpen,
+  onCollapse,
+}: {
+  threads: ThreadRow[] | undefined;
+  activeId: Id<"genieThreads"> | null;
+  onOpen: (id: Id<"genieThreads"> | null) => void;
+  onCollapse: () => void;
+}) {
+  const remove = useMutation(api.genie.remove);
+  const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<ThreadRow | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const term = search.trim().toLowerCase();
+  const rows = (threads ?? []).filter((row) => !term || row.title.toLowerCase().includes(term));
+  const pinned = rows.filter((row) => row.pinned);
+  const groups = [
+    ...(pinned.length ? [{ label: "Pinned", rows: pinned }] : []),
+    ...groupThreads(
+      rows.filter((row) => !row.pinned),
+      now
+    ),
+  ];
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-3">
+        <div className="flex items-center gap-2">
+          <GenieMark size={20} />
+          <span className="text-sm font-semibold">Chats</span>
+        </div>
+        <div className="flex items-center">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="New chat"
+            title="New chat"
+            onClick={() => onOpen(null)}
+          >
+            <HugeiconsIcon icon={PlusSignIcon} />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Hide chats"
+            title="Hide chats"
+            className="hidden text-muted-foreground lg:inline-flex"
+            onClick={onCollapse}
+          >
+            <HugeiconsIcon icon={SidebarLeft01Icon} />
+          </Button>
+        </div>
+      </div>
+
+      {threads && threads.length > 4 ? (
+        <div className="px-3 pt-3">
+          <label className="flex h-8 items-center gap-2 rounded-lg border bg-background px-2.5 text-sm focus-within:border-foreground/20">
+            <HugeiconsIcon icon={Search01Icon} className="size-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search chats"
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-2 pb-4">
+        {threads === undefined ? (
+          <div className="flex justify-center py-8">
+            <Spinner className="size-4" />
+          </div>
+        ) : threads.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+            <HugeiconsIcon icon={BubbleChatIcon} className="size-6 text-muted-foreground/60" />
+            <p className="text-xs text-muted-foreground">
+              Your chats with Genie are kept here, private to your login.
+            </p>
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="px-2 py-6 text-center text-xs text-muted-foreground">No chats match.</p>
+        ) : null}
+
+        {groups.map((group) => (
+          <section key={group.label} className="mt-2 first:mt-0">
+            <p className="px-2.5 pt-2 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              {group.label}
+            </p>
+            <ul className="space-y-1">
+              {group.rows.map((row) => (
+                <ChatRow
+                  key={row._id}
+                  row={row}
+                  active={row._id === activeId}
+                  now={now}
+                  onOpen={() => onOpen(row._id)}
+                  onDelete={() => setDeleting(row)}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{deleting?.title}&rdquo; and everything in it is removed. Changes
+              Genie already made to your workspace stay as they are.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={async () => {
+                if (!deleting) return;
+                const id = deleting._id;
+                setDeleting(null);
+                await remove({ threadId: id });
+                if (id === activeId) onOpen(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function ChatRow({
+  row,
+  active,
+  now,
+  onOpen,
+  onDelete,
+}: {
+  row: ThreadRow;
+  active: boolean;
+  now: number;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const rename = useMutation(api.genie.rename);
+  const setPinned = useMutation(api.genie.setPinned);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(row.title);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const save = async () => {
+    setEditing(false);
+    const next = name.trim();
+    if (next && next !== row.title) await rename({ threadId: row._id, title: next });
+    else setName(row.title);
+  };
+
+  const copyLink = async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("chat", row._id);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked: nothing to undo */
+    }
+  };
+
+  if (editing) {
+    return (
+      <li className="rounded-lg bg-background px-1.5 py-1.5 ring-1 ring-ring/40">
+        <input
+          autoFocus
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onFocus={(event) => event.target.select()}
+          onBlur={() => void save()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") void save();
+            if (event.key === "Escape") {
+              setName(row.title);
+              setEditing(false);
+            }
+          }}
+          maxLength={80}
+          aria-label="Chat name"
+          className="w-full bg-transparent px-1 text-[13px] outline-none"
+        />
+      </li>
+    );
+  }
+
+  return (
+    <li
+      className={cn(
+        "group relative flex items-center rounded-lg transition-colors",
+        active ? "bg-background shadow-xs ring-1 ring-border" : "hover:bg-muted",
+        menuOpen && !active && "bg-muted"
+      )}
+    >
+      <button
+        onClick={onOpen}
+        onDoubleClick={() => setEditing(true)}
+        className="flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-9 pl-3 text-left"
+      >
+        {row.status === "waiting" ? (
+          <span className="size-1.5 shrink-0 rounded-full bg-amber-500" title="Waiting for your approval" />
+        ) : row.status === "working" ? (
+          <Spinner className="size-3 shrink-0" />
+        ) : null}
+        <span className={cn("min-w-0 flex-1 truncate text-[13px]", active && "font-medium")}>
+          {copied ? "Link copied" : row.title}
+        </span>
+        <span
+          className={cn(
+            "shrink-0 text-[11px] text-muted-foreground tabular-nums transition-opacity group-hover:opacity-0",
+            menuOpen && "opacity-0"
+          )}
+        >
+          {shortTime(row.updatedAt, now)}
+        </span>
+      </button>
+
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger
+          render={
+            <button
+              aria-label={`Options for ${row.title}`}
+              className={cn(
+                "absolute right-1.5 flex size-6 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-foreground/5 hover:text-foreground",
+                menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              )}
+            >
+              <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+            </button>
+          }
+        />
+        <DropdownMenuContent align="start" className="w-44">
+          <DropdownMenuItem onClick={() => void setPinned({ threadId: row._id, pinned: !row.pinned })}>
+            <HugeiconsIcon icon={row.pinned ? PinOffIcon : PinIcon} />
+            {row.pinned ? "Unpin" : "Pin"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditing(true)}>
+            <HugeiconsIcon icon={PencilEdit02Icon} />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void copyLink()}>
+            <HugeiconsIcon icon={Link01Icon} />
+            Copy link
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+            <HugeiconsIcon icon={Delete02Icon} />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
+  );
+}
+
 function Conversation({
   threadId,
   thread,
+  chatsHidden,
+  onShowChats,
   onCreated,
   onNew,
 }: {
   threadId: Id<"genieThreads"> | null;
   thread: Thread | null | undefined;
+  chatsHidden: boolean;
+  onShowChats: () => void;
   onCreated: (id: Id<"genieThreads">) => void;
   onNew: () => void;
 }) {
@@ -178,9 +537,25 @@ function Conversation({
   const setAutoApprove = useMutation(api.genie.setAutoApprove);
   const remove = useMutation(api.genie.remove);
 
+  const chatsButton = (
+    <Button
+      size="icon-sm"
+      variant="ghost"
+      aria-label="Show chats"
+      title="Show chats"
+      className={cn("text-muted-foreground", !chatsHidden && "lg:hidden")}
+      onClick={onShowChats}
+    >
+      <HugeiconsIcon icon={SidebarLeft01Icon} />
+    </Button>
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [draftAuto, setDraftAuto] = useState(false);
+  const [page, setPage] = useState(0);
+  const [turn, setTurn] = useState(0);
+  const shown = SUGGESTIONS.slice(page * SHOWN, page * SHOWN + SHOWN);
   const bottom = useRef<HTMLDivElement>(null);
 
   const items = thread?.items ?? [];
@@ -246,9 +621,9 @@ function Conversation({
 
   if (empty) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="absolute top-2 left-2">{chatsButton}</div>
         <div className="m-auto flex w-full max-w-2xl flex-col items-center gap-6 px-4 py-10 sm:px-6">
-          <GenieMark size={56} className="drop-shadow-[0_8px_20px_rgb(22_163_74/0.35)]" />
           <div className="space-y-2 text-center">
             <h1 className="font-heading text-3xl font-semibold tracking-tight">
               How can Genie help, {workspace.ownerName ?? workspace.name}?
@@ -260,17 +635,32 @@ function Conversation({
           </div>
           <div className="w-full">{composer}</div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <div className="flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((suggestion) => (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {shown.map((suggestion) => (
               <button
                 key={suggestion}
                 disabled={working}
                 onClick={() => void submit(suggestion, [])}
-                className="rounded-full border bg-background px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground disabled:opacity-50"
+                className="animate-in rounded-full border bg-background px-4 py-2 text-sm text-muted-foreground transition-colors fade-in-0 hover:border-foreground/20 hover:text-foreground disabled:opacity-50"
               >
                 {suggestion}
               </button>
             ))}
+            <button
+              aria-label="Show other suggestions"
+              title="Show other suggestions"
+              onClick={() => {
+                setTurn((value) => value + 1);
+                setPage((value) => (value + 1) % Math.ceil(SUGGESTIONS.length / SHOWN));
+              }}
+              className="flex size-9 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+            >
+              <HugeiconsIcon
+                icon={RefreshIcon}
+                className="size-4 transition-transform duration-500"
+                style={{ transform: `rotate(${turn * 180}deg)` }}
+              />
+            </button>
           </div>
         </div>
       </div>
@@ -281,13 +671,19 @@ function Conversation({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
+          {chatsButton}
           <GenieMark size={22} />
           <h1 className="truncate text-sm font-medium">{thread?.title ?? "Genie"}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button size="sm" variant="ghost" className="lg:hidden" onClick={onNew}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(!chatsHidden && "lg:hidden")}
+            onClick={onNew}
+          >
             <HugeiconsIcon icon={PlusSignIcon} />
-            New
+            New chat
           </Button>
           {thread ? (
             <Button

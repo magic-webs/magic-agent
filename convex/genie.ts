@@ -13,7 +13,8 @@ import {
 import { fileUrl, requireOwnKey } from "./lib/files";
 import { genieActionState, genieAttachment, genieStatus } from "./schema/genie";
 
-const THREAD_LIST = 30;
+const THREAD_LIST = 50;
+const MAX_TITLE = 80;
 const ITEM_LIMIT = 300;
 const MAX_ATTACHMENTS = 5;
 const MAX_TEXT = 8_000;
@@ -119,12 +120,15 @@ export const threads = query({
       )
       .order("desc")
       .take(THREAD_LIST);
-    return rows.map((row) => ({
-      _id: row._id,
-      title: row.title,
-      status: row.status,
-      updatedAt: row.updatedAt,
-    }));
+    return rows
+      .map((row) => ({
+        _id: row._id,
+        title: row.title,
+        status: row.status,
+        pinned: row.pinned ?? false,
+        updatedAt: row.updatedAt,
+      }))
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   },
 });
 
@@ -317,6 +321,26 @@ export const setAutoApprove = mutation({
   handler: async (ctx, args) => {
     const thread = await requireThread(ctx, args.threadId);
     await ctx.db.patch("genieThreads", thread._id, { autoApprove: args.autoApprove });
+    return null;
+  },
+});
+
+export const rename = mutation({
+  args: { threadId: v.id("genieThreads"), title: v.string() },
+  handler: async (ctx, args) => {
+    const thread = await requireThread(ctx, args.threadId);
+    const title = args.title.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE);
+    if (!title) throw new ConvexError("Give the chat a name.");
+    await ctx.db.patch("genieThreads", thread._id, { title });
+    return null;
+  },
+});
+
+export const setPinned = mutation({
+  args: { threadId: v.id("genieThreads"), pinned: v.boolean() },
+  handler: async (ctx, args) => {
+    const thread = await requireThread(ctx, args.threadId);
+    await ctx.db.patch("genieThreads", thread._id, { pinned: args.pinned });
     return null;
   },
 });

@@ -65,3 +65,19 @@ changing anything that talks to WhatsApp.
 - The provider sends receipts only for the events its webhook subscribes to.
   Subscribe through `POST /v2/webhook`, with `sent`, `delivered`, `read` and
   `failed` among the `events`. Without them, every tick stays at "sent".
+
+# Help desk
+
+The help widget on the workspace dashboard (`components/help-widget.tsx`,
+`convex/help.ts`) answers only from the user manual in `../magic-agent-docs`,
+bundled into `convex/lib/helpGuide.ts`. It knows nothing the manual does not
+say, so a change customers can see is not finished until the help desk knows
+about it:
+
+- Any change to a screen, menu, button name, flow, plan or feature in the
+  console or the mobile app: update the matching page in `magic-agent-docs`
+  in the same piece of work. A new feature gets a page, added to `docs.json`.
+- Then run `node scripts/build-help-guide.mjs` and commit the regenerated
+  `convex/lib/helpGuide.ts` with the change. Never edit that file by hand.
+- Removed or renamed things are removed or renamed in the docs too; a stale
+  answer is worse than none.

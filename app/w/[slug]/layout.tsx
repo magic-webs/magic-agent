@@ -12,6 +12,7 @@ import { useSession } from "@/components/use-session";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SidebarUser } from "@/components/sidebar-user";
 import { PlanGate } from "@/components/billing/plan-gate";
+import { HelpWidget } from "@/components/help-widget";
 import {
   Sidebar,
   SidebarContent,
@@ -603,6 +604,7 @@ export default function WorkspaceLayout({
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <HelpWidget workspaceId={workspace._id} supportHref={`${base}/support`} />
     </WorkspaceProvider>
   );
 }

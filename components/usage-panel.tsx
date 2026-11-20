@@ -71,6 +71,7 @@ const SOURCE_LABELS: Record<string, string> = {
   draft_marketing: "Drafting marketing",
   sort_contacts: "Sorting contacts",
   instagram: "Instagram automation",
+  genie: "Genie",
 };
 
 const CHANNEL_LABELS: Record<string, string> = {

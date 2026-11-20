@@ -145,7 +145,7 @@ function b64url(input: string | Uint8Array): string {
   return Buffer.from(input as never).toString("base64url");
 }
 
-async function signAccessToken(subject: string, ttlSeconds: number) {
+export async function signAccessToken(subject: string, ttlSeconds: number) {
   const privateB64 = process.env.JWT_PRIVATE_KEY;
   if (!privateB64) {
     console.error("JWT_PRIVATE_KEY is not set; see the Authentication section of README.md.");

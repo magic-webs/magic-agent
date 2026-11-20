@@ -86,6 +86,10 @@ export function runWithIdentity(identity, fn) {
 function convex() {
   const st = state();
   if (!st.client) {
+    if (st.identity?.kind === "minted") {
+      st.client = new ConvexHttpClient(st.identity.convexUrl);
+      return st.client;
+    }
     assertConfigured(st.identity);
     st.client = new ConvexHttpClient(CONVEX_URL);
   }
@@ -135,6 +139,14 @@ async function passwordLogin(identity) {
 
 export async function authorize() {
   const st = state();
+  if (st.identity?.kind === "minted") {
+    st.session ??= st.identity.session;
+    if (!st.access || st.access.expiresAt - Date.now() <= REFRESH_MARGIN_MS) {
+      st.access = await st.identity.mint();
+    }
+    convex().setAuth(st.access.token);
+    return;
+  }
   assertConfigured(st.identity);
   if (!st.session) await signIn();
   if (st.access && st.access.expiresAt - Date.now() > REFRESH_MARGIN_MS) {

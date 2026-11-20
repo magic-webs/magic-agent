@@ -24,14 +24,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = join(HERE, "..", "..");
-
 /** Reads .env.local without pulling in a dotenv dependency. */
 function readEnvFile() {
   const out = {};
   try {
-    const text = readFileSync(join(REPO, ".env.local"), "utf8");
+    const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const text = readFileSync(join(repo, ".env.local"), "utf8");
     for (const line of text.split(/\r?\n/)) {
       const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
       if (!match) continue;

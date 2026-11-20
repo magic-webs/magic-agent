@@ -80,3 +80,21 @@ export function toolCatalogue(scope = "full") {
     return { title: group.title, admin: group.admin === true, tools };
   }).filter((group) => group.tools.length > 0);
 }
+
+/**
+ * Every tool with its handler, for running them in-process instead of over
+ * MCP — Genie calls these from a Convex action.
+ *
+ * @param {"full" | "workspace"} [scope]
+ */
+export function toolDefinitions(scope = "workspace") {
+  const tools = [];
+  for (const group of groupsFor(scope)) {
+    group.register({
+      registerTool(name, config, run) {
+        tools.push({ name, group: group.title, config, run });
+      },
+    });
+  }
+  return tools;
+}

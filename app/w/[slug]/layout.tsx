@@ -50,6 +50,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
   Alert02Icon,
   ArrowRight01Icon,
+  SparklesIcon,
   Building06Icon,
   ChartUpIcon,
   ConnectIcon,
@@ -132,6 +133,7 @@ const NAV: Array<{
   items?: NavItem[];
 }> = [
   { label: "Dashboard", icon: Analytics02Icon, href: "" },
+  { label: "Genie", icon: SparklesIcon, href: "/genie" },
   // A row of its own rather than a child of Build: it is the whole roster,
   // agents and people on one page, and "who answers for us" is a question you
   // should not have to open a section to ask. Build keeps the agent editors.

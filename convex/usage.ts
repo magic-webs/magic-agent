@@ -23,7 +23,8 @@ const sourceValidator = v.union(
   v.literal("assistant"),
   v.literal("draft_marketing"),
   v.literal("sort_contacts"),
-  v.literal("instagram")
+  v.literal("instagram"),
+  v.literal("genie")
 );
 
 /**

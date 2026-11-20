@@ -12,6 +12,7 @@ import { instagramTables } from "./instagram";
 import { paymentsTables } from "./payments";
 import { platformTables } from "./platform";
 import { supportTables } from "./support";
+import { genieTables } from "./genie";
 
 export * from "./validators";
 export * from "./instagram";
@@ -31,4 +32,5 @@ export default defineSchema({
   ...paymentsTables,
   ...platformTables,
   ...supportTables,
+  ...genieTables,
 });

@@ -53,7 +53,7 @@ export function ActivityList({ pageSize, paged }: { pageSize: number; paged: boo
           <li key={row._id} className="flex flex-col gap-1.5 p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">
-                {row.fromUsername ? `@${row.fromUsername}` : "Someone"}
+                {row.fromName ?? (row.fromUsername ? `@${row.fromUsername}` : "Someone")}
               </span>
               <span className="text-xs text-muted-foreground">
                 {row.kind === "story_mention" ? "story mention" : "comment"} ·{" "}

@@ -129,7 +129,7 @@ function ModerationForm({
         </ToggleGroup>
         <p className="text-xs text-muted-foreground">
           {form.action === "hide"
-            ? "A hidden comment stays visible to its writer and their followers, so they do not notice. You can unhide it in Instagram."
+            ? "A hidden comment stays visible to its writer and their friends or followers, so they do not notice. You can unhide it from the post."
             : "A deleted comment is gone for good."}
         </p>
       </div>

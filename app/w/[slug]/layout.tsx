@@ -98,21 +98,21 @@ type NavItem = {
   exact?: boolean;
 };
 
-const INSTAGRAM_SECTION: {
+const SOCIAL_SECTION: {
   label: string;
   icon: IconSvgElement;
   href?: string;
   view?: string;
   items: NavItem[];
 } = {
-  label: "Instagram",
+  label: "Social",
   icon: InstagramIcon,
   items: [
-    { href: "/instagram", label: "Overview", icon: Analytics01Icon, exact: true },
-    { href: "/instagram/comments", label: "Comment rules", icon: Comment01Icon },
-    { href: "/instagram/moderation", label: "Moderation", icon: Shield01Icon },
-    { href: "/instagram/messages", label: "DM tools", icon: BubbleChatIcon },
-    { href: "/instagram/activity", label: "Activity", icon: Activity01Icon },
+    { href: "/social", label: "Overview", icon: Analytics01Icon, exact: true },
+    { href: "/social/comments", label: "Comment rules", icon: Comment01Icon },
+    { href: "/social/moderation", label: "Moderation", icon: Shield01Icon },
+    { href: "/social/messages", label: "DM tools", icon: BubbleChatIcon },
+    { href: "/social/activity", label: "Activity", icon: Activity01Icon },
   ],
 };
 
@@ -389,7 +389,9 @@ export default function WorkspaceLayout({
     api.channels.inboxChannels,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
-  const hasInstagram = Boolean(channels?.some((channel) => channel.type === "instagram"));
+  const hasSocial = Boolean(
+    channels?.some((channel) => channel.type === "instagram" || channel.type === "messenger")
+  );
   const hasPayments = useQuery(
     api.payments.isConnected,
     workspace ? { workspaceId: workspace._id } : "skip"
@@ -411,11 +413,11 @@ export default function WorkspaceLayout({
         section.label === "Leads" && rows.length
           ? { ...section, items: [...(section.items ?? []), ...rows] }
           : section;
-      return section.label === "Marketing" && hasInstagram
-        ? [withBooks, INSTAGRAM_SECTION]
+      return section.label === "Marketing" && hasSocial
+        ? [withBooks, SOCIAL_SECTION]
         : [withBooks];
     });
-  }, [books, hasInstagram, hasPayments]);
+  }, [books, hasSocial, hasPayments]);
 
   if (session.me && !allowed) {
     return (

@@ -21,7 +21,7 @@ export const InstagramContext = createContext<InstagramContextValue | null>(null
 
 export function useInstagram() {
   const value = useContext(InstagramContext);
-  if (!value) throw new Error("useInstagram must be used inside the Instagram layout");
+  if (!value) throw new Error("useInstagram must be used inside the Social layout");
   return value;
 }
 

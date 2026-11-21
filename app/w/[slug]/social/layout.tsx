@@ -12,6 +12,7 @@ import {
   InstagramContext,
   fail,
 } from "@/components/instagram/context";
+import { ChannelMark } from "@/components/channel-mark";
 import { SelectField } from "@/components/select-field";
 import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -34,7 +35,7 @@ import {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-export default function InstagramLayout({ children }: { children: ReactNode }) {
+export default function SocialLayout({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
   const pathname = usePathname();
   const router = useRouter();
@@ -44,7 +45,8 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
     workspaceId: workspace._id,
     since,
   });
-  const startConnect = useAction(api.instagram.startConnect);
+  const startInstagram = useAction(api.instagram.startConnect);
+  const startMessenger = useAction(api.messenger.startConnect);
   const [picked, setPicked] = useState<Id<"channels"> | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
 
@@ -79,10 +81,10 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
             <EmptyMedia variant="icon">
               <HugeiconsIcon icon={InstagramIcon} strokeWidth={2} />
             </EmptyMedia>
-            <EmptyTitle>Connect Instagram first</EmptyTitle>
+            <EmptyTitle>Connect Instagram or a Facebook Page first</EmptyTitle>
             <EmptyDescription>
               Comment replies, moderation and DM tools work on a connected Instagram
-              business or creator account.
+              business or creator account, or a Facebook Page connected on Messenger.
             </EmptyDescription>
           </EmptyHeader>
           <Button nativeButton={false} render={<Link href={`/w/${workspace.slug}/channels`} />}>
@@ -93,18 +95,26 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  const facebook = channel.type === "messenger";
+  const platform = facebook ? "Facebook" : "Instagram";
+
   const reconnect = async () => {
     setReconnecting(true);
     try {
-      const { url } = await startConnect({
+      const args = {
         workspaceId: workspace._id,
         agentId: channel.agentId,
         name: channel.name,
-        returnTo: `${window.location.origin}${pathname}`,
-      });
+      };
+      const { url } = facebook
+        ? await startMessenger({
+            ...args,
+            returnTo: `${window.location.origin}/w/${workspace.slug}/channels`,
+          })
+        : await startInstagram({ ...args, returnTo: `${window.location.origin}${pathname}` });
       window.location.assign(url);
     } catch (error) {
-      fail("Could not start Instagram sign-in", error);
+      fail(`Could not start ${platform} sign-in`, error);
       setReconnecting(false);
     }
   };
@@ -120,6 +130,8 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
               alt=""
               className="size-10 rounded-full object-cover"
             />
+          ) : facebook ? (
+            <ChannelMark type="messenger" size={40} />
           ) : (
             <span
               className={`flex size-10 items-center justify-center rounded-full text-white ${INSTAGRAM_GRADIENT}`}
@@ -128,7 +140,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">@{channel.username}</p>
+            <p className="truncate text-sm font-medium">{channel.label}</p>
             <p className="text-xs text-muted-foreground">
               {overview.rules.live} of {overview.rules.total} comment rules live
             </p>
@@ -140,12 +152,12 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
             <SelectField
               size="sm"
               className="w-48"
-              aria-label="Instagram account"
+              aria-label="Account"
               value={channel._id}
               onValueChange={(value) => setPicked(value as Id<"channels">)}
               options={overview.channels.map((row) => ({
                 value: row._id,
-                label: `@${row.username}`,
+                label: row.type === "messenger" ? `${row.label} (Facebook)` : row.label,
               }))}
             />
           ) : null}
@@ -157,8 +169,9 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
             <AlertTitle>Reconnect to turn on comment automation</AlertTitle>
             <AlertDescription>
               <p>
-                @{channel.username} was connected before comment access was added. Sign in
-                again and allow comment management so replies and moderation can work.
+                {channel.label} was connected without comment access. Sign in again and
+                allow {facebook ? "MagicAgent to manage the Page's posts and comments" : "comment management"} so
+                replies and moderation can work.
               </p>
               <Button
                 size="sm"
@@ -167,7 +180,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
                 disabled={reconnecting}
                 onClick={reconnect}
               >
-                {reconnecting ? <Spinner /> : <HugeiconsIcon icon={InstagramIcon} strokeWidth={2} />} Reconnect Instagram
+                {reconnecting ? <Spinner /> : null} Reconnect {platform}
               </Button>
             </AlertDescription>
           </Alert>
@@ -176,7 +189,7 @@ export default function InstagramLayout({ children }: { children: ReactNode }) {
         {channel.status === "error" && channel.lastError ? (
           <Alert variant="destructive">
             <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} />
-            <AlertTitle>Instagram needs attention</AlertTitle>
+            <AlertTitle>{platform} needs attention</AlertTitle>
             <AlertDescription>{channel.lastError}</AlertDescription>
           </Alert>
         ) : null}

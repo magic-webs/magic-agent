@@ -22,9 +22,24 @@ import {
 
 const MAX_ICE_BREAKERS = 4;
 
-export default function InstagramMessagesPage() {
+export default function SocialMessagesPage() {
   const { channel } = useInstagram();
-  const settings = useQuery(api.instagramAutomation.getSettings, { channelId: channel._id });
+  const settings = useQuery(
+    api.instagramAutomation.getSettings,
+    channel.type === "instagram" ? { channelId: channel._id } : "skip"
+  );
+
+  if (channel.type !== "instagram") {
+    return (
+      <header>
+        <h1 className="font-heading text-xl font-semibold tracking-tight">DM tools</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Story mention replies and ice breakers are Instagram features. Pick an Instagram
+          account above to set them. Messages to {channel.label} are answered by its agent.
+        </p>
+      </header>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">

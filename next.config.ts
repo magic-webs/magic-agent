@@ -24,6 +24,15 @@ const proxiedPrefixes = [
 ];
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/w/:slug/instagram/:path*",
+        destination: "/w/:slug/social/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     if (!convexSite) return [];
     return proxiedPrefixes.map((prefix) => ({

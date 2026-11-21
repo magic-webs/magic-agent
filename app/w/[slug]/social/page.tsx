@@ -14,11 +14,11 @@ import {
   SecurityCheckIcon,
 } from "@hugeicons/core-free-icons";
 
-export default function InstagramOverviewPage() {
+export default function SocialOverviewPage() {
   const workspace = useWorkspace();
-  const { overview } = useInstagram();
+  const { overview, channel } = useInstagram();
   const { totals } = overview;
-  const base = `/w/${workspace.slug}/instagram`;
+  const base = `/w/${workspace.slug}/social`;
 
   const shortcuts = [
     {
@@ -39,7 +39,7 @@ export default function InstagramOverviewPage() {
       title: "DM tools",
       body: "Thank people who mention you in a story, and set ice breaker questions.",
     },
-  ];
+  ].filter((item) => channel.type === "instagram" || !item.href.endsWith("/messages"));
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,7 +56,7 @@ export default function InstagramOverviewPage() {
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className={`grid gap-3 ${shortcuts.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         {shortcuts.map((item) => (
           <Link
             key={item.href}

@@ -292,7 +292,8 @@ export function RuleDialog({
                 />
                 <p className="text-xs text-muted-foreground">
                   One reply per line, picked at random so the replies don’t all look the
-                  same. {"{{username}}"} becomes their @handle.
+                  same. {"{{username}}"} becomes their @handle on Instagram, or their first name on
+                  Facebook.
                 </p>
               </div>
             ) : draft.replyMode === "ai" ? (
@@ -339,8 +340,9 @@ export function RuleDialog({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Instagram allows one DM per comment, within 7 days of it. It appears in
-                  the Inbox, and the agent picks up when they reply.
+                  One private message per comment, within 7 days of it — a DM on Instagram,
+                  a Messenger message on Facebook. It appears in the Inbox, and the agent
+                  picks up when they reply.
                 </p>
               </>
             ) : null}

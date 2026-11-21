@@ -116,12 +116,14 @@ export const dashboard = query({
     let instagram = 0;
     let rcs = 0;
     let telegram = 0;
+    let messenger = 0;
     let web = 0;
     for (const conversation of conversations) {
       if (conversation.channelType === "whatsapp") whatsapp += 1;
       else if (conversation.channelType === "instagram") instagram += 1;
       else if (conversation.channelType === "rcs") rcs += 1;
       else if (conversation.channelType === "telegram") telegram += 1;
+      else if (conversation.channelType === "messenger") messenger += 1;
       else web += 1;
     }
 
@@ -144,7 +146,7 @@ export const dashboard = query({
         ).length,
         avgLatencyMs: before.avgLatencyMs,
       },
-      channels: { whatsapp, instagram, rcs, telegram, web },
+      channels: { whatsapp, instagram, messenger, rcs, telegram, web },
     };
   },
 });

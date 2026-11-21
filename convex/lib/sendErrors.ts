@@ -5,6 +5,7 @@ const NAME: Record<string, string> = {
   instagram: "Instagram",
   rcs: "RCS",
   telegram: "Telegram",
+  messenger: "Messenger",
 };
 
 /** A provider's send error, reworded for the person who pressed send. */

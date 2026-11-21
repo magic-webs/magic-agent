@@ -51,6 +51,7 @@ export const conversationsTables = {
       v.object({
         pageId: v.string(),
         pageName: v.string(),
+        userId: v.optional(v.string()),
         pictureUrl: v.optional(v.string()),
         accessToken: v.string(),
         permissions: v.optional(v.array(v.string())),
@@ -102,6 +103,7 @@ export const conversationsTables = {
     agentId: v.id("agents"),
     name: v.string(),
     returnTo: v.string(),
+    userId: v.optional(v.string()),
     pages: v.optional(
       v.array(
         v.object({

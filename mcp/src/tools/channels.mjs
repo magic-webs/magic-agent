@@ -87,6 +87,15 @@ export function register(server) {
                       : null,
                     hasAccessToken: channel.hasAccessToken,
                   }
+              : channel.type === "messenger"
+                ? {
+                    pageName: channel.messenger?.pageName ?? null,
+                    pageId: channel.messenger?.pageId ?? null,
+                    chatLink: channel.messenger?.pageId
+                      ? `https://m.me/${channel.messenger.pageId}`
+                      : null,
+                    hasAccessToken: channel.hasAccessToken,
+                  }
               : {
                   callbackUrl: `${SITE_URL}/whatsapp/${channel.channelKey}`,
                   displayPhoneNumber: channel.whatsapp?.displayPhoneNumber ?? null,

@@ -180,6 +180,7 @@ export const list = query({
             ).replace(/[^0-9]/g, ""),
             instagramUsername: channel.instagram?.username ?? null,
             telegramUsername: channel.telegram?.botUsername ?? null,
+            messengerPageId: channel.messenger?.pageId ?? null,
           })),
         };
       })

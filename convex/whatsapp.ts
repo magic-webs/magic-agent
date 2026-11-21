@@ -594,6 +594,9 @@ export const respondToEvent = internalAction({
     if (context.channelType === "telegram") {
       return await ctx.runAction(internal.telegram.respondToEvent, args);
     }
+    if (context.channelType === "messenger") {
+      return await ctx.runAction(internal.messenger.respondToEvent, args);
+    }
 
     const fileOnly = async (reason: string) => {
       await ctx.runMutation(internal.conversations.recordCustomerEvent, {

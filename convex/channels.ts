@@ -106,6 +106,9 @@ function redact(channel: Doc<"channels">) {
     rcs: channel.rcs
       ? { ...channel.rcs, accessToken: maskSecret(channel.rcs.accessToken) ?? "" }
       : undefined,
+    messenger: channel.messenger
+      ? { ...channel.messenger, accessToken: maskSecret(channel.messenger.accessToken) ?? "" }
+      : undefined,
     telegram: channel.telegram
       ? {
           botId: channel.telegram.botId,
@@ -118,6 +121,7 @@ function redact(channel: Doc<"channels">) {
       channel.whatsapp?.accessToken ??
         channel.instagram?.accessToken ??
         channel.rcs?.accessToken ??
+        channel.messenger?.accessToken ??
         channel.telegram?.botToken
     ),
   };
@@ -192,7 +196,9 @@ export const inboxChannels = query({
           channel.whatsapp?.displayPhoneNumber ??
           channel.rcs?.displayPhoneNumber ??
           (channel.instagram ? `@${channel.instagram.username}` : null) ??
-          (channel.telegram?.botUsername ? `@${channel.telegram.botUsername}` : null),
+          (channel.telegram?.botUsername ? `@${channel.telegram.botUsername}` : null) ??
+          channel.messenger?.pageName ??
+          null,
       }));
   },
 });
@@ -503,6 +509,12 @@ export const remove = mutation({
     if (channel?.instagram?.accessToken) {
       await ctx.scheduler.runAfter(0, internal.instagram.unsubscribe, {
         accessToken: channel.instagram.accessToken,
+      });
+    }
+    if (channel?.messenger?.accessToken) {
+      await ctx.scheduler.runAfter(0, internal.messenger.unsubscribe, {
+        pageId: channel.messenger.pageId,
+        accessToken: channel.messenger.accessToken,
       });
     }
     if (channel?.telegram?.botToken) {

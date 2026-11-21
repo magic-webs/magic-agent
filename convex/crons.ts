@@ -142,4 +142,11 @@ crons.cron(
   {}
 );
 
+crons.interval(
+  "sweep messenger sign-ins",
+  { hours: 6 },
+  internal.messenger.sweep,
+  {}
+);
+
 export default crons;

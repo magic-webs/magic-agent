@@ -732,6 +732,158 @@ http.route({
   ),
 });
 
+// ---------------------------------------------------------------------------
+// Messenger, through Facebook Login for Business. One app-wide webhook for
+// every connected Page, routed by `entry.id`, which is the Page id.
+//
+//   https://<deployment>.convex.site/messenger/callback
+//   https://<deployment>.convex.site/messenger/webhook
+//   https://<deployment>.convex.site/messenger/deauthorize
+//   https://<deployment>.convex.site/messenger/data-deletion
+// ---------------------------------------------------------------------------
+
+http.route({
+  path: "/messenger/callback",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    const state = params.get("state") ?? "";
+    const code = params.get("code");
+
+    if (params.get("error") || !code) {
+      const pending = state
+        ? await ctx.runMutation(internal.messenger.takeState, { state })
+        : null;
+      const reason =
+        params.get("error_reason") === "user_denied"
+          ? "Facebook sign-in was cancelled."
+          : (params.get("error_description") ?? "Facebook did not return an authorisation code.");
+      if (pending?.returnTo) {
+        return Response.redirect(withQuery(pending.returnTo, "messenger_error", reason), 302);
+      }
+      return callbackPage("Nothing was connected", reason);
+    }
+
+    const result = await ctx.runAction(internal.messenger.finishConnect, { code, state });
+    if (!result.returnTo) {
+      return callbackPage(
+        result.ok ? "Connected" : "Could not connect",
+        result.error ?? "You can close this tab."
+      );
+    }
+    return Response.redirect(
+      !result.ok
+        ? withQuery(result.returnTo, "messenger_error", result.error ?? "Could not connect.")
+        : result.pick
+          ? withQuery(result.returnTo, "messenger_pick", result.pick)
+          : withQuery(result.returnTo, "connected", "messenger"),
+      302
+    );
+  }),
+});
+
+http.route({
+  path: "/messenger/webhook",
+  method: "GET",
+  handler: httpAction(async (_ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    const expected = process.env.MESSENGER_WEBHOOK_VERIFY_TOKEN;
+    if (
+      params.get("hub.mode") !== "subscribe" ||
+      !expected ||
+      params.get("hub.verify_token") !== expected
+    ) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    return new Response(params.get("hub.challenge") ?? "", {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }),
+});
+
+http.route({
+  path: "/messenger/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const raw = await request.text();
+    const secret = process.env.MESSENGER_APP_SECRET;
+    if (!secret || !(await validSignature(secret, raw, request.headers.get("x-hub-signature-256")))) {
+      console.warn("[messenger] webhook rejected: bad or missing signature");
+      return new Response("Invalid signature", { status: 403 });
+    }
+
+    let payload: { object?: string; entry?: Array<{ id?: string | number; messaging?: unknown[] }> };
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    if (payload.object === "page") {
+      for (const entry of payload.entry ?? []) {
+        if (entry.id === undefined) continue;
+        for (const event of entry.messaging ?? []) {
+          await ctx.scheduler.runAfter(0, internal.messenger.handleInbound, {
+            pageId: String(entry.id),
+            event,
+          });
+        }
+      }
+    }
+    return new Response("EVENT_RECEIVED", { status: 200 });
+  }),
+});
+
+async function messengerSignedUser(request: Request): Promise<string | null> {
+  const secret = process.env.MESSENGER_APP_SECRET;
+  if (!secret) return null;
+  const form = await request.formData().catch(() => null);
+  const signed = form?.get("signed_request");
+  if (typeof signed !== "string") return null;
+  return (await parseSignedRequest(secret, signed))?.user_id ?? null;
+}
+
+http.route({
+  path: "/messenger/deauthorize",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const userId = await messengerSignedUser(request);
+    if (!userId) return new Response("Invalid request", { status: 400 });
+    await ctx.runMutation(internal.messenger.revokeUser, { userId });
+    return new Response("ok", { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/messenger/data-deletion",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const userId = await messengerSignedUser(request);
+    if (!userId) return new Response("Invalid request", { status: 400 });
+    await ctx.runMutation(internal.messenger.revokeUser, { userId });
+    const code = crypto.randomUUID();
+    return new Response(
+      JSON.stringify({
+        url: `${publicSiteUrl()}/messenger/data-deletion?code=${code}`,
+        confirmation_code: code,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }),
+});
+
+http.route({
+  path: "/messenger/data-deletion",
+  method: "GET",
+  handler: httpAction(async () =>
+    callbackPage(
+      "Facebook data removed",
+      "The access token for this Facebook Page has been deleted, and no further messages are read from it."
+    )
+  ),
+});
+
 // --- Incoming webhooks for alerts --------------------------------------------
 //
 //   https://<deployment>.convex.site/notify/<inboundKey>

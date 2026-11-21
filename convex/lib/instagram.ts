@@ -42,10 +42,13 @@ type Json = Record<string, unknown>;
  * The Send API `message` for an outbound, or null when Instagram has nothing
  * that can carry it — the caller tells the model to write it out as text.
  */
-export function instagramMessage(message: Outbound): Json | null {
+export function instagramMessage(
+  message: Outbound,
+  textLimit: number = INSTAGRAM_TEXT_LIMIT
+): Json | null {
   switch (message.kind) {
     case "text":
-      return { text: message.body.slice(0, INSTAGRAM_TEXT_LIMIT) };
+      return { text: message.body.slice(0, textLimit) };
     case "media": {
       if (!("link" in message.source)) return null;
       const type = message.media === "document" ? "file" : message.media;
@@ -54,12 +57,14 @@ export function instagramMessage(message: Outbound): Json | null {
     case "buttons":
       return quickReplies(
         message.body,
-        message.buttons.map((button) => ({ id: button.id, title: button.title }))
+        message.buttons.map((button) => ({ id: button.id, title: button.title })),
+        textLimit
       );
     case "list":
       return quickReplies(
         message.body,
-        message.sections.flatMap((section) => section.rows)
+        message.sections.flatMap((section) => section.rows),
+        textLimit
       );
     case "cta_url":
       return {
@@ -119,11 +124,12 @@ export function canManageComments(permissions: string[] | undefined): boolean {
 
 function quickReplies(
   body: string,
-  options: Array<{ id: string; title: string }>
+  options: Array<{ id: string; title: string }>,
+  textLimit: number
 ): Json | null {
   if (options.length === 0 || options.length > CAP.quickReplies) return null;
   return {
-    text: body.slice(0, INSTAGRAM_TEXT_LIMIT),
+    text: body.slice(0, textLimit),
     quick_replies: options.map((option) => ({
       content_type: "text",
       title: option.title.trim().slice(0, CAP.quickReplyTitle),
@@ -132,15 +138,18 @@ function quickReplies(
   };
 }
 
-export function splitForInstagram(text: string): string[] {
+export function splitForInstagram(
+  text: string,
+  limit: number = INSTAGRAM_TEXT_LIMIT
+): string[] {
   const parts: string[] = [];
   let remaining = text.trim();
-  while (remaining.length > INSTAGRAM_TEXT_LIMIT) {
-    const window = remaining.slice(0, INSTAGRAM_TEXT_LIMIT);
+  while (remaining.length > limit) {
+    const window = remaining.slice(0, limit);
     let cut = window.lastIndexOf("\n\n");
-    if (cut < INSTAGRAM_TEXT_LIMIT * 0.5) cut = window.lastIndexOf(". ") + 1;
-    if (cut < INSTAGRAM_TEXT_LIMIT * 0.5) cut = window.lastIndexOf(" ");
-    if (cut <= 0) cut = INSTAGRAM_TEXT_LIMIT;
+    if (cut < limit * 0.5) cut = window.lastIndexOf(". ") + 1;
+    if (cut < limit * 0.5) cut = window.lastIndexOf(" ");
+    if (cut <= 0) cut = limit;
     parts.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trim();
   }

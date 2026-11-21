@@ -1606,6 +1606,10 @@ function chatReturnUrl(channel: Doc<"channels">): string | undefined {
       return channel.instagram?.username
         ? `https://ig.me/m/${encodeURIComponent(channel.instagram.username)}`
         : undefined;
+    case "messenger":
+      return channel.messenger?.pageId
+        ? `https://m.me/${encodeURIComponent(channel.messenger.pageId)}`
+        : undefined;
     case "telegram":
       return channel.telegram?.botUsername
         ? `https://t.me/${encodeURIComponent(channel.telegram.botUsername)}`

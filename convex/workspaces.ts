@@ -330,7 +330,7 @@ export const setManagers = mutation({
 });
 
 export const create = mutation({
-  args: { ...workspaceFields, managerIds: v.optional(v.array(v.id("admins"))) },
+  args: workspaceFields,
   handler: async (ctx, args) => {
     const principal = await requireModify(ctx, "workspaces");
     const checked = regional(args);
@@ -351,7 +351,12 @@ export const create = mutation({
       webhookUrl: args.webhookUrl,
       facts: args.facts,
     });
-    await assignManagers(ctx, principal, created.workspaceId, args.managerIds ?? []);
+    const creator = await ctx.db.get("admins", principal.adminId);
+    if (creator?.role === "member") {
+      await ctx.db.patch("admins", creator._id, {
+        workspaceIds: [...(creator.workspaceIds ?? []), created.workspaceId],
+      });
+    }
     return created;
   },
 });

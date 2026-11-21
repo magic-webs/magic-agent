@@ -454,10 +454,6 @@ function lastLogin(time: number | null): string {
 function CreateWorkspaceDialog() {
   const router = useRouter();
   const createWorkspace = useMutation(api.workspaces.create);
-  const managerOptions = useQuery(api.workspaces.managerOptions, {});
-  const [managerIds, setManagerIds] = useState<Id<"admins">[] | null>(null);
-  const pickedManagers =
-    managerIds ?? managerOptions?.filter((option) => option.self).map((option) => option._id) ?? [];
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"form" | "prompt">("form");
@@ -525,7 +521,6 @@ function CreateWorkspaceDialog() {
         currency: form.currency,
         timezone: form.timezone,
         facts: [],
-        managerIds: pickedManagers,
       });
       toast.add({ title: `${form.name} created`, type: "success" });
       setOpen(false);
@@ -679,19 +674,6 @@ function CreateWorkspaceDialog() {
                       onValueChange={set("timezone")}
                     />
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label>RM</Label>
-                  {managerOptions === undefined ? (
-                    <Spinner />
-                  ) : (
-                    <ManagerPicker
-                      options={managerOptions}
-                      selected={pickedManagers}
-                      onChange={setManagerIds}
-                    />
-                  )}
                 </div>
               </div>
             </TabsContent>

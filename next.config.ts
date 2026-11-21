@@ -16,6 +16,7 @@ const proxiedPrefixes = [
   "/l",
   "/integrations/google",
   "/instagram",
+  "/messenger",
   "/payments/razorpay",
   "/rcs",
   "/telegram",

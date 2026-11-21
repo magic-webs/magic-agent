@@ -4,6 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { AiVoiceIcon, Call02Icon, Globe02Icon } from "@hugeicons/core-free-icons";
 import {
   InstagramLogo,
+  MessengerLogo,
   RcsLogo,
   TelegramLogo,
   WhatsAppLogo,
@@ -52,6 +53,8 @@ export function ChannelGlyph({
       return <RcsLogo className={className} />;
     case "telegram":
       return <TelegramLogo className={className} />;
+    case "messenger":
+      return <MessengerLogo className={className} />;
     case "phone":
       return <HugeiconsIcon icon={Call02Icon} strokeWidth={2} className={cn("size-4 shrink-0", className)} />;
     case "voice":

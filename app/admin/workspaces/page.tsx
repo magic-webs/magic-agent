@@ -58,6 +58,7 @@ import { copyText } from "@/components/notifications/shared";
 import { CompanyLogo } from "@/components/company-logo";
 import {
   InstagramLogo,
+  MessengerLogo,
   RcsLogo,
   TelegramLogo,
   WhatsAppLogo,
@@ -142,6 +143,11 @@ const CHANNEL_KINDS = [
     icon: <InstagramLogo className="size-4 text-[#E4405F]" />,
   },
   {
+    type: "messenger",
+    label: "Messenger",
+    icon: <MessengerLogo className="size-4 text-[#0099FF]" />,
+  },
+  {
     type: "rcs",
     label: "RCS",
     icon: <RcsLogo className="size-4 text-[#1A73E8]" />,
@@ -171,6 +177,9 @@ function channelLink(channel: WorkspaceChannel): string | null {
   }
   if (channel.type === "telegram") {
     return channel.telegramUsername ? `https://t.me/${channel.telegramUsername}` : null;
+  }
+  if (channel.type === "messenger") {
+    return channel.messengerPageId ? `https://m.me/${channel.messengerPageId}` : null;
   }
   if (channel.type === "rcs") {
     return channel.phone ? `sms:+${channel.phone}` : null;

@@ -244,6 +244,7 @@ const CHANNELS = [
   { value: "all", label: "All channels" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "instagram", label: "Instagram" },
+  { value: "messenger", label: "Messenger" },
   { value: "rcs", label: "RCS" },
   { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
@@ -389,7 +390,7 @@ function LeadCard({
               ? "text-emerald-600 dark:text-emerald-400"
               : lead.channelType === "instagram"
                 ? "text-pink-600 dark:text-pink-400"
-                : lead.channelType === "rcs" || lead.channelType === "telegram"
+                : lead.channelType === "rcs" || lead.channelType === "telegram" || lead.channelType === "messenger"
                   ? "text-sky-600 dark:text-sky-400"
                   : "text-muted-foreground"
           )}
@@ -707,7 +708,7 @@ function LeadTable({
                           ? "text-emerald-600 dark:text-emerald-400"
                           : lead.channelType === "instagram"
                             ? "text-pink-600 dark:text-pink-400"
-                            : lead.channelType === "rcs" || lead.channelType === "telegram"
+                            : lead.channelType === "rcs" || lead.channelType === "telegram" || lead.channelType === "messenger"
                               ? "text-sky-600 dark:text-sky-400"
                               : "text-muted-foreground"
                       )}

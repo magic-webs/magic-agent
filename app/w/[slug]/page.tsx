@@ -165,6 +165,7 @@ export default function WorkspaceOverviewPage() {
                 <ChannelSplit
                   whatsapp={stats.channels.whatsapp}
                   instagram={stats.channels.instagram}
+                  messenger={stats.channels.messenger}
                   rcs={stats.channels.rcs}
                   telegram={stats.channels.telegram}
                   web={stats.channels.web}

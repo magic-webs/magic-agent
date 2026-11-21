@@ -44,7 +44,7 @@ import {
   SirenIcon,
 } from "@hugeicons/core-free-icons";
 
-const KINDS = ["whatsapp", "web", "instagram", "rcs", "telegram"] as const;
+const KINDS = ["whatsapp", "web", "instagram", "messenger", "rcs", "telegram"] as const;
 const CHANNEL_TYPES = new Set<string>(["all", ...KINDS]);
 const isKind = (value: string): value is (typeof KINDS)[number] =>
   (KINDS as readonly string[]).includes(value);
@@ -460,6 +460,7 @@ export default function ConversationsPage() {
                       { value: "whatsapp", label: "Any WhatsApp number" },
                       { value: "web", label: "Web chat" },
                       { value: "instagram", label: "Any Instagram account" },
+                      { value: "messenger", label: "Any Facebook Page" },
                       { value: "rcs", label: "Any RCS sender" },
                       { value: "telegram", label: "Any Telegram bot" },
                       ...(manyChannels ? (channels ?? []) : []).map((channel) => ({

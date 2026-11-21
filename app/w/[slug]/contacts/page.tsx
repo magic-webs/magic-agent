@@ -96,7 +96,11 @@ function displayName(contact: ContactRow): string {
   if (contact.channelType === "web") {
     return `Web visitor ${contact.externalId.slice(-4)}`;
   }
-  if (contact.channelType === "instagram" || contact.channelType === "telegram") {
+  if (
+    contact.channelType === "instagram" ||
+    contact.channelType === "telegram" ||
+    contact.channelType === "messenger"
+  ) {
     return `${CHANNEL_LABEL[contact.channelType]} user ${contact.externalId.slice(-4)}`;
   }
   return contact.externalId;
@@ -322,12 +326,13 @@ const CHANNELS = [
   { value: "all", label: "All channels" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "instagram", label: "Instagram" },
+  { value: "messenger", label: "Messenger" },
   { value: "rcs", label: "RCS" },
   { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
 ];
 
-const KINDS: readonly string[] = ["whatsapp", "instagram", "rcs", "telegram", "web"];
+const KINDS: readonly string[] = ["whatsapp", "instagram", "messenger", "rcs", "telegram", "web"];
 
 // The conversation's status, not the contact's — a contact has no state of its
 // own. "none" picks out the people who have never sent a message, which is a

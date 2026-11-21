@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -62,7 +62,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { ChannelQr } from "@/components/channel-qr";
-import { InstagramLogo } from "@/components/brand-icons";
+import { InstagramLogo, MessengerLogo } from "@/components/brand-icons";
 import {
   CHANNEL_LABEL,
   ChannelMark,
@@ -970,9 +970,45 @@ function WebChannelDialog({
 const INSTAGRAM_GRADIENT =
   "bg-[radial-gradient(circle_at_30%_107%,#fdf497_0%,#fdf497_5%,#fd5949_45%,#d6249f_60%,#285AEB_90%)]";
 
-function useInstagramConnect() {
+const MESSENGER_GRADIENT = "bg-[linear-gradient(45deg,#0099FF,#A033FF,#FF5280)]";
+
+type OAuthProvider = "instagram" | "messenger";
+
+const OAUTH_COPY: Record<
+  OAuthProvider,
+  { label: string; connect: string; describe: string; button: string; buttonClass: string }
+> = {
+  instagram: {
+    label: "Instagram",
+    connect: "Connect Instagram",
+    describe:
+      "Sign in with the Instagram professional account whose direct messages your agent should answer.",
+    button: "Continue with Instagram",
+    buttonClass: INSTAGRAM_GRADIENT,
+  },
+  messenger: {
+    label: "Messenger",
+    connect: "Connect Messenger",
+    describe:
+      "Sign in with Facebook and choose the Page whose Messenger conversations your agent should answer.",
+    button: "Continue with Facebook",
+    buttonClass: MESSENGER_GRADIENT,
+  },
+};
+
+function OAuthLogo({ provider, className }: { provider: OAuthProvider; className?: string }) {
+  return provider === "messenger" ? (
+    <MessengerLogo className={className} />
+  ) : (
+    <InstagramLogo className={className} />
+  );
+}
+
+function useInstagramConnect(provider: OAuthProvider = "instagram") {
   const workspace = useWorkspace();
-  const startConnect = useAction(api.instagram.startConnect);
+  const startInstagram = useAction(api.instagram.startConnect);
+  const startMessenger = useAction(api.messenger.startConnect);
+  const startConnect = provider === "messenger" ? startMessenger : startInstagram;
   const [busy, setBusy] = useState(false);
 
   const connect = async (agentId: string, name: string) => {
@@ -987,7 +1023,7 @@ function useInstagramConnect() {
       window.location.assign(url);
     } catch (error) {
       toast.add({
-        title: "Could not start Instagram sign-in",
+        title: `Could not start ${OAUTH_COPY[provider].label} sign-in`,
         description: friendlyError(error),
         type: "error",
       });
@@ -999,12 +1035,14 @@ function useInstagramConnect() {
 }
 
 function InstagramDialog({
+  provider = "instagram",
   channelId,
   initial,
   trigger,
   open: openProp,
   onOpenChange,
 }: {
+  provider?: OAuthProvider;
   channelId?: Id<"channels">;
   initial?: InstagramChannelForm;
   trigger?: React.ReactElement;
@@ -1016,14 +1054,15 @@ function InstagramDialog({
     workspaceId: workspace._id,
   });
   const updateChannel = useMutation(api.channels.update);
-  const { connect, busy: connecting } = useInstagramConnect();
+  const { connect, busy: connecting } = useInstagramConnect(provider);
+  const copy = OAUTH_COPY[provider];
 
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
   const setOpen = onOpenChange ?? setOpenState;
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<InstagramChannelForm>(
-    initial ?? { name: "Instagram", agentId: "" }
+    initial ?? { name: provider === "messenger" ? "" : "Instagram", agentId: "" }
   );
   const busy = saving || connecting;
 
@@ -1066,12 +1105,14 @@ function InstagramDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {channelId ? "Edit Instagram" : "Connect Instagram"}
+            {channelId ? `Edit ${copy.label}` : copy.connect}
           </DialogTitle>
           <DialogDescription>
             {channelId
-              ? "Rename this account or change the agent that answers its messages."
-              : "Sign in with the Instagram professional account whose direct messages your agent should answer."}
+              ? provider === "messenger"
+                ? "Rename this Page or change the agent that answers its messages."
+                : "Rename this account or change the agent that answers its messages."
+              : copy.describe}
           </DialogDescription>
         </DialogHeader>
 
@@ -1081,7 +1122,7 @@ function InstagramDialog({
             <Input
               id="ig-name"
               value={form.name}
-              placeholder="Channel name"
+              placeholder={provider === "messenger" ? "The Page's name" : "Channel name"}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, name: event.target.value }))
               }
@@ -1102,7 +1143,13 @@ function InstagramDialog({
           </div>
         </div>
 
-        {channelId ? null : (
+        {channelId ? null : provider === "messenger" ? (
+          <p className="text-xs text-muted-foreground">
+            You need to be an admin of the Page. If you manage more than one,
+            you choose which to connect after signing in. Connect each Page as
+            its own channel.
+          </p>
+        ) : (
           <p className="text-xs text-muted-foreground">
             Only business and creator accounts can be connected. After signing
             in, turn on{" "}
@@ -1124,9 +1171,9 @@ function InstagramDialog({
             <Button
               onClick={submit}
               disabled={busy}
-              className={`${INSTAGRAM_GRADIENT} text-white hover:opacity-90`}
+              className={`${copy.buttonClass} text-white hover:opacity-90`}
             >
-              {busy ? <Spinner /> : <InstagramLogo />} Continue with Instagram
+              {busy ? <Spinner /> : <OAuthLogo provider={provider} />} {copy.button}
             </Button>
           )}
         </DialogFooter>
@@ -1185,7 +1232,7 @@ function ChannelMenu({
   const [rotating, setRotating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const isWeb = kind === "web" || kind === "voice";
-  const isInstagram = kind === "instagram";
+  const isOAuth = kind === "instagram" || kind === "messenger";
 
   return (
     <>
@@ -1199,9 +1246,9 @@ function ChannelMenu({
         />
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-          {isInstagram ? (
+          {isOAuth ? (
             <DropdownMenuItem onClick={() => void onReconnect()}>
-              Reconnect Instagram
+              Reconnect {CHANNEL_LABEL[kind]}
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem onClick={() => setRotating(true)}>
@@ -1263,6 +1310,7 @@ const FILTERS = [
   { value: "all", label: "All" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "instagram", label: "Instagram" },
+  { value: "messenger", label: "Messenger" },
   { value: "rcs", label: "RCS" },
   { value: "telegram", label: "Telegram" },
   { value: "web", label: "Website" },
@@ -1335,6 +1383,9 @@ type ChannelLinks = {
 };
 
 function chatLinkFor(channel: ChannelRow): string | null {
+  if (channel.type === "messenger") {
+    return channel.messenger?.pageId ? `https://m.me/${channel.messenger.pageId}` : null;
+  }
   if (channel.type === "telegram") {
     return channel.telegram?.botUsername
       ? `https://t.me/${channel.telegram.botUsername}`
@@ -1385,7 +1436,8 @@ function ChannelControls({
   const updateChannel = useMutation(api.channels.update);
   const rotateKeys = useMutation(api.channels.rotateKeys);
   const removeChannel = useMutation(api.channels.remove);
-  const { connect } = useInstagramConnect();
+  const { connect: connectInstagram } = useInstagramConnect("instagram");
+  const { connect: connectMessenger } = useInstagramConnect("messenger");
   const { kind, isWeb, isInstagram, live } = links;
   const [editing, setEditing] = useState(false);
 
@@ -1418,7 +1470,12 @@ function ChannelControls({
 
       <ChannelMenu
         kind={kind}
-        onReconnect={() => connect(channel.agentId, channel.name)}
+        onReconnect={() =>
+          (kind === "messenger" ? connectMessenger : connectInstagram)(
+            channel.agentId,
+            channel.name
+          )
+        }
         onRotate={async () => {
           await rotateKeys({ channelId: channel._id });
           toast.add({
@@ -1443,8 +1500,9 @@ function ChannelControls({
       />
 
       {editing ? (
-        isInstagram ? (
+        isInstagram || kind === "messenger" ? (
           <InstagramDialog
+            provider={kind === "messenger" ? "messenger" : "instagram"}
             channelId={channel._id}
             initial={{ name: channel.name, agentId: channel.agentId }}
             open
@@ -1543,6 +1601,7 @@ function ChannelSetup({
   const { kind, isWeb, isInstagram, webhookUrl, widgetUrl, embedCode, chatLink } = links;
 
   if (isInstagram) return <InstagramSetup channel={channel} links={links} />;
+  if (kind === "messenger") return <MessengerSetup channel={channel} links={links} />;
   if (kind === "telegram") return <TelegramSetup channel={channel} links={links} />;
   if (kind === "phone") {
     return <PhoneSetup channelKey={channel.channelKey} number={channel.phoneLine?.number} />;
@@ -1889,6 +1948,183 @@ function InstagramSetup({
   );
 }
 
+function MessengerSetup({
+  channel,
+  links,
+}: {
+  channel: ChannelRow;
+  links: ChannelLinks;
+}) {
+  const { connect, busy } = useInstagramConnect("messenger");
+  const page = channel.messenger;
+
+  return (
+    <>
+      {channel.lastError ? (
+        <Alert variant="destructive">
+          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
+          <AlertTitle>Last delivery problem</AlertTitle>
+          <AlertDescription className="font-mono text-xs">
+            {channel.lastError}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <Tabs defaultValue="page" className="min-w-0">
+          <TabsList>
+            <TabsTrigger value="page">Page</TabsTrigger>
+            <TabsTrigger value="qr">QR code</TabsTrigger>
+          </TabsList>
+          <TabsContent value="page">
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-3">
+              {page?.pictureUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={page.pictureUrl}
+                  alt=""
+                  className="size-12 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <span
+                  className={`flex size-12 shrink-0 items-center justify-center rounded-full text-white ${MESSENGER_GRADIENT}`}
+                >
+                  <MessengerLogo className="size-6" />
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-medium">
+                  {page?.pageName || channel.name}
+                </span>
+                {page ? (
+                  <a
+                    href={`https://facebook.com/${page.pageId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate text-sm text-muted-foreground hover:underline"
+                  >
+                    Facebook Page
+                  </a>
+                ) : null}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 bg-background"
+                disabled={busy}
+                onClick={() => void connect(channel.agentId, channel.name)}
+              >
+                {busy ? <Spinner /> : <MessengerLogo />} Reconnect
+              </Button>
+            </div>
+          </TabsContent>
+          <TabsContent value="qr">
+            <ChannelQr
+              url={links.chatLink}
+              caption="Point a phone camera at this to open a Messenger chat with this Page. Send anything and the front desk answers."
+              unavailable="This Page has no ID saved. Reconnect it."
+            />
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
+            No messages arriving?
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Reconnect and make sure this Page is ticked when Facebook asks which
+            Pages to share. Replies are only delivered within 24 hours of the
+            customer&apos;s last message.
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MessengerPagePicker({ state, onDone }: { state: string; onDone: () => void }) {
+  const pendingPages = useAction(api.messenger.pendingPages);
+  const choosePage = useAction(api.messenger.choosePage);
+  const [pages, setPages] = useState<Array<{ id: string; name: string; pictureUrl?: string }> | null>(null);
+  const [choosing, setChoosing] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    pendingPages({ state })
+      .then((rows) => {
+        if (live) setPages(rows);
+      })
+      .catch((error) => {
+        toast.add({ title: "Could not connect Messenger", description: friendlyError(error), type: "error" });
+        onDone();
+      });
+    return () => {
+      live = false;
+    };
+  }, [pendingPages, state, onDone]);
+
+  const choose = async (pageId: string) => {
+    setChoosing(pageId);
+    try {
+      const { pageName } = await choosePage({ state, pageId });
+      toast.add({
+        title: "Messenger connected",
+        description: `Messages to ${pageName} are now answered by your agent.`,
+        type: "success",
+      });
+      onDone();
+    } catch (error) {
+      toast.add({ title: "Could not connect Messenger", description: friendlyError(error), type: "error" });
+      setChoosing(null);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => (open ? null : onDone())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose a Facebook Page</DialogTitle>
+          <DialogDescription>
+            You shared more than one Page. Pick the one this channel answers.
+            To connect another, connect Messenger again.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          {pages === null ? (
+            <div className="flex justify-center py-6">
+              <Spinner />
+            </div>
+          ) : (
+            pages.map((page) => (
+              <button
+                key={page.id}
+                type="button"
+                disabled={choosing !== null}
+                onClick={() => void choose(page.id)}
+                className="flex items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted disabled:opacity-60"
+              >
+                {page.pictureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={page.pictureUrl} alt="" className="size-9 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-full text-white ${MESSENGER_GRADIENT}`}
+                  >
+                    <MessengerLogo />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium">{page.name}</span>
+                {choosing === page.id ? <Spinner /> : null}
+              </button>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** The full card: everything about the channel, on the page. */
 function ChannelCard({
   channel,
@@ -1943,6 +2179,9 @@ function ChannelCard({
               ) : null}
               {channel.telegram?.botUsername ? (
                 <Badge variant="secondary">@{channel.telegram.botUsername}</Badge>
+              ) : null}
+              {channel.messenger?.pageName ? (
+                <Badge variant="secondary">{channel.messenger.pageName}</Badge>
               ) : null}
             </CardTitle>
             <CardDescription>
@@ -2011,6 +2250,8 @@ function ChannelTile({
               `@${channel.instagram.username}`
             ) : channel.telegram?.botUsername ? (
               `@${channel.telegram.botUsername}`
+            ) : channel.messenger?.pageName ? (
+              channel.messenger.pageName
             ) : channel.phoneLine?.number ? (
               <span className="font-mono">{channel.phoneLine.number}</span>
             ) : links.kind === "voice" ? (
@@ -2072,7 +2313,13 @@ function ChannelTile({
               render={
                 <Button size="sm" variant="outline">
                   <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />{" "}
-                  {isWeb ? "Embed & QR" : isInstagram ? "Account & QR" : "Setup & QR"}
+                  {isWeb
+                    ? "Embed & QR"
+                    : isInstagram
+                      ? "Account & QR"
+                      : links.kind === "messenger"
+                        ? "Page & QR"
+                        : "Setup & QR"}
                 </Button>
               }
             />
@@ -2084,6 +2331,8 @@ function ChannelTile({
                     ? "Put the widget on your website, or open it on its own."
                     : isInstagram
                       ? "The connected Instagram account, and a QR code that opens a chat with it."
+                      : links.kind === "messenger"
+                        ? "The connected Facebook Page, and a QR code that opens a Messenger chat with it."
                       : links.kind === "telegram"
                         ? "The bot's link, and a QR code that opens a chat with it."
                         : links.kind === "rcs"
@@ -2108,6 +2357,7 @@ function ChannelTile({
 const CONNECT_ACTIONS: { kind: ChannelKind; label: string }[] = [
   { kind: "whatsapp", label: "Connect WhatsApp" },
   { kind: "instagram", label: "Connect Instagram" },
+  { kind: "messenger", label: "Connect Messenger" },
   { kind: "rcs", label: "Connect RCS" },
   { kind: "telegram", label: "Connect Telegram" },
   { kind: "phone", label: "Connect Phone Line" },
@@ -2129,6 +2379,8 @@ function ConnectButtons() {
             return <ChannelDialog key={kind} trigger={trigger} />;
           case "instagram":
             return <InstagramDialog key={kind} trigger={trigger} />;
+          case "messenger":
+            return <InstagramDialog key={kind} provider="messenger" trigger={trigger} />;
           case "rcs":
           case "telegram":
             return <ProviderChannelDialog key={kind} kind={kind} trigger={trigger} />;
@@ -2151,6 +2403,22 @@ export default function ChannelsPage() {
   const params = useSearchParams();
   const connectedParam = params.get("connected");
   const instagramError = params.get("instagram_error");
+  const messengerError = params.get("messenger_error");
+  const messengerPick = params.get("messenger_pick");
+  useEffect(() => {
+    if (messengerPick || (connectedParam !== "messenger" && !messengerError)) return;
+    toast.add(
+      messengerError
+        ? { title: "Could not connect Messenger", description: messengerError, type: "error" }
+        : {
+            title: "Messenger connected",
+            description: "Messages to this Page are now answered by your agent.",
+            type: "success",
+          }
+    );
+    router.replace(`${base}/channels`);
+  }, [base, connectedParam, messengerError, messengerPick, router]);
+  const closePicker = useCallback(() => router.replace(`${base}/channels`), [base, router]);
   useEffect(() => {
     if (connectedParam !== "instagram" && !instagramError) return;
     toast.add(
@@ -2201,6 +2469,7 @@ export default function ChannelsPage() {
     all: all.length,
     whatsapp: all.filter((c) => c.type === "whatsapp").length,
     instagram: all.filter((c) => c.type === "instagram").length,
+    messenger: all.filter((c) => c.type === "messenger").length,
     rcs: all.filter((c) => c.type === "rcs").length,
     telegram: all.filter((c) => c.type === "telegram").length,
     web: all.filter((c) => c.type === "web").length,
@@ -2230,13 +2499,14 @@ export default function ChannelsPage() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
+      {messengerPick ? <MessengerPagePicker state={messengerPick} onDone={closePicker} /> : null}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
             Channels
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            WhatsApp numbers, Instagram accounts, RCS senders, Telegram bots and
+            WhatsApp numbers, Instagram accounts, Facebook Pages, RCS senders, Telegram bots and
             website widgets. Each one points at an agent —
             normally the front desk, which routes each conversation on to
             whichever agent should handle it.

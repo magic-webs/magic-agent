@@ -464,17 +464,19 @@ export function RankedBars({
 export function ChannelSplit({
   whatsapp,
   instagram,
+  messenger = 0,
   rcs = 0,
   telegram = 0,
   web,
 }: {
   whatsapp: number;
   instagram: number;
+  messenger?: number;
   rcs?: number;
   telegram?: number;
   web: number;
 }) {
-  const total = whatsapp + instagram + rcs + telegram + web;
+  const total = whatsapp + instagram + messenger + rcs + telegram + web;
   if (total === 0) {
     return (
       <NoData label="Conversations are grouped by where they arrived from." />
@@ -484,6 +486,7 @@ export function ChannelSplit({
   const rows = [
     { key: "whatsapp", label: "WhatsApp", value: whatsapp, tone: SERIES },
     { key: "instagram", label: "Instagram", value: instagram, tone: SERIES_ALT },
+    { key: "messenger", label: "Messenger", value: messenger, tone: SERIES_FOURTH },
     { key: "rcs", label: "RCS", value: rcs, tone: SERIES_FOURTH },
     { key: "telegram", label: "Telegram", value: telegram, tone: SERIES_FIFTH },
     { key: "web", label: "Web chat", value: web, tone: SERIES_THIRD },

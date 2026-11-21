@@ -398,6 +398,7 @@ export default function AdminOverviewPage() {
             <ChannelSplit
               whatsapp={callsOn("whatsapp")}
               instagram={callsOn("instagram")}
+              messenger={callsOn("messenger")}
               rcs={callsOn("rcs")}
               telegram={callsOn("telegram")}
               web={callsOn("web")}

@@ -27,6 +27,7 @@ import {
   tidyWords,
 } from "./lib/instagram";
 import { graphError, sendOne, type InstagramConfig } from "./instagram";
+import { canManagePageComments, facebookUrl } from "./lib/messenger";
 import {
   instagramAction,
   instagramDm,
@@ -55,31 +56,48 @@ const DEFAULT_SETTINGS = {
 const BUTTON_TEXT_LIMIT = 640;
 const BUTTON_TITLE_LIMIT = 20;
 
-async function instagramChannels(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
+function isSocial(channel: Doc<"channels">) {
+  return (
+    (channel.type === "instagram" && Boolean(channel.instagram)) ||
+    (channel.type === "messenger" && Boolean(channel.messenger))
+  );
+}
+
+async function socialChannels(ctx: QueryCtx, workspaceId: Id<"workspaces">) {
   const channels = await ctx.db
     .query("channels")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .take(100);
-  return channels.filter((channel) => channel.type === "instagram" && channel.instagram);
+  return channels.filter(isSocial);
 }
 
 function channelSummary(channel: Doc<"channels">) {
+  const facebook = channel.type === "messenger";
+  const username = facebook
+    ? (channel.messenger?.pageName ?? "")
+    : (channel.instagram?.username ?? "");
   return {
     _id: channel._id,
+    type: facebook ? ("messenger" as const) : ("instagram" as const),
     name: channel.name,
     status: channel.status,
     lastError: channel.lastError,
     agentId: channel.agentId,
-    username: channel.instagram?.username ?? "",
-    profilePictureUrl: channel.instagram?.profilePictureUrl,
-    canManageComments: canManageComments(channel.instagram?.permissions),
+    username,
+    label: facebook ? username : `@${username}`,
+    profilePictureUrl: facebook
+      ? channel.messenger?.pictureUrl
+      : channel.instagram?.profilePictureUrl,
+    canManageComments: facebook
+      ? canManagePageComments(channel.messenger?.permissions)
+      : canManageComments(channel.instagram?.permissions),
   };
 }
 
-async function requireInstagramChannel(ctx: QueryCtx, channelId: Id<"channels">) {
+async function requireSocialChannel(ctx: QueryCtx, channelId: Id<"channels">) {
   const channel = await requireChannel(ctx, channelId);
-  if (channel.type !== "instagram" || !channel.instagram) {
-    throw new ConvexError("That is not an Instagram channel.");
+  if (!isSocial(channel)) {
+    throw new ConvexError("That is not an Instagram account or a Facebook Page.");
   }
   return channel;
 }
@@ -88,7 +106,7 @@ export const overview = query({
   args: { workspaceId: v.id("workspaces"), since: v.number() },
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
-    const channels = await instagramChannels(ctx, args.workspaceId);
+    const channels = await socialChannels(ctx, args.workspaceId);
     const rules = await ctx.db
       .query("instagramRules")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -218,9 +236,9 @@ export const saveRule = mutation({
   },
   handler: async (ctx, args): Promise<Id<"instagramRules">> => {
     await requireWorkspace(ctx, args.workspaceId);
-    const channel = await requireInstagramChannel(ctx, args.channelId);
+    const channel = await requireSocialChannel(ctx, args.channelId);
     if (channel.workspaceId !== args.workspaceId) {
-      throw new ConvexError("That Instagram account belongs to another workspace.");
+      throw new ConvexError("That account belongs to another workspace.");
     }
     const clean = cleanRule(args);
     const now = Date.now();
@@ -295,7 +313,7 @@ function withDefaults(row: Doc<"instagramSettings"> | null) {
 export const getSettings = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
-    await requireInstagramChannel(ctx, args.channelId);
+    await requireSocialChannel(ctx, args.channelId);
     return withDefaults(await settingsRow(ctx, args.channelId));
   },
 });
@@ -308,7 +326,7 @@ export const saveSettings = mutation({
     iceBreakers: v.optional(v.array(instagramIceBreaker)),
   },
   handler: async (ctx, args) => {
-    const channel = await requireInstagramChannel(ctx, args.channelId);
+    const channel = await requireSocialChannel(ctx, args.channelId);
     const row = await settingsRow(ctx, args.channelId);
     const current = withDefaults(row);
 
@@ -345,7 +363,7 @@ export const saveSettings = mutation({
         channelId: channel._id,
       });
     }
-    if (iceBreakersChanged) {
+    if (iceBreakersChanged && channel.type === "instagram") {
       await ctx.scheduler.runAfter(0, internal.instagramAutomation.syncIceBreakers, {
         channelId: channel._id,
       });
@@ -367,7 +385,7 @@ export const listActivity = query({
 
 export const channelForViewer = internalQuery({
   args: { channelId: v.id("channels") },
-  handler: async (ctx, args) => await requireInstagramChannel(ctx, args.channelId),
+  handler: async (ctx, args) => await requireSocialChannel(ctx, args.channelId),
 });
 
 export type InstagramPost = {
@@ -386,6 +404,7 @@ export const listMedia = action({
       internal.instagramAutomation.channelForViewer,
       { channelId: args.channelId }
     );
+    if (channel.messenger) return await pagePosts(channel.messenger);
     const response = await fetch(
       graphUrl(
         "me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=36"
@@ -419,14 +438,50 @@ export const listMedia = action({
   },
 });
 
+async function pagePosts(
+  config: NonNullable<Doc<"channels">["messenger"]>
+): Promise<InstagramPost[]> {
+  const response = await fetch(
+    facebookUrl(`${config.pageId}/posts`, {
+      fields: "id,message,full_picture,permalink_url,created_time",
+      limit: "36",
+    }),
+    { headers: { Authorization: `Bearer ${config.accessToken}` } }
+  ).catch(() => null);
+  if (!response?.ok) {
+    console.error("[messenger] post list failed", response ? await graphError(response) : "network");
+    throw new ConvexError("Facebook would not list the Page's posts. Try again.");
+  }
+  const body = (await response.json()) as {
+    data?: Array<{
+      id: string;
+      message?: string;
+      full_picture?: string;
+      permalink_url?: string;
+      created_time?: string;
+    }>;
+  };
+  return (body.data ?? []).map((post) => ({
+    id: post.id,
+    caption: post.message?.slice(0, 200),
+    thumbnailUrl: post.full_picture,
+    permalink: post.permalink_url,
+    timestamp: post.created_time,
+  }));
+}
+
 export const automationContext = internalQuery({
-  args: { userId: v.string(), fromId: v.string() },
+  args: {
+    externalId: v.string(),
+    type: v.union(v.literal("instagram"), v.literal("messenger")),
+    fromId: v.string(),
+  },
   handler: async (ctx, args) => {
     const channels = await ctx.db
       .query("channels")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.userId))
+      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
       .take(10);
-    const channel = channels.find((row) => row.type === "instagram" && row.instagram);
+    const channel = channels.find((row) => row.type === args.type && isSocial(row));
     if (!channel) return null;
 
     const rules = await ctx.db
@@ -456,7 +511,7 @@ export const settingsForChannel = internalQuery({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const channel = await ctx.db.get("channels", args.channelId);
-    if (!channel?.instagram) return null;
+    if (!channel || !isSocial(channel)) return null;
     return { channel, settings: withDefaults(await settingsRow(ctx, args.channelId)) };
   },
 });
@@ -468,6 +523,7 @@ const activityFields = {
   mediaId: v.optional(v.string()),
   fromId: v.string(),
   fromUsername: v.optional(v.string()),
+  fromName: v.optional(v.string()),
   text: v.string(),
   actions: v.array(instagramAction),
   ruleId: v.optional(v.id("instagramRules")),
@@ -510,12 +566,14 @@ export const recordDm = internalMutation({
     channelId: v.id("channels"),
     fromId: v.string(),
     username: v.optional(v.string()),
+    name: v.optional(v.string()),
     text: v.string(),
   },
   handler: async (ctx, args) => {
     const channel = await ctx.db.get("channels", args.channelId);
     if (!channel) return;
     const now = Date.now();
+    const type = channel.type === "messenger" ? "messenger" : "instagram";
 
     let contact = await ctx.db
       .query("contacts")
@@ -527,10 +585,10 @@ export const recordDm = internalMutation({
       const contactId = await ctx.db.insert("contacts", {
         workspaceId: channel.workspaceId,
         externalId: args.fromId,
-        channelType: "instagram",
-        name: args.username ? `@${args.username}` : undefined,
+        channelType: type,
+        name: args.name ?? (args.username ? `@${args.username}` : undefined),
         attributes: [],
-        source: "instagram",
+        source: type,
         lastSeenAt: now,
         createdAt: now,
       });
@@ -551,7 +609,7 @@ export const recordDm = internalMutation({
         handoffCount: 0,
         contactId: contact._id,
         channelId: channel._id,
-        channelType: "instagram",
+        channelType: type,
         status: "open",
         messageCount: 0,
         lastMessageAt: now,
@@ -674,7 +732,7 @@ async function postCaption(config: InstagramConfig, mediaId: string | undefined)
   return body?.caption?.slice(0, 1000);
 }
 
-function dmMessage(dm: NonNullable<Doc<"instagramRules">["dm"]>, text: string) {
+export function dmMessage(dm: NonNullable<Doc<"instagramRules">["dm"]>, text: string) {
   if (!dm.buttonUrl || !dm.buttonTitle) return { text };
   return {
     attachment: {
@@ -699,7 +757,8 @@ export const handleComment = internalAction({
     if (fromId === args.userId) return { handled: false, reason: "own_comment" };
 
     const context = await ctx.runQuery(internal.instagramAutomation.automationContext, {
-      userId: args.userId,
+      externalId: args.userId,
+      type: "instagram",
       fromId,
     });
     if (!context) return { handled: false, reason: "unknown_account" };

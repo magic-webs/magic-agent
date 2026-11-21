@@ -14,11 +14,11 @@ import { friendlySendError } from "./lib/sendErrors";
 import { splitMediaHeader, type Outbound } from "./lib/whatsappSend";
 import {
   FACEBOOK_DIALOG,
-  MESSENGER_WEBHOOK_FIELDS,
   facebookUrl,
   grantedFromPermissions,
   messengerMessage,
   messengerRedirectUri,
+  pageWebhookFields,
   splitForMessenger,
 } from "./lib/messenger";
 import { graphError } from "./instagram";
@@ -291,7 +291,7 @@ async function connectPage(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const subscribe = await fetch(
     facebookUrl(`${args.page.id}/subscribed_apps`, {
-      subscribed_fields: MESSENGER_WEBHOOK_FIELDS.join(","),
+      subscribed_fields: pageWebhookFields(args.permissions).join(","),
     }),
     { method: "POST", headers: { Authorization: `Bearer ${args.page.accessToken}` } }
   ).catch(() => null);

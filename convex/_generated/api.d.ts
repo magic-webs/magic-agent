@@ -155,6 +155,7 @@ import type * as models from "../models.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsSend from "../notificationsSend.js";
 import type * as orders from "../orders.js";
+import type * as pageComments from "../pageComments.js";
 import type * as passkeysDb from "../passkeysDb.js";
 import type * as payments from "../payments.js";
 import type * as phone from "../phone.js";
@@ -363,6 +364,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   notificationsSend: typeof notificationsSend;
   orders: typeof orders;
+  pageComments: typeof pageComments;
   passkeysDb: typeof passkeysDb;
   payments: typeof payments;
   phone: typeof phone;

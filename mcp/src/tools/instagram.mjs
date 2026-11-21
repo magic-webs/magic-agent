@@ -1,6 +1,6 @@
 /**
- * Instagram automation — comment rules, moderation and DM tools on a
- * connected Instagram account.
+ * Social automation — comment rules, moderation and DM tools on a connected
+ * Instagram account or Facebook Page.
  */
 
 import { z } from "zod";
@@ -16,7 +16,7 @@ const channelArg = {
     .string()
     .optional()
     .describe(
-      "The Instagram @username or channel id. Omit when the workspace has one Instagram account."
+      "The Instagram @username, the Facebook Page name, or the channel id. Omit when the workspace has one such account."
     ),
 };
 
@@ -27,27 +27,32 @@ async function instagramAccount(workspaceId, wanted) {
   });
   const channels = overview.channels;
   if (channels.length === 0) {
-    throw new Error("This workspace has no Instagram account. Connect one from the Channels page.");
+    throw new Error(
+      "This workspace has no Instagram account or Facebook Page. Connect one from the Channels page."
+    );
   }
   if (!wanted) {
     if (channels.length === 1) return { channel: channels[0], overview };
     throw new Error(
-      `Name the account: ${channels.map((channel) => `@${channel.username}`).join(", ")}.`
+      `Name the account: ${channels.map((channel) => channel.label).join(", ")}.`
     );
   }
   const handle = wanted.replace(/^@/, "").toLowerCase();
   const channel = channels.find(
-    (row) => row._id === wanted || row.username.toLowerCase() === handle
+    (row) =>
+      row._id === wanted ||
+      row.username.toLowerCase() === handle ||
+      row.username.toLowerCase() === wanted.toLowerCase()
   );
-  if (!channel) throw new Error(`No connected Instagram account matches "${wanted}".`);
+  if (!channel) throw new Error(`No connected Instagram account or Facebook Page matches "${wanted}".`);
   return { channel, overview };
 }
 
-function ruleBrief(rule, usernames) {
+function ruleBrief(rule, labels) {
   return {
     id: rule._id,
     name: rule.name,
-    account: usernames.get(rule.channelId) ? `@${usernames.get(rule.channelId)}` : null,
+    account: labels.get(rule.channelId) ?? null,
     enabled: rule.enabled,
     match: rule.match,
     keywords: rule.keywords,
@@ -65,9 +70,9 @@ export function register(server) {
   server.registerTool(
     "list_instagram_rules",
     {
-      title: "List Instagram comment rules",
+      title: "List Instagram and Facebook comment rules",
       description:
-        "The comment rules on the workspace's Instagram accounts, with how often each fired, and the last 7 days' totals (comments, public replies, DMs, moderated, story mentions). Also says whether each account allows comment management — one connected before it was added must be reconnected from the app.",
+        "The comment rules on the workspace's Instagram accounts and Facebook Pages, with how often each fired, and the last 7 days' totals (comments, public replies, DMs, moderated, story mentions). Also says whether each account allows comment management — one connected before it was added must be reconnected from the app.",
       inputSchema: { ...workspaceArg },
       annotations: { readOnlyHint: true },
     },
@@ -80,16 +85,17 @@ export function register(server) {
       const rules = await call.query(api.instagramAutomation.listRules, {
         workspaceId: found._id,
       });
-      const usernames = new Map(overview.channels.map((row) => [row._id, row.username]));
+      const labels = new Map(overview.channels.map((row) => [row._id, row.label]));
       return ok({
         accounts: overview.channels.map((row) => ({
           id: row._id,
-          username: `@${row.username}`,
+          platform: row.type === "messenger" ? "facebook" : "instagram",
+          username: row.label,
           status: row.status,
           canManageComments: row.canManageComments,
         })),
         lastSevenDays: overview.totals,
-        rules: rules.map((rule) => ruleBrief(rule, usernames)),
+        rules: rules.map((rule) => ruleBrief(rule, labels)),
       });
     })
   );
@@ -97,9 +103,9 @@ export function register(server) {
   server.registerTool(
     "save_instagram_rule",
     {
-      title: "Create or update an Instagram comment rule",
+      title: "Create or update an Instagram or Facebook comment rule",
       description:
-        "When a comment matches, reply publicly under it, send the commenter one private DM, or both. A comment fires one rule: keyword rules before 'any', and rules for chosen posts before rules for every post. {{username}} in a reply or DM becomes the commenter's @handle. Whatever they DM back is answered by the account's agent. Pass `rule` to update an existing one; omitted fields keep their stored value.",
+        "When a comment on an Instagram account or Facebook Page matches, reply publicly under it, send the commenter one private message (an Instagram DM or a Messenger message), or both. A comment fires one rule: keyword rules before 'any', and rules for chosen posts before rules for every post. {{username}} in a reply or DM becomes the commenter's @handle on Instagram, or their first name on Facebook. Whatever they write back is answered by the account's agent. Pass `rule` to update an existing one; omitted fields keep their stored value.",
       inputSchema: {
         ...workspaceArg,
         ...channelArg,
@@ -111,7 +117,7 @@ export function register(server) {
         postIds: z
           .array(z.string())
           .optional()
-          .describe("Instagram media ids to limit the rule to. Empty means every post."),
+          .describe("Instagram media ids or Facebook post ids to limit the rule to. Empty means every post."),
         publicReply: z
           .object({
             mode: z.enum(["off", "fixed", "ai"]),
@@ -202,9 +208,9 @@ export function register(server) {
   server.registerTool(
     "get_instagram_settings",
     {
-      title: "Get Instagram moderation and DM settings",
+      title: "Get Instagram or Facebook moderation and DM settings",
       description:
-        "An Instagram account's comment moderation (hide or delete links, blocked words, AI screening), its reply to story mentions, and its ice breaker questions.",
+        "An Instagram account's or Facebook Page's comment moderation (hide or delete links, blocked words, AI screening). For Instagram, also its reply to story mentions and its ice breaker questions.",
       inputSchema: { ...workspaceArg, ...channelArg },
       annotations: { readOnlyHint: true },
     },
@@ -214,16 +220,16 @@ export function register(server) {
       const settings = await call.query(api.instagramAutomation.getSettings, {
         channelId: channel._id,
       });
-      return ok({ account: `@${channel.username}`, ...settings });
+      return ok({ account: channel.label, ...settings });
     })
   );
 
   server.registerTool(
     "update_instagram_settings",
     {
-      title: "Update Instagram moderation and DM settings",
+      title: "Update Instagram or Facebook moderation and DM settings",
       description:
-        "Change any of: comment moderation, the DM sent to people who mention the account in their story ({{username}} becomes their handle), and up to four ice breaker questions shown to someone opening a DM for the first time. Sections left out keep their stored value; moderation and storyMention are merged with what is stored.",
+        "Change any of: comment moderation (Instagram or Facebook), and, for Instagram only, the DM sent to people who mention the account in their story ({{username}} becomes their handle), and up to four ice breaker questions shown to someone opening a DM for the first time. Sections left out keep their stored value; moderation and storyMention are merged with what is stored.",
       inputSchema: {
         ...workspaceArg,
         ...channelArg,
@@ -269,9 +275,9 @@ export function register(server) {
   server.registerTool(
     "list_instagram_activity",
     {
-      title: "List Instagram automation activity",
+      title: "List Instagram and Facebook automation activity",
       description:
-        "The latest comments and story mentions the automations saw, newest first: who, what they wrote, which rule fired, and what was done — replied, DM sent, hidden or deleted — or why nothing was.",
+        "The latest Instagram and Facebook comments and story mentions the automations saw, newest first: who, what they wrote, which rule fired, and what was done — replied, DM sent, hidden or deleted — or why nothing was.",
       inputSchema: {
         ...workspaceArg,
         limit: z.number().int().min(1).max(100).optional().describe("Default 25"),
@@ -288,7 +294,7 @@ export function register(server) {
         page.page.map((row) => ({
           at: new Date(row.createdAt).toISOString(),
           kind: row.kind,
-          from: row.fromUsername ? `@${row.fromUsername}` : row.fromId,
+          from: row.fromName ?? (row.fromUsername ? `@${row.fromUsername}` : row.fromId),
           text: row.text,
           rule: row.ruleName ?? null,
           actions: row.actions,

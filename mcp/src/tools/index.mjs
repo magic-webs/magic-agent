@@ -42,7 +42,7 @@ const GROUPS = [
   { title: "Leads", register: leads },
   { title: "Notifications", register: notifications },
   { title: "Marketing", register: marketing },
-  { title: "Instagram", register: instagram },
+  { title: "Social (Instagram and Facebook)", register: instagram },
   { title: "Platform administration", register: admin, admin: true },
 ];
 

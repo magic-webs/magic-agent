@@ -5,6 +5,7 @@ export const FACEBOOK_API_VERSION = "v23.0";
 export const FACEBOOK_GRAPH = `https://graph.facebook.com/${FACEBOOK_API_VERSION}`;
 export const FACEBOOK_DIALOG = `https://www.facebook.com/${FACEBOOK_API_VERSION}/dialog/oauth`;
 export const MESSENGER_WEBHOOK_FIELDS = ["messages", "messaging_postbacks"];
+export const PAGE_COMMENTS_SCOPE = "pages_manage_engagement";
 export const MESSENGER_TEXT_LIMIT = 2000;
 
 export function messengerRedirectUri(siteUrl: string): string {
@@ -22,6 +23,16 @@ export function messengerMessage(message: Outbound): Record<string, unknown> | n
 
 export function splitForMessenger(text: string): string[] {
   return splitForInstagram(text, MESSENGER_TEXT_LIMIT);
+}
+
+export function canManagePageComments(permissions: string[] | undefined): boolean {
+  return Boolean(permissions?.includes(PAGE_COMMENTS_SCOPE));
+}
+
+export function pageWebhookFields(permissions: string[] | undefined): string[] {
+  return canManagePageComments(permissions)
+    ? [...MESSENGER_WEBHOOK_FIELDS, "feed"]
+    : MESSENGER_WEBHOOK_FIELDS;
 }
 
 export function grantedFromPermissions(value: unknown): string[] | undefined {

@@ -36,8 +36,16 @@ async function recordUsage(
 }
 
 /** A reason to hide the comment, or null to leave it up. */
+const PLATFORM = { instagram: "Instagram", messenger: "Facebook" } as const;
+const platformArg = v.optional(v.union(v.literal("instagram"), v.literal("messenger")));
+
 export const screenComment = internalAction({
-  args: { workspaceId: v.id("workspaces"), agentId: v.id("agents"), text: v.string() },
+  args: {
+    workspaceId: v.id("workspaces"),
+    agentId: v.id("agents"),
+    text: v.string(),
+    platform: platformArg,
+  },
   handler: async (ctx, args): Promise<string | null> => {
     const model = DEFAULT_CHAT_MODEL;
     try {
@@ -46,7 +54,7 @@ export const screenComment = internalAction({
         providerOptions: await gatewayOptions(ctx, model),
         output: Output.object({ schema: screenSchema }),
         instructions: [
-          "You moderate comments on a business's Instagram posts.",
+          `You moderate comments on a business's ${PLATFORM[args.platform ?? "instagram"]} posts.`,
           "Block a comment only when it is abusive, hateful, sexually explicit, a threat, a scam, or spam promoting something else.",
           "Never block a complaint, a question, criticism of the business, or a comment in another language just for being negative or unfamiliar.",
         ].join("\n"),
@@ -70,6 +78,7 @@ export const writeReply = internalAction({
     username: v.optional(v.string()),
     caption: v.optional(v.string()),
     sendsDm: v.boolean(),
+    platform: platformArg,
   },
   handler: async (ctx, args): Promise<string | null> => {
     const context = await ctx.runQuery(internal.instagramAutomation.aiContext, {
@@ -82,7 +91,7 @@ export const writeReply = internalAction({
     const model = gatewayModelId(agent.model || DEFAULT_CHAT_MODEL);
 
     const instructions = [
-      `You reply to comments on ${workspace.name}'s Instagram posts${
+      `You reply to comments on ${workspace.name}'s ${PLATFORM[args.platform ?? "instagram"]} posts${
         workspace.industry ? ` (${workspace.industry})` : ""
       }.`,
       workspace.description ? `About the business: ${workspace.description}` : "",
@@ -99,8 +108,12 @@ export const writeReply = internalAction({
       "The reply is public, under the comment. One or two short sentences, no hashtags, no links.",
       "Never state a price, a discount, stock or a date — nothing you were not told.",
       args.sendsDm
-        ? "The person is also being sent a DM right now, so tell them to check their DMs."
-        : "If they ask for details, invite them to send a DM.",
+        ? args.platform === "messenger"
+          ? "The person is also being sent a private message right now, so tell them to check their Messenger."
+          : "The person is also being sent a DM right now, so tell them to check their DMs."
+        : args.platform === "messenger"
+          ? "If they ask for details, invite them to message the Page."
+          : "If they ask for details, invite them to send a DM.",
       "Return only the reply text.",
     ]
       .filter(Boolean)
@@ -108,7 +121,7 @@ export const writeReply = internalAction({
 
     const prompt = [
       args.caption ? `The post's caption: ${args.caption}` : "",
-      `${args.username ? `@${args.username}` : "Someone"} commented: ${args.comment.slice(0, 1500)}`,
+      `${args.username ? (args.platform === "messenger" ? args.username : `@${args.username}`) : "Someone"} commented: ${args.comment.slice(0, 1500)}`,
     ]
       .filter(Boolean)
       .join("\n");

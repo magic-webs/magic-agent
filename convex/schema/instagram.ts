@@ -81,6 +81,7 @@ export const instagramTables = {
     mediaId: v.optional(v.string()),
     fromId: v.string(),
     fromUsername: v.optional(v.string()),
+    fromName: v.optional(v.string()),
     text: v.string(),
     actions: v.array(instagramAction),
     ruleId: v.optional(v.id("instagramRules")),

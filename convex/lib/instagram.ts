@@ -302,9 +302,13 @@ export function pickRule<T extends RuleLike>(
   return fits[0] ?? null;
 }
 
-export function fillUsername(text: string, username: string | undefined): string {
+export function fillUsername(
+  text: string,
+  username: string | undefined,
+  prefix = "@"
+): string {
   return text
-    .replace(/\{\{\s*username\s*\}\}/gi, username ? `@${username}` : "")
+    .replace(/\{\{\s*username\s*\}\}/gi, username ? `${prefix}${username}` : "")
     .replace(/[ \t]+([!?.,])/g, "$1")
     .replace(/[ \t]{2,}/g, " ")
     .trim();

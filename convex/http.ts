@@ -813,7 +813,14 @@ http.route({
       return new Response("Invalid signature", { status: 403 });
     }
 
-    let payload: { object?: string; entry?: Array<{ id?: string | number; messaging?: unknown[] }> };
+    let payload: {
+      object?: string;
+      entry?: Array<{
+        id?: string | number;
+        messaging?: unknown[];
+        changes?: Array<{ field?: string; value?: unknown }>;
+      }>;
+    };
     try {
       payload = JSON.parse(raw);
     } catch {
@@ -827,6 +834,14 @@ http.route({
           await ctx.scheduler.runAfter(0, internal.messenger.handleInbound, {
             pageId: String(entry.id),
             event,
+          });
+        }
+        for (const change of entry.changes ?? []) {
+          const value = change.value as { item?: string; verb?: string } | undefined;
+          if (change.field !== "feed" || value?.item !== "comment" || value.verb !== "add") continue;
+          await ctx.scheduler.runAfter(0, internal.pageComments.handleComment, {
+            pageId: String(entry.id),
+            change: value,
           });
         }
       }

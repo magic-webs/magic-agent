@@ -219,7 +219,8 @@ export const channelType = v.union(
   v.literal("phone"),
   v.literal("instagram"),
   v.literal("rcs"),
-  v.literal("telegram")
+  v.literal("telegram"),
+  v.literal("messenger")
 );
 
 export const broadcastCategory = v.union(

@@ -1297,6 +1297,7 @@ export const fileFromTool = internalMutation({
       v.literal("instagram"),
       v.literal("rcs"),
       v.literal("telegram"),
+      v.literal("messenger"),
       v.literal("api")
     ),
     person: v.optional(personShape),

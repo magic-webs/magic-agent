@@ -154,6 +154,7 @@ export const recordsTables = {
       v.literal("instagram"),
       v.literal("rcs"),
       v.literal("telegram"),
+      v.literal("messenger"),
       v.literal("api"),
       v.literal("manual"),
       v.literal("form"),

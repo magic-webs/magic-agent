@@ -1155,6 +1155,7 @@ const GONE_WHEN_DELETED: Record<ChannelKind, string> = {
   whatsapp: "inbound WhatsApp messages to this number stop being answered.",
   rcs: "inbound RCS messages to this sender stop being answered.",
   telegram: "messages to this Telegram bot stop being answered.",
+  messenger: "messages to this Facebook Page stop being answered.",
 };
 
 const AFTER_ROTATE: Record<ChannelKind, string> = {
@@ -1165,6 +1166,7 @@ const AFTER_ROTATE: Record<ChannelKind, string> = {
   whatsapp: "Inbound messages stop until you set the new URL in Meta and verify it again. Conversations already received are untouched.",
   rcs: "Inbound messages stop until you set the new URL with your RCS provider. Conversations already received are untouched.",
   telegram: "The bot is pointed at the new URL for you. Conversations already received are untouched.",
+  messenger: "",
 };
 
 function ChannelMenu({

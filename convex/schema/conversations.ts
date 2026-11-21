@@ -47,6 +47,15 @@ export const conversationsTables = {
         permissions: v.optional(v.array(v.string())),
       })
     ),
+    messenger: v.optional(
+      v.object({
+        pageId: v.string(),
+        pageName: v.string(),
+        pictureUrl: v.optional(v.string()),
+        accessToken: v.string(),
+        permissions: v.optional(v.array(v.string())),
+      })
+    ),
     rcs: v.optional(
       v.object({
         apiBaseUrl: v.string(),
@@ -87,6 +96,26 @@ export const conversationsTables = {
     createdAt: v.number(),
   }).index("by_state", ["state"]),
 
+  messengerOAuthStates: defineTable({
+    state: v.string(),
+    workspaceId: v.id("workspaces"),
+    agentId: v.id("agents"),
+    name: v.string(),
+    returnTo: v.string(),
+    pages: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          pictureUrl: v.optional(v.string()),
+          accessToken: v.string(),
+        })
+      )
+    ),
+    permissions: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+  }).index("by_state", ["state"]),
+
   instagramEvents: defineTable({
     mid: v.string(),
     createdAt: v.number(),
@@ -112,6 +141,7 @@ export const conversationsTables = {
         v.literal("instagram"),
         v.literal("rcs"),
         v.literal("telegram"),
+        v.literal("messenger"),
         v.literal("manual"),
         v.literal("import")
       )

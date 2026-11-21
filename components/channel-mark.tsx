@@ -10,13 +10,14 @@ import {
 } from "@/components/brand-icons";
 import { cn } from "@/lib/utils";
 
-export type ChannelKind = "whatsapp" | "instagram" | "rcs" | "telegram" | "web" | "voice" | "phone";
+export type ChannelKind = "whatsapp" | "instagram" | "rcs" | "telegram" | "messenger" | "web" | "voice" | "phone";
 
 export const CHANNEL_LABEL: Record<ChannelKind, string> = {
   whatsapp: "WhatsApp",
   instagram: "Instagram",
   rcs: "RCS",
   telegram: "Telegram",
+  messenger: "Messenger",
   web: "Web chat",
   voice: "AI voice",
   phone: "Phone",
@@ -28,6 +29,7 @@ export const CHANNEL_TILE: Record<ChannelKind, string> = {
     "bg-[radial-gradient(circle_at_30%_107%,#fdf497_0%,#fdf497_5%,#fd5949_45%,#d6249f_60%,#285AEB_90%)]",
   rcs: "bg-[#1A73E8]",
   telegram: "bg-[#229ED9]",
+  messenger: "bg-[linear-gradient(45deg,#0099FF,#A033FF,#FF5280)]",
   web: "bg-sky-500",
   voice: "bg-[linear-gradient(135deg,#7c3aed,#06b6d4)]",
   phone: "bg-emerald-600",

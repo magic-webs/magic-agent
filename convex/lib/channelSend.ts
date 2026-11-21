@@ -31,6 +31,8 @@ export async function sendOnChannel(
       return await ctx.runAction(internal.rcs.sendOutbound, rest);
     case "telegram":
       return await ctx.runAction(internal.telegram.sendOutbound, rest);
+    case "messenger":
+      return { ok: false, error: "Messenger sending is not available yet." };
     case "web":
     case "voice":
     case "phone":

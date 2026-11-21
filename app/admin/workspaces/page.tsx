@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -106,6 +107,7 @@ import { formatDistanceToNow } from "date-fns";
 import { friendlyError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import type { FunctionReturnType } from "convex/server";
+import type { Id } from "@/convex/_generated/dataModel";
 
 /**
  * The two ways to read the same list.
@@ -291,6 +293,115 @@ type WorkspaceManager = FunctionReturnType<
   typeof api.workspaces.list
 >[number]["managers"][number];
 
+type ManagerOption = FunctionReturnType<typeof api.workspaces.managerOptions>[number];
+
+function ManagerPicker({
+  options,
+  selected,
+  onChange,
+}: {
+  options: ManagerOption[];
+  selected: Id<"admins">[];
+  onChange: (next: Id<"admins">[]) => void;
+}) {
+  if (options.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        There is no one on the team to assign yet.
+      </p>
+    );
+  }
+  return (
+    <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-md border p-2">
+      {options.map((option) => (
+        <label
+          key={option._id}
+          className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
+        >
+          <Checkbox
+            checked={option.locked || selected.includes(option._id)}
+            disabled={option.locked}
+            onCheckedChange={(value) =>
+              onChange(
+                value === true
+                  ? [...selected, option._id]
+                  : selected.filter((id) => id !== option._id)
+              )
+            }
+          />
+          <span className="min-w-0 flex-1 truncate">{option.name}</span>
+          {option.self ? (
+            <span className="text-xs text-muted-foreground">You</span>
+          ) : null}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function ManagersEditor({
+  workspaceId,
+  name,
+  managers,
+}: {
+  workspaceId: Id<"workspaces">;
+  name: string;
+  managers: WorkspaceManager[];
+}) {
+  const options = useQuery(api.workspaces.managerOptions, {});
+  const setManagers = useMutation(api.workspaces.setManagers);
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Id<"admins">[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await setManagers({ workspaceId, managerIds: selected });
+      toast.add({ title: `RMs saved for ${name}`, type: "success" });
+      setOpen(false);
+    } catch (error) {
+      toast.add({
+        title: "Could not save the RMs",
+        description: friendlyError(error),
+        type: "error",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setSelected(managers.map((manager) => manager._id));
+        setOpen(next);
+      }}
+    >
+      <PopoverTrigger className="block max-w-full cursor-pointer rounded-md px-1.5 py-1 text-left hover:bg-muted">
+        <Managers managers={managers} />
+      </PopoverTrigger>
+      <PopoverContent className="flex w-72 flex-col gap-3">
+        <Label>RMs for {name}</Label>
+        {options === undefined ? (
+          <Spinner />
+        ) : (
+          <ManagerPicker options={options} selected={selected} onChange={setSelected} />
+        )}
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={save} disabled={busy || options === undefined}>
+            {busy ? <Spinner /> : null} Save
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function Managers({ managers }: { managers: WorkspaceManager[] }) {
   if (managers.length === 0) {
     return <span className="text-xs text-muted-foreground">Unassigned</span>;
@@ -343,6 +454,10 @@ function lastLogin(time: number | null): string {
 function CreateWorkspaceDialog() {
   const router = useRouter();
   const createWorkspace = useMutation(api.workspaces.create);
+  const managerOptions = useQuery(api.workspaces.managerOptions, {});
+  const [managerIds, setManagerIds] = useState<Id<"admins">[] | null>(null);
+  const pickedManagers =
+    managerIds ?? managerOptions?.filter((option) => option.self).map((option) => option._id) ?? [];
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"form" | "prompt">("form");
@@ -410,6 +525,7 @@ function CreateWorkspaceDialog() {
         currency: form.currency,
         timezone: form.timezone,
         facts: [],
+        managerIds: pickedManagers,
       });
       toast.add({ title: `${form.name} created`, type: "success" });
       setOpen(false);
@@ -564,6 +680,19 @@ function CreateWorkspaceDialog() {
                     />
                   </div>
                 </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label>RM</Label>
+                  {managerOptions === undefined ? (
+                    <Spinner />
+                  ) : (
+                    <ManagerPicker
+                      options={managerOptions}
+                      selected={pickedManagers}
+                      onChange={setManagerIds}
+                    />
+                  )}
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -593,9 +722,8 @@ function WorkspacesDirectory() {
   // query is asked outright rather than skipped on a role check.
   const workspaces = useQuery(api.workspaces.list, {});
   const seedDemo = useMutation(api.workspaces.seedDemo);
-  const { canModify, me } = useSession();
+  const { canModify } = useSession();
   const manages = canModify("workspaces");
-  const createsWorkspaces = manages && !(me?.role === "admin" && me.scoped);
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -674,7 +802,7 @@ function WorkspacesDirectory() {
             ))}
           </ToggleGroup>
 
-          {createsWorkspaces ? <CreateWorkspaceDialog /> : null}
+          {manages ? <CreateWorkspaceDialog /> : null}
         </div>
       </header>
 
@@ -687,7 +815,7 @@ function WorkspacesDirectory() {
         ) : (
           <TableSkeleton rows={8} columns={7} />
         )
-      ) : workspaces.length === 0 && !createsWorkspaces ? (
+      ) : workspaces.length === 0 && !manages ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -913,7 +1041,15 @@ function WorkspacesDirectory() {
                       </TableCell>
 
                       <TableCell className="hidden md:table-cell max-w-44">
-                        <Managers managers={workspace.managers} />
+                        {manages ? (
+                          <ManagersEditor
+                            workspaceId={workspace._id}
+                            name={workspace.name}
+                            managers={workspace.managers}
+                          />
+                        ) : (
+                          <Managers managers={workspace.managers} />
+                        )}
                       </TableCell>
 
                       <TableCell className="hidden lg:table-cell text-xs whitespace-nowrap text-muted-foreground">

@@ -3,6 +3,7 @@ import {
   query,
   internalQuery,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -11,6 +12,7 @@ import { kvPair, workspaceStage } from "./schema";
 import { slugify, randomKey } from "./lib/shared";
 import {
   AuthError,
+  type Principal,
   requireModify,
   requireScopedWorkspace,
   requireSignedIn,
@@ -263,12 +265,76 @@ async function requireEveryWorkspace(ctx: MutationCtx) {
   return principal;
 }
 
-export const create = mutation({
-  args: workspaceFields,
+async function platformTeam(ctx: QueryCtx | MutationCtx) {
+  return (await ctx.db.query("admins").collect()).filter((admin) => admin.role === "member");
+}
+
+/**
+ * Makes exactly these team members the workspace's RMs. A caller whose role
+ * covers only assigned workspaces stays on, or they would lose it on saving.
+ */
+async function assignManagers(
+  ctx: MutationCtx,
+  principal: Extract<Principal, { role: "admin" }>,
+  workspaceId: Id<"workspaces">,
+  managerIds: Id<"admins">[]
+) {
+  const wanted = new Set(managerIds);
+  if (principal.workspaceIds) wanted.add(principal.adminId);
+  const team = await platformTeam(ctx);
+  if ([...wanted].some((id) => !team.some((admin) => admin._id === id))) {
+    throw new ConvexError("One of the selected RMs is no longer on the team.");
+  }
+  for (const admin of team) {
+    const assigned = admin.workspaceIds ?? [];
+    const has = assigned.includes(workspaceId);
+    if (wanted.has(admin._id) === has) continue;
+    await ctx.db.patch("admins", admin._id, {
+      workspaceIds: has
+        ? assigned.filter((id) => id !== workspaceId)
+        : [...assigned, workspaceId],
+    });
+  }
+}
+
+export const managerOptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const principal = await requireModify(ctx, "workspaces");
+    return (await platformTeam(ctx))
+      .map((admin) => ({
+        _id: admin._id,
+        name: admin.name?.trim() || admin.email,
+        self: admin._id === principal.adminId,
+        locked: admin._id === principal.adminId && principal.workspaceIds !== null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  },
+});
+
+export const setManagers = mutation({
+  args: { workspaceId: v.id("workspaces"), managerIds: v.array(v.id("admins")) },
   handler: async (ctx, args) => {
-    await requireEveryWorkspace(ctx);
+    const principal = await requireScopedWorkspace(
+      ctx,
+      "workspaces",
+      args.workspaceId,
+      "modify"
+    );
+    if (!(await ctx.db.get("workspaces", args.workspaceId))) {
+      throw new ConvexError("Workspace not found.");
+    }
+    await assignManagers(ctx, principal, args.workspaceId, args.managerIds);
+    return null;
+  },
+});
+
+export const create = mutation({
+  args: { ...workspaceFields, managerIds: v.optional(v.array(v.id("admins"))) },
+  handler: async (ctx, args) => {
+    const principal = await requireModify(ctx, "workspaces");
     const checked = regional(args);
-    return await insertWorkspace(ctx, {
+    const created = await insertWorkspace(ctx, {
       name: args.name,
       ownerName: args.ownerName?.trim() || undefined,
       tagline: args.tagline,
@@ -285,6 +351,8 @@ export const create = mutation({
       webhookUrl: args.webhookUrl,
       facts: args.facts,
     });
+    await assignManagers(ctx, principal, created.workspaceId, args.managerIds ?? []);
+    return created;
   },
 });
 

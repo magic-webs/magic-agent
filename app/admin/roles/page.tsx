@@ -63,7 +63,7 @@ type Role = Doc<"adminRoles"> & { memberCount: number };
 /** `modify` is what Modify adds; an area without it can only be looked at. */
 const AREAS: { value: AdminScope; label: string; modify?: string }[] = [
   { value: "overview", label: "Overview" },
-  { value: "workspaces", label: "Workspaces", modify: "Create, archive, stage" },
+  { value: "workspaces", label: "Workspaces", modify: "Create, archive, stage, assign RMs" },
   { value: "activity", label: "Activity" },
   { value: "access", label: "Access", modify: "Issue and revoke logins" },
   { value: "mcp", label: "MCP connector", modify: "Issue their own tokens" },

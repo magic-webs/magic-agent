@@ -10,7 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import { isSigningOut, useSessionEndReason } from "@/components/session-end";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { AnimatedLogo } from "@/components/animated-logo";
 import {
   Empty,
   EmptyContent,
@@ -53,8 +53,9 @@ export function RequireAuth({
     <>
       <AuthLoading>
         {fallback ?? (
-          <div className="flex min-h-svh items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Spinner /> Checking your session…
+          <div className="flex min-h-svh flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+            <AnimatedLogo className="h-12" />
+            Checking your session…
           </div>
         )}
       </AuthLoading>

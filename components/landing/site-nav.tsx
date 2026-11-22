@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/logo";
+import { AnimatedLogo } from "@/components/animated-logo";
 import { GooeyNav } from "@/components/landing/gooey-nav";
 import { SpecularButton } from "@/components/landing/specular-button";
 import { cn } from "@/lib/utils";
@@ -65,7 +65,7 @@ export function SiteNav() {
     >
       <div className="mx-auto flex h-21 w-full max-w-[1600px] items-center justify-between gap-6 px-4 sm:px-8 max-[600px]:h-16">
         <Link href="/" className="flex items-center gap-2">
-          <Logo className="h-7" />
+          <AnimatedLogo className="h-7" />
           <span className="font-display text-[22px] font-semibold tracking-[-0.02em] max-[600px]:text-lg">
             Magic Agent
           </span>

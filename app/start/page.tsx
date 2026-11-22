@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { Logo } from "@/components/logo";
+import { AnimatedLogo } from "@/components/animated-logo";
 import { useSession } from "@/components/use-session";
 
 const MAGICWEBS_URL =
@@ -37,7 +37,7 @@ export default function StartPage() {
   return (
     <main className="grid min-h-svh place-items-center bg-muted/40 px-4 py-10">
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
-        <Logo className="h-6" />
+        <AnimatedLogo className="h-6" />
         {workspaces === undefined || first ? (
           <Spinner />
         ) : (

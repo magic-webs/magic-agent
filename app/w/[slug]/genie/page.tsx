@@ -728,7 +728,7 @@ function Conversation({
 
           {working ? (
             <div className="flex items-center gap-3">
-              <GenieMark size={28} className="animate-pulse" />
+              <GenieMark size={28} />
               <span className="text-sm text-muted-foreground">Genie is working…</span>
               {thread ? (
                 <Button

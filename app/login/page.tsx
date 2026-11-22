@@ -30,7 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Logo } from "@/components/logo";
+import { AnimatedLogo } from "@/components/animated-logo";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
@@ -207,7 +207,7 @@ function LoginForm() {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/30 px-4 py-12">
       <Link href="/" className="flex items-center gap-2">
-        <Logo className="h-6" />
+        <AnimatedLogo className="h-6" />
         <span className="font-heading text-base font-semibold tracking-tight">
           Magic Agent
         </span>

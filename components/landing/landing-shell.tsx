@@ -6,6 +6,7 @@ import { SmoothScroll } from "@/components/landing/smooth-scroll";
 import { SiteNav } from "@/components/landing/site-nav";
 import { CONTAINER } from "@/components/landing/bits";
 import { StoreBadges } from "@/components/landing/store-badges";
+import { AppBanner } from "@/components/landing/app-banner";
 import { cn } from "@/lib/utils";
 
 const display = Instrument_Sans({ subsets: ["latin"], variable: "--font-display" });
@@ -23,6 +24,7 @@ export function LandingShell({ children }: { children: React.ReactNode }) {
         <SiteNav />
         <main>{children}</main>
         <SiteFooter />
+        <AppBanner />
       </div>
 
       <Script

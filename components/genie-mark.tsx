@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AnimatedLogo } from "@/components/animated-logo";
 import type { IconSvgElement } from "@hugeicons/react";
 import { cn } from "@/lib/utils";
@@ -16,14 +17,53 @@ export const GenieIcon: IconSvgElement = [
   ["path", { d: "M18.5 2.8c.2 1.3.8 1.9 2.1 2.1-1.3.2-1.9.8-2.1 2.1-.2-1.3-.8-1.9-2.1-2.1 1.3-.2 1.9-.8 2.1-2.1z", ...line, key: "5" }],
 ];
 
-/** Genie's own mark: the Magic Agent logo with its eyes blinking. */
-export function GenieMark({ size = 32, className }: { size?: number; className?: string }) {
+export type GenieMood =
+  | "idle"
+  | "thinking"
+  | "reading"
+  | "success"
+  | "error"
+  | "sleepy"
+  | "hello"
+  | "listening";
+
+const ONCE: GenieMood[] = ["success", "error", "hello"];
+
+/** Genie's own mark: the Magic Agent logo, its eyes acting out `mood`. */
+export function GenieMark({
+  size = 32,
+  mood = "idle",
+  className,
+}: {
+  size?: number;
+  mood?: GenieMood;
+  className?: string;
+}) {
   return (
     <span
       style={{ width: size, height: size }}
       className={cn("inline-flex shrink-0 items-center justify-center", className)}
     >
-      <AnimatedLogo boxClassName="w-full" className="h-auto w-full" />
+      <AnimatedLogo
+        key={mood}
+        src={mood === "idle" ? undefined : `/lottie/genie-${mood}.json`}
+        loop={!ONCE.includes(mood)}
+        boxClassName="w-full"
+        className="h-auto w-full"
+      />
     </span>
   );
+}
+
+/** Thinking while Genie works, then success or error once as it finishes. */
+export function useGenieMood(working: boolean, failed: boolean): GenieMood {
+  const [prevWorking, setPrevWorking] = useState(working);
+  const [finished, setFinished] = useState(false);
+  if (working !== prevWorking) {
+    setPrevWorking(working);
+    setFinished(!working);
+  }
+  if (working) return "thinking";
+  if (failed) return "error";
+  return finished ? "success" : "idle";
 }

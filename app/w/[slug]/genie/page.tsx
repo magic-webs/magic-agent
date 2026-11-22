@@ -11,7 +11,6 @@ import {
   ArrowDown01Icon,
   ArrowUp02Icon,
   Attachment01Icon,
-  BubbleChatIcon,
   Cancel01Icon,
   Delete02Icon,
   File01Icon,
@@ -31,7 +30,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { WhatsAppText } from "@/components/whatsapp-text";
-import { GenieMark } from "@/components/genie-mark";
+import { GenieMark, useGenieMood } from "@/components/genie-mark";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -323,7 +322,7 @@ function ChatList({
           </div>
         ) : threads.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <HugeiconsIcon icon={BubbleChatIcon} className="size-6 text-muted-foreground/60" />
+            <GenieMark size={56} mood="sleepy" />
             <p className="text-xs text-muted-foreground">
               Your chats with Genie are kept here, private to your login.
             </p>
@@ -564,6 +563,7 @@ function Conversation({
   const pending = items.filter((item) => item.state === "pending");
   const autoApprove = thread ? thread.autoApprove : draftAuto;
   const empty = !threadId || thread === null;
+  const mood = useGenieMood(working, thread?.status === "failed");
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -624,6 +624,7 @@ function Conversation({
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         <div className="absolute top-2 left-2">{chatsButton}</div>
         <div className="m-auto flex w-full max-w-2xl flex-col items-center gap-6 px-4 py-10 sm:px-6">
+          <GenieMark size={72} mood="hello" />
           <div className="space-y-2 text-center">
             <h1 className="font-heading text-3xl font-semibold tracking-tight">
               How can Genie help, {workspace.ownerName ?? workspace.name}?
@@ -672,7 +673,7 @@ function Conversation({
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           {chatsButton}
-          <GenieMark size={22} />
+          <GenieMark size={22} mood={mood} />
           <h1 className="truncate text-sm font-medium">{thread?.title ?? "Genie"}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -728,7 +729,7 @@ function Conversation({
 
           {working ? (
             <div className="flex items-center gap-3">
-              <GenieMark size={28} />
+              <GenieMark size={28} mood="thinking" />
               <span className="text-sm text-muted-foreground">Genie is working…</span>
               {thread ? (
                 <Button
@@ -744,9 +745,12 @@ function Conversation({
           ) : null}
 
           {thread?.status === "failed" && thread.error ? (
-            <div className="ml-10 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <HugeiconsIcon icon={Alert02Icon} className="size-4" />
-              {thread.error}
+            <div className="flex items-center gap-3">
+              <GenieMark size={28} mood="error" />
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <HugeiconsIcon icon={Alert02Icon} className="size-4" />
+                {thread.error}
+              </div>
             </div>
           ) : null}
           <div ref={bottom} />

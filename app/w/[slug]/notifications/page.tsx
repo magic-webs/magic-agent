@@ -10,9 +10,11 @@ import { placeholderPaths } from "@/convex/lib/notifications";
 import { useWorkspace } from "@/components/workspace-provider";
 import { SelectField } from "@/components/select-field";
 import { RuleDialog } from "@/components/notifications/rule-dialog";
+import { ActivityTab } from "@/components/notifications/activity";
 import { WhatsAppPreview } from "@/components/marketing/whatsapp-preview";
 import {
   fail,
+  LOG_VARIANT,
   statusVariant,
   useFieldInsert,
   type EmailTemplate,
@@ -48,14 +50,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { CardGridSkeleton, TableSkeleton } from "@/components/skeletons";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
@@ -773,12 +767,6 @@ function EmailDialog({
 
 // --------------------------------------------------------------------- log
 
-const LOG_VARIANT = {
-  sent: "default",
-  failed: "destructive",
-  skipped: "secondary",
-} as const;
-
 function LogDialog({ log, onClose }: { log: NotificationLog; onClose: () => void }) {
   const workspace = useWorkspace();
   const rows: Array<[string, string | undefined]> = [
@@ -830,7 +818,15 @@ function LogDialog({ log, onClose }: { log: NotificationLog; onClose: () => void
 
 // -------------------------------------------------------------------- cards
 
-function RuleCard({ rule, onOpen }: { rule: Rule; onOpen: () => void }) {
+function RuleCard({
+  rule,
+  onOpen,
+  onActivity,
+}: {
+  rule: Rule;
+  onOpen: () => void;
+  onActivity: () => void;
+}) {
   const setEnabled = useMutation(api.notifications.setRuleEnabled);
   const [pending, setPending] = useState<boolean | null>(null);
   const enabled = pending ?? rule.enabled;
@@ -903,8 +899,19 @@ function RuleCard({ rule, onOpen }: { rule: Rule; onOpen: () => void }) {
       </p>
 
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <Badge variant="outline">{rule.sentCount} sent</Badge>
-        {rule.failedCount > 0 ? <Badge variant="secondary">{rule.failedCount} not sent</Badge> : null}
+        <button
+          type="button"
+          onClick={(click) => {
+            click.stopPropagation();
+            onActivity();
+          }}
+          onKeyDown={(press) => press.stopPropagation()}
+          className="flex items-center gap-1.5 rounded-md outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring/50"
+          aria-label={`See ${rule.name} activity`}
+        >
+          <Badge variant="outline">{rule.sentCount} sent</Badge>
+          {rule.failedCount > 0 ? <Badge variant="secondary">{rule.failedCount} not sent</Badge> : null}
+        </button>
         <span>{rule.lastFiredAt ? `last ${ago(rule.lastFiredAt)}` : "not fired yet"}</span>
       </div>
 
@@ -926,7 +933,7 @@ export default function NotificationsPage() {
   const [tab, setTab] = useState("alerts");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("approved");
-  const [logFilter, setLogFilter] = useState("all");
+  const [logAlert, setLogAlert] = useState("all");
   const [syncing, setSyncing] = useState(false);
 
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -941,10 +948,6 @@ export default function NotificationsPage() {
   const rules = useQuery(api.notifications.listRules, { workspaceId });
   const templates = useQuery(api.notifications.listWhatsAppTemplates, { workspaceId });
   const emails = useQuery(api.notifications.listEmailTemplates, { workspaceId });
-  const logs = useQuery(
-    api.notifications.listLogs,
-    tab === "activity" ? { workspaceId, limit: 200 } : "skip"
-  );
   const syncTemplates = useAction(api.notificationsSend.syncWhatsAppTemplates);
 
   const filteredTemplates = useMemo(() => {
@@ -958,14 +961,6 @@ export default function NotificationsPage() {
           (item.body ?? "").toLowerCase().includes(term))
     );
   }, [templates, search, statusFilter]);
-
-  const filteredLogs = useMemo(
-    () =>
-      (logs ?? []).filter((item) =>
-        logFilter === "all" ? true : logFilter === "sent" ? item.status === "sent" : item.status !== "sent"
-      ),
-    [logs, logFilter]
-  );
 
   const openRule = (rule: Rule | null, preset?: WhatsAppTemplate | null) =>
     setEditing({ key: Date.now(), rule, template: preset });
@@ -1122,7 +1117,15 @@ export default function NotificationsPage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {rules.map((rule) => (
-                <RuleCard key={rule._id} rule={rule} onOpen={() => openRule(rule)} />
+                <RuleCard
+                  key={rule._id}
+                  rule={rule}
+                  onOpen={() => openRule(rule)}
+                  onActivity={() => {
+                    setLogAlert(rule._id);
+                    setTab("activity");
+                  }}
+                />
               ))}
             </div>
           )}
@@ -1324,100 +1327,13 @@ export default function NotificationsPage() {
         </TabsContent>
 
         {/* ---------------------------------------------------------- activity */}
-        <TabsContent value="activity" className="flex flex-col gap-4 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Every alert, test and message sent by hand — and why, when one could not go.
-            </p>
-            <SelectField
-              aria-label="Show"
-              value={logFilter}
-              onValueChange={setLogFilter}
-              className="w-36"
-              options={[
-                { value: "all", label: "Everything" },
-                { value: "sent", label: "Sent" },
-                { value: "not_sent", label: "Not sent" },
-              ]}
-            />
-          </div>
-
-          {logs === undefined ? (
-            <TableSkeleton rows={6} columns={5} />
-          ) : filteredLogs.length === 0 ? (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon icon={SentIcon} strokeWidth={2} />
-                </EmptyMedia>
-                <EmptyTitle>{logs.length === 0 ? "Nothing sent yet" : "Nothing here"}</EmptyTitle>
-                <EmptyDescription>
-                  {logs.length === 0
-                    ? "Sends show up here as alerts fire."
-                    : "No send matches that filter."}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="overflow-x-auto rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>To</TableHead>
-                    <TableHead className="hidden md:table-cell">Alert</TableHead>
-                    <TableHead>What</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell">When</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLogs.map((item) => (
-                    <TableRow
-                      key={item._id}
-                      className="cursor-pointer"
-                      onClick={() => setLog(item)}
-                    >
-                      <TableCell className="font-medium">
-                        <span className="flex items-center gap-2">
-                          {item.channel === "whatsapp" ? (
-                            <HugeiconsIcon icon={WhatsappIcon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className="truncate">{item.to || "Nobody"}</span>
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden text-muted-foreground md:table-cell">
-                        {item.ruleName ?? (item.kind === "manual" ? "Sent by hand" : "Test")}
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <span className="block truncate">
-                          {item.templateName ?? item.subject ?? "—"}
-                        </span>
-                        <span
-                          className={cn(
-                            "block truncate text-xs",
-                            item.error ? "text-destructive" : "text-muted-foreground"
-                          )}
-                        >
-                          {item.error ?? item.preview}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="flex flex-wrap gap-1">
-                          <Badge variant={LOG_VARIANT[item.status]}>{item.status}</Badge>
-                          {item.kind ? <Badge variant="outline">{item.kind}</Badge> : null}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden text-xs whitespace-nowrap text-muted-foreground sm:table-cell">
-                        {ago(item.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+        <TabsContent value="activity" className="pt-4">
+          <ActivityTab
+            rules={rules ?? []}
+            alert={logAlert}
+            onAlertChange={setLogAlert}
+            onOpenLog={setLog}
+          />
         </TabsContent>
       </Tabs>
 

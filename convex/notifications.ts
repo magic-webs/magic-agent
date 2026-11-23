@@ -16,6 +16,8 @@
 // fetch and nothing here needs to be.
 
 import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
+import { filter as filterRows } from "convex-helpers/server/filter";
 import {
   internalQuery,
   query,
@@ -388,6 +390,84 @@ export const listLogs = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .take(limit);
+  },
+});
+
+const logFilters = {
+  workspaceId: v.id("workspaces"),
+  ruleId: v.optional(v.id("notificationRules")),
+  source: v.optional(v.union(v.literal("alert"), v.literal("test"), v.literal("manual"))),
+  channel: v.optional(v.union(v.literal("whatsapp"), v.literal("email"))),
+  status: v.optional(v.union(v.literal("sent"), v.literal("failed"), v.literal("skipped"))),
+  since: v.optional(v.number()),
+  search: v.optional(v.string()),
+};
+
+type LogFilters = {
+  workspaceId: Id<"workspaces">;
+  ruleId?: Id<"notificationRules">;
+  source?: "alert" | "test" | "manual";
+  channel?: "whatsapp" | "email";
+  status?: "sent" | "failed" | "skipped";
+  since?: number;
+  search?: string;
+};
+
+async function filteredLogs(ctx: QueryCtx, args: LogFilters, ignoreStatus = false) {
+  await requireWorkspace(ctx, args.workspaceId);
+  const { ruleId, workspaceId } = args;
+  const since = args.since ?? 0;
+  if (ruleId) {
+    const rule = await ctx.db.get("notificationRules", ruleId);
+    if (!rule || rule.workspaceId !== workspaceId) return null;
+  }
+  const base = ctx.db.query("notificationLogs");
+  const ordered = (
+    ruleId
+      ? base.withIndex("by_rule", (q) => q.eq("ruleId", ruleId).gte("_creationTime", since))
+      : base.withIndex("by_workspace", (q) =>
+          q.eq("workspaceId", workspaceId).gte("_creationTime", since)
+        )
+  ).order("desc");
+
+  const needle = args.search?.trim().toLowerCase() ?? "";
+  const matches = (row: Doc<"notificationLogs">) =>
+    (!args.source || (row.kind ?? "alert") === args.source) &&
+    (!args.channel || row.channel === args.channel) &&
+    (ignoreStatus || !args.status || row.status === args.status) &&
+    (!needle ||
+      [row.to, row.ruleName, row.templateName, row.subject, row.preview, row.error].some((field) =>
+        field?.toLowerCase().includes(needle)
+      ));
+  return { ordered, matches };
+}
+
+export const listLogsPage = query({
+  args: { ...logFilters, paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts, ...args }) => {
+    const found = await filteredLogs(ctx, args);
+    if (!found) return { page: [], isDone: true, continueCursor: "" };
+    return await filterRows(found.ordered, found.matches).paginate(paginationOpts);
+  },
+});
+
+const SUMMARY_SCAN = 2000;
+
+export const logSummary = query({
+  args: logFilters,
+  handler: async (ctx, args) => {
+    const counts = { sent: 0, failed: 0, skipped: 0, capped: false };
+    const found = await filteredLogs(ctx, args, true);
+    if (!found) return counts;
+    let scanned = 0;
+    for await (const row of found.ordered) {
+      if (++scanned > SUMMARY_SCAN) {
+        counts.capped = true;
+        break;
+      }
+      if (found.matches(row)) counts[row.status]++;
+    }
+    return counts;
   },
 });
 

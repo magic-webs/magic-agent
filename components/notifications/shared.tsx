@@ -23,6 +23,12 @@ export type NotificationLog = FunctionReturnType<
   typeof api.notifications.listLogs
 >[number];
 
+export const LOG_VARIANT = {
+  sent: "default",
+  failed: "destructive",
+  skipped: "secondary",
+} as const;
+
 export function fail(title: string, error: unknown) {
   toast.add({ title, description: friendlyError(error), type: "error" });
 }

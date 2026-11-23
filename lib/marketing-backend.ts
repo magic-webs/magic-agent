@@ -15,7 +15,9 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { VM_FUNCTIONS } from "@/lib/marketing-functions";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_MARKETING_API_URL ?? "https://marketing-api.magicwebs.ai").replace(/\/$/, "");
-const POLL_MS = 5000;
+const POLL_MS = 60_000;
+const LIVE_URL = `${BASE_URL.replace(/^http/, "ws")}/v1/live`;
+const RETRY_MAX_MS = 60_000;
 const PAGE_MAX = 500;
 
 type AnyQuery = FunctionReference<"query">;
@@ -69,6 +71,74 @@ export function refreshMarketing() {
   for (const listener of listeners) listener();
 }
 
+type Live = { users: number; socket: WebSocket | null; opened: boolean; retries: number; retry?: ReturnType<typeof setTimeout> };
+
+const lives = new Map<string, Live>();
+let missed = false;
+
+function onChanged() {
+  if (document.visibilityState === "visible") refreshMarketing();
+  else missed = true;
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && missed) {
+      missed = false;
+      refreshMarketing();
+    }
+  });
+}
+
+function connect(workspaceId: string, live: Live) {
+  const reconnect = () => {
+    if (live.users === 0) return;
+    const delay = Math.min(RETRY_MAX_MS, 1000 * 2 ** live.retries) * (0.5 + Math.random() / 2);
+    live.retries++;
+    live.retry = setTimeout(() => connect(workspaceId, live), delay);
+  };
+  accessToken().then(
+    (value) => {
+      if (live.users === 0) return;
+      const socket = new WebSocket(`${LIVE_URL}?workspaceId=${encodeURIComponent(workspaceId)}&token=${encodeURIComponent(value)}`);
+      live.socket = socket;
+      socket.onopen = () => {
+        if (live.opened) onChanged();
+        live.opened = true;
+        live.retries = 0;
+      };
+      socket.onmessage = onChanged;
+      socket.onclose = () => {
+        if (live.socket === socket) live.socket = null;
+        reconnect();
+      };
+    },
+    reconnect
+  );
+}
+
+function useLive(workspaceId: string | null) {
+  useEffect(() => {
+    if (!workspaceId) return;
+    let live = lives.get(workspaceId);
+    if (!live) {
+      live = { users: 0, socket: null, opened: false, retries: 0 };
+      lives.set(workspaceId, live);
+    }
+    live.users++;
+    if (live.users === 1) connect(workspaceId, live);
+    const held = live;
+    return () => {
+      held.users--;
+      if (held.users > 0) return;
+      clearTimeout(held.retry);
+      held.socket?.close();
+      held.socket = null;
+      lives.delete(workspaceId);
+    };
+  }, [workspaceId]);
+}
+
 function useOnVm(ref: FunctionReference<"query" | "mutation" | "action">) {
   const workspace = useWorkspace();
   return Boolean(workspace.marketingOnVm) && VM_FUNCTIONS.has(getFunctionName(ref));
@@ -81,6 +151,8 @@ function useVmQuery<T>(name: string, args: unknown | null): T | undefined {
   const [state, setState] = useState<{ key: string; value?: T; error?: unknown } | null>(null);
   const argsRef = useRef(args);
   argsRef.current = args;
+  const workspace = useWorkspace();
+  useLive(key === null ? null : workspace._id);
 
   useEffect(() => {
     if (key === null) return;
@@ -183,6 +255,8 @@ function useVmPaginated<T>(name: string, args: unknown | null, initialNumItems: 
   const [state, setState] = useState<{ key: string; wanted: number; results: T[]; isDone: boolean; error?: unknown } | null>(null);
   const argsRef = useRef(args);
   argsRef.current = args;
+  const workspace = useWorkspace();
+  useLive(key === null ? null : workspace._id);
 
   useEffect(() => {
     if (key === null) return;

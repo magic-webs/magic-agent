@@ -133,6 +133,18 @@ const RENAMED: Record<string, string> = {
 /** A single mutation that rewrites a whole catalogue logs its first rows only. */
 const MAX_PER_MUTATION = 50;
 
+/** Whether an update touched more than bookkeeping, as the log judges it. */
+export function isRealChange(
+  table: TableNames,
+  oldDoc: AnyDoc,
+  newDoc: AnyDoc,
+  alsoIgnored: string[] = []
+): boolean {
+  return changedFields(oldDoc, newDoc, LOGGED_TABLES[table]?.only).some(
+    (field) => !alsoIgnored.includes(field)
+  );
+}
+
 function changedFields(oldDoc: AnyDoc, newDoc: AnyDoc, only?: string[]): string[] {
   const keys = new Set([...Object.keys(oldDoc), ...Object.keys(newDoc)]);
   return [...keys]

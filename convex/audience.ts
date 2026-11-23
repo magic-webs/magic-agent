@@ -12,7 +12,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { deleteMessage } from "./lib/delivery";
 import { appendNote, fieldsFromNotes, mergeFields } from "./lib/contactClean";
 import { refreshContactSearch } from "./lib/inbox";
@@ -72,7 +72,7 @@ function personOf(contact: Doc<"contacts">, known: Set<string>) {
 export const list = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const rows = await ctx.db
       .query("audiences")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -85,7 +85,7 @@ export const list = query({
 export const tags = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const known = await categoriesIn(ctx, args.workspaceId);
     const contacts = await ctx.db
       .query("contacts")
@@ -122,7 +122,7 @@ export const people = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const known = await categoriesIn(ctx, args.workspaceId);
     const needle = args.search?.trim().toLowerCase() ?? "";
     const digits = /^[\d\s()+.-]+$/.test(needle) ? needle.replace(/\D/g, "").replace(/^0+/, "") : "";
@@ -191,7 +191,7 @@ export const size = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     return await measureAudience(ctx, args.workspaceId, args.audience, args.now);
   },
 });
@@ -204,7 +204,7 @@ export const create = mutation({
     contactIds: v.optional(v.array(v.id("contacts"))),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     const name = args.name.trim().slice(0, 80);
     if (!name) throw new ConvexError("Give the audience a name.");
@@ -680,7 +680,7 @@ export const listColumns = query({
   handler: async (ctx, args) => {
     const audience = await ctx.db.get("audiences", args.audienceId);
     if (!audience) return [];
-    await requireWorkspace(ctx, audience.workspaceId);
+    await requireArea(ctx, audience.workspaceId, "marketing");
     const keys = new Map<string, string>();
     for (const importDoc of await listImports(ctx, audience.workspaceId, audience._id)) {
       const rows = await ctx.db
@@ -820,7 +820,7 @@ export const updatePeople = mutation({
     removeTags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     if (args.contactIds.length > MAX_BULK) throw new ConvexError(`Pick at most ${MAX_BULK} people.`);
     if (args.category && !isBuiltIn(args.category)) {

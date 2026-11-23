@@ -20,7 +20,7 @@ import {
 } from "./_generated/server";
 import { mutation, internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireOwner, requireWorkspace } from "./lib/auth";
+import { requireArea, requireOwner, requireWorkspace } from "./lib/auth";
 import { assertSeat } from "./lib/account";
 import { deleteFile, requireOwnKey, uploadUrlFor, urlFor } from "./lib/files";
 import {
@@ -86,7 +86,7 @@ export async function ensureOwnerMember(
 export const listByWorkspace = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "team");
     const members = await ctx.db
       .query("teamMembers")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))

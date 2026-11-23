@@ -139,6 +139,29 @@ export const adminScope = v.union(
   v.literal("support")
 );
 
+/** The areas of a workspace's dashboard a human agent's role opens. */
+export const workspaceArea = v.union(
+  v.literal("dashboard"),
+  v.literal("genie"),
+  v.literal("team"),
+  v.literal("build"),
+  v.literal("inbox"),
+  v.literal("leads"),
+  v.literal("marketing"),
+  v.literal("social"),
+  v.literal("notifications"),
+  v.literal("integrations")
+);
+
+export const areaLevel = v.union(v.literal("none"), v.literal("view"), v.literal("edit"));
+
+/** Which conversations a human agent's role shows them. */
+export const chatScope = v.union(
+  v.literal("all"),
+  v.literal("assigned_unassigned"),
+  v.literal("assigned")
+);
+
 // The retired stages stay readable until migrations:workspaceStages clears them.
 export const storedWorkspaceStage = v.union(
   workspaceStage,

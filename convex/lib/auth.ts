@@ -12,6 +12,14 @@ import type { Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { adminScope } from "../schema/validators";
+import {
+  accessOfMember,
+  allows,
+  FULL_ACCESS,
+  seesConversation,
+  type Access,
+  type WorkspaceArea,
+} from "./access";
 
 export type AdminScope = Infer<typeof adminScope>;
 
@@ -42,6 +50,7 @@ export type Principal =
       memberId: Id<"teamMembers">;
       workspaceId: Id<"workspaces">;
       label: string;
+      access: Access;
     }
   /** A customer's own login, created by an admin, owning the workspaces it is given. */
   | {
@@ -188,6 +197,7 @@ export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
       memberId,
       workspaceId: member.workspaceId,
       label: member.name,
+      access: await accessOfMember(ctx, member),
     };
   }
 
@@ -340,6 +350,65 @@ export async function requireWorkspace(
   return principal;
 }
 
+/** What the caller may do in their workspace. Everyone but a human agent with a role has it all. */
+export function accessOf(principal: Principal): Access {
+  return principal.role === "member" ? principal.access : FULL_ACCESS;
+}
+
+/** The workspace, and an area of it the caller's role opens at this level. */
+export async function requireArea(
+  ctx: Ctx,
+  workspaceId: Id<"workspaces">,
+  area: WorkspaceArea,
+  level: "view" | "edit" = "view"
+): Promise<Principal> {
+  const principal = await requireWorkspace(ctx, workspaceId);
+  if (!allows(accessOf(principal), area, level)) {
+    throw new AuthError(
+      level === "view"
+        ? "Your role does not open this area."
+        : "Your role can only view this area."
+    );
+  }
+  return principal;
+}
+
+/** A role-limited action: assigning to others, deleting chats, exporting. */
+export function requirePermission(
+  principal: Principal,
+  permission: "canAssignOthers" | "canDeleteChats" | "canExport"
+): void {
+  if (!accessOf(principal)[permission]) {
+    throw new AuthError("Your role does not allow this.");
+  }
+}
+
+/** The assignee a role confines conversation lists to, or null for every chat. */
+export type ChatLimit = {
+  memberId: Id<"teamMembers">;
+  withUnassigned: boolean;
+} | null;
+
+export function chatLimit(principal: Principal): ChatLimit {
+  if (principal.role !== "member" || principal.access.chats === "all") return null;
+  return {
+    memberId: principal.memberId,
+    withUnassigned: principal.access.chats === "assigned_unassigned",
+  };
+}
+
+/** Whether the caller's role shows them this thread. */
+export function canSeeThread(
+  principal: Principal,
+  conversation: Pick<Doc<"conversations">, "assignedMemberId">
+): boolean {
+  if (principal.role !== "member") return true;
+  return (
+    allows(principal.access, "inbox", "view") &&
+    seesConversation(principal.access, principal.memberId, conversation)
+  );
+}
+
 /**
  * An admin, or the company itself — never one of its human agents.
  *
@@ -379,6 +448,8 @@ export async function threadAccess(
 
   if (!conversation) return null;
   await requireWorkspace(ctx, conversation.workspaceId);
+  // Outside the role's chats reads as gone, as a deleted thread does.
+  if (!canSeeThread(principal, conversation)) return null;
   return { conversation, principal };
 }
 
@@ -439,12 +510,18 @@ export const requireKnowledgeSource = async (
     "Knowledge source not found"
   );
 
-export const requireConversation = async (ctx: Ctx, id: Id<"conversations">) =>
-  viaWorkspaceField(
+export const requireConversation = async (ctx: Ctx, id: Id<"conversations">) => {
+  const conversation = await viaWorkspaceField(
     ctx,
     await ctx.db.get("conversations", id),
     "Conversation not found"
   );
+  const principal = await getPrincipal(ctx);
+  if (principal && !canSeeThread(principal, conversation)) {
+    throw new AuthError("Conversation not found");
+  }
+  return conversation;
+};
 
 export const requireContact = async (ctx: Ctx, id: Id<"contacts">) =>
   viaWorkspaceField(ctx, await ctx.db.get("contacts", id), "Contact not found");

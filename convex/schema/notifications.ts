@@ -110,6 +110,8 @@ export const notificationsTables = {
       v.literal("web")
     ),
     deviceName: v.optional(v.string()),
+    /** The human agent signed in on it, whose role decides which chats it hears about. */
+    memberId: v.optional(v.id("teamMembers")),
     disabledAt: v.optional(v.number()),
     lastError: v.optional(v.string()),
     createdAt: v.number(),

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea } from "./lib/auth";
 import { reachable } from "./lib/audience";
 import { addDays, zonedParts } from "./lib/marketing";
 import {
@@ -30,7 +30,7 @@ function sum(days: Map<string, MarketingCounts>, from: string, to: string) {
 export const summary = query({
   args: { workspaceId: v.id("workspaces"), days: v.number(), now: v.number() },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const days = Math.min(90, Math.max(7, Math.round(args.days)));
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     const today = zonedParts(args.now, workspace?.timezone ?? "UTC").date;

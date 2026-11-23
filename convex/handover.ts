@@ -3,7 +3,7 @@ import { query, type MutationCtx } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { escalationDepartment } from "./schema";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { clampPause } from "./lib/shared";
 
 const MAX_RULES = 50;
@@ -11,7 +11,7 @@ const MAX_RULES = 50;
 export const list = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "team");
     const rules = await ctx.db
       .query("handoverRules")
       .withIndex("by_workspace_and_order", (q) => q.eq("workspaceId", args.workspaceId))

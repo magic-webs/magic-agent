@@ -50,6 +50,7 @@ import type * as integrations from "../integrations.js";
 import type * as knowledge from "../knowledge.js";
 import type * as knowledgeGaps from "../knowledgeGaps.js";
 import type * as leads from "../leads.js";
+import type * as lib_access from "../lib/access.js";
 import type * as lib_account from "../lib/account.js";
 import type * as lib_activity from "../lib/activity.js";
 import type * as lib_agentStats from "../lib/agentStats.js";
@@ -208,6 +209,7 @@ import type * as welcomeMenu from "../welcomeMenu.js";
 import type * as whatsapp from "../whatsapp.js";
 import type * as whatsappImages from "../whatsappImages.js";
 import type * as widget from "../widget.js";
+import type * as workspaceRoles from "../workspaceRoles.js";
 import type * as workspaces from "../workspaces.js";
 
 import type {
@@ -259,6 +261,7 @@ declare const fullApi: ApiFromModules<{
   knowledge: typeof knowledge;
   knowledgeGaps: typeof knowledgeGaps;
   leads: typeof leads;
+  "lib/access": typeof lib_access;
   "lib/account": typeof lib_account;
   "lib/activity": typeof lib_activity;
   "lib/agentStats": typeof lib_agentStats;
@@ -417,6 +420,7 @@ declare const fullApi: ApiFromModules<{
   whatsapp: typeof whatsapp;
   whatsappImages: typeof whatsappImages;
   widget: typeof widget;
+  workspaceRoles: typeof workspaceRoles;
   workspaces: typeof workspaces;
 }>;
 

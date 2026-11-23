@@ -29,9 +29,12 @@ import {
   MAX_LEAD_TAGS,
 } from "./lib/shared";
 import {
+  chatLimit,
+  requireArea,
   requireConversation,
   requireWorkspace,
 } from "./lib/auth";
+import { seesConversation } from "./lib/access";
 import { noteSent } from "./lib/delivery";
 import { deskBlock } from "./lib/account";
 
@@ -377,7 +380,7 @@ export const setTags = mutation({
 export const pipeline = query({
   args: { workspaceId: v.id("workspaces"), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireArea(ctx, args.workspaceId, "leads");
 
     const rows = await ctx.db
       .query("conversations")
@@ -385,7 +388,13 @@ export const pipeline = query({
       .order("desc")
       .take(args.limit ?? 300);
 
-    return await pipelineRows(ctx, args.workspaceId, rows);
+    return await pipelineRows(
+      ctx,
+      args.workspaceId,
+      principal.role === "member"
+        ? rows.filter((row) => seesConversation(principal.access, principal.memberId, row))
+        : rows
+    );
   },
 });
 
@@ -403,7 +412,7 @@ export const pipelinePage = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const limit = chatLimit(await requireArea(ctx, args.workspaceId, "leads"));
     const workspaceId = args.workspaceId;
     const since = args.since ?? 0;
     const term = args.search?.trim().slice(0, 100);
@@ -451,6 +460,14 @@ export const pipelinePage = query({
         if (!term && args.stage && status) all.push(q.eq(q.field("status"), status));
         if (!term && args.channelType) {
           all.push(q.eq(q.field("channelType"), args.channelType));
+        }
+        if (limit) {
+          const own = q.eq(q.field("assignedMemberId"), limit.memberId);
+          all.push(
+            limit.withUnassigned
+              ? q.or(own, q.eq(q.field("assignedMemberId"), undefined))
+              : own
+          );
         }
         return all.length > 0 ? q.and(...all) : true;
       })

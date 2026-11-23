@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea } from "./lib/auth";
 import { dayKey } from "./lib/dailyStats";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -20,7 +20,7 @@ export const dashboard = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "dashboard");
 
     const days = Math.max(1, Math.min(Math.floor(args.days), 90));
     // Bucket boundaries are UTC midnights; `now` decides which day is "today".

@@ -53,7 +53,7 @@ import {
   spreadsheetRef,
   zonedToInstant,
 } from "./lib/google";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea } from "./lib/auth";
 import { publicSiteUrl } from "./lib/publicUrl";
 import {
   escapeHtml,
@@ -90,7 +90,7 @@ const NOT_A_SHEET =
 export const list = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "integrations");
     const rows = await ctx.db
       .query("integrationConnections")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -116,7 +116,7 @@ export const setSendConfirmations = mutation({
     value: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "integrations", "edit");
     const connection = await ctx.db
       .query("integrationConnections")
       .withIndex("by_workspace_integration", (q) =>
@@ -471,7 +471,7 @@ async function removeIntegrationTools(
 export const disconnect = mutation({
   args: { workspaceId: v.id("workspaces"), integration: v.string() },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "integrations", "edit");
     const spec = findIntegration(args.integration);
 
     const connection = await ctx.db

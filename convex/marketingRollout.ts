@@ -10,7 +10,7 @@ import {
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { templateBlocker, zonedParts } from "./lib/marketing";
 import { eventKey, hourlySent, statsFor, waveKey, type MarketingCounts } from "./lib/marketingStats";
 import {
@@ -63,7 +63,7 @@ function whenLabel(at: number, timeZone: string) {
 export const health = query({
   args: { workspaceId: v.id("workspaces"), now: v.number() },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const channel = await sendingChannel(ctx, args.workspaceId);
     if (!channel) return null;
     const row = await healthRow(ctx, channel._id);
@@ -161,7 +161,7 @@ export const progress = query({
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event?.rollout) return null;
-    await requireWorkspace(ctx, event.workspaceId);
+    await requireArea(ctx, event.workspaceId, "marketing");
     const checks = await ctx.db
       .query("rolloutChecks")
       .withIndex("by_eventId_and_at", (q) => q.eq("eventId", event._id))

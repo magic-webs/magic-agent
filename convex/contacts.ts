@@ -5,7 +5,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalMutation, mutation } from "./functions";
-import { requireContact, requireWorkspace } from "./lib/auth";
+import { requireContact, requirePermission, requireWorkspace } from "./lib/auth";
 import { normaliseBirthday } from "./lib/marketing";
 import { normaliseEmail } from "./lib/notifications";
 import { MAX_FIELDS, checkPhone } from "./lib/contactClean";
@@ -141,7 +141,7 @@ export const exportPage = query({
     subscription: v.optional(v.union(v.literal("subscribed"), v.literal("unsubscribed"))),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    requirePermission(await requireWorkspace(ctx, args.workspaceId), "canExport");
     const category = args.category;
     const known =
       category === undefined

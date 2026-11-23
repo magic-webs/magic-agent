@@ -8,7 +8,7 @@
 
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { requireMember } from "./lib/auth";
+import { canSeeThread, requireMember } from "./lib/auth";
 import { urlFor } from "./lib/files";
 import { inboxRows } from "./conversations";
 
@@ -67,7 +67,11 @@ export const escalations = query({
       )
       .order("desc")
       .take(args.limit ?? 200);
-    return await inboxRows(ctx, principal.workspaceId, rows);
+    return await inboxRows(
+      ctx,
+      principal.workspaceId,
+      rows.filter((row) => canSeeThread(principal, row))
+    );
   },
 });
 

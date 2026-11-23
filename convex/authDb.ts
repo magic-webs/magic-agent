@@ -196,6 +196,7 @@ export const me = query({
       return {
         role: "member" as const,
         memberId: principal.memberId,
+        access: principal.access,
         label: principal.label,
         email: undefined,
         workspaceSlug: workspace?.slug ?? null,

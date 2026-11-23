@@ -28,7 +28,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { charge } from "./lib/charge";
 import { normalisePhone } from "./lib/notifications";
 import { templateBlock } from "./lib/wallet";
@@ -195,7 +195,7 @@ function withMeta(template: Doc<"marketingTemplates">) {
 export const overview = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) return null;
 
@@ -249,7 +249,7 @@ export const saveRolloutDefaults = mutation({
     engagedFirst: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     const plan = { shares: args.shares, gapDays: args.gapDays, engagedFirst: args.engagedFirst };
     const problem = validPlan(plan);
@@ -281,7 +281,7 @@ export const calendar = query({
     to: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     if (!isLocalDate(args.from) || !isLocalDate(args.to) || args.from > args.to) {
       throw new ConvexError("Pass a date range as YYYY-MM-DD.");
     }
@@ -376,7 +376,7 @@ export const upcomingFestivals = query({
     days: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     if (!isLocalDate(args.today)) throw new ConvexError("Pass today as YYYY-MM-DD.");
 
     const days = Math.min(365, Math.max(1, args.days ?? 120));
@@ -407,7 +407,7 @@ export const upcomingFestivals = query({
 export const contacts = query({
   args: { workspaceId: v.id("workspaces"), search: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const rows = await ctx.db
       .query("contacts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -439,7 +439,7 @@ export const contacts = query({
 export const ensureDesk = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     return await ensureMarketingDesk(ctx, args.workspaceId);
   },
 });
@@ -447,7 +447,7 @@ export const ensureDesk = mutation({
 export const generateTemplateUploadUrl = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     return await uploadUrlFor("templates", args.workspaceId);
   },
 });
@@ -470,7 +470,7 @@ export const saveTemplate = mutation({
     cardRatio: v.optional(cardRatioValidator),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     requireOwnKey(args.headerMedia?.key, "templates", args.workspaceId);
     for (const card of args.cards ?? []) requireOwnKey(card.media?.key, "templates", args.workspaceId);
@@ -589,7 +589,7 @@ export const removeTemplate = mutation({
   handler: async (ctx, args) => {
     const template = await ctx.db.get("marketingTemplates", args.templateId);
     if (!template) return { success: true };
-    await requireWorkspace(ctx, template.workspaceId);
+    await requireArea(ctx, template.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, template.workspaceId);
 
     // Anything still waiting to go out on it goes back to draft rather than
@@ -684,7 +684,7 @@ export const saveEvent = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
@@ -788,7 +788,7 @@ export const saveSettings = mutation({
     birthdayHour: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     if (args.birthdayEnabled) await refuseOnVm(ctx.db, args.workspaceId);
     if (args.birthdayTemplateId) {
       await templateInWorkspace(ctx, args.workspaceId, args.birthdayTemplateId);
@@ -825,7 +825,7 @@ export const saveAudienceSettings = mutation({
     categories: v.array(audienceCategoryValidator),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     const categories = args.categories.map((category) => ({
       key: category.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").slice(0, 32),
@@ -874,7 +874,7 @@ export const saveAudienceSettings = mutation({
 export const stats = query({
   args: { workspaceId: v.id("workspaces"), keys: v.array(v.string()) },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const result: Record<string, MarketingCounts> = {};
     for (const key of args.keys.slice(0, 100)) {
       result[key] = await statsFor(ctx, key);
@@ -887,7 +887,7 @@ export const stats = query({
 export const contactFields = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const contacts = await ctx.db
       .query("contacts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -923,7 +923,7 @@ export const previewContacts = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const settings = await settingsFor(ctx, args.workspaceId);
     const known = knownCategories(settings);
     const records = await loadRecordMatch(ctx, args.workspaceId, args.audience);

@@ -1,6 +1,13 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { escalationDepartment, kvPair, storedWorkspaceStage } from "./validators";
+import {
+  areaLevel,
+  chatScope,
+  escalationDepartment,
+  kvPair,
+  storedWorkspaceStage,
+  workspaceArea,
+} from "./validators";
 
 export const welcomeMenuShape = v.object({
   enabled: v.boolean(),
@@ -64,6 +71,8 @@ export const workspacesTables = {
     photoUrl: v.optional(v.string()),
     note: v.optional(v.string()),
     isOwner: v.optional(v.boolean()),
+    /** What their own login opens. Unset opens everything but the owner's settings. */
+    accessRoleId: v.optional(v.id("workspaceRoles")),
     status: v.union(
       v.literal("active"),
       v.literal("away"),
@@ -73,6 +82,21 @@ export const workspacesTables = {
     lastActiveAt: v.optional(v.number()),
     lastReplyText: v.optional(v.string()),
     lastReplyAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_accessRoleId", ["accessRoleId"]),
+
+  workspaceRoles: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    chats: chatScope,
+    areas: v.array(v.object({ area: workspaceArea, level: areaLevel })),
+    canAssignOthers: v.boolean(),
+    canDeleteChats: v.boolean(),
+    canExport: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),

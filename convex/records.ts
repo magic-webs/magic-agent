@@ -43,6 +43,7 @@ import {
   threadAccess,
   requireRecordBook,
   requireAdmin,
+  requirePermission,
   requireRecordWebhook,
   requireWorkspace,
 } from "./lib/auth";
@@ -638,6 +639,7 @@ export const exportPage = query({
   },
   handler: async (ctx, args) => {
     const book = await requireRecordBook(ctx, args.bookId);
+    requirePermission(await requireWorkspace(ctx, book.workspaceId), "canExport");
     const result = args.stage
       ? await ctx.db
           .query("records")

@@ -22,7 +22,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { refuseOnVm } from "./lib/marketingSync";
 import { ensureMarketingDesk } from "./agents";
 import { clampHour, templateInWorkspace } from "./marketing";
@@ -75,7 +75,7 @@ async function touchesOf(
 export const list = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const campaigns = await ctx.db
       .query("marketingCampaigns")
       .withIndex("by_workspace_and_date", (q) =>
@@ -136,7 +136,7 @@ export const save = mutation({
     audience: v.optional(audienceSelection),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     if (args.templateId) await refuseOnVm(ctx.db, args.workspaceId);
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
@@ -301,7 +301,7 @@ export const updateMessage = mutation({
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event?.campaignId) throw new ConvexError("Reminder not found");
-    await requireWorkspace(ctx, event.workspaceId);
+    await requireArea(ctx, event.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, event.workspaceId);
     if (!isPending(event)) throw new ConvexError("This one has already gone out.");
 

@@ -4,11 +4,13 @@ import {
   internalAction,
   internalQuery,
   query,
+  type QueryCtx,
 } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { canSeeThread, requireWorkspace, type Principal } from "./lib/auth";
+import { accessOfMember, allows, seesConversation } from "./lib/access";
 import { sendExpo, type ExpoMessage } from "./lib/expoPush";
 
 /**
@@ -230,7 +232,8 @@ export const register = mutation({
     deviceName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireWorkspace(ctx, args.workspaceId);
+    const memberId = principal.role === "member" ? principal.memberId : undefined;
 
     const token = args.token.trim();
     if (!token) throw new ConvexError("Empty push token");
@@ -249,6 +252,7 @@ export const register = mutation({
         workspaceId: args.workspaceId,
         platform: args.platform,
         deviceName: args.deviceName,
+        memberId,
         // Re-registering is how a device Expo reported as gone comes back.
         disabledAt: undefined,
         lastError: undefined,
@@ -262,6 +266,7 @@ export const register = mutation({
       token,
       platform: args.platform,
       deviceName: args.deviceName,
+      memberId,
       createdAt: now,
       updatedAt: now,
     });
@@ -308,27 +313,47 @@ export const listDevices = query({
 export const inbox = query({
   args: { workspaceId: v.id("workspaces"), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireWorkspace(ctx, args.workspaceId);
     const rows = await ctx.db
       .query("pushInbox")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .take(Math.min(Math.max(args.limit ?? 50, 1), 100));
-    return rows.map(inboxRow);
+    return (await visibleRows(ctx, principal, rows)).map(inboxRow);
   },
 });
+
+/** A limited role's bell leaves out the chats it does not show. */
+async function visibleRows(
+  ctx: QueryCtx,
+  principal: Principal,
+  rows: Doc<"pushInbox">[]
+): Promise<Doc<"pushInbox">[]> {
+  if (principal.role !== "member" || principal.access.full) return rows;
+  const out: Doc<"pushInbox">[] = [];
+  for (const row of rows) {
+    const id = row.conversationId ? ctx.db.normalizeId("conversations", row.conversationId) : null;
+    if (!id) {
+      if (principal.access.chats === "all") out.push(row);
+      continue;
+    }
+    const conversation = await ctx.db.get("conversations", id);
+    if (conversation && canSeeThread(principal, conversation)) out.push(row);
+  }
+  return out;
+}
 
 /** The bell's list a page at a time, newest first. */
 export const inboxPage = query({
   args: { workspaceId: v.id("workspaces"), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireWorkspace(ctx, args.workspaceId);
     const result = await ctx.db
       .query("pushInbox")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .order("desc")
       .paginate(args.paginationOpts);
-    return { ...result, page: result.page.map(inboxRow) };
+    return { ...result, page: (await visibleRows(ctx, principal, result.page)).map(inboxRow) };
   },
 });
 
@@ -382,13 +407,42 @@ export const pruneInbox = internalMutation({
 });
 
 export const tokensForWorkspace = internalQuery({
-  args: { workspaceId: v.id("workspaces") },
+  args: {
+    workspaceId: v.id("workspaces"),
+    /** About one chat: a human agent's device hears only of the chats their role shows. */
+    conversationId: v.optional(v.string()),
+  },
   handler: async (ctx, args): Promise<Doc<"pushTokens">[]> => {
-    const rows = await ctx.db
-      .query("pushTokens")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-    return rows.filter((row) => row.disabledAt === undefined);
+    const rows = (
+      await ctx.db
+        .query("pushTokens")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+        .collect()
+    ).filter((row) => row.disabledAt === undefined);
+
+    const conversationId = args.conversationId
+      ? ctx.db.normalizeId("conversations", args.conversationId)
+      : null;
+    const conversation = conversationId ? await ctx.db.get("conversations", conversationId) : null;
+
+    const out: Doc<"pushTokens">[] = [];
+    for (const row of rows) {
+      if (!row.memberId) {
+        out.push(row);
+        continue;
+      }
+      const member = await ctx.db.get("teamMembers", row.memberId);
+      if (!member) continue;
+      const access = await accessOfMember(ctx, member);
+      if (conversation) {
+        if (allows(access, "inbox", "view") && seesConversation(access, member._id, conversation)) {
+          out.push(row);
+        }
+      } else if (access.full || access.chats === "all") {
+        out.push(row);
+      }
+    }
+    return out;
   },
 });
 
@@ -451,6 +505,7 @@ export const notify = internalAction({
 
     const devices = await ctx.runQuery(internal.push.tokensForWorkspace, {
       workspaceId: args.workspaceId,
+      conversationId: ref(row.conversationId),
     });
     if (devices.length === 0) {
       return { sent: 0, failed: 0, reason: "no_devices" };

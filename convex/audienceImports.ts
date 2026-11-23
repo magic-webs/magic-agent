@@ -11,7 +11,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { refreshContactSearch } from "./lib/inbox";
 import {
   NOT_VALID,
@@ -117,7 +117,7 @@ async function moveRows(
 export const list = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const rows = await ctx.db
       .query("audienceImports")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -163,7 +163,7 @@ export const create = mutation({
     countryCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     const now = Date.now();
     return await ctx.db.insert("audienceImports", {
@@ -312,7 +312,7 @@ export const recheck = mutation({
     category: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, args.workspaceId);
     if (args.audienceId && args.category) throw new ConvexError("Pick a list or a category, not both.");
     let target = "Everyone";

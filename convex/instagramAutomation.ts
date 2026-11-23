@@ -10,7 +10,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireChannel, requireWorkspace } from "./lib/auth";
+import { requireArea, requireChannel } from "./lib/auth";
 import { insertConversation, noteMessage } from "./lib/inbox";
 import { recordAgentReply } from "./lib/agentStats";
 import { friendlySendError } from "./lib/sendErrors";
@@ -105,7 +105,7 @@ async function requireSocialChannel(ctx: QueryCtx, channelId: Id<"channels">) {
 export const overview = query({
   args: { workspaceId: v.id("workspaces"), since: v.number() },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "social");
     const channels = await socialChannels(ctx, args.workspaceId);
     const rules = await ctx.db
       .query("instagramRules")
@@ -142,7 +142,7 @@ export const overview = query({
 export const listRules = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "social");
     const rules = await ctx.db
       .query("instagramRules")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -235,7 +235,7 @@ export const saveRule = mutation({
     ...ruleFields,
   },
   handler: async (ctx, args): Promise<Id<"instagramRules">> => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "social", "edit");
     const channel = await requireSocialChannel(ctx, args.channelId);
     if (channel.workspaceId !== args.workspaceId) {
       throw new ConvexError("That account belongs to another workspace.");
@@ -274,7 +274,7 @@ export const saveRule = mutation({
 async function requireRule(ctx: QueryCtx, ruleId: Id<"instagramRules">) {
   const rule = await ctx.db.get("instagramRules", ruleId);
   if (!rule) throw new ConvexError("That rule no longer exists.");
-  await requireWorkspace(ctx, rule.workspaceId);
+  await requireArea(ctx, rule.workspaceId, "social", "edit");
   return rule;
 }
 
@@ -374,7 +374,7 @@ export const saveSettings = mutation({
 export const listActivity = query({
   args: { workspaceId: v.id("workspaces"), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "social");
     return await ctx.db
       .query("instagramActivity")
       .withIndex("by_workspace_and_createdAt", (q) => q.eq("workspaceId", args.workspaceId))

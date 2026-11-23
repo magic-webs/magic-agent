@@ -8,7 +8,9 @@ import { customMutation } from "convex-helpers/server/customFunctions";
 import { Triggers } from "convex-helpers/server/triggers";
 import { internal } from "./_generated/api";
 import { getPrincipal, type Principal } from "./lib/auth";
-import { LOGGED_TABLES, logChange, type ActivityCtx } from "./lib/activity";
+import { isRealChange, LOGGED_TABLES, logChange, type ActivityCtx } from "./lib/activity";
+import { allows, INCIDENTAL_FIELDS, TABLE_AREAS } from "./lib/access";
+import { ConvexError } from "convex/values";
 import { reviewDueAt } from "./lib/reviewDue";
 import { bumpAudienceCounts, tally } from "./lib/audienceCounts";
 import { contactChanged, isMirrored, newSyncState, SYNC_BATCH, type SyncState } from "./lib/marketingSync";
@@ -20,6 +22,32 @@ for (const table of Object.keys(LOGGED_TABLES) as TableNames[]) {
   triggers.register(table, (ctx, change) =>
     logChange(ctx, table, change as Parameters<typeof logChange>[2])
   );
+}
+
+// A human agent's role decides which areas they may change. Checked on the
+// table rather than in each function, so no path into an area is missed.
+for (const [table, areas] of Object.entries(TABLE_AREAS) as [TableNames, string[]][]) {
+  triggers.register(table, async (ctx, change) => {
+    const doc = (change.newDoc ?? change.oldDoc) as Record<string, unknown> | null;
+    if (!doc) return;
+    if (
+      change.operation === "update" &&
+      !isRealChange(
+        table,
+        change.oldDoc as never,
+        change.newDoc as never,
+        INCIDENTAL_FIELDS
+      )
+    ) {
+      return;
+    }
+    const principal = await ctx.activity.principal();
+    if (principal?.role !== "member") return;
+    const allowed = areas.some((area) =>
+      allows(principal.access, area as Parameters<typeof allows>[1], "edit")
+    );
+    if (!allowed) throw new ConvexError("Your role can only view this area.");
+  });
 }
 
 triggers.register("conversations", async (ctx, change) => {

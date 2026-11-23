@@ -28,7 +28,7 @@ import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { kvPair } from "./schema";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { charge } from "./lib/charge";
 import { templateBlocks } from "./lib/wallet";
 import { randomKey } from "./lib/shared";
@@ -174,7 +174,7 @@ function cleanList(values: string[], max: number): string[] {
 export const overview = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications");
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     const settings = await settingsFor(ctx, args.workspaceId);
     const sender = await senderFor(ctx, args.workspaceId, settings);
@@ -258,7 +258,7 @@ export const overview = query({
 export const listWhatsAppTemplates = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications");
     const settings = await settingsFor(ctx, args.workspaceId);
     const sender = await senderFor(ctx, args.workspaceId, settings);
     if (!sender) return [];
@@ -279,7 +279,7 @@ export const listWhatsAppTemplates = query({
 export const listEmailTemplates = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications");
     const rows = await ctx.db
       .query("emailTemplates")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -296,7 +296,7 @@ export const listEmailTemplates = query({
 export const listRules = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications");
     const rules = await ctx.db
       .query("notificationRules")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -374,7 +374,7 @@ export const listLogs = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications");
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 200);
     if (args.ruleId) {
       const rule = await ctx.db.get("notificationRules", args.ruleId);
@@ -414,7 +414,7 @@ type LogFilters = {
 };
 
 async function filteredLogs(ctx: QueryCtx, args: LogFilters, ignoreStatus = false) {
-  await requireWorkspace(ctx, args.workspaceId);
+  await requireArea(ctx, args.workspaceId, "notifications");
   const { ruleId, workspaceId } = args;
   const since = args.since ?? 0;
   if (ruleId) {
@@ -482,7 +482,7 @@ export const saveSettings = mutation({
     replyTo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications", "edit");
     const existing = await settingsFor(ctx, args.workspaceId);
 
     if (args.whatsappChannelId) {
@@ -548,7 +548,7 @@ export const saveEmailTemplate = mutation({
     format: v.union(v.literal("text"), v.literal("html")),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications", "edit");
     const name = args.name.trim();
     const subject = args.subject.trim();
     const body = args.body.trim();
@@ -621,7 +621,7 @@ export const saveRule = mutation({
     recipients: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "notifications", "edit");
     const existing = args.ruleId ? await requireRule(ctx, args.ruleId) : null;
     if (existing && existing.workspaceId !== args.workspaceId) {
       throw new ConvexError("Alert not found");

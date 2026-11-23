@@ -9,7 +9,7 @@ import {
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireWorkspace } from "./lib/auth";
+import { requireArea, requireWorkspace } from "./lib/auth";
 import { refuseOnVm } from "./lib/marketingSync";
 import { homeMarket, quote } from "./lib/billing";
 import { walletFor } from "./lib/wallet";
@@ -62,7 +62,7 @@ async function checkAudience(
 export const list = query({
   args: { workspaceId: v.id("workspaces"), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const page = await ctx.db
       .query("marketingEvents")
       .withIndex("by_workspaceId_and_campaignId_and_date", (q) =>
@@ -113,7 +113,7 @@ export const estimate = query({
     now: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing");
     const size = await measureAudience(ctx, args.workspaceId, args.audience, args.now);
     return { ...size, ...(await priceFor(ctx, args.workspaceId, args.templateId, size.byMarket)) };
   },
@@ -237,7 +237,7 @@ export const save = mutation({
     sendNow: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    await requireArea(ctx, args.workspaceId, "marketing", "edit");
     if (!args.draft) await refuseOnVm(ctx.db, args.workspaceId);
     if (args.draft && args.sendNow) throw new ConvexError("A draft cannot be sent now.");
     if (args.rollout) {
@@ -413,7 +413,7 @@ export const report = query({
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event) return null;
-    await requireWorkspace(ctx, event.workspaceId);
+    await requireArea(ctx, event.workspaceId, "marketing");
     const { stats, readHours, reasons } = await reportFor(ctx, eventKey(event._id));
     if (event.costCurrency) {
       return {
@@ -495,7 +495,7 @@ export const recipients = query({
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event) return { page: [], isDone: true, continueCursor: "" };
-    await requireWorkspace(ctx, event.workspaceId);
+    await requireArea(ctx, event.workspaceId, "marketing");
     const page = await ctx.db
       .query("marketingSends")
       .withIndex("by_key_and_createdAt", (q) => q.eq("key", eventKey(event._id)))
@@ -530,7 +530,7 @@ export const retarget = mutation({
   handler: async (ctx, args) => {
     const event = await ctx.db.get("marketingEvents", args.eventId);
     if (!event) throw new ConvexError("Campaign not found");
-    await requireWorkspace(ctx, event.workspaceId);
+    await requireArea(ctx, event.workspaceId, "marketing", "edit");
     await refuseOnVm(ctx.db, event.workspaceId);
     const name = args.name.trim().slice(0, 80);
     if (!name) throw new ConvexError("Give the list a name.");

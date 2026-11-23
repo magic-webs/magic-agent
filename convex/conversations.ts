@@ -49,12 +49,19 @@ import {
 } from "./lib/shared";
 import {
   AuthError,
+  accessOf,
+  canSeeThread,
+  chatLimit,
+  type ChatLimit,
   requireAgent,
+  requireArea,
   requireContact,
   requireConversation,
+  requirePermission,
   requireWorkspace,
   threadAccess,
 } from "./lib/auth";
+import { allows } from "./lib/access";
 import { friendlySendError } from "./lib/sendErrors";
 import { sendOnChannel } from "./lib/channelSend";
 import { assignConversation } from "./lib/assignment";
@@ -83,7 +90,7 @@ export const listByWorkspace = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireArea(ctx, args.workspaceId, "inbox");
     const limit = args.limit ?? 60;
     const status = args.status;
     const rows = status
@@ -110,7 +117,11 @@ export const listByWorkspace = query({
             .order("desc")
             .take(limit);
 
-    return await inboxRows(ctx, args.workspaceId, rows);
+    return await inboxRows(
+      ctx,
+      args.workspaceId,
+      rows.filter((row) => canSeeThread(principal, row))
+    );
   },
 });
 
@@ -147,14 +158,29 @@ export const inboxArgs = {
 export const listInbox = query({
   args: inboxArgs,
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
-    return await inboxPage(ctx, args);
+    const principal = await requireArea(ctx, args.workspaceId, "inbox");
+    return await inboxPage(ctx, args, chatLimit(principal));
   },
 });
 
+/** The conversations a limited role sees, for counting. Bounded: these are one person's. */
+async function limitedRows(ctx: QueryCtx, workspaceId: Id<"workspaces">, limit: NonNullable<ChatLimit>) {
+  const byAssignee = (assignee: Id<"teamMembers"> | undefined) =>
+    ctx.db
+      .query("conversations")
+      .withIndex("by_workspace_assignedMemberId_lastMessageAt", (q) =>
+        q.eq("workspaceId", workspaceId).eq("assignedMemberId", assignee)
+      )
+      .order("desc")
+      .take(2000);
+  const own = await byAssignee(limit.memberId);
+  return limit.withUnassigned ? [...own, ...(await byAssignee(undefined))] : own;
+}
+
 export async function inboxPage(
   ctx: QueryCtx,
-  args: ObjectType<typeof inboxArgs>
+  args: ObjectType<typeof inboxArgs>,
+  limit: ChatLimit = null
 ) {
   const workspaceId = args.workspaceId;
   const since = args.since ?? 0;
@@ -228,6 +254,14 @@ export async function inboxPage(
     }
     if (args.bots === "hide") all.push(q.neq(q.field("markedBot"), true));
     if (args.bots === "only") all.push(q.eq(q.field("markedBot"), true));
+    if (limit) {
+      const own = q.eq(q.field("assignedMemberId"), limit.memberId);
+      all.push(
+        limit.withUnassigned
+          ? q.or(own, q.eq(q.field("assignedMemberId"), undefined))
+          : own
+      );
+    }
     return all.length > 0 ? q.and(...all) : true;
   });
   const tagId = args.tagId;
@@ -244,7 +278,16 @@ export async function inboxPage(
 export const inboxCounts = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireArea(ctx, args.workspaceId, "inbox");
+    const limit = chatLimit(principal);
+    if (limit) {
+      const totals = { ...EMPTY_INBOX_COUNTS };
+      for (const row of await limitedRows(ctx, args.workspaceId, limit)) {
+        const counts = countsOf(row);
+        for (const key of INBOX_COUNT_KEYS) totals[key] += counts[key];
+      }
+      return totals;
+    }
     const row = await ctx.db
       .query("inboxCounts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -261,7 +304,15 @@ export const inboxCounts = query({
 export const escalatedCount = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireWorkspace(ctx, args.workspaceId);
+    // The sidebar asks on every page, so a hidden inbox counts nothing rather than throwing.
+    if (!allows(accessOf(principal), "inbox", "view")) return 0;
+    const limit = chatLimit(principal);
+    if (limit) {
+      return (await limitedRows(ctx, args.workspaceId, limit)).filter(
+        (row) => row.status === "escalated" && !row.marketingOnly
+      ).length;
+    }
     const row = await ctx.db
       .query("inboxCounts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -554,6 +605,7 @@ export const reset = mutation({
   handler: async (ctx, args) => {
     // The guard hands the document back, so there is no second read.
     const conversation = await requireConversation(ctx, args.conversationId);
+    requirePermission(await requireWorkspace(ctx, conversation.workspaceId), "canDeleteChats");
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) =>
@@ -609,6 +661,7 @@ export const remove = mutation({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
     const conversation = await requireConversation(ctx, args.conversationId);
+    requirePermission(await requireWorkspace(ctx, conversation.workspaceId), "canDeleteChats");
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) =>
@@ -1884,6 +1937,12 @@ export const assign = mutation({
     const access = await threadAccess(ctx, args.conversationId);
     if (!access) throw new AuthError(OFF_THE_DESK);
     const { conversation, principal } = access;
+    // Taking a thread, or letting go of one's own, needs no permission.
+    const ownMove =
+      principal.role === "member" &&
+      (args.memberId === principal.memberId ||
+        (args.memberId === null && conversation.assignedMemberId === principal.memberId));
+    if (!ownMove) requirePermission(principal, "canAssignOthers");
 
     const member = args.memberId
       ? await memberInWorkspace(ctx, conversation.workspaceId, args.memberId)

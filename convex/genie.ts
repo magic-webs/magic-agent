@@ -4,12 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation } from "./functions";
 import type { MutationCtx } from "./_generated/server";
-import {
-  AuthError,
-  getPrincipal,
-  principalKey,
-  requireWorkspace,
-} from "./lib/auth";
+import { AuthError, getPrincipal, principalKey, requireArea, requireWorkspace } from "./lib/auth";
 import { fileUrl, requireOwnKey } from "./lib/files";
 import { genieActionState, genieAttachment, genieStatus } from "./schema/genie";
 
@@ -112,7 +107,7 @@ async function startRun(
 export const threads = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    const principal = await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireArea(ctx, args.workspaceId, "genie");
     const rows = await ctx.db
       .query("genieThreads")
       .withIndex("by_owner", (q) =>
@@ -173,7 +168,7 @@ export const send = mutation({
     autoApprove: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const principal = await requireWorkspace(ctx, args.workspaceId);
+    const principal = await requireArea(ctx, args.workspaceId, "genie", "edit");
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new AuthError("Sign in to continue.");
 

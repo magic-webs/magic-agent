@@ -889,41 +889,49 @@ function WebhooksTab({ book }: { book: Book }) {
                       ) : null}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={resending !== null}
-                        onClick={async () => {
-                          setResending(delivery._id);
-                          try {
-                            const result = await resend({
-                              deliveryId: delivery._id,
-                            });
-                            if (result.success)
-                              toast.add({ title: "Resent.", type: "success" });
-                            else
+                      {delivery.canResend ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={resending !== null}
+                          onClick={async () => {
+                            setResending(delivery._id);
+                            try {
+                              const result = await resend({
+                                deliveryId: delivery._id,
+                              });
+                              if (result.success)
+                                toast.add({
+                                  title:
+                                    result.sent > 1
+                                      ? `Resent to ${result.sent} destinations.`
+                                      : "Resent.",
+                                  type: "success",
+                                });
+                              else
+                                toast.add({
+                                  title:
+                                    result.error ?? "The endpoint rejected it.",
+                                  type: "error",
+                                });
+                            } catch (error) {
                               toast.add({
-                                title:
-                                  result.error ?? "The endpoint rejected it.",
+                                title: friendlyError(error, "Failed."),
                                 type: "error",
                               });
-                          } catch (error) {
-                            toast.add({
-                              title: friendlyError(error, "Failed."),
-                              type: "error",
-                            });
-                          } finally {
-                            setResending(null);
-                          }
-                        }}
-                      >
-                        {resending === delivery._id ? (
-                          <Spinner />
-                        ) : (
-                          <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
-                        )}
-                        Resend
-                      </Button>
+                            } finally {
+                              setResending(null);
+                            }
+                          }}
+                        >
+                          {resending === delivery._id ? (
+                            <Spinner />
+                          ) : (
+                            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
+                          )}
+                          Resend
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}

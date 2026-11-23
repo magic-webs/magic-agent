@@ -894,12 +894,22 @@ export const listWebhooks = query({
 export const listDeliveries = query({
   args: { bookId: v.id("recordBooks"), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    await requireRecordBook(ctx, args.bookId);
-    return await ctx.db
+    const book = await requireRecordBook(ctx, args.bookId);
+    const workspace = await ctx.db.get("workspaces", book.workspaceId);
+    const hooks = await ctx.db
+      .query("recordWebhooks")
+      .withIndex("by_book", (q) => q.eq("bookId", args.bookId))
+      .collect();
+    const deliveries = await ctx.db
       .query("webhookEvents")
       .withIndex("by_book", (q) => q.eq("recordBookId", args.bookId))
       .order("desc")
       .take(args.limit ?? 50);
+    return deliveries.map((delivery) => ({
+      ...delivery,
+      canResend:
+        !!workspace && resendTargets(delivery, workspace, hooks).length > 0,
+    }));
   },
 });
 
@@ -1241,62 +1251,125 @@ export const sendTestWebhook = action({
   },
 });
 
-/** "Resend" on one row of the delivery log: the same body, to the same place. */
+type ResendTarget = {
+  hookId?: Id<"recordWebhooks">;
+  url: string;
+  secret?: string;
+  headers?: Array<{ key: string; value: string }>;
+  destination?: string;
+};
+
+/**
+ * Where "Resend" on a log row goes: back to the same place, or — for a row the
+ * workspace webhook skipped because none is set — to the book's destinations
+ * that take that event, so a record filed before they existed can still reach
+ * them.
+ */
+function resendTargets(
+  delivery: Doc<"webhookEvents">,
+  workspace: Doc<"workspaces">,
+  hooks: Array<Doc<"recordWebhooks">>
+): ResendTarget[] {
+  const toHook = (hook: Doc<"recordWebhooks">, destination?: string) => ({
+    hookId: hook._id,
+    url: hook.url,
+    secret: hook.secret,
+    headers: hook.headers,
+    destination: destination ?? hook.name,
+  });
+
+  if (!delivery.webhookId && delivery.destination === WORKSPACE_DESTINATION) {
+    const url = workspace.webhookUrl?.trim();
+    if (url) {
+      return [
+        {
+          url,
+          secret: workspace.webhookSecret,
+          destination: WORKSPACE_DESTINATION,
+        },
+      ];
+    }
+    const event = delivery.event.replace(/^record_/, "");
+    return hooks
+      .filter(
+        (hook) => hook.enabled && (hook.events as string[]).includes(event)
+      )
+      .map((hook) => toHook(hook));
+  }
+
+  // Older rows only carry the destination's name.
+  const name = delivery.destination?.replace(/ \(test\)$/, "");
+  const hook = hooks.find((candidate) =>
+    delivery.webhookId
+      ? candidate._id === delivery.webhookId
+      : candidate.name === name
+  );
+  return hook ? [toHook(hook, delivery.destination)] : [];
+}
+
+/** "Resend" on one row of the delivery log. */
 export const resendDelivery = action({
   args: { deliveryId: v.id("webhookEvents") },
   handler: async (
     ctx,
     args
-  ): Promise<{ success: boolean; responseStatus?: number; error?: string }> => {
+  ): Promise<{ success: boolean; sent: number; error?: string }> => {
     const target = await ctx.runQuery(internal.records.deliveryForResend, {
       deliveryId: args.deliveryId,
     });
     try {
       JSON.parse(target.payload);
     } catch {
-      throw new ConvexError("This delivery was too large to keep in full, so it can't be resent.");
-    }
-    if (!target.url) {
       throw new ConvexError(
-        target.hookId
-          ? "That destination has no address."
-          : "No webhook URL configured for this workspace."
+        "This delivery was too large to keep in full, so it can't be resent."
+      );
+    }
+    if (target.targets.length === 0) {
+      throw new ConvexError(
+        target.wasWorkspace
+          ? "No webhook URL is set for this workspace and no destination on this book takes this event."
+          : "That destination has been removed."
       );
     }
 
-    const result = await postWebhook({
-      url: target.url,
-      body: target.payload,
-      event: target.event,
-      workspaceSlug: target.workspaceSlug,
-      secret: target.secret,
-      headers: target.headers,
-    });
+    const results = await Promise.all(
+      target.targets.map(async (to) => {
+        const result = await postWebhook({
+          url: to.url,
+          body: target.payload,
+          event: target.event,
+          workspaceSlug: target.workspaceSlug,
+          secret: to.secret,
+          headers: to.headers,
+        });
+        if (to.hookId) {
+          await ctx.runMutation(internal.records.noteDelivery, {
+            webhookId: to.hookId,
+            status: result.ok ? "sent" : "failed",
+            responseStatus: result.responseStatus,
+            error: result.error,
+          });
+        }
+        await ctx.runMutation(internal.webhooks.logEvent, {
+          workspaceId: target.workspaceId,
+          event: target.event,
+          payload: target.payload,
+          status: result.ok ? "sent" : "failed",
+          responseStatus: result.responseStatus,
+          error: result.error,
+          recordBookId: target.bookId,
+          destination: to.destination,
+          webhookId: to.hookId,
+        });
+        return result;
+      })
+    );
 
-    if (target.hookId) {
-      await ctx.runMutation(internal.records.noteDelivery, {
-        webhookId: target.hookId,
-        status: result.ok ? "sent" : "failed",
-        responseStatus: result.responseStatus,
-        error: result.error,
-      });
-    }
-    await ctx.runMutation(internal.webhooks.logEvent, {
-      workspaceId: target.workspaceId,
-      event: target.event,
-      payload: target.payload,
-      status: result.ok ? "sent" : "failed",
-      responseStatus: result.responseStatus,
-      error: result.error,
-      recordBookId: target.bookId,
-      destination: target.destination,
-      webhookId: target.hookId,
-    });
-
+    const failed = results.find((result) => !result.ok);
     return {
-      success: result.ok,
-      responseStatus: result.responseStatus,
-      error: result.error,
+      success: !failed,
+      sent: results.filter((result) => result.ok).length,
+      error: failed?.error,
     };
   },
 });
@@ -1309,44 +1382,20 @@ export const deliveryForResend = internalQuery({
     const book = await requireRecordBook(ctx, delivery.recordBookId);
     const workspace = await ctx.db.get("workspaces", book.workspaceId);
     if (!workspace) throw new ConvexError("Delivery not found");
+    const hooks = await ctx.db
+      .query("recordWebhooks")
+      .withIndex("by_book", (q) => q.eq("bookId", book._id))
+      .collect();
 
-    const base = {
+    return {
       workspaceId: workspace._id,
       workspaceSlug: workspace.slug,
       bookId: book._id,
       event: delivery.event,
       payload: delivery.payload,
-      destination: delivery.destination,
-    };
-
-    if (!delivery.webhookId && delivery.destination === WORKSPACE_DESTINATION) {
-      return {
-        ...base,
-        hookId: undefined,
-        url: workspace.webhookUrl?.trim() || undefined,
-        secret: workspace.webhookSecret,
-        headers: undefined,
-      };
-    }
-
-    // Older rows only carry the destination's name.
-    const name = delivery.destination?.replace(/ \(test\)$/, "");
-    const hook = delivery.webhookId
-      ? await ctx.db.get("recordWebhooks", delivery.webhookId)
-      : (
-          await ctx.db
-            .query("recordWebhooks")
-            .withIndex("by_book", (q) => q.eq("bookId", book._id))
-            .collect()
-        ).find((candidate) => candidate.name === name);
-    if (!hook) throw new ConvexError("That destination has been removed.");
-
-    return {
-      ...base,
-      hookId: hook._id,
-      url: hook.url,
-      secret: hook.secret,
-      headers: hook.headers,
+      wasWorkspace:
+        !delivery.webhookId && delivery.destination === WORKSPACE_DESTINATION,
+      targets: resendTargets(delivery, workspace, hooks),
     };
   },
 });

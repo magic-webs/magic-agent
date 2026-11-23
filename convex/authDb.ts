@@ -1484,7 +1484,7 @@ export const memberSignInState = internalQuery({
     return {
       member,
       workspace,
-      companyActive: companyLogin?.status === "active",
+      companyActive: companyLogin?.status !== "revoked",
     };
   },
 });
@@ -1551,7 +1551,7 @@ export const principalProfile = internalQuery({
         .query("workspaceCredentials")
         .withIndex("by_workspace", (q) => q.eq("workspaceId", member.workspaceId))
         .unique();
-      if (!workspace || companyLogin?.status !== "active") return generic;
+      if (!workspace || companyLogin?.status === "revoked") return generic;
       if (workspace.status === "archived") return archived;
       return {
         ok: true,

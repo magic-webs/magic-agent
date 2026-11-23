@@ -175,12 +175,13 @@ export async function getPrincipal(ctx: Ctx): Promise<Principal | null> {
       .unique();
     if (!login || login.status !== "active") return null;
 
-    // A company whose own access is revoked takes its people with it.
+    // A company whose own access is revoked takes its people with it. One
+    // owned by a personal account has no company login at all.
     const companyLogin = await ctx.db
       .query("workspaceCredentials")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", member.workspaceId))
       .unique();
-    if (!companyLogin || companyLogin.status !== "active") return null;
+    if (companyLogin?.status === "revoked") return null;
 
     return {
       role: "member",

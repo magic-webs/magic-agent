@@ -15,6 +15,8 @@ import { AgentPortrait } from "@/components/agent-avatar";
 import { TeamAvatar } from "@/components/team-avatar";
 import { SelectField } from "@/components/select-field";
 import { HandoverRulesButton } from "@/components/handover-rules";
+import { RolesButton, roleSummary } from "@/components/access-roles";
+import { useAccess } from "@/components/use-access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +38,12 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -781,13 +788,20 @@ function IssuedLoginDialog({
   );
 }
 
+type AccessRole = FunctionReturnType<typeof api.workspaceRoles.list>[number];
+
 function MemberMenu({
   member,
   login,
+  roles,
+  isOwner,
 }: {
   member: Member;
   login: DeskLogin | undefined;
+  roles: AccessRole[];
+  isOwner: boolean;
 }) {
+  const setRole = useMutation(api.workspaceRoles.setMemberRole);
   const remove = useMutation(api.team.remove);
   const issueLogin = useAction(api.auth.issueMemberLogin);
   const revokeLogin = useMutation(api.authDb.revokeMemberLogin);
@@ -835,8 +849,63 @@ function MemberMenu({
             member={member}
             trigger={<DropdownMenuItem closeOnClick={false}>Edit</DropdownMenuItem>}
           />
-          {member.isOwner ? null : (
+          {member.isOwner || !isOwner ? null : (
             <>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <span className="flex min-w-0 flex-col">
+                    <span>Role</span>
+                    <span className="truncate text-[11px] text-muted-foreground">
+                      {roles.find((role) => role._id === member.accessRoleId)?.name ??
+                        "No role · full access"}
+                    </span>
+                  </span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-64">
+                  <DropdownMenuRadioGroup
+                    value={member.accessRoleId ?? "none"}
+                    onValueChange={async (value) => {
+                      try {
+                        await setRole({
+                          memberId: member._id,
+                          roleId: value === "none" ? null : (value as Id<"workspaceRoles">),
+                        });
+                      } catch (error) {
+                        toast.add({
+                          title: "Could not change the role",
+                          description: friendlyError(error),
+                          type: "error",
+                        });
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem value="none">
+                      <span className="flex flex-col">
+                        <span>No role</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Everything but billing and logins
+                        </span>
+                      </span>
+                    </DropdownMenuRadioItem>
+                    {roles.map((role) => (
+                      <DropdownMenuRadioItem key={role._id} value={role._id}>
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate">{role.name}</span>
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {roleSummary(role)}
+                          </span>
+                        </span>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                  {roles.length === 0 ? (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                      Add roles with the Roles button on this page.
+                    </p>
+                  ) : null}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
               {/* The label has to sit inside a group: DropdownMenuLabel is Base
                   UI's Menu.GroupLabel and reads MenuGroupContext. */}
@@ -1081,6 +1150,10 @@ export default function TeamPage() {
   const logins = useQuery(api.authDb.memberLogins, {
     workspaceId: workspace._id,
   });
+  const { isOwner } = useAccess();
+  const accessRoles = useQuery(api.workspaceRoles.list, {
+    workspaceId: workspace._id,
+  });
   const seats = useQuery(api.subscriptions.humanSeats, {
     workspaceId: workspace._id,
     now,
@@ -1129,6 +1202,7 @@ export default function TeamPage() {
                 : `${people.length} human`}
             </Badge>
             <HandoverRulesButton workspaceId={workspace._id} />
+            {isOwner ? <RolesButton workspaceId={workspace._id} /> : null}
             <AddHumanAgent
               seats={seats}
               trigger={
@@ -1234,6 +1308,8 @@ export default function TeamPage() {
                 <MemberMenu
                   member={member}
                   login={loginByMember.get(member._id)}
+                  roles={accessRoles ?? []}
+                  isOwner={isOwner}
                 />
               }
             />

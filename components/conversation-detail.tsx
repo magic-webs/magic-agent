@@ -11,6 +11,7 @@ import { friendlyError } from "@/lib/errors";
 import { TranscriptView, type TranscriptAgent } from "@/components/transcript";
 import { FixAnswerDialog } from "@/components/knowledge/fix-answer-dialog";
 import { ManualReply } from "@/components/manual-reply";
+import { useAccess } from "@/components/use-access";
 import { AssignMenu } from "@/components/assign-menu";
 import { ContactAvatar } from "@/components/contact-avatar";
 import { AdBadge, AdDetails } from "@/components/ad-referral";
@@ -367,6 +368,7 @@ export function ConversationDetail({
   const setStatus = useMutation(api.conversations.setStatus);
   const setHumanHandling = useMutation(api.conversations.setHumanHandling);
   const removeConversation = useMutation(api.conversations.remove);
+  const canDeleteChats = useAccess().access.canDeleteChats;
   const setBot = useMutation(api.conversations.setBot);
   const markWrong = useMutation(api.knowledgeGaps.markWrong);
   const [fixingGap, setFixingGap] = useState<Id<"knowledgeGaps"> | null>(null);
@@ -672,7 +674,7 @@ export function ConversationDetail({
                   <HugeiconsIcon icon={UnavailableIcon} strokeWidth={2} />
                   {conversation.markedBot ? "Unmark as bot" : "Mark as bot"}
                 </DropdownMenuItem>
-                {onDesk ? null : (
+                {onDesk || !canDeleteChats ? null : (
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => setConfirmingDelete(true)}

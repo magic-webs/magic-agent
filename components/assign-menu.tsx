@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { useSession } from "@/components/use-session";
+import { useAccess } from "@/components/use-access";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Tick02Icon,
@@ -53,9 +54,12 @@ export function AssignMenu({
     }
   };
 
-  const ordered = [...(members ?? [])].sort(
-    (a, b) => Number(b._id === me) - Number(a._id === me)
-  );
+  const { access } = useAccess();
+  // Without the permission a human agent can only take a thread or let go of their own.
+  const ordered = [...(members ?? [])]
+    .filter((member) => access.canAssignOthers || member._id === me)
+    .sort((a, b) => Number(b._id === me) - Number(a._id === me));
+  const canUnassign = access.canAssignOthers || assignedMemberId === me;
 
   return (
     <DropdownMenu>
@@ -94,7 +98,7 @@ export function AssignMenu({
             <DropdownMenuItem disabled>No team members yet</DropdownMenuItem>
           ) : null}
         </DropdownMenuGroup>
-        {assignedMemberId ? (
+        {assignedMemberId && canUnassign ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => void pick(null)}>

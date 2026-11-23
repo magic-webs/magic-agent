@@ -8,6 +8,7 @@ import type { Doc } from "@/convex/_generated/dataModel";
 import { downloadCsv } from "@/lib/csv";
 import { recordsToCsv, type ExportedRecord } from "@/lib/record-csv";
 import { useWorkspace } from "@/components/workspace-provider";
+import { useAccess } from "@/components/use-access";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
@@ -35,6 +36,7 @@ export function ExportRecordsButton({
   stage?: string;
 }) {
   const workspace = useWorkspace();
+  const canExport = useAccess().access.canExport;
   const convex = useConvex();
   const [busy, setBusy] = useState(false);
 
@@ -78,6 +80,8 @@ export function ExportRecordsButton({
     }
   };
 
+
+  if (!canExport) return null;
   return (
     <Button variant="outline" onClick={() => void run()} disabled={busy}>
       {busy ? <Spinner /> : <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} />} Export CSV

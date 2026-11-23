@@ -2,13 +2,15 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ORDERS_HANDLE } from "@/convex/lib/ordersBook";
 import { WorkspaceProvider } from "@/components/workspace-provider";
 import { WorkspaceTheme } from "@/components/workspace-theme";
 import { useSession } from "@/components/use-session";
+import { AREA_HOME, areaOfPath, useAccess } from "@/components/use-access";
+import type { WorkspaceArea } from "@/convex/lib/access";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SidebarUser } from "@/components/sidebar-user";
 import { PlanGate } from "@/components/billing/plan-gate";
@@ -214,6 +216,20 @@ const NAV: Array<{
   { label: "Integrations", icon: ConnectIcon, href: "/integrations" },
 ];
 
+const SECTION_AREA: Record<string, WorkspaceArea> = {
+  Dashboard: "dashboard",
+  Genie: "genie",
+  Team: "team",
+  Build: "build",
+  Inbox: "inbox",
+  Escalations: "inbox",
+  Leads: "leads",
+  Marketing: "marketing",
+  Social: "social",
+  Notifications: "notifications",
+  Integrations: "integrations",
+};
+
 type NavBadge = { text: string; tone: "alert" | "count" };
 
 function countBadge(
@@ -343,6 +359,8 @@ export default function WorkspaceLayout({
   const pathname = usePathname();
   const currentView = useSearchParams().get("view");
   const session = useSession();
+  const access = useAccess();
+  const router = useRouter();
   // A company may only ever load its own workspace; skip the query rather than
   // firing one the server will refuse.
   const allowed =
@@ -416,8 +434,21 @@ export default function WorkspaceLayout({
       return section.label === "Marketing" && hasSocial
         ? [withBooks, SOCIAL_SECTION]
         : [withBooks];
-    });
-  }, [books, hasSocial, hasPayments]);
+    }).filter((section) => access.canView(SECTION_AREA[section.label] ?? "dashboard"));
+  }, [books, hasSocial, hasPayments, access]);
+
+  const rest = workspace ? pathname.slice(`/w/${workspace.slug}`.length) : "";
+  const pageArea = workspace ? areaOfPath(rest) : null;
+  const blocked = Boolean(pageArea && !access.loading && !access.canView(pageArea));
+  // The dashboard is where every sign-in lands, so a role without it goes on
+  // to the first area it does open rather than to a locked page.
+  const landing =
+    blocked && pageArea === "dashboard" && access.firstArea && workspace
+      ? `/w/${workspace.slug}${AREA_HOME[access.firstArea]}`
+      : null;
+  useEffect(() => {
+    if (landing) router.replace(landing);
+  }, [landing, router]);
 
   if (session.me && !allowed) {
     return (
@@ -603,7 +634,28 @@ export default function WorkspaceLayout({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* The plan's banner above the page, or the lock in its place. */}
             <PlanGate workspaceId={workspace._id} base={base}>
-              {children}
+              {blocked ? (
+                <div className="flex flex-1 items-center justify-center p-8">
+                  {landing ? (
+                    <Spinner />
+                  ) : (
+                    <Empty className="max-w-md border border-dashed">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
+                        </EmptyMedia>
+                        <EmptyTitle>Not part of your role</EmptyTitle>
+                        <EmptyDescription>
+                          Your role does not open this page. Ask the workspace admin if you
+                          need it.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  )}
+                </div>
+              ) : (
+                children
+              )}
             </PlanGate>
           </div>
         </SidebarInset>

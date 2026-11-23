@@ -8,6 +8,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
 import { contactsToCsv, fieldKeysOf } from "@/lib/contact-csv";
 import { useWorkspace } from "@/components/workspace-provider";
+import { useAccess } from "@/components/use-access";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -66,6 +67,7 @@ export function ExportContactsButton({
   lists?: Array<{ id: Id<"audiences">; name: string; count: string }>;
 }) {
   const workspace = useWorkspace();
+  const canExport = useAccess().access.canExport;
   const convex = useMarketingClient();
   const [busy, setBusy] = useState(false);
 
@@ -124,6 +126,8 @@ export function ExportContactsButton({
     </DropdownMenuItem>
   );
 
+
+  if (!canExport) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger disabled={busy} render={<Button variant="outline" />}>

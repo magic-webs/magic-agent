@@ -212,6 +212,7 @@ export const recordsTables = {
     error: v.optional(v.string()),
     recordBookId: v.optional(v.id("recordBooks")),
     destination: v.optional(v.string()),
+    webhookId: v.optional(v.id("recordWebhooks")),
     createdAt: v.number(),
   })
     .index("by_workspace", ["workspaceId"])

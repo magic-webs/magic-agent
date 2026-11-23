@@ -83,6 +83,7 @@ import {
   Megaphone01Icon,
   PlusSignIcon,
   Radio02Icon,
+  RefreshIcon,
   RupeeIcon,
   SentIcon,
   ViewIcon,
@@ -670,7 +671,11 @@ function WebhooksTab({ book }: { book: Book }) {
   const updateWebhook = useMutation(api.records.updateWebhook);
   const removeWebhook = useMutation(api.records.removeWebhook);
   const sendTest = useAction(api.records.sendTestWebhook);
+  const resend = useAction(api.records.resendDelivery);
   const [testing, setTesting] = useState<Id<"recordWebhooks"> | null>(null);
+  const [resending, setResending] = useState<Id<"webhookEvents"> | null>(
+    null
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -847,6 +852,7 @@ function WebhooksTab({ book }: { book: Book }) {
                       delivery is read for. */}
                   <TableHead className="hidden lg:table-cell">To</TableHead>
                   <TableHead>Result</TableHead>
+                  <TableHead className="w-0" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -881,6 +887,43 @@ function WebhooksTab({ book }: { book: Book }) {
                           {delivery.error}
                         </p>
                       ) : null}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={resending !== null}
+                        onClick={async () => {
+                          setResending(delivery._id);
+                          try {
+                            const result = await resend({
+                              deliveryId: delivery._id,
+                            });
+                            if (result.success)
+                              toast.add({ title: "Resent.", type: "success" });
+                            else
+                              toast.add({
+                                title:
+                                  result.error ?? "The endpoint rejected it.",
+                                type: "error",
+                              });
+                          } catch (error) {
+                            toast.add({
+                              title: friendlyError(error, "Failed."),
+                              type: "error",
+                            });
+                          } finally {
+                            setResending(null);
+                          }
+                        }}
+                      >
+                        {resending === delivery._id ? (
+                          <Spinner />
+                        ) : (
+                          <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
+                        )}
+                        Resend
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

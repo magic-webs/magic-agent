@@ -35,6 +35,7 @@ import {
   type RecordField,
 } from "./lib/records";
 import { postWebhook } from "./lib/webhookDelivery";
+import { WORKSPACE_DESTINATION } from "./webhooks";
 import { findOrdersBook, ORDERS_HANDLE } from "./lib/ordersBook";
 import { noteConversion } from "./lib/marketingStats";
 import { noteContactActivity } from "./lib/contactActivity";
@@ -1147,6 +1148,7 @@ export const announce = internalAction({
           error: result.error,
           recordBookId: context.book._id,
           destination: hook.name,
+          webhookId: hook._id,
         });
       })
     );
@@ -1228,12 +1230,123 @@ export const sendTestWebhook = action({
       error: result.error,
       recordBookId: hook.book._id,
       destination: `${hook.name} (test)`,
+      webhookId: args.webhookId,
     });
 
     return {
       success: result.ok,
       responseStatus: result.responseStatus,
       error: result.error,
+    };
+  },
+});
+
+/** "Resend" on one row of the delivery log: the same body, to the same place. */
+export const resendDelivery = action({
+  args: { deliveryId: v.id("webhookEvents") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; responseStatus?: number; error?: string }> => {
+    const target = await ctx.runQuery(internal.records.deliveryForResend, {
+      deliveryId: args.deliveryId,
+    });
+    try {
+      JSON.parse(target.payload);
+    } catch {
+      throw new ConvexError("This delivery was too large to keep in full, so it can't be resent.");
+    }
+    if (!target.url) {
+      throw new ConvexError(
+        target.hookId
+          ? "That destination has no address."
+          : "No webhook URL configured for this workspace."
+      );
+    }
+
+    const result = await postWebhook({
+      url: target.url,
+      body: target.payload,
+      event: target.event,
+      workspaceSlug: target.workspaceSlug,
+      secret: target.secret,
+      headers: target.headers,
+    });
+
+    if (target.hookId) {
+      await ctx.runMutation(internal.records.noteDelivery, {
+        webhookId: target.hookId,
+        status: result.ok ? "sent" : "failed",
+        responseStatus: result.responseStatus,
+        error: result.error,
+      });
+    }
+    await ctx.runMutation(internal.webhooks.logEvent, {
+      workspaceId: target.workspaceId,
+      event: target.event,
+      payload: target.payload,
+      status: result.ok ? "sent" : "failed",
+      responseStatus: result.responseStatus,
+      error: result.error,
+      recordBookId: target.bookId,
+      destination: target.destination,
+      webhookId: target.hookId,
+    });
+
+    return {
+      success: result.ok,
+      responseStatus: result.responseStatus,
+      error: result.error,
+    };
+  },
+});
+
+export const deliveryForResend = internalQuery({
+  args: { deliveryId: v.id("webhookEvents") },
+  handler: async (ctx, args) => {
+    const delivery = await ctx.db.get("webhookEvents", args.deliveryId);
+    if (!delivery?.recordBookId) throw new ConvexError("Delivery not found");
+    const book = await requireRecordBook(ctx, delivery.recordBookId);
+    const workspace = await ctx.db.get("workspaces", book.workspaceId);
+    if (!workspace) throw new ConvexError("Delivery not found");
+
+    const base = {
+      workspaceId: workspace._id,
+      workspaceSlug: workspace.slug,
+      bookId: book._id,
+      event: delivery.event,
+      payload: delivery.payload,
+      destination: delivery.destination,
+    };
+
+    if (!delivery.webhookId && delivery.destination === WORKSPACE_DESTINATION) {
+      return {
+        ...base,
+        hookId: undefined,
+        url: workspace.webhookUrl?.trim() || undefined,
+        secret: workspace.webhookSecret,
+        headers: undefined,
+      };
+    }
+
+    // Older rows only carry the destination's name.
+    const name = delivery.destination?.replace(/ \(test\)$/, "");
+    const hook = delivery.webhookId
+      ? await ctx.db.get("recordWebhooks", delivery.webhookId)
+      : (
+          await ctx.db
+            .query("recordWebhooks")
+            .withIndex("by_book", (q) => q.eq("bookId", book._id))
+            .collect()
+        ).find((candidate) => candidate.name === name);
+    if (!hook) throw new ConvexError("That destination has been removed.");
+
+    return {
+      ...base,
+      hookId: hook._id,
+      url: hook.url,
+      secret: hook.secret,
+      headers: hook.headers,
     };
   },
 });

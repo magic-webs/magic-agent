@@ -31,6 +31,7 @@ export const logEvent = internalMutation({
     error: v.optional(v.string()),
     recordBookId: v.optional(v.id("recordBooks")),
     destination: v.optional(v.string()),
+    webhookId: v.optional(v.id("recordWebhooks")),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("webhookEvents", {
@@ -42,6 +43,7 @@ export const logEvent = internalMutation({
       error: args.error?.slice(0, 500),
       recordBookId: args.recordBookId,
       destination: args.destination,
+      webhookId: args.webhookId,
       createdAt: Date.now(),
     });
   },

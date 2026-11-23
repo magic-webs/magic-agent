@@ -8,10 +8,9 @@
 // So from the dashboard, `teamMemberId` on a message is a label, not a claim —
 // anybody holding the workspace password can send as anybody on the list.
 //
-// The exception is a human agent given a login of their own (`memberCredentials`,
-// issued from the Team page). That signs in to the escalations desk only, and
-// there the sender is the login: `sendManualReply` ignores whatever id the
-// composer passed.
+// The exception is a personal login — a human agent's own (`memberCredentials`,
+// issued from the Team page) or the owner's account. There the sender is the
+// login: `sendManualReply` ignores whatever id the composer passed.
 
 import { ConvexError, v } from "convex/values";
 import {
@@ -131,6 +130,7 @@ export const activeForReply = query({
         _id: member._id,
         name: member.name,
         role: member.role,
+        isOwner: Boolean(member.isOwner),
       }));
   },
 });

@@ -678,9 +678,22 @@ export const manualSendContext = internalQuery({
       // rest of that agent's replies rather than looking like it came from the
       // entry point.
       agentId: conversation.activeAgentId ?? conversation.agentId,
-      // A human agent signs as themselves, whatever the composer sent: on the
-      // desk the sender is the login, not a pick from a list.
-      memberId: principal.role === "member" ? principal.memberId : null,
+      // A personal login signs as itself, whatever the composer sent: a human
+      // agent as their own card, the owner's account as the Admin card. Only
+      // the shared company password picks from the list.
+      memberId:
+        principal.role === "member"
+          ? principal.memberId
+          : principal.role === "user"
+            ? ((
+                await ctx.db
+                  .query("teamMembers")
+                  .withIndex("by_workspace", (q) =>
+                    q.eq("workspaceId", conversation.workspaceId)
+                  )
+                  .collect()
+              ).find((member) => member.isOwner)?._id ?? null)
+            : null,
       target,
     };
   },

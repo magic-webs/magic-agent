@@ -273,10 +273,19 @@ export function ManualReply({
   // current. Either one saying closed is closed.
   const closed = windowClosed || (window24 !== null && !window24.open);
 
+  const me = useQuery(api.authDb.me, replyingAs ? "skip" : {});
+
   const roster = team ?? [];
+  const self =
+    me?.role === "member"
+      ? roster.find((member) => member._id === me.memberId)
+      : me?.role === "user"
+        ? roster.find((member) => member.isOwner)
+        : undefined;
+  const fixedSender = replyingAs ?? self;
   // Default to the first person on the list rather than to nobody, so the
   // count on the Team page means something without anyone having to opt in.
-  const sendingAs = sender || roster[0]?._id || "";
+  const sendingAs = self?._id || sender || roster[0]?._id || "";
 
   /**
    * Drop a fragment in where the caret is, rather than on the end.
@@ -481,11 +490,11 @@ export function ManualReply({
             already selected. */}
         {/* This side gives way when the column is narrow — the name clips
             inside its picker — so the pause beside it stays whole. */}
-        {replyingAs ? (
+        {fixedSender ? (
           <span className="min-w-0 truncate">
             Replying as{" "}
-            <span className="font-medium text-foreground">{replyingAs.name}</span>
-            {replyingAs.role ? ` · ${replyingAs.role}` : null}
+            <span className="font-medium text-foreground">{fixedSender.name}</span>
+            {fixedSender.role ? ` · ${fixedSender.role}` : null}
           </span>
         ) : roster.length > 0 ? (
           <span className="flex min-w-0 items-center gap-1.5">

@@ -65,7 +65,7 @@ import {
  */
 
 type Channel = "whatsapp" | "email";
-type Variable = { path: string; label: string };
+type Variable = { path: string; label: string; value?: string };
 
 const RECIPIENT = "recipient";
 const ANY = "any";
@@ -158,10 +158,14 @@ export function RuleDialog({
       : [];
     const sample =
       event === "inbound"
-        ? (saved?.samplePaths ?? []).map((path) => ({ path, label: path }))
+        ? (saved?.samplePaths ?? []).map((path) => ({
+            path,
+            label: path,
+            value: saved?.sampleValues[path],
+          }))
         : [];
     return uniqueVariables([sample, details, info.variables]);
-  }, [isRecord, book, overview.books, event, saved?.samplePaths, info.variables]);
+  }, [isRecord, book, overview.books, event, saved?.samplePaths, saved?.sampleValues, info.variables]);
 
   const pickable = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -739,12 +743,21 @@ export function RuleDialog({
                       size="xs"
                       variant="outline"
                       className="border-dashed"
-                      title={`{{${variable.path}}}`}
+                      title={
+                        variable.value !== undefined
+                          ? `{{${variable.path}}} = ${variable.value}`
+                          : `{{${variable.path}}}`
+                      }
                       // Keeps the field's focus and selection intact.
                       onMouseDown={(press) => press.preventDefault()}
                       onClick={() => insert(variable.path)}
                     >
                       {variable.label}
+                      {variable.value !== undefined ? (
+                        <span className="max-w-48 truncate font-normal text-muted-foreground">
+                          {variable.value || "—"}
+                        </span>
+                      ) : null}
                     </Button>
                   ))}
                 </div>

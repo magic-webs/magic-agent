@@ -286,8 +286,15 @@ export function placeholderPaths(text: string): string[] {
  * picking it from what the other system actually sent rather than guessing
  * at its shape.
  */
-export function leafPaths(value: unknown, limit = 60): string[] {
-  const out: string[] = [];
+export function leafPaths(value: unknown, limit = 300): string[] {
+  return leafEntries(value, limit).map((entry) => entry.path);
+}
+
+export function leafEntries(
+  value: unknown,
+  limit = 300
+): { path: string; value: string }[] {
+  const out: { path: string; value: string }[] = [];
   const walk = (node: unknown, prefix: string, depth: number) => {
     if (out.length >= limit || depth > 6) return;
     if (node === null || node === undefined) return;
@@ -304,7 +311,7 @@ export function leafPaths(value: unknown, limit = 60): string[] {
       }
       return;
     }
-    if (prefix) out.push(prefix);
+    if (prefix) out.push({ path: prefix, value: String(node).slice(0, 120) });
   };
   walk(value, "", 0);
   return out;

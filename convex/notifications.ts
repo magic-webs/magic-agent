@@ -36,7 +36,7 @@ import { noteMessage } from "./lib/inbox";
 import {
   NOTIFICATION_EVENTS,
   eventInfo,
-  leafPaths,
+  leafEntries,
   normaliseEmail,
   parseTemplate,
   placeholderPaths,
@@ -319,14 +319,16 @@ export const listRules = query({
     );
 
     return rules.map((rule) => {
-      let samplePaths: string[] = [];
+      let sample: { path: string; value: string }[] = [];
       if (rule.lastInboundPayload) {
         try {
-          samplePaths = leafPaths(JSON.parse(rule.lastInboundPayload));
+          sample = leafEntries(JSON.parse(rule.lastInboundPayload));
         } catch {
-          samplePaths = [];
+          sample = [];
         }
       }
+      const samplePaths = sample.map((entry) => entry.path);
+      const sampleValues = Object.fromEntries(sample.map((entry) => [entry.path, entry.value]));
       const book = rule.bookId ? books.get(rule.bookId) : undefined;
       return {
         _id: rule._id,
@@ -356,6 +358,7 @@ export const listRules = query({
           (rule.lastInboundPayload ? (rule.lastInboundAt ?? null) : null),
         capturing: rule.inboundCapture ?? false,
         samplePaths,
+        sampleValues,
         sentCount: rule.sentCount,
         failedCount: rule.failedCount,
         lastFiredAt: rule.lastFiredAt ?? null,

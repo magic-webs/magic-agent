@@ -596,6 +596,13 @@ export const getWithContact = query({
       ? await memberInWorkspace(ctx, conversation.workspaceId, conversation.assignedByMemberId)
       : null;
 
+    const lastReplier = conversation.humanHandling
+      ? conversation.repliedMemberIds?.at(-1)
+      : undefined;
+    const handler = lastReplier
+      ? await memberInWorkspace(ctx, conversation.workspaceId, lastReplier)
+      : null;
+
     return {
       conversation,
       contact,
@@ -603,6 +610,9 @@ export const getWithContact = query({
       channel,
       adSource: conversation.adSource ? withAdImageUrl(conversation.adSource) : null,
       assignee: assignee ? { name: assignee.name, by: assignedBy?.name ?? null } : null,
+      handlerName: conversation.humanHandling
+        ? (handler?.name ?? assignee?.name ?? null)
+        : null,
       lastInboundAt,
       freeFormWindowClosed,
     };
@@ -798,6 +808,15 @@ export const recordManualReply = internalMutation({
     const sender =
       member && member.workspaceId === args.workspaceId ? member : null;
 
+    // Whoever replies takes the thread, before the reply so the note reads first.
+    let conversation = await ctx.db.get("conversations", args.conversationId);
+    if (conversation && sender && sender.status !== "inactive") {
+      conversation = await assignConversation(ctx, conversation, sender, {
+        label: sender.name,
+        memberId: sender._id,
+      });
+    }
+
     const messageId = await ctx.db.insert("messages", {
       workspaceId: args.workspaceId,
       conversationId: args.conversationId,
@@ -824,7 +843,6 @@ export const recordManualReply = internalMutation({
       });
     }
 
-    const conversation = await ctx.db.get("conversations", args.conversationId);
     if (conversation) {
       await noteMessage(
         ctx,

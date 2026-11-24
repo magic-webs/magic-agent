@@ -284,7 +284,11 @@ export function ConversationRow({
           <span className="shrink-0">{row.messageCount} messages ·</span>
           <span
             className="flex min-w-0 items-center gap-1"
-            title={row.humanHandling ? "Your team has this thread" : "Agent answering"}
+            title={
+              row.humanHandling
+                ? `${row.handlerName ?? "Your team"} is answering · ${row.activeAgentName} paused`
+                : `${row.activeAgentName} is answering`
+            }
           >
             <HugeiconsIcon
               icon={row.humanHandling ? UserIcon : RoboticIcon}
@@ -507,6 +511,7 @@ export function ConversationDetail({
       label={label}
       arrivedAt={agent?.botName ?? "— deleted —"}
       holderName={holderName}
+      handlerName={detail.handlerName}
       assignee={detail.assignee}
       adSource={detail.adSource}
       lastInboundAt={detail.lastInboundAt}
@@ -994,6 +999,7 @@ function ThreadDetails({
   label,
   arrivedAt,
   holderName,
+  handlerName,
   assignee,
   adSource,
   lastInboundAt,
@@ -1007,6 +1013,8 @@ function ThreadDetails({
   label: string;
   arrivedAt: string;
   holderName: string;
+  /** The team member answering while the agent is paused. */
+  handlerName: string | null;
   assignee: Detail["assignee"];
   adSource: Detail["adSource"];
   lastInboundAt: number | null;
@@ -1187,7 +1195,16 @@ function ThreadDetails({
           <Fact term="Last activity">{relative(conversation.lastMessageAt)}</Fact>
           <Fact term="Messages">{conversation.messageCount}</Fact>
           <Fact term="Arrived at">{arrivedAt}</Fact>
-          <Fact term="Held by">{holderName}</Fact>
+          <Fact term="Held by">
+            {handlerName ? (
+              <span>
+                {handlerName}
+                <span className="text-muted-foreground"> · {holderName} paused</span>
+              </span>
+            ) : (
+              holderName
+            )}
+          </Fact>
           <Fact term="Assigned to">
             {assignee ? (
               <span>

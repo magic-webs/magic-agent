@@ -4,6 +4,9 @@ export const VOICE_TRANSCRIPTION_MODEL = "elevenlabs/scribe-v2";
 export const MAX_VOICE_NOTE_BYTES = 4 * 1024 * 1024;
 export const MAX_SPOKEN_CHARS = 1500;
 
+export const GENIE_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
+export const GENIE_FREE_VOICE_SECONDS = 30 * 60;
+
 export type Voice = { id: string; name: string; gender: "female" | "male"; accent: string };
 
 export const VOICES: Voice[] = [

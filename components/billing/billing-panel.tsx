@@ -5,10 +5,10 @@ import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
   CATEGORY_LABELS,
-  MESSAGE_CATEGORIES,
+  LEDGER_CATEGORIES,
   SOURCE_LABELS,
   formatMoney,
-  type MessageCategory,
+  type LedgerCategory,
 } from "@/convex/lib/billing";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useSession } from "@/components/use-session";
@@ -50,7 +50,7 @@ import {
 
 const PAGE = 25;
 
-type Filter = "all" | MessageCategory;
+type Filter = "all" | LedgerCategory;
 
 const PHONE = /^\+?\d{6,15}$/;
 
@@ -123,18 +123,18 @@ export function BillingPanel({ days }: { days: number }) {
     messages: day.messages,
   }));
   const templates = data.byCategory
-    .filter((row) => row.category !== "service")
+    .filter((row) => row.category !== "service" && row.category !== "genie")
     .reduce((sum, row) => sum + row.messages, 0);
   const average =
     data.totals.messages > 0
       ? Math.round(data.totals.amountMicros / data.totals.messages)
       : 0;
-  const rateOf = (category: MessageCategory) =>
-    data.prices ? data.prices[`${category}Micros`] : null;
-  const rateLabel = (category: MessageCategory) => {
+  const rateOf = (category: LedgerCategory) =>
+    data.prices ? data.prices[`${category === "genie" ? "marketing" : category}Micros`] : null;
+  const rateLabel = (category: LedgerCategory) => {
     const rate = rateOf(category);
     if (rate === null) return "no rate";
-    return `${category === "service" ? "from " : ""}${money(rate)} / msg`;
+    return `${category === "service" ? "from " : ""}${money(rate)} / ${category === "genie" ? "wish" : "msg"}`;
   };
 
   const editMarkup =
@@ -290,7 +290,9 @@ export function BillingPanel({ days }: { days: number }) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {row.messages.toLocaleString()}{" "}
-                  {row.messages === 1 ? "message" : "messages"}
+                  {row.category === "genie"
+                    ? row.messages === 1 ? "wish" : "wishes"
+                    : row.messages === 1 ? "message" : "messages"}
                 </p>
               </div>
             ))}
@@ -363,7 +365,7 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
             size="sm"
           >
             <ToggleGroupItem value="all">All</ToggleGroupItem>
-            {MESSAGE_CATEGORIES.map((category) => (
+            {LEDGER_CATEGORIES.map((category) => (
               <ToggleGroupItem key={category} value={category}>
                 {CATEGORY_LABELS[category]}
               </ToggleGroupItem>
@@ -417,7 +419,7 @@ function Ledger({ currency, locale }: { currency: string; locale: string }) {
                       </TableCell>
                       <TableCell className="max-w-48 min-w-0">
                         <span className="block truncate text-sm font-medium">
-                          {row.contactName ?? phone ?? "Visitor"}
+                          {row.category === "genie" ? "Genie" : (row.contactName ?? phone ?? "Visitor")}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {row.contactName && phone ? (

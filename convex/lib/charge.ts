@@ -11,6 +11,7 @@ import type { MutationCtx } from "../_generated/server";
 import {
   aiPriceFor,
   aiReplyMicros,
+  homeMarket,
   metaCategory,
   quote,
   workspaceCurrency,
@@ -180,6 +181,43 @@ export async function chargeAiReply(
   return eventId;
 }
 
+/** A Genie wish costs what one marketing message to the account's home market does. */
+export async function chargeGenieWish(
+  ctx: MutationCtx,
+  args: { workspaceId: Id<"workspaces">; preview?: string }
+): Promise<Id<"billingEvents">> {
+  const now = Date.now();
+  const priced = await quote(ctx, {
+    workspaceId: args.workspaceId,
+    market: await homeMarket(ctx, args.workspaceId),
+    category: "marketing",
+    at: now,
+  });
+  const preview = args.preview?.replace(/\s+/g, " ").trim();
+  const eventId = await ctx.db.insert("billingEvents", {
+    workspaceId: args.workspaceId,
+    to: "",
+    category: "genie",
+    source: "genie",
+    preview: preview ? preview.slice(0, PREVIEW_MAX) : undefined,
+    currency: priced.currency,
+    amountMicros: priced.amountMicros,
+    rated: priced.rated,
+    market: priced.market,
+    metaCostMicros: 0,
+    markupMicros: priced.amountMicros,
+    status: "settled",
+    settledAt: now,
+    createdAt: now,
+  });
+  await debitWallet(ctx, {
+    workspaceId: args.workspaceId,
+    currency: priced.currency,
+    amountMicros: priced.amountMicros,
+  });
+  return eventId;
+}
+
 export async function billingEventFor(
   ctx: MutationCtx,
   wamid: string
@@ -256,7 +294,7 @@ export async function settle(
   event: Doc<"billingEvents">,
   pricing: { billable?: boolean; category?: string; type?: string }
 ): Promise<void> {
-  if (event.status !== "pending" || event.category === "ai") return;
+  if (event.status !== "pending" || event.category === "ai" || event.category === "genie") return;
   const meta = metaCategory(pricing.category);
   const category = meta?.category ?? event.category;
   const priced = await quote(ctx, {

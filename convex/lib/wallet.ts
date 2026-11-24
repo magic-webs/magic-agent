@@ -296,6 +296,21 @@ async function templatePrice(
 const blockMessage = (balance: string, category: MessageCategory) =>
   `The wallet holds ${balance}, less than one ${CATEGORY_LABELS[category].toLowerCase()} template costs. Top up on the Billing page to send it.`;
 
+/** Why Genie cannot take a wish now, or null when it can. */
+export async function genieBlock(
+  ctx: Ctx,
+  workspaceId: Id<"workspaces">
+): Promise<string | null> {
+  const settings = (await billingTermsFor(ctx, workspaceId))?.settings;
+  if (!settings) return null;
+  const rate = await templatePrice(ctx, workspaceId, "marketing", settings.currency);
+  if (rate <= 0) return null;
+  const balanceMicros = (await walletFor(ctx, workspaceId))?.balanceMicros ?? 0;
+  if (balanceMicros >= rate) return null;
+  const balance = formatMoney(balanceMicros, settings.currency, PLATFORM_LOCALE);
+  return `The wallet holds ${balance}, less than one Genie wish costs. Top up on the Billing page to ask Genie.`;
+}
+
 /** A new workspace's wallet starts with the bonus for the billing currency. */
 export async function grantWelcomeBonus(
   ctx: MutationCtx,

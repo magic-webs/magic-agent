@@ -19,6 +19,7 @@ import {
 import {
   BILLING_CATEGORIES,
   DEFAULT_AI_PRICING,
+  LEDGER_CATEGORIES,
   MESSAGE_CATEGORIES,
   billingCurrency,
   defaultAiPricing,
@@ -34,6 +35,7 @@ import {
   workspaceMarkups,
   type AiPricingCard,
   type BillingCategory,
+  type LedgerCategory,
   type MessageCategory,
 } from "./lib/billing";
 import { MARKETS, marketLabel } from "./lib/markets";
@@ -235,7 +237,7 @@ function windowFor(daysArg: number, now: number) {
 }
 
 type CategoryTotals = Record<
-  MessageCategory,
+  LedgerCategory,
   { messages: number; amountMicros: number }
 >;
 
@@ -244,6 +246,7 @@ const emptyCategories = (): CategoryTotals => ({
   utility: { messages: 0, amountMicros: 0 },
   marketing: { messages: 0, amountMicros: 0 },
   authentication: { messages: 0, amountMicros: 0 },
+  genie: { messages: 0, amountMicros: 0 },
 });
 
 /** Amounts in several currencies, which can never be added together. */
@@ -427,7 +430,7 @@ export const workspaceSummary = query({
       locale: workspace.locale,
       totals,
       previous,
-      byCategory: MESSAGE_CATEGORIES.map((category) => ({
+      byCategory: LEDGER_CATEGORIES.map((category) => ({
         category,
         ...byCategory[category],
       })),
@@ -454,7 +457,7 @@ export const workspaceSummary = query({
 export const ledger = query({
   args: {
     workspaceId: v.id("workspaces"),
-    category: v.optional(messageCategory),
+    category: v.optional(v.union(messageCategory, v.literal("genie"))),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
@@ -494,7 +497,7 @@ export const ledger = query({
     const names = new Map<string, string | null>();
     const rows: Array<
       Omit<Doc<"billingEvents">, "category"> & {
-        category: MessageCategory;
+        category: LedgerCategory;
         contactName: string | null;
       }
     > = [];
@@ -574,7 +577,7 @@ export const adminOverview = query({
     };
     const blank = (): Stats => ({
       messages: 0,
-      byCategory: { service: 0, utility: 0, marketing: 0, authentication: 0, ai: 0 },
+      byCategory: { service: 0, utility: 0, marketing: 0, authentication: 0, ai: 0, genie: 0 },
       spend: new Map(),
       margin: new Map(),
     });

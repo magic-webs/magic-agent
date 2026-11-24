@@ -9,6 +9,12 @@ import {
 } from "./voices";
 
 export async function toText(audio: ArrayBuffer): Promise<string> {
+  return (await hear(audio)).text;
+}
+
+export async function hear(
+  audio: ArrayBuffer
+): Promise<{ text: string; seconds: number | null }> {
   if (audio.byteLength === 0) throw new ConvexError("No audio was recorded.");
   if (audio.byteLength > MAX_VOICE_NOTE_BYTES) {
     throw new ConvexError("That recording is too long. Keep it under a minute.");
@@ -20,7 +26,7 @@ export async function toText(audio: ArrayBuffer): Promise<string> {
     console.error("[voice] transcription failed", error);
     throw new ConvexError("Could not hear that. Please try again.");
   });
-  return result.text.trim();
+  return { text: result.text.trim(), seconds: result.durationInSeconds ?? null };
 }
 
 export async function toSpeech(

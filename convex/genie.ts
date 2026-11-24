@@ -6,6 +6,8 @@ import { internalMutation, mutation } from "./functions";
 import type { MutationCtx } from "./_generated/server";
 import { AuthError, getPrincipal, principalKey, requireArea, requireWorkspace } from "./lib/auth";
 import { fileUrl, requireOwnKey } from "./lib/files";
+import { chargeGenieWish, refund } from "./lib/charge";
+import { genieBlock } from "./lib/wallet";
 import { genieActionState, genieAttachment, genieStatus } from "./schema/genie";
 
 const THREAD_LIST = 50;
@@ -180,6 +182,8 @@ export const send = mutation({
     for (const file of attachments) {
       requireOwnKey(file.key, "knowledge", args.workspaceId);
     }
+    const blocked = await genieBlock(ctx, args.workspaceId);
+    if (blocked) throw new ConvexError(blocked);
 
     let thread: Doc<"genieThreads">;
     if (args.threadId) {
@@ -253,7 +257,11 @@ export const send = mutation({
       createdAt: Date.now(),
     });
 
-    await startRun(ctx, thread, { subject: identity.subject });
+    const wishEventId = await chargeGenieWish(ctx, {
+      workspaceId: args.workspaceId,
+      preview: text || attachments[0]?.name,
+    });
+    await startRun(ctx, thread, { subject: identity.subject, wishEventId });
     return thread._id;
   },
 });
@@ -436,6 +444,29 @@ export const recordActions = internalMutation({
   },
 });
 
+export const replyForSpeech = internalQuery({
+  args: { itemId: v.id("genieItems") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("genieItems", args.itemId);
+    if (!item || item.kind === "user") throw new ConvexError("Only Genie's replies can be played.");
+    const thread = await ownThread(ctx, item.threadId);
+    if (!thread) throw new ConvexError("That Genie chat no longer exists.");
+    return {
+      workspaceId: thread.workspaceId,
+      kind: item.kind,
+      text: item.text,
+      audioKey: item.audioKey ?? null,
+    };
+  },
+});
+
+export const saveReplyAudio = internalMutation({
+  args: { itemId: v.id("genieItems"), audioKey: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch("genieItems", args.itemId, { audioKey: args.audioKey });
+  },
+});
+
 export const finish = internalMutation({
   args: {
     threadId: v.id("genieThreads"),
@@ -471,9 +502,14 @@ export const finish = internalMutation({
         createdAt: Date.now(),
       });
     }
+    if (args.status === "failed" && thread.wishEventId) {
+      const wish = await ctx.db.get("billingEvents", thread.wishEventId);
+      if (wish) await refund(ctx, wish);
+    }
     await ctx.db.patch("genieThreads", thread._id, {
       status: args.status,
       error: args.error,
+      wishEventId: args.status === "failed" ? undefined : thread.wishEventId,
       updatedAt: Date.now(),
     });
     return null;

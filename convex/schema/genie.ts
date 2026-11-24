@@ -33,6 +33,7 @@ export const genieTables = {
     pinned: v.optional(v.boolean()),
     run: v.number(),
     error: v.optional(v.string()),
+    wishEventId: v.optional(v.id("billingEvents")),
     updatedAt: v.number(),
   }).index("by_owner", ["workspaceId", "owner", "updatedAt"]),
 
@@ -48,10 +49,17 @@ export const genieTables = {
     output: v.optional(v.string()),
     state: v.optional(genieActionState),
     readOnly: v.optional(v.boolean()),
+    audioKey: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_thread", ["threadId"])
     .index("by_tool_call", ["threadId", "toolCallId"]),
+
+  genieVoiceUsage: defineTable({
+    workspaceId: v.id("workspaces"),
+    seconds: v.number(),
+    updatedAt: v.number(),
+  }).index("by_workspace", ["workspaceId"]),
 
   genieMemory: defineTable({
     threadId: v.id("genieThreads"),

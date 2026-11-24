@@ -37,6 +37,8 @@ import type * as formSubmissions from "../formSubmissions.js";
 import type * as functions from "../functions.js";
 import type * as genie from "../genie.js";
 import type * as genieRun from "../genieRun.js";
+import type * as genieVoice from "../genieVoice.js";
+import type * as genieVoiceDb from "../genieVoiceDb.js";
 import type * as handover from "../handover.js";
 import type * as help from "../help.js";
 import type * as helpDb from "../helpDb.js";
@@ -248,6 +250,8 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   genie: typeof genie;
   genieRun: typeof genieRun;
+  genieVoice: typeof genieVoice;
+  genieVoiceDb: typeof genieVoiceDb;
   handover: typeof handover;
   help: typeof help;
   helpDb: typeof helpDb;

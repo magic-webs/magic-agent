@@ -263,7 +263,7 @@ export const billingTables = {
     conversationId: v.optional(v.id("conversations")),
     channelId: v.optional(v.id("channels")),
     to: v.string(),
-    category: v.union(messageCategory, v.literal("ai")),
+    category: v.union(messageCategory, v.literal("ai"), v.literal("genie")),
     replyNumber: v.optional(v.number()),
     /** On a WhatsApp message: the AI charge on the agent reply it carried. */
     aiEventId: v.optional(v.id("billingEvents")),
@@ -275,7 +275,8 @@ export const billingTables = {
       v.literal("follow_up"),
       v.literal("campaign"),
       v.literal("system"),
-      v.literal("notification")
+      v.literal("notification"),
+      v.literal("genie")
     ),
     preview: v.optional(v.string()),
     templateName: v.optional(v.string()),

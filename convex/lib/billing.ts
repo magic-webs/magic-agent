@@ -23,11 +23,16 @@ export type MessageCategory =
 
 export type TemplateCategory = Exclude<MessageCategory, "service">;
 
-/** A ledger row: a WhatsApp message, or the AI charge on an agent's reply. */
-export type BillingCategory = MessageCategory | "ai";
+/** A ledger row: a WhatsApp message, the AI charge on an agent's reply, or a Genie wish. */
+export type BillingCategory = MessageCategory | "ai" | "genie";
+
+/** What an account sees a row as: an AI charge reads as service. */
+export type LedgerCategory = MessageCategory | "genie";
 
 export type BillingSource =
   "agent" | "human" | "follow_up" | "campaign" | "system" | "notification";
+
+export type LedgerSource = BillingSource | "genie";
 
 export const MESSAGE_CATEGORIES: MessageCategory[] = [
   "service",
@@ -36,7 +41,9 @@ export const MESSAGE_CATEGORIES: MessageCategory[] = [
   "authentication",
 ];
 
-export const BILLING_CATEGORIES: BillingCategory[] = [...MESSAGE_CATEGORIES, "ai"];
+export const BILLING_CATEGORIES: BillingCategory[] = [...MESSAGE_CATEGORIES, "ai", "genie"];
+
+export const LEDGER_CATEGORIES: LedgerCategory[] = [...MESSAGE_CATEGORIES, "genie"];
 
 export const CATEGORY_LABELS: Record<BillingCategory, string> = {
   service: "Service",
@@ -44,6 +51,7 @@ export const CATEGORY_LABELS: Record<BillingCategory, string> = {
   marketing: "Marketing",
   authentication: "Authentication",
   ai: "AI reply",
+  genie: "Genie wish",
 };
 
 /** What each category covers, in the words an account owner would use. */
@@ -53,15 +61,17 @@ export const CATEGORY_HINTS: Record<BillingCategory, string> = {
   marketing: "Template greetings and offers — festivals, birthdays, campaigns",
   authentication: "Template one-time passcodes",
   ai: "Your agents' replies on any channel, rising with each reply in a conversation",
+  genie: "Each request you give Genie, priced like one marketing message",
 };
 
-export const SOURCE_LABELS: Record<BillingSource, string> = {
+export const SOURCE_LABELS: Record<LedgerSource, string> = {
   agent: "Agent",
   human: "Your team",
   follow_up: "Follow-up desk",
   campaign: "Campaign",
   system: "Platform",
   notification: "Notification",
+  genie: "Genie",
 };
 
 // --- Money ----------------------------------------------------------------

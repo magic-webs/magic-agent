@@ -40,6 +40,12 @@ const TONE: Record<BillingCategory, { dot: string; badge: string; bar: string }>
       "bg-rose-50 text-rose-800 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/25",
     bar: "bg-rose-500",
   },
+  genie: {
+    dot: "bg-indigo-500",
+    badge:
+      "bg-indigo-50 text-indigo-800 ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/25",
+    bar: "bg-indigo-500",
+  },
 };
 
 export function categoryBarClass(category: BillingCategory): string {

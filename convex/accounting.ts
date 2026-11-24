@@ -16,7 +16,7 @@ const dateOf = (row: Doc<"billingPayments">) => row.paidAt ?? row.createdAt;
 export const overview = query({
   args: { from: v.number(), to: v.number() },
   handler: async (ctx, args) => {
-    const principal = await requireScope(ctx, "subscriptions");
+    const principal = await requireScope(ctx, "accounting");
     const span = Math.max(0, args.to - args.from);
     const previousFrom = args.from - span;
     const start = Math.min(previousFrom, args.to - YEAR) - SLACK;

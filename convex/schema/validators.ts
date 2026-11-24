@@ -133,6 +133,7 @@ export const adminScope = v.union(
   v.literal("usage"),
   v.literal("plans"),
   v.literal("subscriptions"),
+  v.literal("accounting"),
   v.literal("billing"),
   v.literal("users"),
   v.literal("notifications"),

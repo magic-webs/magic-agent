@@ -71,6 +71,7 @@ const AREAS: { value: AdminScope; label: string; modify?: string }[] = [
   { value: "usage", label: "Tokens & cost" },
   { value: "plans", label: "Plans & pricing", modify: "Edit plans and pricing" },
   { value: "subscriptions", label: "Subscriptions", modify: "Change accounts and wallets" },
+  { value: "accounting", label: "Accounting" },
   { value: "billing", label: "Message billing", modify: "Markups and Meta rates" },
   { value: "users", label: "Users", modify: "Add and manage their users" },
   { value: "notifications", label: "Notifications", modify: "Write and send notifications" },

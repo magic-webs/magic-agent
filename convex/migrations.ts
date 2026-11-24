@@ -1655,3 +1655,20 @@ export const numberPaidInvoices = internalMutation({
     return { numbered: rows.length };
   },
 });
+
+// bunx convex run migrations:accountingScope — roles that had Subscriptions keep seeing Accounting, view only.
+export const accountingScope = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let roles = 0;
+    for (const role of await ctx.db.query("adminRoles").collect()) {
+      if (!role.scopes.includes("subscriptions") || role.scopes.includes("accounting")) continue;
+      await ctx.db.patch("adminRoles", role._id, {
+        scopes: [...role.scopes, "accounting"],
+        viewOnly: [...(role.viewOnly ?? []), "accounting"],
+      });
+      roles++;
+    }
+    return { roles };
+  },
+});

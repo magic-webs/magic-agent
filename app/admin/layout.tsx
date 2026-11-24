@@ -90,7 +90,7 @@ const NAV: Array<{
   { href: "/usage", label: "Tokens & cost", icon: Coins01Icon, scope: "usage" },
   { href: "/plans", label: "Plans & pricing", icon: Tag01Icon, scope: "plans" },
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCardIcon, scope: "subscriptions" },
-  { href: "/accounting", label: "Accounting", icon: Calculator01Icon, scope: "subscriptions" },
+  { href: "/accounting", label: "Accounting", icon: Calculator01Icon, scope: "accounting" },
   { href: "/billing", label: "Message billing", icon: Invoice01Icon, scope: "billing" },
   { href: "/users", label: "Users", icon: UserAccountIcon, scope: "users" },
   { href: "/notifications", label: "Notifications", icon: BellRingIcon, scope: "notifications" },

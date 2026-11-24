@@ -11,7 +11,6 @@ import { SelectField } from "@/components/select-field";
 import {
   ConversationDetail,
   ConversationRow,
-  STATUS_OPTIONS,
 } from "@/components/conversation-detail";
 import { NewConversationDialog } from "@/components/new-conversation-dialog";
 import { CrmImportDialog } from "@/components/crm-import-dialog";
@@ -165,18 +164,11 @@ export default function ConversationsPage() {
   // Open or Closed picked on Conversations reads as All on Escalations.
   const statusFilter = (
     view === "conversations" || pickedStatus === "unread" ? pickedStatus : "all"
-  ) as Bucket | "escalated";
+  ) as Bucket;
 
   const switchView = (next: View) => {
     setStatusFilter("all");
     router.replace(next === "escalations" ? `${pathname}?view=escalations` : pathname);
-  };
-
-  // Escalated is a status, not a bucket: on the Conversations tab it is the
-  // same list as the Escalations tab, so picking it switches there.
-  const pickStatus = (value: string) => {
-    if (value === "escalated") switchView("escalations");
-    else setStatusFilter(value);
   };
 
   const { results, status, loadMore } = usePaginatedQuery(
@@ -184,7 +176,7 @@ export default function ConversationsPage() {
     {
       workspaceId: workspace._id,
       escalations: view === "escalations",
-      bucket: statusFilter === "escalated" ? "all" : statusFilter,
+      bucket: statusFilter,
       agentId: agentFilter === "all" ? undefined : (agentFilter as Id<"agents">),
       channelType: isKind(channelFilter) ? channelFilter : undefined,
       channelId: CHANNEL_TYPES.has(channelFilter)
@@ -216,6 +208,7 @@ export default function ConversationsPage() {
   const loading = status === "LoadingFirstPage";
 
   const narrowed =
+    agentFilter !== "all" ||
     channelFilter !== "all" ||
     handlingFilter !== "all" ||
     assigneeFilter !== "all" ||
@@ -223,7 +216,7 @@ export default function ConversationsPage() {
     tagFilter !== "all" ||
     activityFilter !== "any" ||
     botsFilter !== "all";
-  const filtered = narrowed || agentFilter !== "all" || term !== "";
+  const filtered = narrowed || term !== "";
 
   const bucketCount = (bucket: Bucket): number | undefined => {
     if (!counts) return undefined;
@@ -262,46 +255,42 @@ export default function ConversationsPage() {
               : "Threads across every channel."}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Label htmlFor="conv-agent" className="hidden text-sm sm:inline">
-            Agent
-          </Label>
-          <SelectField
-            id="conv-agent"
-            aria-label="Filter by agent"
-            value={agentFilter}
-            onValueChange={setAgentFilter}
-            options={[
-              { value: "all", label: "All agents" },
-              ...(agents ?? []).map((agent) => ({
-                value: agent._id as string,
-                label: agent.botName,
-              })),
-            ]}
-          />
-          {/* Not on the Escalations tab, where every row has the same one. */}
-          {view === "conversations" ? (
-            <>
-              <Label htmlFor="conv-status" className="hidden text-sm sm:inline">
-                Status
-              </Label>
-              {/* The same state the buckets above the list write to, so the
-                  two controls can never disagree about what is on screen. */}
-              <SelectField
-                id="conv-status"
-                aria-label="Filter by status"
-                value={statusFilter}
-                onValueChange={pickStatus}
-                options={[
-                  { value: "all", label: "All statuses" },
-                  { value: "unread", label: "unread" },
-                  ...STATUS_OPTIONS,
-                ]}
-              />
-            </>
+        <div className="flex min-w-0 max-w-full items-center gap-2">
+          {manyChannels ? (
+            <div
+              role="tablist"
+              aria-label="Filter by channel"
+              className="flex min-w-0 gap-1.5 overflow-x-auto"
+            >
+              {[{ _id: "all", name: "All channels", type: null, phone: null }, ...(channels ?? [])].map(
+                (channel) => {
+                  const isActive = channelFilter === channel._id;
+                  return (
+                    <button
+                      key={channel._id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      title={channel.phone ?? undefined}
+                      className={cn(
+                        "flex h-9 max-w-52 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors",
+                        isActive
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted"
+                      )}
+                      onClick={() => setChannelFilter(channel._id)}
+                    >
+                      {channel.type ? (
+                        <ChannelMark type={channel.type} size={18} />
+                      ) : null}
+                      <span className="truncate">{channel.name}</span>
+                    </button>
+                  );
+                }
+              )}
+            </div>
           ) : null}
           {isAdmin ? <CrmImportDialog /> : null}
-          <NewConversationDialog onStarted={setSelected} />
         </div>
       </header>
 
@@ -340,41 +329,6 @@ export default function ConversationsPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          {manyChannels ? (
-            <div
-              role="tablist"
-              aria-label="Filter by channel"
-              className="flex shrink-0 gap-1.5 overflow-x-auto px-3 pt-2"
-            >
-              {[{ _id: "all", name: "All channels", type: null, phone: null }, ...(channels ?? [])].map(
-                (channel) => {
-                  const isActive = channelFilter === channel._id;
-                  return (
-                    <button
-                      key={channel._id}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      title={channel.phone ?? undefined}
-                      className={cn(
-                        "flex max-w-44 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                        isActive
-                          ? "border-primary/40 bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted"
-                      )}
-                      onClick={() => setChannelFilter(channel._id)}
-                    >
-                      {channel.type ? (
-                        <ChannelMark type={channel.type} size={16} />
-                      ) : null}
-                      <span className="truncate">{channel.name}</span>
-                    </button>
-                  );
-                }
-              )}
-            </div>
-          ) : null}
 
           <div
             role="tablist"
@@ -450,6 +404,24 @@ export default function ConversationsPage() {
                 ) : null}
               </PopoverTrigger>
               <PopoverContent align="end" className="w-60">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="conv-agent" className="text-xs">
+                    Agent
+                  </Label>
+                  <SelectField
+                    id="conv-agent"
+                    size="sm"
+                    value={agentFilter}
+                    onValueChange={setAgentFilter}
+                    options={[
+                      { value: "all", label: "All agents" },
+                      ...(agents ?? []).map((agent) => ({
+                        value: agent._id as string,
+                        label: agent.botName,
+                      })),
+                    ]}
+                  />
+                </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="conv-channel" className="text-xs">
                     Channel
@@ -585,6 +557,7 @@ export default function ConversationsPage() {
                     variant="ghost"
                     className="self-start"
                     onClick={() => {
+                      setAgentFilter("all");
                       setChannelFilter("all");
                       setHandlingFilter("all");
                       setAssigneeFilter("all");
@@ -599,6 +572,7 @@ export default function ConversationsPage() {
                 ) : null}
               </PopoverContent>
             </Popover>
+            <NewConversationDialog onStarted={setSelected} />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">

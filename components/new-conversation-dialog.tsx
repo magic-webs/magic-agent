@@ -121,8 +121,13 @@ export function NewConversationDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button>
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} /> New conversation
+          <Button
+            size="icon-lg"
+            aria-label="New conversation"
+            title="New conversation"
+            className="shrink-0"
+          >
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
           </Button>
         }
       />

@@ -229,6 +229,7 @@ export function TranscriptView({
   contentClassName,
   perspective = "customer",
   agents,
+  team,
   onPick,
   onMarkWrong,
   messageActions,
@@ -258,6 +259,8 @@ export function TranscriptView({
    * whichever one wrote it. Omit and the bubbles are unattributed.
    */
   agents?: TranscriptAgent[];
+  /** The workspace's team, so a hand-typed reply carries its sender's name. */
+  team?: { _id: string; name: string }[];
   /** Answers a tapped button or list row as the customer. Playground only. */
   onPick?: (text: string) => void;
   /** Flags an agent's reply as wrong, or opens the fix for one already flagged. */
@@ -269,6 +272,9 @@ export function TranscriptView({
   );
 
   const agentById = new Map((agents ?? []).map((agent) => [agent._id, agent]));
+  const memberName = new Map((team ?? []).map((member) => [member._id, member.name]));
+  const teamNameOf = (message: Doc<"messages">) =>
+    (message.teamMemberId && memberName.get(message.teamMemberId)) || "Your team";
 
   const viewport = useRef<HTMLDivElement>(null);
   const touchedAt = useRef(0);
@@ -329,7 +335,7 @@ export function TranscriptView({
       message.role === "user"
         ? "customer"
         : message.sentByHuman
-          ? "team"
+          ? `team:${message.teamMemberId ?? ""}`
           : (message.agentId ?? "agent");
     senderKeys.set(message._id, { key, first: key !== previousKey });
     previousKey = key;
@@ -468,7 +474,7 @@ export function TranscriptView({
           <MessageContent className={markable ? "group/msg" : undefined}>
             {attributed && sender?.first ? (
               <MessageHeader>
-                {message.sentByHuman ? "Your team" : agent?.botName}
+                {message.sentByHuman ? teamNameOf(message) : agent?.botName}
               </MessageHeader>
             ) : null}
             <Bubble variant={mine ? "tinted" : "outline"}>
@@ -575,7 +581,7 @@ export function TranscriptView({
                 {teamMark ? (
                   <span className="flex items-center gap-1">
                     <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-3" />
-                    Your team{!mine || showLatency ? " ·" : ""}
+                    {teamNameOf(message)}{!mine || showLatency ? " ·" : ""}
                   </span>
                 ) : null}
                 {mine ? null : timeOf(message.createdAt)}

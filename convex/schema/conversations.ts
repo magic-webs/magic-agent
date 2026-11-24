@@ -228,6 +228,7 @@ export const conversationsTables = {
     assignedMemberId: v.optional(v.id("teamMembers")),
     assignedAt: v.optional(v.number()),
     assignedByMemberId: v.optional(v.id("teamMembers")),
+    repliedMemberIds: v.optional(v.array(v.id("teamMembers"))),
     escalationDepartment: v.optional(escalationDepartment),
     importedAt: v.optional(v.number()),
     adSource: v.optional(v.object({ ...adReferral.fields, at: v.number() })),

@@ -149,6 +149,7 @@ export const inboxArgs = {
   stageId: v.optional(v.id("leadStages")),
   tagId: v.optional(v.id("leadTags")),
   handling: v.optional(v.union(v.literal("team"), v.literal("agent"))),
+  answeredBy: v.optional(v.id("teamMembers")),
   assignee: v.optional(v.union(v.literal("unassigned"), v.id("teamMembers"))),
   bots: v.optional(v.union(v.literal("hide"), v.literal("only"))),
   since: v.optional(v.number()),
@@ -265,9 +266,15 @@ export async function inboxPage(
     return all.length > 0 ? q.and(...all) : true;
   });
   const tagId = args.tagId;
+  const answeredBy = args.answeredBy;
   const result = await (
-    tagId
-      ? filterRows(filtered, (row) => row.leadTagIds?.includes(tagId) ?? false)
+    tagId || answeredBy
+      ? filterRows(
+          filtered,
+          (row) =>
+            (!tagId || (row.leadTagIds?.includes(tagId) ?? false)) &&
+            (!answeredBy || (row.repliedMemberIds?.includes(answeredBy) ?? false))
+        )
       : filtered
   ).paginate(args.paginationOpts);
 
@@ -380,6 +387,12 @@ export async function inboxRows(
       handedOff: holderId !== row.agentId,
       channelName: await channelOf(row.channelId),
       assigneeName: await memberOf(row.assignedMemberId),
+      // The person who has the thread while the agent is paused: whoever on
+      // the team replied last, else whoever it is assigned to.
+      handlerName: row.humanHandling
+        ? ((await memberOf(row.repliedMemberIds?.at(-1))) ??
+          (await memberOf(row.assignedMemberId)))
+        : null,
       contactLabel:
         contact?.name ?? contact?.phone ?? contact?.externalId ?? "Unknown",
       contactExternalId: contact?.externalId,
@@ -826,6 +839,15 @@ export const recordManualReply = internalMutation({
         // sweep only reclaims one nobody has touched.
         humanHandlingAt: now,
         humanHandlingUntil: now + clampPause(args.pauseMinutes) * 60_000,
+        // Latest replier last, so the inbox row can name who has the thread.
+        ...(sender
+          ? {
+              repliedMemberIds: [
+                ...(conversation.repliedMemberIds ?? []).filter((id) => id !== sender._id),
+                sender._id,
+              ],
+            }
+          : {}),
         }
       );
     }

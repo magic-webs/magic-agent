@@ -130,6 +130,7 @@ export default function ConversationsPage() {
   const stages = useQuery(api.leads.stageNames, { workspaceId: workspace._id });
   const tags = useQuery(api.leads.listTags, { workspaceId: workspace._id });
   const team = useQuery(api.team.activeForReply, { workspaceId: workspace._id });
+  const repliers = useQuery(api.team.names, { workspaceId: workspace._id });
   const channels = useQuery(api.channels.inboxChannels, {
     workspaceId: workspace._id,
   });
@@ -197,6 +198,9 @@ export default function ConversationsPage() {
           : handlingFilter === "agent"
             ? "agent"
             : undefined,
+      answeredBy: ["all", "you", "agent"].includes(handlingFilter)
+        ? undefined
+        : (handlingFilter as Id<"teamMembers">),
       assignee:
         assigneeFilter === "all"
           ? undefined
@@ -481,7 +485,11 @@ export default function ConversationsPage() {
                     onValueChange={setHandlingFilter}
                     options={[
                       { value: "all", label: "Anyone" },
-                      { value: "you", label: "Your team" },
+                      { value: "you", label: "Any team member" },
+                      ...(repliers ?? []).map((member) => ({
+                        value: member._id as string,
+                        label: member.name,
+                      })),
                       { value: "agent", label: "The agent" },
                     ]}
                   />

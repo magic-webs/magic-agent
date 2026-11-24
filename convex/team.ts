@@ -135,6 +135,22 @@ export const activeForReply = query({
   },
 });
 
+/** Every member's name, inactive ones included, to credit replies they sent. */
+export const names = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const members = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+
+    return members
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((member) => ({ _id: member._id, name: member.name }));
+  },
+});
+
 export const generateUploadUrl = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {

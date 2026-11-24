@@ -280,14 +280,24 @@ export function ConversationRow({
           ) : null}
         </span>
 
-        <span className="mt-1 block truncate text-[11px] text-muted-foreground">
-          {row.messageCount} messages ·{" "}
-          {/* Two names once the front desk has routed it on: where it arrived,
-              and who has it now. */}
-          {row.handedOff
-            ? `${row.agentName} → ${row.activeAgentName}`
-            : row.agentName}
-          {row.assigneeName ? ` · ${row.assigneeName}` : null}
+        <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="shrink-0">{row.messageCount} messages ·</span>
+          <span
+            className="flex min-w-0 items-center gap-1"
+            title={row.humanHandling ? "Your team has this thread" : "Agent answering"}
+          >
+            <HugeiconsIcon
+              icon={row.humanHandling ? UserIcon : RoboticIcon}
+              strokeWidth={2}
+              className="size-3 shrink-0"
+            />
+            <span className="truncate">
+              {row.humanHandling ? (row.handlerName ?? "Your team") : row.activeAgentName}
+            </span>
+          </span>
+          {row.assigneeName && row.assigneeName !== row.handlerName ? (
+            <span className="truncate">· {row.assigneeName}</span>
+          ) : null}
         </span>
       </span>
     </button>
@@ -365,6 +375,7 @@ export function ConversationDetail({
   const onDesk = Boolean(replyingAs);
   const detail = useQuery(api.conversations.getWithContact, { conversationId });
   const messages = useQuery(api.conversations.listMessages, { conversationId });
+  const team = useQuery(api.team.names, { workspaceId });
   const setStatus = useMutation(api.conversations.setStatus);
   const setHumanHandling = useMutation(api.conversations.setHumanHandling);
   const removeConversation = useMutation(api.conversations.remove);
@@ -710,6 +721,7 @@ export function ConversationDetail({
           showTools={showTools}
           perspective="team"
           agents={threadAgents}
+          team={team}
           onMarkWrong={async (message) => {
             try {
               setFixingGap(await markWrong({ messageId: message._id }));

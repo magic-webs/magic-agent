@@ -1672,3 +1672,63 @@ export const accountingScope = internalMutation({
     return { roles };
   },
 });
+
+// bunx convex run migrations:repliedMembers — records who on the team has replied in each thread, for the Answered by filter.
+export const repliedMembers = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("workspaces")
+      .paginate({ numItems: WORKSPACE_BATCH, cursor: args.cursor ?? null });
+    for (const workspace of page.page) {
+      await ctx.scheduler.runAfter(0, internal.migrations.repliedMembersForWorkspace, {
+        workspaceId: workspace._id,
+        cursor: null,
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.repliedMembers, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { workspaces: page.page.length, done: page.isDone };
+  },
+});
+
+export const repliedMembersForWorkspace = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("messages")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .paginate({ numItems: STATS_MESSAGE_BATCH, cursor: args.cursor });
+
+    // Oldest first, and a member re-added on every reply, so the latest replier ends up last.
+    const replied = new Map<Id<"conversations">, Set<Id<"teamMembers">>>();
+    for (const message of page.page) {
+      if (!message.sentByHuman || !message.teamMemberId) continue;
+      const members = replied.get(message.conversationId) ?? new Set();
+      members.delete(message.teamMemberId);
+      members.add(message.teamMemberId);
+      replied.set(message.conversationId, members);
+    }
+    for (const [conversationId, members] of replied) {
+      const conversation = await ctx.db.get("conversations", conversationId);
+      if (!conversation) continue;
+      const known = conversation.repliedMemberIds ?? [];
+      const next = [...known.filter((id) => !members.has(id)), ...members];
+      if (next.join() === known.join()) continue;
+      await ctx.db.patch("conversations", conversationId, { repliedMemberIds: next });
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.repliedMembersForWorkspace, {
+        workspaceId: args.workspaceId,
+        cursor: page.continueCursor,
+      });
+    }
+  },
+});

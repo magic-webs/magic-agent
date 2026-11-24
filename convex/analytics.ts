@@ -50,6 +50,12 @@ export const dashboard = query({
     // turn one campaign into thousands of "conversations".
     const conversations = allConversations.filter((row) => !row.marketingOnly);
 
+    type Channel = "whatsapp" | "instagram" | "messenger" | "rcs" | "telegram" | "web";
+    const channelOf = (type: string | undefined): Channel =>
+      type === "whatsapp" || type === "instagram" || type === "messenger" || type === "rcs" || type === "telegram"
+        ? type
+        : "web";
+
     // --- daily series -----------------------------------------------------
     const buckets = new Map<
       string,
@@ -59,6 +65,8 @@ export const dashboard = query({
         messages: number;
         /** Mean assistant reply time that day, in seconds. Null on quiet days. */
         replySeconds: number | null;
+        channels: Record<Channel, number>;
+        escalated: number;
       }
     >();
     for (let i = 0; i < days; i++) {
@@ -68,12 +76,17 @@ export const dashboard = query({
         conversations: 0,
         messages: 0,
         replySeconds: null,
+        channels: { whatsapp: 0, instagram: 0, messenger: 0, rcs: 0, telegram: 0, web: 0 },
+        escalated: 0,
       });
     }
 
     for (const row of conversations) {
       const bucket = buckets.get(dayKey(row.createdAt));
-      if (bucket) bucket.conversations += 1;
+      if (!bucket) continue;
+      bucket.conversations += 1;
+      bucket.channels[channelOf(row.channelType)] += 1;
+      if (row.status === "escalated") bucket.escalated += 1;
     }
     for (const row of dailyRows) {
       const bucket = buckets.get(row.day);

@@ -1057,6 +1057,32 @@
   color: var(--stb-faint);
   font-variant-numeric: tabular-nums;}
 
+/* the legend doubles as the value table: each series with its total */
+.stb-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 16px;}
+
+.stb-legend li { display: flex; align-items: center; gap: 8px; }
+
+.stb-legend span { flex: 1; color: var(--stb-soft); }
+
+.stb-legend b { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.stb-legend i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background-color: var(--c);}
+
+.stb-legend [data-esc] i { background-color: var(--stb-alert); }
+
 @keyframes stb-pop {
   from { transform: translateY(0.18em); opacity: 0; filter: blur(2px); }
   to { transform: none; opacity: 1; filter: blur(0); }}

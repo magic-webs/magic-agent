@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { StackedBars, type StackedBar } from "@/components/stacked-bars";
 import {
   Item,
   ItemContent,
@@ -44,6 +45,46 @@ import {
   RoboticIcon,
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
+
+const CHANNELS = [
+  { key: "whatsapp", label: "WhatsApp", tone: 5 },
+  { key: "instagram", label: "Instagram", tone: 2 },
+  { key: "messenger", label: "Messenger", tone: 1 },
+  { key: "web", label: "Web chat", tone: 3 },
+  { key: "telegram", label: "Telegram", tone: 4 },
+  { key: "rcs", label: "RCS", tone: 6 },
+] as const;
+
+type DailyRow = {
+  date: string;
+  escalated?: number;
+  channels?: Partial<Record<(typeof CHANNELS)[number]["key"], number>>;
+};
+
+const dayOf = (date: string, weekday = false) =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
+    ...(weekday ? { weekday: "short" } : {}),
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+
+/** Null until the deployment returns per-day channel counts. */
+function channelBars(daily: DailyRow[]) {
+  if (!daily.length || daily.some((row) => !row.channels)) return null;
+  const shown = CHANNELS.filter(
+    (channel) =>
+      channel.key === "whatsapp" ||
+      daily.some((row) => (row.channels?.[channel.key] ?? 0) > 0)
+  );
+  const days: StackedBar[] = daily.map((row) => ({
+    vals: shown.map((channel) => row.channels?.[channel.key] ?? 0),
+    esc: row.escalated ?? 0,
+    label: dayOf(row.date, true),
+    short: dayOf(row.date),
+  }));
+  return { days, categories: shown.map(({ label, tone }) => ({ label, tone })) };
+}
 
 const RANGES = [
   { value: "7", label: "Last 7 days" },
@@ -157,6 +198,18 @@ export default function WorkspaceOverviewPage() {
               </CardContent>
             </Card>
 
+            {channelBars(stats.daily) ? (
+              <StackedBars
+                fluid
+                legend
+                height={120}
+                title="Conversations by channel"
+                unit="conversations"
+                escLabel="Escalated"
+                className="ring-1 ring-foreground/10"
+                {...channelBars(stats.daily)!}
+              />
+            ) : (
             <Card>
               <CardHeader>
                 <CardTitle>Channels</CardTitle>
@@ -172,6 +225,7 @@ export default function WorkspaceOverviewPage() {
                 />
               </CardContent>
             </Card>
+            )}
           </section>
 
           {/* -------------------------------------------- setup and agents */}

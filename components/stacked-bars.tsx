@@ -17,11 +17,15 @@ import { animate, motion, useMotionValue } from "motion/react";
    Swaps the dataset; every segment eases to its new height and
    offset a beat after its left neighbour. The same transition
    grows the bars out of the baseline the first time the card is
-   seen. */
+   seen.
+
+   ── REAL DATA ───────────────────────────────────────────
+   Pass `days` (and `weeks`, for the Day / Week control) to chart
+   your own series; leave them off for Bencho's seeded demo. With
+   `fluid` the card fills its column and the plot is measured. */
 
 const W = 300;
 const PAD = 16;
-const CW = W - PAD * 2; // the plot's width
 const CH = 104; // room above the baseline
 const BH = 22; // room below it for the escalated bars
 const SEG_GAP = 2;
@@ -35,7 +39,11 @@ const LAST = Date.UTC(2026, 9, 11); // the last day shown, Oct 11
 const DAY_MS = 86400000;
 
 type Mode = "Day" | "Week";
-type Bar = { vals: number[]; esc: number; label: string; short: string };
+export type StackedBar = { vals: number[]; esc: number; label: string; short: string };
+type Bar = StackedBar;
+/* `tone` picks one of the six palette steps, so a series keeps its
+   colour whichever others are present */
+export type StackedCategory = { label: string; tone?: number };
 
 /* a small seeded generator: the same chart on every load */
 function mulberry(seed: number) {
@@ -90,18 +98,50 @@ export function StackedBars({
   colour = "Colour",
   bars = 20,
   gap = 6,
+  days,
+  weeks,
+  categories = CATS.map((label) => ({ label })),
+  title = "Traffic",
+  unit = "visits",
+  escLabel = "Bounced",
+  height = CH,
+  fluid = false,
+  legend = false,
+  className,
 }: {
   colour?: "Mono" | "Colour";
   bars?: number;
   gap?: number;
+  days?: StackedBar[];
+  weeks?: StackedBar[];
+  categories?: StackedCategory[];
+  title?: string;
+  unit?: string;
+  escLabel?: string;
+  height?: number;
+  fluid?: boolean;
+  /* each category with its total, under the axis */
+  legend?: boolean;
+  className?: string;
 }) {
-  const n = Math.max(2, Math.round(bars));
+  const demo = !days;
   /* Week first (2026-11-19): the steadier, fuller view to open on */
-  const [mode, setMode] = useState<Mode>("Week");
+  const [mode, setMode] = useState<Mode>(demo || weeks ? "Week" : "Day");
+  const toggle = demo || !!weeks;
   const [at, setAt] = useState<number | null>(null);
   const [seen, setSeen] = useState(false);
   const root = useRef<HTMLDivElement | null>(null);
   const plot = useRef<HTMLDivElement | null>(null);
+  const [measured, setMeasured] = useState(W);
+
+  useEffect(() => {
+    const el = root.current;
+    if (!fluid || !el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([e]) => setMeasured(e.contentRect.width + PAD * 2));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fluid]);
+  const CW = (fluid ? measured : W) - PAD * 2; // the plot's width
 
   /* grow in once, the first time the card is on screen */
   useEffect(() => {
@@ -116,27 +156,38 @@ export function StackedBars({
     return () => io.disconnect();
   }, [seen]);
 
-  const data = useMemo(() => makeBars(mode, n), [mode, n]);
+  const demoBars = useMemo(() => (demo ? makeBars(mode, Math.max(2, Math.round(bars))) : []), [demo, mode, bars]);
+  const data = demo ? demoBars : mode === "Week" && weeks ? weeks : days;
+  const n = data.length;
 
   /* geometry: the gap gives way before a bar gets thinner than 3px,
      so 30 bars at the widest gap still draw */
-  const g = Math.max(1, Math.min(gap, (CW - 3 * n) / (n - 1)));
+  const g = n > 1 ? Math.max(1, Math.min(gap, (CW - 3 * n) / (n - 1))) : 0;
   const bw = (CW - g * (n - 1)) / n;
   const r = Math.min(2.5, bw / 2);
   const totals = data.map((b) => sum(b.vals));
-  const maxT = Math.max(...totals);
-  const maxE = Math.max(...data.map((b) => b.esc));
-  const scale = (CH - LIFT - 2 - SEG_GAP * (CATS.length - 1)) / maxT;
+  /* floors of 1 so an empty window draws a flat baseline rather
+     than dividing by zero */
+  const maxT = Math.max(1, ...totals);
+  const maxE = Math.max(1, ...data.map((b) => b.esc));
+  const scale = (height - LIFT - 2 - SEG_GAP * (categories.length - 1)) / maxT;
   const layout = data.map((b) => {
     let y = 0;
+    /* a zero is no segment and no gap: real series are mostly zeros
+       for the quieter categories, and 2px stubs would read as data */
     const segs = b.vals.map((v) => {
-      const h = Math.max(2, v * scale);
+      const h = v > 0 ? Math.max(2, v * scale) : 0;
       const s = { bottom: y, h };
-      y += h + SEG_GAP;
+      if (h) y += h + SEG_GAP;
       return s;
     });
-    return { segs, top: y - SEG_GAP, esc: Math.max(3, (b.esc / maxE) * (BH - LIFT - 2)) };
+    return {
+      segs,
+      top: Math.max(0, y - SEG_GAP),
+      esc: b.esc > 0 ? Math.max(3, (b.esc / maxE) * (BH - LIFT - 2)) : 0,
+    };
   });
+  const tone = (k: number) => `var(--stb-c${categories[k]?.tone ?? k + 1})`;
 
   /* the headline pops in on a change, Price flow's way: every
      character is keyed by a generation, so a new total is new
@@ -164,7 +215,7 @@ export function StackedBars({
     const x = left - 3;
     const up = seen ? L.top : 0;
     const down = seen ? L.esc : 0;
-    const y = CH - LIFT - up - 3;
+    const y = height - LIFT - up - 3;
     const h = up + LIFT + 1 + LIFT + down + 6;
     /* beside the column: right while it fits there, else left */
     const right = left + bw + 8;
@@ -178,7 +229,7 @@ export function StackedBars({
     go(ringX, x); go(ringY, y); go(ringH, h); go(tipX, tx);
     was.current = at;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [at, n, bw, g, mode, seen]);
+  }, [at, n, bw, g, mode, seen, height, CW]);
 
   const pick = (e: React.PointerEvent) => {
     const b = plot.current?.getBoundingClientRect();
@@ -189,24 +240,24 @@ export function StackedBars({
 
   const cur = at !== null && at < n ? data[at] : null;
   const top2 = cur
-    ? cur.vals.map((v, k) => ({ v, k })).sort((a, b) => b.v - a.v).slice(0, 2)
+    ? cur.vals.map((v, k) => ({ v, k })).filter((c) => c.v > 0).sort((a, b) => b.v - a.v).slice(0, 2)
     : [];
 
   return (
     <div
       ref={root}
-      className="stb"
+      className={className ? `stb ${className}` : "stb"}
       data-colour={colour === "Colour" ? "on" : "off"}
       data-scrub={cur ? "" : undefined}
-      style={{ width: W, ["--stb-r" as string]: `${r}px`, ["--stb-rr" as string]: `${r + 3}px` } as CSSProperties}
+      style={{ width: fluid ? "100%" : W, ["--stb-r" as string]: `${r}px`, ["--stb-rr" as string]: `${r + 3}px` } as CSSProperties}
     >
       <div className="stb-head">
         <div className="stb-titles">
           {/* the "Last 20 days" line is gone (2026-11-19): the axis dates
               and Day / Week already say the span */}
-          <div className="stb-title">Traffic</div>
+          <div className="stb-title">{title}</div>
         </div>
-        <div className="stb-seg-ctl" data-mode={mode} role="tablist">
+        {toggle ? <div className="stb-seg-ctl" data-mode={mode} role="tablist">
           <span className="stb-thumb" aria-hidden />
           {(["Day", "Week"] as Mode[]).map((m) => (
             <button
@@ -221,7 +272,7 @@ export function StackedBars({
               {m}
             </button>
           ))}
-        </div>
+        </div> : null}
       </div>
 
       <div className="stb-figure">
@@ -232,13 +283,13 @@ export function StackedBars({
             </span>
           ))}
         </span>
-        <span className="stb-unit">visits</span>
+        <span className="stb-unit">{unit}</span>
       </div>
 
       <div
         ref={plot}
         className="stb-plot"
-        style={{ height: CH + 1 + BH }}
+        style={{ height: height + 1 + BH }}
         onPointerDown={(e) => {
           try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* scripted */ }
           pick(e);
@@ -251,7 +302,7 @@ export function StackedBars({
         onPointerCancel={() => setAt(null)}
         onPointerLeave={() => setAt(null)}
       >
-        <span className="stb-base" style={{ top: CH }} />
+        <span className="stb-base" style={{ top: height }} />
         {data.map((_, i) => (
           <div
             key={i}
@@ -264,7 +315,7 @@ export function StackedBars({
                 key={k}
                 className="stb-bar"
                 style={{
-                  ["--c" as string]: `var(--stb-c${k + 1})`,
+                  ["--c" as string]: tone(k),
                   bottom: BH + 1 + LIFT + (seen ? s.bottom : 0),
                   height: seen ? s.h : 0,
                 } as CSSProperties}
@@ -272,7 +323,7 @@ export function StackedBars({
             ))}
             <span
               className="stb-esc"
-              style={{ top: CH + 1 + LIFT, height: seen ? layout[i].esc : 0 }}
+              style={{ top: height + 1 + LIFT, height: seen ? layout[i].esc : 0 }}
             />
           </div>
         ))}
@@ -291,15 +342,15 @@ export function StackedBars({
                 <b>{fmt(totals[at!])}</b>
               </div>
               {top2.map(({ v, k }) => (
-                <div className="stb-tip-row" key={CATS[k]}>
-                  <i style={{ ["--c" as string]: `var(--stb-c${k + 1})` } as CSSProperties} />
-                  <span>{CATS[k]}</span>
+                <div className="stb-tip-row" key={k}>
+                  <i style={{ ["--c" as string]: tone(k) } as CSSProperties} />
+                  <span>{categories[k]?.label}</span>
                   <b>{fmt(v)}</b>
                 </div>
               ))}
               <div className="stb-tip-row" data-esc="">
                 <i />
-                <span>Bounced</span>
+                <span>{escLabel}</span>
                 <b>{cur.esc}</b>
               </div>
             </>
@@ -307,10 +358,29 @@ export function StackedBars({
         </motion.div>
       </div>
 
-      <div className="stb-axis">
-        <span>{data[0].short}</span>
-        <span>{data[n - 1].short}</span>
-      </div>
+      {n > 0 ? (
+        <div className="stb-axis">
+          <span>{data[0].short}</span>
+          <span>{data[n - 1].short}</span>
+        </div>
+      ) : null}
+
+      {legend ? (
+        <ul className="stb-legend">
+          {categories.map((c, k) => (
+            <li key={k}>
+              <i style={{ ["--c" as string]: tone(k) } as CSSProperties} />
+              <span>{c.label}</span>
+              <b>{fmt(sum(data.map((b) => b.vals[k] ?? 0)))}</b>
+            </li>
+          ))}
+          <li data-esc="">
+            <i />
+            <span>{escLabel}</span>
+            <b>{fmt(sum(data.map((b) => b.esc)))}</b>
+          </li>
+        </ul>
+      ) : null}
     </div>
   );
 }

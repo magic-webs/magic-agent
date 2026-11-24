@@ -302,7 +302,7 @@ export default function AdminTicketPage() {
         ) : null}
       </section>
 
-      <aside className="flex w-full shrink-0 flex-col gap-4 border-t p-4 sm:p-6 xl:w-96 xl:overflow-y-auto xl:border-t-0 xl:border-l">
+      <aside className="flex w-full shrink-0 flex-col gap-4 border-t *:shrink-0 p-4 sm:p-6 xl:w-96 xl:overflow-y-auto xl:border-t-0 xl:border-l">
         <Card size="sm">
           <CardHeader>
             <CardTitle>Ticket</CardTitle>

@@ -5,7 +5,7 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { fileUrl, newFileKey, r2 } from "./lib/files";
 import { hear, toSpeech } from "./lib/speech";
-import { GENIE_VOICE_ID } from "./lib/voices";
+import { GENIE_VOICE_ID, spokenText } from "./lib/voices";
 
 const MP3_BYTES_PER_SECOND = 16_000;
 const MAX_TURN_SECONDS = 60;
@@ -32,12 +32,12 @@ function approvalLine(change: string, waiting: number): string {
 
 export const speak = action({
   args: { itemId: v.id("genieItems"), waiting: v.optional(v.number()) },
-  handler: async (ctx, args): Promise<{ url: string }> => {
+  handler: async (ctx, args): Promise<{ url: string; text: string }> => {
     const reply = await ctx.runQuery(internal.genie.replyForSpeech, { itemId: args.itemId });
     const asking = reply.kind === "action";
-    if (reply.audioKey && !asking) return { url: fileUrl(reply.audioKey) };
-    await ctx.runQuery(internal.genieVoiceDb.check, { workspaceId: reply.workspaceId });
     const text = asking ? approvalLine(reply.text, args.waiting ?? 1) : reply.text;
+    if (reply.audioKey && !asking) return { url: fileUrl(reply.audioKey), text: spokenText(text) };
+    await ctx.runQuery(internal.genieVoiceDb.check, { workspaceId: reply.workspaceId });
     const { bytes, mediaType } = await toSpeech(text, GENIE_VOICE_ID);
     const key = await r2.store(ctx, bytes, {
       key: newFileKey("speech", reply.workspaceId),
@@ -50,6 +50,6 @@ export const speak = action({
       workspaceId: reply.workspaceId,
       seconds: bytes.byteLength / MP3_BYTES_PER_SECOND,
     });
-    return { url: fileUrl(key) };
+    return { url: fileUrl(key), text: spokenText(text) };
   },
 });

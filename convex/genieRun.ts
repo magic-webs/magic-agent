@@ -96,7 +96,8 @@ function buildTools(slug: string): ToolSet {
 
 function instructionsFor(
   workspace: { slug: string; name: string; ownerName: string | null; timezone: string; currency: string },
-  autoApprove: boolean
+  autoApprove: boolean,
+  voice: boolean
 ) {
   const who = workspace.ownerName ?? workspace.name;
   return [
@@ -119,6 +120,11 @@ function instructionsFor(
     "- Short. It is often read on a phone. Lead with the outcome, then the detail.",
     "- Plain Markdown: short lists and bold, no headings, no tables.",
     "- No preamble and no sign-off. Do not repeat what the approval cards already say.",
+    ...(voice
+      ? [
+          "- The user is talking to you by voice and hears your reply read aloud. Answer in one to three short spoken sentences, plain text only: no Markdown, lists, links or ids. Offer more detail only if they ask.",
+        ]
+      : []),
     "",
     "Platform notes:",
     FULL_INSTRUCTIONS,
@@ -276,7 +282,7 @@ export const run = internalAction({
         generateText({
           model: aiGateway()(MODEL),
           providerOptions: await gatewayOptions(ctx, MODEL),
-          instructions: instructionsFor(context.workspace, autoApprove),
+          instructions: instructionsFor(context.workspace, autoApprove, context.voice),
           messages: hydrate(history),
           tools: buildTools(context.workspace.slug),
           toolApproval: ({ toolCall }) => {

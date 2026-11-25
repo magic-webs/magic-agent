@@ -168,6 +168,7 @@ export const send = mutation({
     text: v.string(),
     attachments: v.optional(v.array(genieAttachment)),
     autoApprove: v.optional(v.boolean()),
+    voice: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const principal = await requireArea(ctx, args.workspaceId, "genie", "edit");
@@ -261,7 +262,11 @@ export const send = mutation({
       workspaceId: args.workspaceId,
       preview: text || attachments[0]?.name,
     });
-    await startRun(ctx, thread, { subject: identity.subject, wishEventId });
+    await startRun(ctx, thread, {
+      subject: identity.subject,
+      wishEventId,
+      voice: args.voice ? true : undefined,
+    });
     return thread._id;
   },
 });
@@ -376,6 +381,7 @@ export const context = internalQuery({
       run: thread.run,
       subject: thread.subject,
       autoApprove: thread.autoApprove,
+      voice: thread.voice ?? false,
       messages: memory.row?.messages ?? "[]",
       workspace: {
         _id: workspace._id,
@@ -451,19 +457,7 @@ export const replyForSpeech = internalQuery({
     if (!item || item.kind === "user") throw new ConvexError("Only Genie's replies can be played.");
     const thread = await ownThread(ctx, item.threadId);
     if (!thread) throw new ConvexError("That Genie chat no longer exists.");
-    return {
-      workspaceId: thread.workspaceId,
-      kind: item.kind,
-      text: item.text,
-      audioKey: item.audioKey ?? null,
-    };
-  },
-});
-
-export const saveReplyAudio = internalMutation({
-  args: { itemId: v.id("genieItems"), audioKey: v.string() },
-  handler: async (ctx, args) => {
-    await ctx.db.patch("genieItems", args.itemId, { audioKey: args.audioKey });
+    return { workspaceId: thread.workspaceId, kind: item.kind, text: item.text };
   },
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LEAD_TAG_COLORS, type LeadTagColor } from "@/convex/lib/shared";
@@ -48,7 +48,6 @@ export type LeadTag = {
   name: string;
   color: string;
   description: string;
-  leadCount: number;
 };
 
 const TAG_TONES: Record<LeadTagColor, { chip: string; dot: string }> = {
@@ -256,13 +255,16 @@ export function LeadTagsField({
 }
 
 function TagList({
+  workspaceId,
   tags,
   onEdit,
 }: {
+  workspaceId: Id<"workspaces">;
   tags: LeadTag[];
   onEdit: (target: LeadTag | "new") => void;
 }) {
   const removeTag = useMutation(api.leads.removeTag);
+  const counts = useQuery(api.leads.tagCounts, { workspaceId });
 
   return (
     <>
@@ -289,9 +291,11 @@ function TagList({
                     <HugeiconsIcon icon={RoboticIcon} strokeWidth={2} /> desk
                   </Badge>
                 ) : null}
-                <Badge variant="ghost" className="tabular-nums">
-                  {tag.leadCount} {tag.leadCount === 1 ? "lead" : "leads"}
-                </Badge>
+                {counts ? (
+                  <Badge variant="ghost" className="tabular-nums">
+                    {counts[tag._id] ?? 0} {counts[tag._id] === 1 ? "lead" : "leads"}
+                  </Badge>
+                ) : null}
               </p>
               {tag.description ? (
                 <p className="mt-1 text-xs text-muted-foreground">{tag.description}</p>
@@ -483,7 +487,7 @@ export function LeadTagsSheet({
             onDone={() => setEditing(null)}
           />
         ) : (
-          <TagList tags={tags} onEdit={setEditing} />
+          <TagList workspaceId={workspaceId} tags={tags} onEdit={setEditing} />
         )}
       </SheetContent>
     </Sheet>

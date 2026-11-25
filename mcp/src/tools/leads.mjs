@@ -70,13 +70,13 @@ const colorArg = z.enum([
   "pink",
 ]);
 
-const tagBrief = (tag) => ({
+const tagBrief = (tag, counts = {}) => ({
   id: tag._id,
   name: tag.name,
   color: tag.color,
   appliedByDesk: Boolean(tag.description),
   description: tag.description || null,
-  leads: tag.leadCount,
+  leads: counts[tag._id] ?? 0,
 });
 
 async function findTag(workspaceId, wanted) {
@@ -326,8 +326,11 @@ export function register(server) {
     },
     handler(async ({ workspace }) => {
       const found = await resolveWorkspace(workspace);
-      const tags = await call.query(api.leads.listTags, { workspaceId: found._id });
-      return ok(tags.map(tagBrief));
+      const [tags, counts] = await Promise.all([
+        call.query(api.leads.listTags, { workspaceId: found._id }),
+        call.query(api.leads.tagCounts, { workspaceId: found._id }),
+      ]);
+      return ok(tags.map((tag) => tagBrief(tag, counts)));
     })
   );
 

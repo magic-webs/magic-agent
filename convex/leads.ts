@@ -244,23 +244,30 @@ export const listTags = query({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     const tags = await workspaceTags(ctx, args.workspaceId);
-    const conversations = await ctx.db
-      .query("conversations")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-    const counts = new Map<string, number>();
-    for (const row of conversations) {
-      for (const tagId of row.leadTagIds ?? []) {
-        counts.set(tagId, (counts.get(tagId) ?? 0) + 1);
-      }
-    }
     return tags.map((tag) => ({
       _id: tag._id,
       name: tag.name,
       color: tag.color,
       description: tag.description ?? "",
-      leadCount: counts.get(tag._id) ?? 0,
     }));
+  },
+});
+
+export const tagCounts = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    const conversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+    const counts: Record<string, number> = {};
+    for (const row of conversations) {
+      for (const tagId of row.leadTagIds ?? []) {
+        counts[tagId] = (counts[tagId] ?? 0) + 1;
+      }
+    }
+    return counts;
   },
 });
 

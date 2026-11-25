@@ -10,7 +10,7 @@ import {
   StatTile,
 } from "@/components/dashboard-charts";
 import { DashboardSkeleton } from "@/components/skeletons";
-import { useHourBucket } from "@/components/use-now";
+import { useAdminSummary } from "@/components/use-admin-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,10 +69,9 @@ function tokens(count: number): string {
  * page where it is done. The detail lives one click away, under Tokens & cost.
  */
 export default function AdminOverviewPage() {
-  const now = useHourBucket();
   const workspaces = useQuery(api.workspaces.list, {});
   const access = useQuery(api.authDb.accessSummary, {});
-  const usage = useQuery(api.usage.adminSummary, { days: WINDOW_DAYS, now });
+  const { data: usage } = useAdminSummary(WINDOW_DAYS);
 
   const header = (
     <header className="flex flex-wrap items-end justify-between gap-4">

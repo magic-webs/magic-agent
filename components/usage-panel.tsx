@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useHourBucket } from "@/components/use-now";
+import { useAdminSummary } from "@/components/use-admin-summary";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { RankedBars, StatTile, ActivityChart } from "@/components/dashboard-charts";
 import { SelectField } from "@/components/select-field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert02Icon,
   Coins01Icon,
+  RefreshIcon,
 } from "@hugeicons/core-free-icons";
 
 const NANO = 1_000_000_000;
@@ -85,11 +86,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 export function UsagePanel() {
   const [days, setDays] = useState("30");
-  const now = useHourBucket();
-  const data = useQuery(api.usage.adminSummary, {
-    days: Number(days),
-    now,
-  });
+  const { data, fetchedAt, refresh, refreshing } = useAdminSummary(Number(days));
 
   if (data === undefined) {
     return <DashboardSkeleton />;
@@ -125,6 +122,20 @@ export function UsagePanel() {
               { value: "90", label: "Last 90 days" },
             ]}
           />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={refresh}
+            disabled={refreshing}
+            aria-label="Refresh"
+            title={
+              fetchedAt
+                ? `Updated ${new Date(fetchedAt).toLocaleTimeString()}`
+                : undefined
+            }
+          >
+            {refreshing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />}
+          </Button>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
-import { variablesIn } from "@/convex/lib/marketing";
+import { isBuiltIn, variablesIn, type TemplateExample } from "@/convex/lib/marketing";
 import {
   MAX_FILL,
   defaultFill,
@@ -27,6 +27,7 @@ const LABEL: Record<Exclude<VariableSource, "attribute">, string> = {
   campaign: "Campaign name",
   date: "Campaign date",
   text: "Type your own text",
+  example: "The template's example",
 };
 
 const CONTACT_SOURCES = ["first_name", "full_name", "phone", "email", "company", "birthday"] as const;
@@ -59,10 +60,12 @@ function choose(fill: VariableFill, next: string): VariableFill {
 
 export function VariableMapper({
   body,
+  examples,
   fills,
   onChange,
 }: {
   body: string;
+  examples?: TemplateExample[];
   fills: VariableFill[];
   onChange: (fills: VariableFill[]) => void;
 }) {
@@ -98,6 +101,10 @@ export function VariableMapper({
     })),
     ...SHARED_SOURCES.map((source) => ({ value: source, label: LABEL[source] })),
   ];
+  const optionsFor = (variable: string) =>
+    isBuiltIn(variable) ? options : [...options, { value: "example", label: LABEL.example }];
+  const exampleOf = (variable: string) =>
+    examples?.find((row) => row.variable === variable)?.value.trim() ?? "";
   const problems = fillProblems(body, variables.map(fillOf));
 
   return (
@@ -132,12 +139,19 @@ export function VariableMapper({
             key={variable}
             className="grid gap-2 sm:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)] sm:items-start"
           >
-            <span className="font-mono text-sm font-medium sm:pt-1.5">{label}</span>
+            <span className="flex flex-col sm:pt-1.5">
+              <span className="font-mono text-sm font-medium">{label}</span>
+              {isBuiltIn(variable) ? null : (
+                <span className="truncate text-xs text-muted-foreground" title={variable}>
+                  {variable}
+                </span>
+              )}
+            </span>
             <SelectField
               aria-label={`What fills ${label}`}
               value={fill.source === "attribute" ? `attribute:${fill.key ?? ""}` : fill.source}
               onValueChange={(next) => update(variable, choose(fill, next))}
-              options={options}
+              options={optionsFor(variable)}
             />
             {fill.source === "text" ? (
               variable === "message" ? (
@@ -169,6 +183,10 @@ export function VariableMapper({
                 />
                 <span className="text-xs text-muted-foreground">Used when a contact has nothing saved</span>
               </div>
+            ) : fill.source === "example" ? (
+              <span className="text-xs text-muted-foreground sm:pt-2">
+                {exampleOf(variable) ? `“${exampleOf(variable)}” for everyone` : "Same for everyone"}
+              </span>
             ) : (
               <span className="text-xs text-muted-foreground sm:pt-2">Same for everyone</span>
             )}

@@ -223,6 +223,7 @@ export default function MarketingTemplatesPage() {
                 cardRatio={template.cardRatio}
                 business={workspace.name}
                 occasion={template.occasion}
+                examples={template.examples}
               />
               {template.metaStatus === "REJECTED" || template.metaStatus === "CHANGED" ? (
                 <span className="text-xs font-medium text-destructive">{templateBlocker(template)}</span>

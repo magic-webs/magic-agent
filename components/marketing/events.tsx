@@ -823,7 +823,7 @@ export function CampaignDialog({
                     ),
                     venue: draft.venue,
                     message: "[the desk's line for each reminder]",
-                  })}
+                  }, template.examples)}
                 </p>
                 {!MESSAGE_VARIABLE.test(template.body) ? (
                   <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
@@ -1011,7 +1011,7 @@ export function TouchDialog({
                   date: eventDateLabel(campaign.date, campaign.startTime, workspace.locale),
                   venue: campaign.venue,
                   message,
-                })}
+                }, template.examples)}
               </p>
             </div>
           ) : pending ? (

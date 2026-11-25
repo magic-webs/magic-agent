@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { renderTemplate, variablesIn } from "../convex/lib/marketing";
+import {
+  exampleProblems,
+  exampleValues,
+  metaBody,
+  renderTemplate,
+  templateProblems,
+  tidyExamples,
+  variablesIn,
+  withExamples,
+} from "../convex/lib/marketing";
 import {
   cleanFills,
   fillProblems,
@@ -74,6 +83,40 @@ describe("fills", () => {
       "Write the text for {{2}}.",
       "Pick the contact field for {{3}}.",
     ]);
+  });
+
+  test("custom variables fill from the example unless mapped", () => {
+    const body = "Hi {{name}}, classes in {{city}} start soon — {{business}}";
+    expect(variablesIn(body)).toEqual(["name", "city", "business"]);
+    expect(metaBody(body)).toBe("Hi {{1}}, classes in {{2}} start soon — {{3}}");
+    const examples = [{ variable: "city", value: "Pune" }];
+    const values = withExamples(shared, examples);
+    expect(renderTemplate(body, personalValues(fillsFor(body, undefined), values, rahul)).text).toBe(
+      "Hi Rahul, classes in Pune start soon — Urmil Jewellers"
+    );
+    const mapped: VariableFill[] = [
+      { variable: "city", source: "attribute", key: "City", fallback: "your city" },
+    ];
+    expect(renderTemplate(body, personalValues(mapped, values, rahul)).text).toBe(
+      "Hi Rahul, classes in Shahdara start soon — Urmil Jewellers"
+    );
+  });
+
+  test("custom variables need an example and a valid name", () => {
+    expect(exampleProblems("Hi {{city}} and {{course}} now", [{ variable: "city", value: " Pune " }])).toEqual([
+      "Give {{course}} an example — Meta reviews the template with it.",
+    ]);
+    expect(exampleValues("Hi {{name}} from {{city}} ok", "Shop", "offer", [{ variable: "city", value: "Pune" }])).toEqual([
+      "Asha",
+      "Pune",
+    ]);
+    expect(templateProblems("Hi {{City}} there")[0]).toContain("is not a variable");
+    expect(templateProblems("Hi {{1}} there")[0]).toContain("is not a variable");
+    expect(templateProblems("Hi {{ city_2 }} there")).toEqual([]);
+    expect(tidyExamples("Hi {{city}} ok", [
+      { variable: "city", value: "Pune\nWest" },
+      { variable: "gone", value: "x" },
+    ])).toEqual([{ variable: "city", value: "Pune West" }]);
   });
 
   test("cleaning drops unused blanks and stray fields", () => {

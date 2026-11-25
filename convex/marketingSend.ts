@@ -16,20 +16,17 @@ import {
   renderTemplate,
   sampleValues,
   templateBlocker,
+  withExamples,
   zonedParts,
-  type TemplateVariable,
 } from "./lib/marketing";
 import type { AudienceSelection } from "./lib/audience";
-import { personalValues, type VariableFill } from "./lib/personalise";
+import { personalValues, type SharedValues, type VariableFill } from "./lib/personalise";
 import { variableFill } from "./schema/marketing";
 import { slug, trackFirstLink } from "./lib/links";
 import { errorText, providerError } from "./lib/panel";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { fileUrl } from "./lib/files";
 import { carouselSendComponent } from "./lib/templateParts";
-
-/** Every variable but the customer's own name, which is filled per contact. */
-type SharedValues = Omit<Record<TemplateVariable, string>, "name">;
 
 type Channel = {
   apiBaseUrl: string;
@@ -302,7 +299,7 @@ export const runEvent = internalAction({
       if (!context || context.event.status !== "sending") return null;
     }
 
-    const values = eventValues(context);
+    const values = withExamples(eventValues(context), context.template?.examples);
     const reason =
       blocker(context) ??
       (context.template ? unfilled(context.template.body, values, context.event.variables) : null);
@@ -395,13 +392,16 @@ export const runBirthdays = internalAction({
     });
     if (!context) return null;
 
-    const values: SharedValues = {
-      business: context.workspaceName,
-      event: "your birthday",
-      date: "",
-      venue: "",
-      message: "",
-    };
+    const values = withExamples<SharedValues>(
+      {
+        business: context.workspaceName,
+        event: "your birthday",
+        date: "",
+        venue: "",
+        message: "",
+      },
+      context.template?.examples
+    );
     const reason =
       blocker(context) ??
       (context.template ? unfilled(context.template.body, values) : null);
@@ -484,15 +484,18 @@ export const sendTest = action({
     // A template on its own has no event behind it, so its blanks get the
     // same samples Meta reviewed it with.
     const samples = sampleValues(context.workspaceName, template?.occasion);
-    const values: SharedValues = context.event
-      ? eventValues({ ...context, event: context.event })
-      : {
-          business: samples.business,
-          event: samples.event,
-          date: samples.date,
-          venue: samples.venue,
-          message: asParameter(typed ?? "") || samples.message,
-        };
+    const values = withExamples<SharedValues>(
+      context.event
+        ? eventValues({ ...context, event: context.event })
+        : {
+            business: samples.business,
+            event: samples.event,
+            date: samples.date,
+            venue: samples.venue,
+            message: asParameter(typed ?? "") || samples.message,
+          },
+      template?.examples
+    );
     const fills = variables ?? context.event?.variables;
     const reason =
       blocker(context) ?? (template ? unfilled(template.body, values, fills) : null);

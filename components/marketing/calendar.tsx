@@ -649,15 +649,19 @@ export function EventDialog({
                 {template ? (
                   <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
                     <p className="whitespace-pre-wrap">
-                      {previewTemplate(template.body, {
-                        business,
-                        event: draft.title,
-                        date: formatDate(draft.date, {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                        }),
-                      })}
+                      {previewTemplate(
+                        template.body,
+                        {
+                          business,
+                          event: draft.title,
+                          date: formatDate(draft.date, {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          }),
+                        },
+                        template.examples
+                      )}
                     </p>
                     {!templateReady(template) ? (
                       <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-destructive">

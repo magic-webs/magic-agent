@@ -278,7 +278,7 @@ export function register(server) {
     {
       title: "Save a marketing template",
       description:
-        "Create a template, or change one when `template` names it (omitted fields keep their value). Variables are written {{name}}, {{business}}, {{event}}, and for an event's reminders {{date}}, {{venue}} and {{message}}. Optional header — plain text, or an image or video through headerMedia — and footer (plain text, 60 characters, no variables) and up to 10 buttons: quick replies, at most 2 website links and 1 call button, labels up to 25 characters. A quick reply labelled \"Stop messages\" unsubscribes whoever taps it. Saving does not submit it: apply_marketing_template does. Editing the text or parts of an approved template stops it sending until the change is applied.",
+        "Create a template, or change one when `template` names it (omitted fields keep their value). Variables are written {{name}}, {{business}}, {{event}}, and for an event's reminders {{date}}, {{venue}} and {{message}}. Any other lowercase word in braces, like {{city}} or {{course_name}}, is a custom variable: give each one a value in `examples` — Meta reviews the template with it, and it is sent wherever a campaign does not fill it from the contact. Optional header — plain text, or an image or video through headerMedia — and footer (plain text, 60 characters, no variables) and up to 10 buttons: quick replies, at most 2 website links and 1 call button, labels up to 25 characters. A quick reply labelled \"Stop messages\" unsubscribes whoever taps it. Saving does not submit it: apply_marketing_template does. Editing the text or parts of an approved template stops it sending until the change is applied.",
       inputSchema: {
         ...workspaceArg,
         template: z.string().optional().describe("Name or id of the template to change; omit to create"),
@@ -290,6 +290,10 @@ export function register(server) {
           .describe(
             "Under 1,024 characters. Meta rejects a body that starts or ends with a variable, or puts two side by side."
           ),
+        examples: z
+          .array(z.object({ variable: z.string().describe("e.g. 'city', without braces"), value: z.string().max(200) }))
+          .optional()
+          .describe("A realistic value for each custom variable in the body, e.g. [{variable:'city', value:'Pune'}]. Replaces the saved list."),
         category: z
           .enum(["marketing", "utility", "authentication"])
           .optional()
@@ -335,6 +339,7 @@ export function register(server) {
         name,
         occasion,
         body,
+        examples: fields.examples,
         category: fields.category ?? existing?.category,
         languageCode: fields.languageCode ?? existing?.languageCode,
         metaTemplateName: fields.metaTemplateName ?? existing?.metaTemplateName,

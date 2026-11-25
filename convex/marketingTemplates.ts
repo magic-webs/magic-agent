@@ -20,6 +20,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
+  exampleProblems,
   exampleValues,
   metaBody,
   metaNameFor,
@@ -134,13 +135,14 @@ export const apply = action({
     const cards = template.cards?.length ? template.cards : undefined;
     const problems = [
       ...templateProblems(template.body),
+      ...exampleProblems(template.body, template.examples),
       ...partsProblems(template),
       ...(cards ? cardsProblems(cards, template) : []),
     ];
     if (problems.length > 0) throw new ConvexError(problems[0]);
 
     const text = metaBody(template.body);
-    const samples = exampleValues(template.body, business, template.occasion);
+    const samples = exampleValues(template.body, business, template.occasion, template.examples);
     const body: Json = {
       type: "BODY",
       text,

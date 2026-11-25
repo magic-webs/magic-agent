@@ -5,10 +5,14 @@ import { useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { CATEGORY_LABELS } from "@/convex/lib/billing";
 import {
+  MAX_EXAMPLE,
+  customVariablesIn,
+  exampleProblems,
   metaBody,
   metaNameFor,
   templateBlocker,
   templateProblems,
+  type TemplateExample,
 } from "@/convex/lib/marketing";
 import {
   BUTTON_TEXT_LIMIT,
@@ -127,6 +131,7 @@ export type TemplateDraft = {
   occasion: Occasion;
   category: TemplateCategory;
   body: string;
+  examples: TemplateExample[];
   metaTemplateName: string;
   languageCode: string;
   headerKind: HeaderKind;
@@ -255,8 +260,17 @@ export function TemplateDialog({
     draft.headerKind === "image" || draft.headerKind === "video" ? draft.headerKind : null;
   const carousel = draft.kind === "carousel";
   const cards = draftCards(draft);
+  const customVariables = customVariablesIn(draft.body);
+  const exampleOf = (variable: string) =>
+    draft.examples.find((row) => row.variable === variable)?.value ?? "";
+  const setExample = (variable: string, value: string) =>
+    setDraft({
+      ...draft,
+      examples: [...draft.examples.filter((row) => row.variable !== variable), { variable, value }],
+    });
   const problems = [
     ...templateProblems(draft.body),
+    ...exampleProblems(draft.body, draft.examples),
     ...partsProblems(parts),
     ...(!carousel && mediaKind && !parts.headerMedia ? [`Add the header ${mediaKind} first.`] : []),
     ...(cards ? cardsProblems(cards) : []),
@@ -315,6 +329,7 @@ export function TemplateDialog({
     occasion: draft.occasion,
     category: draft.category,
     body: draft.body,
+    examples: draft.examples,
     metaTemplateName: draft.metaTemplateName,
     languageCode: draft.languageCode,
     header: parts.header,
@@ -467,7 +482,8 @@ export function TemplateDialog({
             ) : (
               <>
                 Use <code>{"{{name}}"}</code>, <code>{"{{business}}"}</code> and{" "}
-                <code>{"{{event}}"}</code> — each customer gets their own.
+                <code>{"{{event}}"}</code> — each customer gets their own. Or add your own, like{" "}
+                <code>{"{{city}}"}</code>.
               </>
             )}
           </DialogDescription>
@@ -654,9 +670,41 @@ export function TemplateDialog({
             />
             <p className="text-xs text-muted-foreground">
               Jot notes here first and “Write it for me” works from them — an offer, a
-              language, a tone. The marketing desk writes it in your company’s voice.
+              language, a tone. The marketing desk writes it in your company’s voice. Add your
+              own variables as lowercase words in braces, like <code>{"{{city}}"}</code> or{" "}
+              <code>{"{{course}}"}</code>.
             </p>
           </div>
+
+          {customVariables.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Your variables</p>
+                <p className="text-xs text-muted-foreground">
+                  Give each one an example. Meta reviews the template with it, and it goes out
+                  wherever nothing else fills it. A campaign can fill it from each contact’s
+                  own details instead.
+                </p>
+              </div>
+              {customVariables.map((variable) => (
+                <div
+                  key={variable}
+                  className="grid gap-1.5 sm:grid-cols-[minmax(0,160px)_minmax(0,1fr)] sm:items-center"
+                >
+                  <Label htmlFor={`example-${variable}`} className="truncate font-mono text-sm">
+                    {`{{${variable}}}`}
+                  </Label>
+                  <Input
+                    id={`example-${variable}`}
+                    value={exampleOf(variable)}
+                    maxLength={MAX_EXAMPLE}
+                    placeholder="Example value"
+                    onChange={(event) => setExample(variable, event.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {carousel ? (
             <CardsEditor
@@ -884,6 +932,7 @@ export function TemplateDialog({
             }
             business={workspace.name}
             occasion={draft.occasion}
+            examples={draft.examples}
           />
         </div>
         </DialogBody>
@@ -968,6 +1017,7 @@ export function draftFor(template?: Template): TemplateDraft {
         occasion: template.occasion,
         category: template.category ?? "marketing",
         body: template.body,
+        examples: template.examples ?? [],
         metaTemplateName: template.metaTemplateName ?? "",
         languageCode: template.languageCode,
         headerKind: template.headerMedia?.type ?? (template.header ? "text" : "none"),
@@ -988,6 +1038,7 @@ export function draftFor(template?: Template): TemplateDraft {
         occasion: "festival",
         category: "marketing",
         body: "",
+        examples: [],
         metaTemplateName: "",
         languageCode: "en",
         headerKind: "none",

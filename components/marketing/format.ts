@@ -3,7 +3,11 @@ import type { Quality } from "@/convex/lib/rollout";
 import {
   renderTemplate,
   templateBlocker,
-  type TemplateVariable,
+  variablesIn,
+  withExamples,
+  type BuiltInVariable,
+  type TemplateExample,
+  type TemplateValues,
 } from "@/convex/lib/marketing";
 import { toast } from "@/components/ui/toast";
 import { friendlyError } from "@/lib/errors";
@@ -209,14 +213,20 @@ export const EVENT_TEMPLATE_BODY =
  */
 export function previewTemplate(
   body: string,
-  values: Partial<Record<TemplateVariable, string>>
+  values: Partial<Record<BuiltInVariable, string>>,
+  examples?: TemplateExample[]
 ): string {
-  return renderTemplate(body, {
-    name: "Asha",
-    business: values.business || "your business",
-    event: values.event || "the day",
-    date: values.date || "Sat, 8 Nov",
-    venue: values.venue || "the venue",
-    message: values.message || "…the reminder's own line…",
-  }).text;
+  const filled: TemplateValues = withExamples(
+    {
+      name: "Asha",
+      business: values.business || "your business",
+      event: values.event || "the day",
+      date: values.date || "Sat, 8 Nov",
+      venue: values.venue || "the venue",
+      message: values.message || "…the reminder's own line…",
+    },
+    examples
+  );
+  for (const variable of variablesIn(body)) filled[variable] ||= "…";
+  return renderTemplate(body, filled).text;
 }

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
-import { renderTemplate, templateBlocker } from "@/convex/lib/marketing";
+import { renderTemplate, templateBlocker, variablesIn, withExamples } from "@/convex/lib/marketing";
 import {
   fillProblems,
   fillsFor,
@@ -428,16 +428,19 @@ export function CampaignComposer({
     if (!template) return "";
     const values = personalValues(
       fills,
-      {
-        business: workspace.name,
-        event: draft.title.trim() || "the day",
-        date: dayLabel(draft.when === "now" ? today : draft.date),
-        venue: "",
-        message: "",
-      },
+      withExamples(
+        {
+          business: workspace.name,
+          event: draft.title.trim() || "the day",
+          date: dayLabel(draft.when === "now" ? today : draft.date),
+          venue: "",
+          message: "",
+        },
+        template.examples
+      ),
       person
     );
-    for (const key of Object.keys(values) as Array<keyof typeof values>) values[key] ||= "…";
+    for (const variable of variablesIn(template.body)) values[variable] ||= "…";
     return renderTemplate(template.body, values).text;
   };
 
@@ -542,7 +545,14 @@ export function CampaignComposer({
                 <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5" /> {blocker}
               </p>
             ) : null}
-            {template ? <VariableMapper body={template.body} fills={fills} onChange={setFills} /> : null}
+            {template ? (
+              <VariableMapper
+                body={template.body}
+                examples={template.examples}
+                fills={fills}
+                onChange={setFills}
+              />
+            ) : null}
             {template ? (
               <div className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3">
                 <p className="text-xs font-medium text-muted-foreground lg:hidden">

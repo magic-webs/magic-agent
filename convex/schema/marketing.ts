@@ -53,15 +53,10 @@ export const importCounts = v.object({
   saved: v.number(),
 });
 
+export const templateExample = v.object({ variable: v.string(), value: v.string() });
+
 export const variableFill = v.object({
-  variable: v.union(
-    v.literal("name"),
-    v.literal("business"),
-    v.literal("event"),
-    v.literal("date"),
-    v.literal("venue"),
-    v.literal("message")
-  ),
+  variable: v.string(),
   source: v.union(
     v.literal("first_name"),
     v.literal("full_name"),
@@ -73,7 +68,8 @@ export const variableFill = v.object({
     v.literal("business"),
     v.literal("campaign"),
     v.literal("date"),
-    v.literal("text")
+    v.literal("text"),
+    v.literal("example")
   ),
   key: v.optional(v.string()),
   text: v.optional(v.string()),
@@ -149,6 +145,7 @@ export const marketingTables = {
       v.literal("general")
     ),
     body: v.string(),
+    examples: v.optional(v.array(templateExample)),
     header: v.optional(v.string()),
     headerMedia: v.optional(headerMedia),
     footer: v.optional(v.string()),

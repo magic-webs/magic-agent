@@ -81,6 +81,7 @@ export const draft = action({
         : "",
       "",
       "The message becomes a WhatsApp template, so write the variables literally — {{name}}, {{business}}, {{event}}, and for an event {{date}} and {{message}} — never fill them in.",
+      "If the owner's notes use variables of their own, like {{city}} or {{course}}, keep each one exactly as written and do not invent new ones.",
     ]
       .filter(Boolean)
       .join("\n");

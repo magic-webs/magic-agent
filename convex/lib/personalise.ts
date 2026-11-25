@@ -2,6 +2,8 @@ import {
   asParameter,
   greetingName,
   variablesIn,
+  type BuiltInVariable,
+  type TemplateValues,
   type TemplateVariable,
 } from "./marketing";
 
@@ -17,6 +19,7 @@ export const VARIABLE_SOURCES = [
   "campaign",
   "date",
   "text",
+  "example",
 ] as const;
 
 export type VariableSource = (typeof VARIABLE_SOURCES)[number];
@@ -39,7 +42,7 @@ export type Person = {
   attributes?: Array<{ key: string; value: string }>;
 };
 
-export type SharedValues = Omit<Record<TemplateVariable, string>, "name">;
+export type SharedValues = Record<Exclude<BuiltInVariable, "name">, string> & TemplateValues;
 
 export const MAX_FILL = 400;
 
@@ -73,6 +76,8 @@ export function defaultFill(variable: TemplateVariable, message = ""): VariableF
       return { variable, source: "text", text: message };
     case "venue":
       return { variable, source: "text", text: "" };
+    default:
+      return { variable, source: "example" };
   }
 }
 
@@ -128,7 +133,9 @@ export function fillValue(fill: VariableFill, shared: SharedValues, person: Pers
           ? shared.date
           : fill.source === "text"
             ? (fill.text ?? "")
-            : person
+            : fill.source === "example"
+              ? (shared[fill.variable] ?? "")
+              : person
               ? personValue(fill, person)
               : "";
   return asParameter(raw).slice(0, MAX_FILL) || asParameter(fill.fallback ?? "").slice(0, MAX_FILL);
@@ -138,8 +145,8 @@ export function personalValues(
   fills: VariableFill[] | undefined,
   shared: SharedValues,
   person: Person | null
-): Record<TemplateVariable, string> {
-  const values: Record<TemplateVariable, string> = { ...shared, name: greetingName(person?.name) };
+): TemplateValues {
+  const values: TemplateValues = { ...shared, name: greetingName(person?.name) };
   for (const fill of fills ?? []) values[fill.variable] = fillValue(fill, shared, person);
   return values;
 }

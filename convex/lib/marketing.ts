@@ -110,6 +110,10 @@ export function festivalsBetween(
  * is, and the line the marketing desk writes for each reminder. A festival or
  * a birthday has no venue and no message, so a template that uses them only
  * sends for an event that fills them — see `missingVariables`.
+ *
+ * Any other lowercase word in braces is the owner's own variable, like
+ * {{city}} or {{course_name}}. It carries an example on the template, which
+ * Meta reviews it with and which goes out wherever nothing else fills it.
  */
 export const TEMPLATE_VARIABLES = [
   "name",
@@ -119,9 +123,20 @@ export const TEMPLATE_VARIABLES = [
   "venue",
   "message",
 ] as const;
-export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number];
+export type BuiltInVariable = (typeof TEMPLATE_VARIABLES)[number];
+export type TemplateVariable = string;
+export type TemplateValues = Record<TemplateVariable, string>;
+export type TemplateExample = { variable: string; value: string };
 
-const VARIABLE = /\{\{\s*(name|business|event|date|venue|message)\s*\}\}/g;
+export const MAX_EXAMPLE = 200;
+
+const VARIABLE = /\{\{\s*([a-z][a-z0-9_]{0,29})\s*\}\}/g;
+const BRACES = /\{\{([^{}]*)\}\}/g;
+const VARIABLE_NAME = /^[a-z][a-z0-9_]{0,29}$/;
+
+export function isBuiltIn(variable: string): variable is BuiltInVariable {
+  return (TEMPLATE_VARIABLES as readonly string[]).includes(variable);
+}
 
 /**
  * Fills a template for one contact.
@@ -132,19 +147,25 @@ const VARIABLE = /\{\{\s*(name|business|event|date|venue|message)\s*\}\}/g;
  */
 export function renderTemplate(
   body: string,
-  values: Record<TemplateVariable, string>
+  values: TemplateValues
 ): { text: string; parameters: string[] } {
   const parameters: string[] = [];
-  const text = body.replace(VARIABLE, (_, name: TemplateVariable) => {
-    parameters.push(values[name]);
-    return values[name];
+  const text = body.replace(VARIABLE, (_, name: string) => {
+    const value = values[name] ?? "";
+    parameters.push(value);
+    return value;
   });
   return { text, parameters };
 }
 
 /** Each variable a body uses, once, in the order Meta numbers them. */
 export function variablesIn(body: string): TemplateVariable[] {
-  return [...new Set([...body.matchAll(VARIABLE)].map((match) => match[1] as TemplateVariable))];
+  return [...new Set([...body.matchAll(VARIABLE)].map((match) => match[1]))];
+}
+
+/** The owner's own variables in a body, once each, in order. */
+export function customVariablesIn(body: string): string[] {
+  return variablesIn(body).filter((variable) => !isBuiltIn(variable));
 }
 
 /**
@@ -152,16 +173,44 @@ export function variablesIn(body: string): TemplateVariable[] {
  * template send with an empty parameter, so this is checked before sending
  * rather than discovered once per contact.
  */
-export function missingVariables(
-  body: string,
-  values: Record<TemplateVariable, string>
-): TemplateVariable[] {
+export function missingVariables(body: string, values: TemplateValues): TemplateVariable[] {
   const missing = new Set<TemplateVariable>();
   for (const match of body.matchAll(VARIABLE)) {
-    const name = match[1] as TemplateVariable;
+    const name = match[1];
     if (!values[name]?.trim()) missing.add(name);
   }
   return [...missing];
+}
+
+/** The examples a body still uses, trimmed into parameters Meta accepts. */
+export function tidyExamples(body: string, examples: TemplateExample[] | undefined): TemplateExample[] {
+  return customVariablesIn(body).flatMap((variable) => {
+    const value = asParameter(examples?.find((row) => row.variable === variable)?.value ?? "").slice(
+      0,
+      MAX_EXAMPLE
+    );
+    return value ? [{ variable, value }] : [];
+  });
+}
+
+/** Shared values with each custom variable's example in place where nothing else is. */
+export function withExamples<T extends TemplateValues>(
+  values: T,
+  examples: TemplateExample[] | undefined
+): T {
+  const out: TemplateValues = { ...values };
+  for (const row of examples ?? []) {
+    if (!isBuiltIn(row.variable) && !out[row.variable]?.trim()) out[row.variable] = row.value;
+  }
+  return out as T;
+}
+
+/** Custom variables that still need an example before Meta can review the template. */
+export function exampleProblems(body: string, examples: TemplateExample[] | undefined): string[] {
+  const given = new Set(tidyExamples(body, examples).map((row) => row.variable));
+  return customVariablesIn(body)
+    .filter((variable) => !given.has(variable))
+    .map((variable) => `Give {{${variable}}} an example — Meta reviews the template with it.`);
 }
 
 /**
@@ -202,9 +251,10 @@ export function metaNameFor(name: string): string {
  */
 export function sampleValues(
   business: string,
-  occasion?: string
-): Record<TemplateVariable, string> {
-  return {
+  occasion?: string,
+  examples?: TemplateExample[]
+): Record<BuiltInVariable, string> & TemplateValues {
+  return withExamples({
     name: "Asha",
     business: business || "our store",
     event:
@@ -218,7 +268,7 @@ export function sampleValues(
     date: "Sat, 8 Nov, 11 am",
     venue: "our MG Road store",
     message: "Doors open at eleven, with tea and a first look at the new collection.",
-  };
+  }, examples);
 }
 
 /**
@@ -226,9 +276,14 @@ export function sampleValues(
  * refuses a template with variables and no samples, and reads them to judge
  * what the message will say — so they are realistic, not "value1".
  */
-export function exampleValues(body: string, business: string, occasion?: string): string[] {
-  const samples = sampleValues(business, occasion);
-  return [...body.matchAll(VARIABLE)].map((match) => samples[match[1] as TemplateVariable]);
+export function exampleValues(
+  body: string,
+  business: string,
+  occasion?: string,
+  examples?: TemplateExample[]
+): string[] {
+  const samples = sampleValues(business, occasion, examples);
+  return [...body.matchAll(VARIABLE)].map((match) => samples[match[1]] ?? "");
 }
 
 /**
@@ -242,6 +297,14 @@ export function templateProblems(body: string): string[] {
   if (/^\{\{/.test(text)) problems.push("It cannot start with a variable — open with a word, like “Hi {{name}}”.");
   if (/\}\}$/.test(text)) problems.push("It cannot end with a variable — close with a word or two after it.");
   if (/\}\}\s*\{\{/.test(text)) problems.push("Two variables cannot sit side by side — put a word between them.");
+  for (const match of text.matchAll(BRACES)) {
+    if (!VARIABLE_NAME.test(match[1].trim())) {
+      problems.push(
+        `“${match[0]}” is not a variable — name one in lowercase letters, digits and _, like {{city}}.`
+      );
+      break;
+    }
+  }
   if (text.length > 1024) problems.push("Keep it under 1,024 characters.");
   return problems;
 }

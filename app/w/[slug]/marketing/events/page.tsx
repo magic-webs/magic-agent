@@ -56,6 +56,7 @@ export default function MarketingEventsPage() {
             occasion: "event",
             category: "marketing",
             body: EVENT_TEMPLATE_BODY,
+            examples: [],
             metaTemplateName: "",
             languageCode: "en",
             headerKind: "none",

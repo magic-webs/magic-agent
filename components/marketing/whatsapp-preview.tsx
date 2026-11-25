@@ -1,7 +1,13 @@
 "use client";
 
 import { cn } from "cn";
-import { renderTemplate, sampleValues } from "@/convex/lib/marketing";
+import {
+  renderTemplate,
+  sampleValues,
+  variablesIn,
+  type TemplateExample,
+  type TemplateValues,
+} from "@/convex/lib/marketing";
 import {
   orderedButtons,
   tidyParts,
@@ -134,6 +140,7 @@ export function WhatsAppPreview({
   cardRatio = "square",
   business,
   occasion,
+  examples,
   size = "phone",
   className,
 }: {
@@ -146,14 +153,15 @@ export function WhatsAppPreview({
   cardRatio?: CardRatio;
   business: string;
   occasion?: string;
+  examples?: TemplateExample[];
   size?: "phone" | "card";
   className?: string;
 }) {
   const carousel = cards && cards.length > 0 ? cards : null;
   const parts: ReturnType<typeof tidyParts> = carousel ? {} : tidyParts({ header, footer, buttons });
-  const text = body.trim()
-    ? renderTemplate(body.trim(), sampleValues(business, occasion)).text
-    : "";
+  const samples: TemplateValues = sampleValues(business, occasion, examples);
+  for (const variable of variablesIn(body)) samples[variable] ||= `{{${variable}}}`;
+  const text = body.trim() ? renderTemplate(body.trim(), samples).text : "";
   const shown = orderedButtons(parts.buttons);
   const visible = shown.length > 3 ? shown.slice(0, 2) : shown;
 

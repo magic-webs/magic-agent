@@ -42,6 +42,7 @@ import {
   festivalsBetween,
   isLocalDate,
   metaBody,
+  tidyExamples,
   zonedParts,
   zonedToInstant,
 } from "./lib/marketing";
@@ -60,6 +61,7 @@ import {
   audienceCategory as audienceCategoryValidator,
   audienceSelection as audienceSelectionValidator,
   guestSegment as guestSegmentValidator,
+  templateExample as templateExampleValidator,
 } from "./schema/marketing";
 import {
   inSelection,
@@ -459,6 +461,7 @@ export const saveTemplate = mutation({
     name: v.string(),
     occasion,
     body: v.string(),
+    examples: v.optional(v.array(templateExampleValidator)),
     metaTemplateName: v.optional(v.string()),
     languageCode: v.optional(v.string()),
     category: v.optional(templateCategory),
@@ -542,6 +545,7 @@ export const saveTemplate = mutation({
         name,
         occasion: args.occasion,
         body,
+        examples: tidyExamples(body, args.examples ?? existing.examples),
         metaTemplateName,
         languageCode,
         // Left alone when not given, so a caller that predates categories
@@ -573,6 +577,7 @@ export const saveTemplate = mutation({
       name,
       occasion: args.occasion,
       body,
+      examples: tidyExamples(body, args.examples),
       metaTemplateName,
       languageCode,
       category: args.category ?? "marketing",

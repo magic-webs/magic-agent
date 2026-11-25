@@ -1180,6 +1180,65 @@ export const sendReaction = action({
   },
 });
 
+export const agentStaysQuiet = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+    agentId: v.id("agents"),
+    externalId: v.string(),
+  },
+  handler: async (ctx, args): Promise<boolean> => {
+    const contact = await ctx.db
+      .query("contacts")
+      .withIndex("by_workspace_external", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("externalId", args.externalId)
+      )
+      .unique();
+    if (!contact) return false;
+    const conversation = await ctx.db
+      .query("conversations")
+      .withIndex("by_contact_agent", (q) =>
+        q.eq("contactId", contact._id).eq("agentId", args.agentId)
+      )
+      .unique();
+    if (!conversation) return false;
+    if (conversation.markedBot) return true;
+    return conversation.humanHandling === true && !holdIsOver(conversation, Date.now());
+  },
+});
+
+export const typingTarget = internalQuery({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const access = await threadAccess(ctx, args.conversationId);
+    if (!access) return null;
+    const { conversation } = access;
+    if (conversation.channelType !== "whatsapp" || !conversation.channelId) return null;
+
+    const recent = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+      .order("desc")
+      .take(50);
+    const inbound = recent.find((message) => message.role === "user");
+    if (!inbound || Date.now() - inbound.createdAt > 24 * 60 * 60_000) return null;
+
+    const link = await ctx.db
+      .query("whatsappMessageIds")
+      .withIndex("by_messageId", (q) => q.eq("messageId", inbound._id))
+      .first();
+    return link ? { channelId: conversation.channelId, wamid: link.wamid } : null;
+  },
+});
+
+export const sendTyping = action({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args): Promise<null> => {
+    const target = await ctx.runQuery(internal.conversations.typingTarget, args);
+    if (target) await ctx.runAction(internal.whatsapp.showTyping, target);
+    return null;
+  },
+});
+
 export const recordTeamReaction = internalMutation({
   args: { messageId: v.id("messages"), emoji: v.string() },
   handler: async (ctx, args) => {

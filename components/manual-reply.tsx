@@ -63,6 +63,8 @@ function storePause(minutes: number) {
   }
 }
 
+const TYPING_EVERY_MS = 20_000;
+
 const PAUSE_OPTIONS = PAUSE_CHOICES_MINUTES.map((minutes) => ({
   value: String(minutes),
   label: pauseLabel(minutes),
@@ -243,6 +245,8 @@ export function ManualReply({
   agentName: string;
 }) {
   const send = useAction(api.conversations.sendManualReply);
+  const sendTyping = useAction(api.conversations.sendTyping);
+  const typedAt = useRef(0);
   // Who is on the team, so a reply can be signed. Absent or empty and the
   // composer looks exactly as it did — nobody is made to fill in a roster
   // before they can answer a customer. Not asked on the desk, which could not
@@ -323,6 +327,7 @@ export function ManualReply({
         // Cleared only on success, so a rejected message is still there to
         // edit or copy rather than lost.
         setText("");
+        typedAt.current = 0;
         inputRef.current?.focus();
       } else {
         toast.add({
@@ -459,7 +464,14 @@ export function ManualReply({
             // above draws both for the composer as a whole.
             className="max-h-32 min-h-8 resize-none border-0 bg-transparent px-1 py-1 focus-visible:ring-0 dark:bg-transparent"
             aria-label="Your reply"
-            onChange={(event) => setText(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value;
+              setText(next);
+              if (whatsapp && next.trim() && Date.now() - typedAt.current > TYPING_EVERY_MS) {
+                typedAt.current = Date.now();
+                void sendTyping({ conversationId }).catch(() => undefined);
+              }
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();

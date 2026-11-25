@@ -178,9 +178,10 @@ function splitForWhatsApp(text: string): string[] {
   return parts;
 }
 
-async function markReadAndTyping(
+async function markRead(
   config: WhatsAppConfig,
-  messageId: string
+  messageId: string,
+  typing: boolean
 ): Promise<void> {
   // Marking read with typing_indicator shows the "typing…" state in the client.
   await fetch(messagesUrl(config), {
@@ -193,10 +194,24 @@ async function markReadAndTyping(
       messaging_product: "whatsapp",
       status: "read",
       message_id: messageId,
-      typing_indicator: { type: "text" },
+      ...(typing ? { typing_indicator: { type: "text" } } : {}),
     }),
   }).catch(() => undefined);
 }
+
+export const showTyping = internalAction({
+  args: { channelId: v.id("channels"), wamid: v.string() },
+  handler: async (ctx, args): Promise<null> => {
+    const resolved = await ctx.runQuery(internal.channels.resolveById, {
+      channelId: args.channelId,
+    });
+    const channel = resolved?.channel;
+    if (channel?.type === "whatsapp" && channel.whatsapp) {
+      await markRead(channel.whatsapp, args.wamid, true);
+    }
+    return null;
+  },
+});
 
 async function transcribe(bytes: ArrayBuffer): Promise<string> {
   const result = await transcribeAudio({
@@ -345,7 +360,15 @@ export const handleInbound = internalAction({
       return { handled: true, reason: "reaction" };
     }
 
-    if (!args.settled) await markReadAndTyping(config, messageId);
+    const agentQuiet =
+      channel.humanOnly === true ||
+      (await ctx.runQuery(internal.conversations.agentStaysQuiet, {
+        workspaceId: channel.workspaceId,
+        agentId: channel.agentId,
+        externalId: from,
+      }));
+
+    if (!args.settled) await markRead(config, messageId, !agentQuiet);
 
     if (parsed.kind === "unsupported") {
       console.log("[whatsapp] unsupported inbound type", message.type);
@@ -386,7 +409,7 @@ export const handleInbound = internalAction({
         from,
         wamid: messageId,
       }));
-    if (args.settled && !superseded) await markReadAndTyping(config, messageId);
+    if (args.settled && !superseded) await markRead(config, messageId, !agentQuiet);
 
     let text = parsed.text;
     let payload = parsed.payload;

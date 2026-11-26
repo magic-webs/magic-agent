@@ -69,6 +69,7 @@ import type * as lib_branding from "../lib/branding.js";
 import type * as lib_catalogue from "../lib/catalogue.js";
 import type * as lib_channelSend from "../lib/channelSend.js";
 import type * as lib_charge from "../lib/charge.js";
+import type * as lib_closing from "../lib/closing.js";
 import type * as lib_contactActivity from "../lib/contactActivity.js";
 import type * as lib_contactClean from "../lib/contactClean.js";
 import type * as lib_crm from "../lib/crm.js";
@@ -282,6 +283,7 @@ declare const fullApi: ApiFromModules<{
   "lib/catalogue": typeof lib_catalogue;
   "lib/channelSend": typeof lib_channelSend;
   "lib/charge": typeof lib_charge;
+  "lib/closing": typeof lib_closing;
   "lib/contactActivity": typeof lib_contactActivity;
   "lib/contactClean": typeof lib_contactClean;
   "lib/crm": typeof lib_crm;

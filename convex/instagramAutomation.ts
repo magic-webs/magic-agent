@@ -1,4 +1,5 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
+import { filter as filterRows } from "convex-helpers/server/filter";
 import { paginationOptsValidator } from "convex/server";
 import {
   action,
@@ -652,15 +653,83 @@ export const saveSettings = mutation({
   },
 });
 
+const activityFilter = v.union(
+  v.literal("all"),
+  v.literal("answered"),
+  v.literal("moderated"),
+  v.literal("skipped"),
+  v.literal("stories"),
+  v.literal("failed")
+);
+
+function fitsFilter(row: Doc<"instagramActivity">, filter: Infer<typeof activityFilter>) {
+  const moderated = row.actions.includes("hidden") || row.actions.includes("deleted");
+  switch (filter) {
+    case "answered":
+      return row.actions.includes("public_reply") || row.actions.includes("dm");
+    case "moderated":
+      return moderated;
+    case "skipped":
+      return row.actions.length === 0 && !row.error;
+    case "stories":
+      return row.kind === "story_mention";
+    case "failed":
+      return Boolean(row.error);
+    default:
+      return true;
+  }
+}
+
 export const listActivity = query({
-  args: { workspaceId: v.id("workspaces"), paginationOpts: paginationOptsValidator },
+  args: {
+    workspaceId: v.id("workspaces"),
+    channelId: v.optional(v.id("channels")),
+    filter: v.optional(activityFilter),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, args) => {
     await requireArea(ctx, args.workspaceId, "social");
-    return await ctx.db
-      .query("instagramActivity")
-      .withIndex("by_workspace_and_createdAt", (q) => q.eq("workspaceId", args.workspaceId))
-      .order("desc")
-      .paginate(args.paginationOpts);
+    const channelId = args.channelId;
+    if (channelId) {
+      const channel = await ctx.db.get("channels", channelId);
+      if (!channel || channel.workspaceId !== args.workspaceId) {
+        throw new ConvexError("That account belongs to another workspace.");
+      }
+    }
+    const rows = channelId
+      ? ctx.db
+          .query("instagramActivity")
+          .withIndex("by_channel_and_createdAt", (q) => q.eq("channelId", channelId))
+          .order("desc")
+      : ctx.db
+          .query("instagramActivity")
+          .withIndex("by_workspace_and_createdAt", (q) => q.eq("workspaceId", args.workspaceId))
+          .order("desc");
+    const filter = args.filter ?? "all";
+    return await (
+      filter === "all" ? rows : filterRows(rows, (row) => fitsFilter(row, filter))
+    ).paginate(args.paginationOpts);
+  },
+});
+
+export const knownPosts = query({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const channel = await requireSocialChannel(ctx, args.channelId);
+    const rules = await ctx.db
+      .query("instagramRules")
+      .withIndex("by_channel", (q) => q.eq("channelId", channel._id))
+      .take(200);
+    const posts: Record<string, { thumbnailUrl?: string; permalink?: string }> = {};
+    for (const rule of rules) {
+      for (const post of rule.posts) {
+        const thumbnailUrl = post.thumbnailKey ? fileUrl(post.thumbnailKey) : undefined;
+        if (!posts[post.id]?.thumbnailUrl) {
+          posts[post.id] = { thumbnailUrl, permalink: post.permalink };
+        }
+      }
+    }
+    return posts;
   },
 });
 

@@ -198,7 +198,7 @@ function IceBreakersCard({
               filled.map((question, index) => (
                 <span
                   key={index}
-                  className="max-w-full rounded-full border border-border px-3 py-1.5 text-xs break-words"
+                  className="max-w-full rounded-full border border-border px-3 py-1.5 text-xs wrap-break-word"
                 >
                   {question}
                 </span>

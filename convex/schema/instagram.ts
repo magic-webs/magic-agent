@@ -95,5 +95,6 @@ export const instagramTables = {
   })
     .index("by_workspace_and_createdAt", ["workspaceId", "createdAt"])
     .index("by_channel_and_fromId", ["channelId", "fromId"])
+    .index("by_channel_and_createdAt", ["channelId", "createdAt"])
     .index("by_createdAt", ["createdAt"]),
 };

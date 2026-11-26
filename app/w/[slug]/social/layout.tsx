@@ -123,7 +123,7 @@ export default function SocialLayout({ children }: { children: ReactNode }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{channel.label}</p>
             <p className="text-xs text-muted-foreground">
-              {overview.rules.live} of {overview.rules.total} comment rules live
+              {channel.rules.live} of {channel.rules.total} comment rules live
             </p>
           </div>
           {channel.status !== "active" ? (

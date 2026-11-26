@@ -136,7 +136,13 @@ export const overview = query({
     }
 
     return {
-      channels: channels.map(channelSummary),
+      channels: channels.map((channel) => {
+        const own = rules.filter((rule) => rule.channelId === channel._id);
+        return {
+          ...channelSummary(channel),
+          rules: { total: own.length, live: own.filter((rule) => rule.enabled).length },
+        };
+      }),
       rules: { total: rules.length, live: rules.filter((rule) => rule.enabled).length },
       totals,
       capped: recent.length === 2000,
@@ -591,6 +597,116 @@ function withDefaults(row: Doc<"instagramSettings"> | null) {
     iceBreakersSync: row?.iceBreakersSync,
   };
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const STATS_DAYS = 7;
+const STATS_CAP = 4000;
+
+type Totals = {
+  comments: number;
+  answered: number;
+  publicReplies: number;
+  dms: number;
+  moderated: number;
+  storyMentions: number;
+  failed: number;
+};
+
+function emptyTotals(): Totals {
+  return { comments: 0, answered: 0, publicReplies: 0, dms: 0, moderated: 0, storyMentions: 0, failed: 0 };
+}
+
+function count(totals: Totals, row: Doc<"instagramActivity">) {
+  if (row.kind === "story_mention") totals.storyMentions++;
+  else totals.comments++;
+  const replied = row.actions.includes("public_reply");
+  const dm = row.actions.includes("dm");
+  if (replied) totals.publicReplies++;
+  if (dm) totals.dms++;
+  if (row.kind === "comment" && (replied || dm)) totals.answered++;
+  if (row.actions.includes("hidden") || row.actions.includes("deleted")) totals.moderated++;
+  if (row.error) totals.failed++;
+}
+
+function top(counts: Map<string, number>, limit: number) {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name, value]) => ({ name, value }));
+}
+
+export const channelStats = query({
+  args: { channelId: v.id("channels"), now: v.number() },
+  handler: async (ctx, args) => {
+    const channel = await requireSocialChannel(ctx, args.channelId);
+    const today = Math.floor(args.now / DAY_MS) * DAY_MS;
+    const start = today - (STATS_DAYS - 1) * DAY_MS;
+    const previousStart = start - STATS_DAYS * DAY_MS;
+
+    const rows = await ctx.db
+      .query("instagramActivity")
+      .withIndex("by_channel_and_createdAt", (q) =>
+        q.eq("channelId", channel._id).gte("createdAt", previousStart)
+      )
+      .order("desc")
+      .take(STATS_CAP);
+
+    const current = emptyTotals();
+    const previous = emptyTotals();
+    const daily = Array.from({ length: STATS_DAYS }, (_, index) => ({
+      date: new Date(start + index * DAY_MS).toISOString().slice(0, 10),
+      comments: 0,
+      answered: 0,
+      moderated: 0,
+    }));
+    const rulesFired = new Map<string, number>();
+    const people = new Map<string, number>();
+
+    for (const row of rows) {
+      if (row.createdAt < start) {
+        count(previous, row);
+        continue;
+      }
+      count(current, row);
+      const day = daily[Math.floor((row.createdAt - start) / DAY_MS)];
+      if (day && row.kind === "comment") {
+        day.comments++;
+        if (row.actions.includes("public_reply") || row.actions.includes("dm")) day.answered++;
+        if (row.actions.includes("hidden") || row.actions.includes("deleted")) day.moderated++;
+      }
+      if (row.ruleName && row.actions.length) {
+        rulesFired.set(row.ruleName, (rulesFired.get(row.ruleName) ?? 0) + 1);
+      }
+      const person = row.fromUsername ? `@${row.fromUsername}` : row.fromName;
+      if (person && row.kind === "comment") people.set(person, (people.get(person) ?? 0) + 1);
+    }
+
+    const rules = await ctx.db
+      .query("instagramRules")
+      .withIndex("by_channel", (q) => q.eq("channelId", channel._id))
+      .take(200);
+    const settings = withDefaults(await settingsRow(ctx, channel._id));
+    const summary = channelSummary(channel);
+
+    return {
+      days: STATS_DAYS,
+      capped: rows.length === STATS_CAP,
+      current,
+      previous,
+      daily,
+      topRules: top(rulesFired, 5),
+      topPeople: top(people, 5),
+      setup: {
+        liveRules: rules.filter((rule) => rule.enabled).length,
+        totalRules: rules.length,
+        moderation: settings.moderation.enabled,
+        storyMention: settings.storyMention.enabled,
+        iceBreakers: settings.iceBreakers.length,
+        canManageComments: summary.canManageComments,
+      },
+    };
+  },
+});
 
 export const getSettings = query({
   args: { channelId: v.id("channels") },

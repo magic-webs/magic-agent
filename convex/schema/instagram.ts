@@ -5,6 +5,7 @@ export const instagramPost = v.object({
   id: v.string(),
   caption: v.optional(v.string()),
   thumbnailUrl: v.optional(v.string()),
+  thumbnailKey: v.optional(v.string()),
   permalink: v.optional(v.string()),
 });
 

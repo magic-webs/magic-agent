@@ -101,6 +101,36 @@ export function register(server) {
   );
 
   server.registerTool(
+    "list_instagram_posts",
+    {
+      title: "List recent Instagram or Facebook posts",
+      description:
+        "The account's most recent posts, newest first, with the id a comment rule targets, caption, type, when it was posted and its link. Call this whenever someone means a post by description — 'my latest post', 'the reel about the offer' — and never guess a post id.",
+      inputSchema: { ...workspaceArg, ...channelArg },
+      annotations: { readOnlyHint: true },
+    },
+    handler(async ({ workspace, account }) => {
+      const found = await resolveWorkspace(workspace);
+      const { channel } = await instagramAccount(found._id, account);
+      const posts = await call.action(api.instagramAutomation.listMedia, {
+        channelId: channel._id,
+      });
+      return ok({
+        account: channel.label,
+        posts: posts
+          .sort((a, b) => (b.timestamp ?? "").localeCompare(a.timestamp ?? ""))
+          .map((post) => ({
+            id: post.id,
+            caption: post.caption ?? null,
+            type: post.mediaType ?? null,
+            postedAt: post.timestamp ?? null,
+            permalink: post.permalink ?? null,
+          })),
+      });
+    })
+  );
+
+  server.registerTool(
     "save_instagram_rule",
     {
       title: "Create or update an Instagram or Facebook comment rule",
@@ -117,7 +147,9 @@ export function register(server) {
         postIds: z
           .array(z.string())
           .optional()
-          .describe("Instagram media ids or Facebook post ids to limit the rule to. Empty means every post."),
+          .describe(
+            "Instagram media ids or Facebook post ids to limit the rule to, from list_instagram_posts. Empty means every post."
+          ),
         publicReply: z
           .object({
             mode: z.enum(["off", "fixed", "ai"]),
@@ -155,8 +187,25 @@ export function register(server) {
         ? { channel: { _id: existing.channelId } }
         : await instagramAccount(found._id, account);
 
+      const known = new Map((existing?.posts ?? []).map((post) => [post.id, post]));
+      const missing = (postIds ?? []).filter((id) => !known.has(id));
+      if (missing.length) {
+        const recent = await call
+          .action(api.instagramAutomation.listMedia, { channelId: channel._id })
+          .catch(() => []);
+        for (const post of recent) {
+          if (missing.includes(post.id)) {
+            known.set(post.id, {
+              id: post.id,
+              caption: post.caption,
+              thumbnailUrl: post.thumbnailUrl,
+              permalink: post.permalink,
+            });
+          }
+        }
+      }
       const posts = postIds
-        ? postIds.map((id) => existing?.posts.find((post) => post.id === id) ?? { id })
+        ? postIds.map((id) => known.get(id) ?? { id })
         : (existing?.posts ?? []);
       const name = fields.name ?? existing?.name;
       if (!name) throw new Error("A new rule needs a name.");

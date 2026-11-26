@@ -5,8 +5,10 @@ import {
   internalAction,
   internalQuery,
   query,
+  type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { deleteFile, fileUrl, newFileKey, r2 } from "./lib/files";
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -147,7 +149,14 @@ export const listRules = query({
       .query("instagramRules")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .take(200);
-    return rules.sort((a, b) => b.createdAt - a.createdAt);
+    return rules
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((rule) => ({
+        ...rule,
+        posts: rule.posts.map((post) =>
+          post.thumbnailKey ? { ...post, thumbnailUrl: fileUrl(post.thumbnailKey) } : post
+        ),
+      }));
   },
 });
 
@@ -248,17 +257,30 @@ export const saveRule = mutation({
       if (!existing || existing.workspaceId !== args.workspaceId) {
         throw new ConvexError("That rule no longer exists.");
       }
+      const sameChannel = existing.channelId === args.channelId;
+      const keys = new Map(
+        sameChannel ? existing.posts.map((post) => [post.id, post.thumbnailKey]) : []
+      );
+      const posts = clean.posts.map((post) => ({ ...post, thumbnailKey: keys.get(post.id) }));
+      const kept = new Set(posts.map((post) => post.thumbnailKey));
+      for (const post of existing.posts) {
+        if (post.thumbnailKey && !kept.has(post.thumbnailKey)) {
+          await deleteFile(ctx, post.thumbnailKey);
+        }
+      }
       await ctx.db.patch(existing._id, {
         ...clean,
+        posts,
         channelId: args.channelId,
         enabled: args.enabled,
         oncePerUser: args.oncePerUser,
         updatedAt: now,
       });
+      await scheduleThumbnails(ctx, existing._id, posts);
       return existing._id;
     }
 
-    return await ctx.db.insert("instagramRules", {
+    const ruleId = await ctx.db.insert("instagramRules", {
       ...clean,
       workspaceId: args.workspaceId,
       channelId: args.channelId,
@@ -268,6 +290,180 @@ export const saveRule = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await scheduleThumbnails(ctx, ruleId, clean.posts);
+    return ruleId;
+  },
+});
+
+async function scheduleThumbnails(
+  ctx: MutationCtx,
+  ruleId: Id<"instagramRules">,
+  posts: Doc<"instagramRules">["posts"]
+) {
+  if (posts.some((post) => !post.thumbnailKey)) {
+    await ctx.scheduler.runAfter(0, internal.instagramAutomation.cacheThumbnails, { ruleId });
+  }
+}
+
+export const thumbnailTarget = internalQuery({
+  args: { ruleId: v.id("instagramRules") },
+  handler: async (ctx, args) => {
+    const rule = await ctx.db.get("instagramRules", args.ruleId);
+    if (!rule) return null;
+    const channel = await ctx.db.get("channels", rule.channelId);
+    if (!channel) return null;
+    return {
+      workspaceId: rule.workspaceId,
+      posts: rule.posts.filter((post) => !post.thumbnailKey),
+      instagramToken: channel.instagram?.accessToken,
+      pageToken: channel.messenger?.accessToken,
+    };
+  },
+});
+
+const THUMBNAIL_MAX_BYTES = 5 * 1024 * 1024;
+
+async function freshPost(
+  target: { instagramToken?: string; pageToken?: string },
+  postId: string
+): Promise<{ image?: string; caption?: string; permalink?: string } | null> {
+  const request = target.pageToken
+    ? fetch(facebookUrl(postId, { fields: "full_picture,message,permalink_url" }), {
+        headers: { Authorization: `Bearer ${target.pageToken}` },
+      })
+    : target.instagramToken
+      ? fetch(
+          graphUrl(`${postId}?fields=media_type,media_url,thumbnail_url,caption,permalink`),
+          { headers: { Authorization: `Bearer ${target.instagramToken}` } }
+        )
+      : null;
+  const response = await request?.catch(() => null);
+  if (!response?.ok) return null;
+  const body = (await response.json()) as {
+    media_type?: string;
+    media_url?: string;
+    thumbnail_url?: string;
+    caption?: string;
+    permalink?: string;
+    full_picture?: string;
+    message?: string;
+    permalink_url?: string;
+  };
+  return {
+    image:
+      body.full_picture ??
+      body.thumbnail_url ??
+      (body.media_type === "VIDEO" ? undefined : body.media_url),
+    caption: (body.caption ?? body.message)?.slice(0, 200),
+    permalink: body.permalink ?? body.permalink_url,
+  };
+}
+
+async function downloadImage(url: string) {
+  const response = await fetch(url).catch(() => null);
+  if (!response?.ok) return null;
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.startsWith("image/")) return null;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > THUMBNAIL_MAX_BYTES) return null;
+  return { bytes, type };
+}
+
+export const cacheThumbnails = internalAction({
+  args: { ruleId: v.id("instagramRules") },
+  handler: async (ctx, args) => {
+    const target = await ctx.runQuery(internal.instagramAutomation.thumbnailTarget, args);
+    if (!target || target.posts.length === 0) return;
+
+    const found: Array<{
+      id: string;
+      thumbnailKey?: string;
+      caption?: string;
+      permalink?: string;
+    }> = [];
+    for (const post of target.posts) {
+      const fresh = await freshPost(target, post.id);
+      const image =
+        (fresh?.image && (await downloadImage(fresh.image))) ||
+        (post.thumbnailUrl && (await downloadImage(post.thumbnailUrl))) ||
+        null;
+      const thumbnailKey = image
+        ? await r2.store(ctx, image.bytes, {
+            key: newFileKey("social", target.workspaceId),
+            type: image.type,
+          })
+        : undefined;
+      if (thumbnailKey || fresh) {
+        found.push({
+          id: post.id,
+          thumbnailKey,
+          caption: fresh?.caption,
+          permalink: fresh?.permalink,
+        });
+      }
+    }
+    if (found.length) {
+      await ctx.runMutation(internal.instagramAutomation.attachThumbnails, {
+        ruleId: args.ruleId,
+        posts: found,
+      });
+    }
+  },
+});
+
+export const attachThumbnails = internalMutation({
+  args: {
+    ruleId: v.id("instagramRules"),
+    posts: v.array(
+      v.object({
+        id: v.string(),
+        thumbnailKey: v.optional(v.string()),
+        caption: v.optional(v.string()),
+        permalink: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const rule = await ctx.db.get("instagramRules", args.ruleId);
+    const used = new Set<string>();
+    if (rule) {
+      const byId = new Map(args.posts.map((post) => [post.id, post]));
+      const posts = rule.posts.map((post) => {
+        const found = byId.get(post.id);
+        if (!found) return post;
+        const thumbnailKey = post.thumbnailKey ?? found.thumbnailKey;
+        if (!post.thumbnailKey && found.thumbnailKey) used.add(found.thumbnailKey);
+        return {
+          ...post,
+          thumbnailKey,
+          caption: post.caption ?? found.caption,
+          permalink: post.permalink ?? found.permalink,
+        };
+      });
+      await ctx.db.patch(rule._id, { posts });
+    }
+    for (const post of args.posts) {
+      if (post.thumbnailKey && !used.has(post.thumbnailKey)) {
+        await deleteFile(ctx, post.thumbnailKey);
+      }
+    }
+  },
+});
+
+export const cacheAllThumbnails = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rules = await ctx.db.query("instagramRules").take(1000);
+    let scheduled = 0;
+    for (const rule of rules) {
+      if (rule.posts.some((post) => !post.thumbnailKey)) {
+        await ctx.scheduler.runAfter(scheduled * 500, internal.instagramAutomation.cacheThumbnails, {
+          ruleId: rule._id,
+        });
+        scheduled++;
+      }
+    }
+    return { scheduled };
   },
 });
 
@@ -291,6 +487,9 @@ export const removeRule = mutation({
   handler: async (ctx, args) => {
     const rule = await requireRule(ctx, args.ruleId);
     await ctx.db.delete(rule._id);
+    for (const post of rule.posts) {
+      if (post.thumbnailKey) await deleteFile(ctx, post.thumbnailKey);
+    }
   },
 });
 

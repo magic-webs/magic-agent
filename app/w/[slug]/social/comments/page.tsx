@@ -103,6 +103,20 @@ export default function InstagramCommentsPage() {
   );
 }
 
+function PostThumb({ src }: { src?: string }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  if (!src || broken === src) return <span className="size-10 rounded bg-muted" />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      onError={() => setBroken(src)}
+      className="size-10 rounded object-cover"
+    />
+  );
+}
+
 function RuleCard({ rule, onEdit }: { rule: InstagramRule; onEdit: () => void }) {
   const setEnabled = useMutation(api.instagramAutomation.setRuleEnabled);
   const remove = useMutation(api.instagramAutomation.removeRule);
@@ -159,19 +173,9 @@ function RuleCard({ rule, onEdit }: { rule: InstagramRule; onEdit: () => void })
 
       {rule.posts.length ? (
         <div className="flex gap-1.5">
-          {rule.posts.slice(0, 6).map((post) =>
-            post.thumbnailUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={post.id}
-                src={post.thumbnailUrl}
-                alt=""
-                className="size-10 rounded object-cover"
-              />
-            ) : (
-              <span key={post.id} className="size-10 rounded bg-muted" />
-            )
-          )}
+          {rule.posts.slice(0, 6).map((post) => (
+            <PostThumb key={post.id} src={post.thumbnailUrl} />
+          ))}
         </div>
       ) : null}
 

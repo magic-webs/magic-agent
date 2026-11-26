@@ -664,6 +664,33 @@ export const listActivity = query({
   },
 });
 
+export const recentModerated = query({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const channel = await requireSocialChannel(ctx, args.channelId);
+    const recent = await ctx.db
+      .query("instagramActivity")
+      .withIndex("by_workspace_and_createdAt", (q) => q.eq("workspaceId", channel.workspaceId))
+      .order("desc")
+      .take(300);
+    return recent
+      .filter(
+        (row) =>
+          row.channelId === channel._id &&
+          (row.actions.includes("hidden") || row.actions.includes("deleted"))
+      )
+      .slice(0, 6)
+      .map((row) => ({
+        _id: row._id,
+        from: row.fromName ?? (row.fromUsername ? `@${row.fromUsername}` : "Someone"),
+        text: row.text,
+        action: row.actions.includes("deleted") ? ("deleted" as const) : ("hidden" as const),
+        reason: row.reason,
+        createdAt: row.createdAt,
+      }));
+  },
+});
+
 export const channelForViewer = internalQuery({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => await requireSocialChannel(ctx, args.channelId),

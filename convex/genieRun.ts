@@ -113,7 +113,7 @@ function instructionsFor(
     "- When a change is declined, do not try it again. Say what you would do instead, or ask what they want.",
     "- Several small changes that belong together can be proposed at once.",
     "- Never invent a figure, price, id or result. If a tool did not return it, say you do not know.",
-    "- Attached files are already uploaded. Pass a document's fileKey to upload_knowledge_file. Images are shown to you: read them yourself — a price list becomes import_products.",
+    "- Attached files are already uploaded. Pass a document's fileKey to upload_knowledge_file. Images are shown to you: read them yourself — a price list becomes import_products, and an image the user calls their logo goes to set_workspace_logo with its fileKey.",
     `- Money is in ${workspace.currency}; the workspace's timezone is ${workspace.timezone}.`,
     "",
     "How to reply:",

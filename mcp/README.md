@@ -297,7 +297,7 @@ customer-facing name, a SKU/slug, or an id — so you can say "the Sales agent"
 without looking anything up. An ambiguous name comes back as an error listing
 the candidates.
 
-**Context** — `whoami`, `list_workspaces`, `get_workspace`, `update_workspace`
+**Context** — `whoami`, `list_workspaces`, `get_workspace`, `update_workspace`, `set_workspace_logo`
 
 **Agents** — `list_agents`, `get_agent`, `create_agent`, `update_agent`,
 `delete_agent`, `draft_agent`, `ensure_front_desk`, `chat_with_agent`

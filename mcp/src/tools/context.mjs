@@ -6,8 +6,26 @@ import { z } from "zod";
 import { kvArg, workspaceArg } from "../args.mjs";
 import { DEFAULT_WORKSPACE } from "../config.mjs";
 import { api, authorize, call, currentSession, state } from "../convex.mjs";
+import { fileSourceArgs, guessMime, loadFile } from "../files.mjs";
 import { handler, ok } from "../results.mjs";
 import { reachableWorkspaces, resolveWorkspace } from "../workspaces.mjs";
+
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+const logoMime = (filename, given) =>
+  /\.svg$/i.test(filename) ? "image/svg+xml" : guessMime(filename, given);
+
+async function logoBytes(workspaceId, file) {
+  if (file.bytes) return { ...file, mimeType: file.mimeType ?? logoMime(file.filename) };
+  const url = await call.query(api.workspaces.ownFileUrl, { workspaceId, key: file.fileKey });
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Nothing has been uploaded to ${file.fileKey}.`);
+  return {
+    ...file,
+    bytes: new Uint8Array(await response.arrayBuffer()),
+    mimeType: logoMime(file.filename, response.headers.get("content-type")),
+  };
+}
 
 /** @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server */
 export function register(server) {
@@ -89,6 +107,7 @@ export function register(server) {
         locale: found.locale,
         timezone: found.timezone,
         currency: found.currency,
+        logo: found.logoSrc ?? null,
         theme: found.theme ?? "default (green)",
         webhookUrl: found.webhookUrl ?? null,
         facts: found.facts,
@@ -143,6 +162,54 @@ export function register(server) {
       });
       state().workspaces.delete(found.slug);
       return ok(`Updated ${found.name}.`);
+    })
+  );
+
+  server.registerTool(
+    "set_workspace_logo",
+    {
+      title: "Set the company logo",
+      description:
+        "Replace the company logo shown in the console, the web chat and emails. Pass one image (PNG, JPG, WebP, GIF or SVG, up to 2 MB) as a fileKey, url or contentBase64 — it is copied into the workspace's logo storage. Pass clear: true instead to go back to the Magic Agent mark.",
+      inputSchema: {
+        ...workspaceArg,
+        ...fileSourceArgs,
+        filename: z
+          .string()
+          .optional()
+          .describe("e.g. 'logo.png'. Required with contentBase64 or fileKey; defaults to the URL's last segment."),
+        clear: z.boolean().optional().describe("Remove the logo instead of setting one"),
+      },
+    },
+    handler(async ({ workspace, clear, ...source }) => {
+      const found = await resolveWorkspace(workspace);
+      if (clear) {
+        await call.mutation(api.workspaces.clearLogo, { workspaceId: found._id });
+        state().workspaces.delete(found.slug);
+        return ok(`Removed the logo from ${found.name}.`);
+      }
+
+      const file = await logoBytes(found._id, await loadFile(source));
+      if (!file.mimeType?.startsWith("image/")) {
+        throw new Error(`${file.filename} is not an image. Use a PNG, JPG, WebP, GIF or SVG.`);
+      }
+      if (file.bytes.byteLength > MAX_LOGO_BYTES) {
+        throw new Error(`${file.filename} is over 2 MB. A PNG or SVG of the mark is plenty.`);
+      }
+
+      const target = await call.mutation(api.workspaces.generateLogoUploadUrl, {
+        workspaceId: found._id,
+      });
+      const put = await fetch(target.url, {
+        method: "PUT",
+        headers: { "Content-Type": file.mimeType },
+        body: file.bytes,
+      });
+      if (!put.ok) throw new Error(`Uploading ${file.filename} failed with HTTP ${put.status}`);
+
+      await call.mutation(api.workspaces.setLogo, { workspaceId: found._id, key: target.key });
+      state().workspaces.delete(found.slug);
+      return ok(`Set ${file.filename} as the logo of ${found.name}.`);
     })
   );
 

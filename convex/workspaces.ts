@@ -20,7 +20,7 @@ import {
   requireWorkspace,
 } from "./lib/auth";
 import { logoSrcFor } from "./lib/branding";
-import { deleteFile, requireOwnKey, uploadUrlFor } from "./lib/files";
+import { deleteFile, fileUrl, requireOwnKey, uploadUrlFor } from "./lib/files";
 import { orderRecords, statusForStage } from "./lib/ordersBook";
 import { grantWelcomeBonus } from "./lib/wallet";
 import { isIndian } from "./lib/currency";
@@ -426,6 +426,17 @@ export const generateLogoUploadUrl = mutation({
   handler: async (ctx, args) => {
     await requireWorkspace(ctx, args.workspaceId);
     return await uploadUrlFor("logos", args.workspaceId);
+  },
+});
+
+export const ownFileUrl = query({
+  args: { workspaceId: v.id("workspaces"), key: v.string() },
+  handler: async (ctx, args) => {
+    await requireWorkspace(ctx, args.workspaceId);
+    if (args.key.split("/")[1] !== args.workspaceId) {
+      throw new ConvexError("That file belongs to another workspace.");
+    }
+    return fileUrl(args.key);
   },
 });
 

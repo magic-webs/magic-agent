@@ -7,12 +7,8 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
-import {
-  INSTAGRAM_GRADIENT,
-  InstagramContext,
-  fail,
-} from "@/components/instagram/context";
-import { ChannelMark } from "@/components/channel-mark";
+import { InstagramContext, fail } from "@/components/instagram/context";
+import { AccountAvatar } from "@/components/instagram/account-avatar";
 import { SelectField } from "@/components/select-field";
 import { TableSkeleton } from "@/components/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -123,22 +119,7 @@ export default function SocialLayout({ children }: { children: ReactNode }) {
     <InstagramContext.Provider value={{ overview, channel, setChannelId: setPicked }}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
-          {channel.profilePictureUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={channel.profilePictureUrl}
-              alt=""
-              className="size-10 rounded-full object-cover"
-            />
-          ) : facebook ? (
-            <ChannelMark type="messenger" size={40} />
-          ) : (
-            <span
-              className={`flex size-10 items-center justify-center rounded-full text-white ${INSTAGRAM_GRADIENT}`}
-            >
-              <HugeiconsIcon icon={InstagramIcon} strokeWidth={2} className="size-5" />
-            </span>
-          )}
+          <AccountAvatar channel={channel} size={40} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{channel.label}</p>
             <p className="text-xs text-muted-foreground">

@@ -7,6 +7,7 @@ import { mutation, internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { randomKey, maskSecret } from "./lib/shared";
+import { deleteFile, fileUrl } from "./lib/files";
 import { phoneLineSettings, voiceWidgetSettings, webWidgetSettings, widgetIntake } from "./schema";
 import { ensureRouter } from "./agents";
 import { DEFAULT_VOICE_WIDGET } from "./voiceWidget";
@@ -92,6 +93,7 @@ function keepSecret(incoming: string | undefined, stored: string | undefined) {
 
 // Never return a live access token to the browser.
 function redact(channel: Doc<"channels">) {
+  const picture = channel.pictureKey ? fileUrl(channel.pictureKey) : undefined;
   return {
     ...channel,
     whatsapp: channel.whatsapp
@@ -101,13 +103,21 @@ function redact(channel: Doc<"channels">) {
         }
       : undefined,
     instagram: channel.instagram
-      ? { ...channel.instagram, accessToken: maskSecret(channel.instagram.accessToken) ?? "" }
+      ? {
+          ...channel.instagram,
+          profilePictureUrl: picture ?? channel.instagram.profilePictureUrl,
+          accessToken: maskSecret(channel.instagram.accessToken) ?? "",
+        }
       : undefined,
     rcs: channel.rcs
       ? { ...channel.rcs, accessToken: maskSecret(channel.rcs.accessToken) ?? "" }
       : undefined,
     messenger: channel.messenger
-      ? { ...channel.messenger, accessToken: maskSecret(channel.messenger.accessToken) ?? "" }
+      ? {
+          ...channel.messenger,
+          pictureUrl: picture ?? channel.messenger.pictureUrl,
+          accessToken: maskSecret(channel.messenger.accessToken) ?? "",
+        }
       : undefined,
     telegram: channel.telegram
       ? {
@@ -522,6 +532,7 @@ export const remove = mutation({
         botToken: channel.telegram.botToken,
       });
     }
+    if (channel?.pictureKey) await deleteFile(ctx, channel.pictureKey);
     await ctx.db.delete(args.channelId);
     return { success: true };
   },

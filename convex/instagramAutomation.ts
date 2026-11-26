@@ -87,9 +87,11 @@ function channelSummary(channel: Doc<"channels">) {
     agentId: channel.agentId,
     username,
     label: facebook ? username : `@${username}`,
-    profilePictureUrl: facebook
-      ? channel.messenger?.pictureUrl
-      : channel.instagram?.profilePictureUrl,
+    profilePictureUrl: channel.pictureKey
+      ? fileUrl(channel.pictureKey)
+      : facebook
+        ? channel.messenger?.pictureUrl
+        : channel.instagram?.profilePictureUrl,
     canManageComments: facebook
       ? canManagePageComments(channel.messenger?.permissions)
       : canManageComments(channel.instagram?.permissions),
@@ -447,6 +449,86 @@ export const attachThumbnails = internalMutation({
         await deleteFile(ctx, post.thumbnailKey);
       }
     }
+  },
+});
+
+export const pictureTarget = internalQuery({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const channel = await ctx.db.get("channels", args.channelId);
+    if (!channel || !isSocial(channel)) return null;
+    return {
+      workspaceId: channel.workspaceId,
+      pageId: channel.messenger?.pageId,
+      pageToken: channel.messenger?.accessToken,
+      instagramToken: channel.instagram?.accessToken,
+      fallback: channel.messenger?.pictureUrl ?? channel.instagram?.profilePictureUrl,
+    };
+  },
+});
+
+export const cacheChannelPicture = internalAction({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const target = await ctx.runQuery(internal.instagramAutomation.pictureTarget, args);
+    if (!target) return;
+    const response = await (target.pageId && target.pageToken
+      ? fetch(facebookUrl(target.pageId, { fields: "picture.type(large)" }), {
+          headers: { Authorization: `Bearer ${target.pageToken}` },
+        })
+      : target.instagramToken
+        ? fetch(graphUrl("me?fields=profile_picture_url"), {
+            headers: { Authorization: `Bearer ${target.instagramToken}` },
+          })
+        : Promise.resolve(null)
+    ).catch(() => null);
+    const body = response?.ok
+      ? ((await response.json()) as {
+          profile_picture_url?: string;
+          picture?: { data?: { url?: string } };
+        })
+      : null;
+    const fresh = body?.profile_picture_url ?? body?.picture?.data?.url;
+    const image =
+      (fresh && (await downloadImage(fresh))) ||
+      (target.fallback && (await downloadImage(target.fallback))) ||
+      null;
+    if (!image) return;
+    const pictureKey = await r2.store(ctx, image.bytes, {
+      key: newFileKey("social", target.workspaceId),
+      type: image.type,
+    });
+    await ctx.runMutation(internal.instagramAutomation.setChannelPicture, {
+      channelId: args.channelId,
+      pictureKey,
+    });
+  },
+});
+
+export const setChannelPicture = internalMutation({
+  args: { channelId: v.id("channels"), pictureKey: v.string() },
+  handler: async (ctx, args) => {
+    const channel = await ctx.db.get("channels", args.channelId);
+    if (!channel) {
+      await deleteFile(ctx, args.pictureKey);
+      return;
+    }
+    if (channel.pictureKey) await deleteFile(ctx, channel.pictureKey);
+    await ctx.db.patch(channel._id, { pictureKey: args.pictureKey });
+  },
+});
+
+export const cacheAllChannelPictures = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const channels = await ctx.db.query("channels").take(2000);
+    const social = channels.filter((channel) => isSocial(channel) && !channel.pictureKey);
+    for (const [index, channel] of social.entries()) {
+      await ctx.scheduler.runAfter(index * 500, internal.instagramAutomation.cacheChannelPicture, {
+        channelId: channel._id,
+      });
+    }
+    return { scheduled: social.length };
   },
 });
 

@@ -21,6 +21,7 @@ export const conversationsTables = {
     name: v.string(),
     channelKey: v.string(),
     externalId: v.optional(v.string()),
+    pictureKey: v.optional(v.string()),
     intake: v.optional(widgetIntake),
     voiceWidget: v.optional(voiceWidgetSettings),
     webWidget: v.optional(webWidgetSettings),

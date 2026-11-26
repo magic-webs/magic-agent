@@ -396,10 +396,13 @@ export const savePage = internalMutation({
         lastError: undefined,
         updatedAt: now,
       });
+      await ctx.scheduler.runAfter(0, internal.instagramAutomation.cacheChannelPicture, {
+        channelId: mine._id,
+      });
       return { ok: true };
     }
 
-    await ctx.db.insert("channels", {
+    const channelId = await ctx.db.insert("channels", {
       workspaceId: args.workspaceId,
       agentId: args.agentId,
       type: "messenger",
@@ -410,6 +413,9 @@ export const savePage = internalMutation({
       status: "active",
       createdAt: now,
       updatedAt: now,
+    });
+    await ctx.scheduler.runAfter(0, internal.instagramAutomation.cacheChannelPicture, {
+      channelId,
     });
     return { ok: true };
   },

@@ -181,6 +181,7 @@ export const conversationsTables = {
     humanHandling: v.optional(v.boolean()),
     humanHandlingAt: v.optional(v.number()),
     humanHandlingUntil: v.optional(v.number()),
+    heldForTeam: v.optional(v.boolean()),
     channelId: v.optional(v.id("channels")),
     channelType,
     status: v.union(

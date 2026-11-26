@@ -40,6 +40,7 @@ import { noteOptOut, noteReply } from "./lib/marketingStats";
 import {
   BOT_REPEAT_LIMIT,
   HANDBACK_AFTER_MINUTES,
+  ESCALATION_HOLD_MINUTES,
   WHATSAPP_FREE_FORM_WINDOW_HOURS,
   hasReplyWindow,
   MESSAGE_LIMIT_SESSION_HOURS,
@@ -858,6 +859,7 @@ export const recordManualReply = internalMutation({
         // sweep only reclaims one nobody has touched.
         humanHandlingAt: now,
         humanHandlingUntil: now + clampPause(args.pauseMinutes) * 60_000,
+        heldForTeam: undefined,
         // Latest replier last, so the inbox row can name who has the thread.
         ...(sender
           ? {
@@ -881,12 +883,25 @@ export const setHumanHandling = mutation({
     handling: v.boolean(),
     /** Taking over only: how long for. An hour when absent. */
     pauseMinutes: v.optional(v.number()),
+    /** Hold an escalated thread for the team, for the workspace's waiting time. */
+    forTeam: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const access = await threadAccess(ctx, args.conversationId);
     if (!access) throw new AuthError(OFF_THE_DESK);
     const now = Date.now();
+    if (args.handling && args.forTeam) {
+      const workspace = await ctx.db.get("workspaces", access.conversation.workspaceId);
+      await holdForTeam(
+        ctx,
+        access.conversation,
+        clampPause(workspace?.holdEscalatedMinutes ?? ESCALATION_HOLD_MINUTES),
+        now
+      );
+      return { success: true };
+    }
     await patchConversation(ctx, access.conversation, {
+      heldForTeam: undefined,
       humanHandling: args.handling,
       // Cleared rather than left behind: the sweep finds held threads through
       // these fields' indexes, and a stale timestamp on a released thread
@@ -1033,13 +1048,16 @@ async function releaseHold(
     humanHandling: false,
     humanHandlingAt: undefined,
     humanHandlingUntil: undefined,
+    heldForTeam: undefined,
   });
   await ctx.db.insert("messages", {
     workspaceId: conversation.workspaceId,
     conversationId: conversation._id,
     role: "system",
     kind: "note",
-    text: `Handed back to the agent automatically — nobody replied by hand for ${pauseLabel(minutes)}. Take it over again to stop the agent answering.`,
+    text: conversation.heldForTeam
+      ? `Handed back to the agent automatically — nobody from the team replied to the escalation within ${pauseLabel(minutes)}. Hold it for the team again to stop the agent answering.`
+      : `Handed back to the agent automatically — nobody replied by hand for ${pauseLabel(minutes)}. Take it over again to stop the agent answering.`,
     createdAt: now,
   });
 }
@@ -2020,24 +2038,55 @@ export const markEscalated = internalMutation({
     const current = conversation.assignedMemberId
       ? await ctx.db.get("teamMembers", conversation.assignedMemberId)
       : null;
-    if (current && current.status !== "inactive") return { assignedTo: current.name };
-
-    const picked = await pickHandover(ctx, conversation, args.agentId, args.department);
-    if (!picked) return { assignedTo: null };
-    conversation = await assignConversation(ctx, conversation, picked.member, {
-      label: `the handover rule "${picked.rule.name}"`,
-    });
-    if (picked.rule.pauseAgent) {
-      const now = Date.now();
-      await patchConversation(ctx, conversation, {
-        humanHandling: true,
-        humanHandlingAt: now,
-        humanHandlingUntil: now + clampPause(picked.rule.pauseMinutes) * 60_000,
-      });
+    let assignedTo: string | null = null;
+    let pauseMinutes: number | undefined;
+    if (current && current.status !== "inactive") {
+      assignedTo = current.name;
+    } else {
+      const picked = await pickHandover(ctx, conversation, args.agentId, args.department);
+      if (picked) {
+        conversation = await assignConversation(ctx, conversation, picked.member, {
+          label: `the handover rule "${picked.rule.name}"`,
+        });
+        assignedTo = picked.member.name;
+        if (picked.rule.pauseAgent) pauseMinutes = clampPause(picked.rule.pauseMinutes);
+      }
     }
-    return { assignedTo: picked.member.name };
+
+    if (pauseMinutes === undefined && !conversation.humanHandling) {
+      const workspace = await ctx.db.get("workspaces", conversation.workspaceId);
+      if (workspace?.holdEscalated) {
+        pauseMinutes = clampPause(workspace.holdEscalatedMinutes ?? ESCALATION_HOLD_MINUTES);
+      }
+    }
+    if (pauseMinutes !== undefined) {
+      await holdForTeam(ctx, conversation, pauseMinutes, Date.now());
+    }
+    return { assignedTo };
   },
 });
+
+async function holdForTeam(
+  ctx: MutationCtx,
+  conversation: Doc<"conversations">,
+  minutes: number,
+  now: number
+) {
+  await patchConversation(ctx, conversation, {
+    humanHandling: true,
+    humanHandlingAt: now,
+    humanHandlingUntil: now + minutes * 60_000,
+    heldForTeam: true,
+  });
+  await ctx.db.insert("messages", {
+    workspaceId: conversation.workspaceId,
+    conversationId: conversation._id,
+    role: "system",
+    kind: "note",
+    text: `Waiting for the team — the agent stays quiet until someone replies, or answers again after ${pauseLabel(minutes)} if nobody does.`,
+    createdAt: now,
+  });
+}
 
 /** Hands the thread to a team member, or takes it off whoever has it. */
 export const assign = mutation({

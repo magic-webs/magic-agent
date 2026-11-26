@@ -9,7 +9,7 @@ import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { WithoutSystemFields } from "convex/server";
 import { kvPair, workspaceStage } from "./schema";
-import { slugify, randomKey } from "./lib/shared";
+import { slugify, randomKey, clampPause } from "./lib/shared";
 import {
   AuthError,
   type Principal,
@@ -49,6 +49,8 @@ const workspaceFields = {
   webhookUrl: v.optional(v.string()),
   maxMessagesPerConversation: v.optional(v.number()),
   quietOnClosing: v.optional(v.boolean()),
+  holdEscalated: v.optional(v.boolean()),
+  holdEscalatedMinutes: v.optional(v.number()),
   facts: v.optional(v.array(kvPair)),
 };
 
@@ -410,6 +412,9 @@ export const update = mutation({
         throw new ConvexError("The message limit must be a whole number, or 0 for no limit");
       }
       patch.maxMessagesPerConversation = limit;
+    }
+    if (rest.holdEscalatedMinutes !== undefined) {
+      patch.holdEscalatedMinutes = clampPause(rest.holdEscalatedMinutes);
     }
     await ctx.db.patch(workspaceId, patch);
     return { success: true };

@@ -395,6 +395,7 @@ export function ConversationDetail({
   // opened it never appears.
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [holding, setHolding] = useState(false);
 
   // Two answers to "are the details showing", one per layout. Beside the
   // transcript it is a standing preference; sliding over it, it is something
@@ -455,6 +456,30 @@ export function ConversationDetail({
       description: `${holderName} will answer ${label} again.`,
       type: "success",
     });
+  };
+
+  const toggleHold = async () => {
+    setHolding(true);
+    try {
+      if (conversation.heldForTeam) {
+        await resume();
+      } else {
+        await setHumanHandling({ conversationId, handling: true, forTeam: true });
+        toast.add({
+          title: "Held for the team",
+          description: `${holderName} stays quiet until someone from the team replies to ${label}.`,
+          type: "success",
+        });
+      }
+    } catch (error) {
+      toast.add({
+        title: "Could not update",
+        description: friendlyError(error),
+        type: "error",
+      });
+    } finally {
+      setHolding(false);
+    }
   };
 
   const toggleBot = async () => {
@@ -580,8 +605,17 @@ export function ConversationDetail({
                   <HugeiconsIcon icon={UserIcon} strokeWidth={2} className="size-3" />
                   {/* Short on a phone, where the full sentence runs under the
                       buttons beside it. */}
-                  <span className="max-sm:hidden">You have this thread</span>
-                  <span className="sm:hidden">Yours</span>
+                  {conversation.heldForTeam ? (
+                    <>
+                      <span className="max-sm:hidden">Waiting for team</span>
+                      <span className="sm:hidden">Waiting</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="max-sm:hidden">You have this thread</span>
+                      <span className="sm:hidden">Yours</span>
+                    </>
+                  )}
                   {/* The hold expires, and a colleague who cannot see the clock
                       finds out when the agent answers over the top of them. */}
                   <HandbackCountdown
@@ -628,6 +662,34 @@ export function ConversationDetail({
               workspaceId={workspaceId}
               assignedMemberId={conversation.assignedMemberId}
             />
+            {conversation.status === "escalated" &&
+            (conversation.heldForTeam || !conversation.humanHandling) ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="max-sm:size-8 max-sm:px-0"
+                aria-label={conversation.heldForTeam ? "Let agent answer" : "Hold for team"}
+                title={
+                  conversation.heldForTeam
+                    ? `${holderName} answers ${label} again`
+                    : `${holderName} stays quiet until someone from the team replies`
+                }
+                disabled={holding}
+                onClick={() => void toggleHold()}
+              >
+                {holding ? (
+                  <Spinner />
+                ) : (
+                  <HugeiconsIcon
+                    icon={conversation.heldForTeam ? RoboticIcon : UserIcon}
+                    strokeWidth={2}
+                  />
+                )}
+                <span className="max-sm:hidden">
+                  {conversation.heldForTeam ? "Let agent answer" : "Hold for team"}
+                </span>
+              </Button>
+            ) : null}
             {onDesk && conversation.status === "escalated" ? (
               // Icon-only on a phone, where the label would squeeze the
               // contact's name out of the header.

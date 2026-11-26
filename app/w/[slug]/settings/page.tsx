@@ -6,8 +6,12 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
   DEFAULT_MESSAGES_PER_SESSION,
+  ESCALATION_HOLD_MINUTES,
   MESSAGE_LIMIT_SESSION_HOURS,
+  PAUSE_CHOICES_MINUTES,
+  pauseLabel,
 } from "@/convex/lib/shared";
+import { SelectField } from "@/components/select-field";
 import { useWorkspace } from "@/components/workspace-provider";
 import { WorkspaceAccessCard } from "@/components/workspace-access";
 import { TwoFactorCard } from "@/components/two-factor-card";
@@ -132,6 +136,8 @@ export default function WorkspaceSettingsPage() {
       workspace.maxMessagesPerConversation ?? DEFAULT_MESSAGES_PER_SESSION
     ).toString(),
     quietOnClosing: workspace.quietOnClosing ?? false,
+    holdEscalated: workspace.holdEscalated ?? false,
+    holdEscalatedMinutes: workspace.holdEscalatedMinutes ?? ESCALATION_HOLD_MINUTES,
   });
 
   // Re-seed the form if a different workspace is opened. Adjusting state during
@@ -146,6 +152,8 @@ export default function WorkspaceSettingsPage() {
       workspace.maxMessagesPerConversation ?? DEFAULT_MESSAGES_PER_SESSION
     ).toString(),
       quietOnClosing: workspace.quietOnClosing ?? false,
+      holdEscalated: workspace.holdEscalated ?? false,
+      holdEscalatedMinutes: workspace.holdEscalatedMinutes ?? ESCALATION_HOLD_MINUTES,
     });
   }
 
@@ -168,6 +176,8 @@ export default function WorkspaceSettingsPage() {
           form.maxMessages.trim() || DEFAULT_MESSAGES_PER_SESSION
         ),
         quietOnClosing: form.quietOnClosing,
+        holdEscalated: form.holdEscalated,
+        holdEscalatedMinutes: form.holdEscalatedMinutes,
       });
       toast.add({ title: "Workspace saved", type: "success" });
     } catch (error) {
@@ -288,6 +298,50 @@ export default function WorkspaceSettingsPage() {
                     onCheckedChange={(checked) => set("quietOnClosing", checked)}
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Escalated chats</CardTitle>
+                <CardDescription>
+                  When an agent escalates a chat to your team, it sends its
+                  last message — that a colleague will be in touch — and then
+                  stays quiet until someone from the team replies. If nobody
+                  replies in time, the agent answers again so the customer is
+                  not left waiting. A handover rule that pauses the agent uses
+                  its own time instead.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 sm:max-w-md">
+                <div className="flex items-center justify-between gap-4">
+                  <Label htmlFor="s-hold-escalated">
+                    Hold escalated chats for the team
+                  </Label>
+                  <Switch
+                    id="s-hold-escalated"
+                    checked={form.holdEscalated}
+                    onCheckedChange={(checked) => set("holdEscalated", checked)}
+                  />
+                </div>
+                {form.holdEscalated ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="s-hold-escalated-for">
+                      Agent answers again if nobody replies within
+                    </Label>
+                    <SelectField
+                      id="s-hold-escalated-for"
+                      value={String(form.holdEscalatedMinutes)}
+                      onValueChange={(value) =>
+                        set("holdEscalatedMinutes", Number(value))
+                      }
+                      options={PAUSE_CHOICES_MINUTES.map((minutes) => ({
+                        value: String(minutes),
+                        label: pauseLabel(minutes),
+                      }))}
+                    />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </TabsContent>

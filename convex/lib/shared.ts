@@ -387,6 +387,9 @@ export const DORMANT_AFTER_MINUTES = 60;
  */
 export const HANDBACK_AFTER_MINUTES = 60;
 
+/** How long an escalated chat waits for the team before the agent answers again. */
+export const ESCALATION_HOLD_MINUTES = 240;
+
 /** Identical messages in a row a contact may send before the thread is blocked as a bot. */
 export const BOT_REPEAT_LIMIT = 10;
 

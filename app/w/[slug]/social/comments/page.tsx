@@ -118,7 +118,7 @@ export default function InstagramCommentsPage() {
           {filter === "live" ? "No rule is live." : "No rule is paused."}
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
           {shown.map((rule) => (
             <RuleCard
               key={rule._id}
@@ -179,10 +179,10 @@ function PostMedia({
           />
         ) : (
           <span className="flex size-full flex-col items-center justify-center gap-2 text-muted-foreground">
-            <HugeiconsIcon icon={ImageCompositionIcon} strokeWidth={1.5} className="size-10" />
-            <span className="text-sm font-medium">{post ? "Preview unavailable" : "Every post"}</span>
+            <HugeiconsIcon icon={ImageCompositionIcon} strokeWidth={1.5} className="size-8" />
+            <span className="text-xs font-medium">{post ? "Preview unavailable" : "Every post"}</span>
             {post ? null : (
-              <span className="max-w-[16rem] px-6 text-center text-xs">
+              <span className="px-4 text-center text-[11px]">
                 Answers matching comments on any post, new ones included
               </span>
             )}
@@ -191,21 +191,21 @@ function PostMedia({
       </button>
 
       {paused ? (
-        <span className="pointer-events-none absolute top-2.5 left-2.5 rounded-full bg-black/65 px-2 py-0.5 text-xs font-medium text-white">
+        <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white">
           Paused
         </span>
       ) : null}
 
       {posts.length > 1 ? (
         <>
-          <span className="pointer-events-none absolute top-2.5 right-2.5 rounded-full bg-black/65 px-2 py-0.5 text-xs font-medium text-white tabular-nums">
+          <span className="pointer-events-none absolute top-2 right-2 rounded-full bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums">
             {at + 1}/{posts.length}
           </span>
           <button
             type="button"
             aria-label="Previous post"
             onClick={() => step(-1)}
-            className="absolute top-1/2 left-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-neutral-900 opacity-0 shadow-sm transition-opacity group-hover/media:opacity-100 focus-visible:opacity-100"
+            className="absolute top-1/2 left-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-neutral-900 opacity-0 shadow-sm transition-opacity group-hover/media:opacity-100 focus-visible:opacity-100"
           >
             <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
           </button>
@@ -213,11 +213,11 @@ function PostMedia({
             type="button"
             aria-label="Next post"
             onClick={() => step(1)}
-            className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-neutral-900 opacity-0 shadow-sm transition-opacity group-hover/media:opacity-100 focus-visible:opacity-100"
+            className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-neutral-900 opacity-0 shadow-sm transition-opacity group-hover/media:opacity-100 focus-visible:opacity-100"
           >
             <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4" />
           </button>
-          <span className="pointer-events-none absolute inset-x-0 bottom-2.5 flex justify-center gap-1">
+          <span className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center gap-1">
             {posts.map((row, dot) => (
               <span
                 key={row.id}
@@ -266,7 +266,7 @@ function RuleCard({
 
   return (
     <article className="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
+      <div className="flex items-center gap-2 px-2.5 py-2">
         <span
           className={cn(
             "rounded-full p-[2px]",
@@ -275,11 +275,11 @@ function RuleCard({
               : "bg-border"
           )}
         >
-          <AccountAvatar channel={channel} size={30} className="ring-2 ring-card" />
+          <AccountAvatar channel={channel} size={24} className="ring-2 ring-card" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{rule.name}</p>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-xs font-semibold">{rule.name}</p>
+          <p className="truncate text-[11px] text-muted-foreground">
             {channel.label} ·{" "}
             {rule.posts.length
               ? `${rule.posts.length} ${rule.posts.length === 1 ? "post" : "posts"}`
@@ -287,6 +287,7 @@ function RuleCard({
           </p>
         </div>
         <Switch
+          size="sm"
           checked={rule.enabled}
           onCheckedChange={toggle}
           aria-label={rule.enabled ? "Pause rule" : "Turn rule on"}
@@ -294,7 +295,7 @@ function RuleCard({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button size="icon-sm" variant="ghost" aria-label="Rule actions">
+              <Button size="icon-xs" variant="ghost" aria-label="Rule actions">
                 <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
               </Button>
             }
@@ -316,8 +317,8 @@ function RuleCard({
 
       <PostMedia posts={rule.posts} paused={!rule.enabled} onOpen={onEdit} />
 
-      <div className="flex flex-1 flex-col gap-1.5 px-3 pt-2.5 pb-3">
-        <div className="flex items-center gap-4 text-sm">
+      <div className="flex flex-1 flex-col gap-1 px-2.5 pt-2 pb-2.5">
+        <div className="flex items-center gap-3 text-xs">
           <Stat icon={Comment01Icon} label={reply ?? "No reply"} muted={!reply} />
           <Stat icon={SentIcon} label={dm ?? "No DM"} muted={!dm} />
           {rule.oncePerUser ? (
@@ -325,11 +326,11 @@ function RuleCard({
           ) : null}
         </div>
 
-        <p className="text-sm font-semibold">
+        <p className="text-xs font-semibold">
           {rule.fired} {rule.fired === 1 ? "time" : "times"} fired
         </p>
 
-        <p className="text-sm leading-snug">
+        <p className="text-xs leading-snug">
           <span className="font-semibold">When</span>{" "}
           {rule.match === "any" ? (
             <span className="text-muted-foreground">anyone comments</span>
@@ -352,10 +353,10 @@ function RuleCard({
         </p>
 
         {rule.dm ? (
-          <p className="line-clamp-2 text-sm text-muted-foreground">{rule.dm.text}</p>
+          <p className="line-clamp-1 text-xs text-muted-foreground">{rule.dm.text}</p>
         ) : null}
 
-        <p className="mt-auto pt-1 text-[11px] tracking-wide text-muted-foreground uppercase">
+        <p className="mt-auto pt-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
           {rule.lastFiredAt
             ? `Last fired ${formatDistanceToNow(rule.lastFiredAt, { addSuffix: true })}`
             : `Created ${formatDistanceToNow(rule.createdAt, { addSuffix: true })}`}
@@ -407,12 +408,12 @@ function Stat({
   return (
     <span
       className={cn(
-        "flex items-center gap-1.5",
+        "flex items-center gap-1",
         muted ? "text-muted-foreground" : "font-medium",
         className
       )}
     >
-      <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-5" />
+      <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-4" />
       {label}
     </span>
   );

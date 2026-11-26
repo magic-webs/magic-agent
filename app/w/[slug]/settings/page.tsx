@@ -16,6 +16,7 @@ import { McpConnectorCard } from "@/components/mcp-connector-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Separator } from "@/components/ui/separator";
@@ -130,6 +131,7 @@ export default function WorkspaceSettingsPage() {
     maxMessages: (
       workspace.maxMessagesPerConversation ?? DEFAULT_MESSAGES_PER_SESSION
     ).toString(),
+    quietOnClosing: workspace.quietOnClosing ?? false,
   });
 
   // Re-seed the form if a different workspace is opened. Adjusting state during
@@ -143,6 +145,7 @@ export default function WorkspaceSettingsPage() {
       maxMessages: (
       workspace.maxMessagesPerConversation ?? DEFAULT_MESSAGES_PER_SESSION
     ).toString(),
+      quietOnClosing: workspace.quietOnClosing ?? false,
     });
   }
 
@@ -164,6 +167,7 @@ export default function WorkspaceSettingsPage() {
         maxMessagesPerConversation: Number(
           form.maxMessages.trim() || DEFAULT_MESSAGES_PER_SESSION
         ),
+        quietOnClosing: form.quietOnClosing,
       });
       toast.add({ title: "Workspace saved", type: "success" });
     } catch (error) {
@@ -230,7 +234,7 @@ export default function WorkspaceSettingsPage() {
             <PasskeysCard />
           </TabsContent>
 
-          <TabsContent value="conversations">
+          <TabsContent value="conversations" className="flex flex-col gap-4">
             <Card>
               <CardHeader>
                 <CardTitle>Message limit</CardTitle>
@@ -256,6 +260,32 @@ export default function WorkspaceSettingsPage() {
                     value={form.maxMessages}
                     placeholder={String(DEFAULT_MESSAGES_PER_SESSION)}
                     onChange={(event) => set("maxMessages", event.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Exit chat</CardTitle>
+                <CardDescription>
+                  When a customer only closes the chat — &ldquo;ok thank
+                  you&rdquo;, &ldquo;thanks&rdquo;, &ldquo;bye&rdquo;,
+                  &ldquo;dhanyavad&rdquo;, a 👍 or 🙏 — the agents don&apos;t
+                  reply. A plain &ldquo;ok&rdquo; after the agent asked a
+                  question still gets an answer, since it may mean yes. The
+                  message is still recorded in the inbox.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-4 sm:max-w-md">
+                  <Label htmlFor="s-quiet-on-closing">
+                    Don&apos;t reply to thank-you and goodbye messages
+                  </Label>
+                  <Switch
+                    id="s-quiet-on-closing"
+                    checked={form.quietOnClosing}
+                    onCheckedChange={(checked) => set("quietOnClosing", checked)}
                   />
                 </div>
               </CardContent>

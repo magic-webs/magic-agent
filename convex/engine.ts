@@ -2377,6 +2377,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
       historyLimit: entryAgent.historyLimit,
       messageLimit:
         workspace.maxMessagesPerConversation ?? DEFAULT_MESSAGES_PER_SESSION,
+      quietOnClosing: workspace.quietOnClosing,
     });
 
     if (session.blocked && "optReply" in session && session.optReply) {
@@ -2402,7 +2403,7 @@ async function runTurn(ctx: ActionCtx, args: TurnArgs): Promise<TurnResult> {
     // A colleague is dealing with this thread by hand. The message is already
     // recorded by startTurn above — it belongs in the transcript either way,
     // and the person replying needs to see it — but no agent answers it.
-    if (session.humanHandling || session.limitReached || args.fileOnly) {
+    if (session.humanHandling || session.limitReached || session.closing || args.fileOnly) {
       return {
         ok: true,
         text: null,

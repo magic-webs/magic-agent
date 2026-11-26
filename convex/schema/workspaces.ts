@@ -49,6 +49,7 @@ export const workspacesTables = {
     webhookUrl: v.optional(v.string()),
     webhookSecret: v.optional(v.string()),
     maxMessagesPerConversation: v.optional(v.number()),
+    quietOnClosing: v.optional(v.boolean()),
     facts: v.array(kvPair),
     welcomeMenu: v.optional(welcomeMenuShape),
     status: v.union(v.literal("active"), v.literal("archived")),

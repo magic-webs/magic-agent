@@ -35,6 +35,7 @@ import {
   refreshContactSearch,
 } from "./lib/inbox";
 import { optInReply, optKeyword, optOutReply } from "./lib/optOut";
+import { asksSomething, isClosingMessage } from "./lib/closing";
 import { noteOptOut, noteReply } from "./lib/marketingStats";
 import {
   BOT_REPEAT_LIMIT,
@@ -1327,6 +1328,7 @@ export const startTurn = internalMutation({
     ),
     historyLimit: v.number(),
     messageLimit: v.optional(v.number()),
+    quietOnClosing: v.optional(v.boolean()),
     marketingReply: v.optional(
       v.object({
         seed: v.array(
@@ -1667,6 +1669,16 @@ export const startTurn = internalMutation({
       await ctx.db.patch(conversation._id, { messageLimitReachedAt: undefined });
     }
 
+    const closing =
+      !!args.quietOnClosing &&
+      !inbound?.payload &&
+      !replyTo &&
+      lastSaid?.role === "assistant" &&
+      isClosingMessage(
+        args.text,
+        lastSaid.kind !== "text" || asksSomething(lastSaid.text ?? "")
+      );
+
     return {
       blocked: false as const,
       contactId: contact._id,
@@ -1678,6 +1690,7 @@ export const startTurn = internalMutation({
       // above is still recorded; the engine reads this and does not answer.
       humanHandling,
       limitReached,
+      closing,
       contact: {
         name: contact.name,
         phone: contact.phone,

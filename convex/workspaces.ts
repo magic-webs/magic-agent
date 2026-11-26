@@ -48,6 +48,7 @@ const workspaceFields = {
   theme: v.optional(v.string()),
   webhookUrl: v.optional(v.string()),
   maxMessagesPerConversation: v.optional(v.number()),
+  quietOnClosing: v.optional(v.boolean()),
   facts: v.optional(v.array(kvPair)),
 };
 

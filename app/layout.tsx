@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "./providers";
 import { APPEARANCE_SCRIPT } from "@/lib/appearance";
+import { SITE_NAME, SITE_URL, shareMetadata } from "@/lib/share";
 
 const spaceGroteskHeading = Space_Grotesk({subsets:['latin'],variable:'--font-heading'});
 
@@ -20,9 +21,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Magic Agent — agent platform",
-  description:
-    "Build, configure and deploy AI chat agents per workspace: knowledge bases, tone, catalogues, orders, custom tools and WhatsApp channels.",
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
+  ...shareMetadata(
+    "Magic Agent — agent platform",
+    "Build, configure and deploy AI chat agents per workspace: knowledge bases, tone, catalogues, orders, custom tools and WhatsApp channels."
+  ),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

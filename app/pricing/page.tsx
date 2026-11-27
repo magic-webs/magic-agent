@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { shareMetadata } from "@/lib/share";
 import { PLATFORM_CURRENCY, PLATFORM_LOCALE, type PublicPricing } from "@/convex/lib/plans";
 import { LandingShell } from "@/components/landing/landing-shell";
 import { CONTAINER, Eyebrow, SECTION } from "@/components/landing/bits";
@@ -18,11 +19,10 @@ import {
 
 export const revalidate = 600;
 
-export const metadata: Metadata = {
-  title: "Pricing — Magic Agent",
-  description:
-    "Monthly plans for AI agents on WhatsApp, Instagram and web chat, in rupees or US dollars. Every plan has every channel and feature, with a free trial and no card needed.",
-};
+export const metadata: Metadata = shareMetadata(
+  "Pricing — Magic Agent",
+  "Monthly plans for AI agents on WhatsApp, Instagram and web chat, in rupees or US dollars. Every plan has every channel and feature, with a free trial and no card needed."
+);
 
 function whole(micros: number, currency: string): string {
   return new Intl.NumberFormat(currency === PLATFORM_CURRENCY ? PLATFORM_LOCALE : "en-US", {

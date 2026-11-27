@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { shareMetadata } from "@/lib/share";
 import { Reveal } from "@/components/landing/reveal";
 import { LandingShell } from "@/components/landing/landing-shell";
 import { CONTAINER, Eyebrow, SECTION } from "@/components/landing/bits";
@@ -32,11 +33,10 @@ import {
 
 export const revalidate = 600;
 
-export const metadata: Metadata = {
-  title: "Magic Agent — AI agents that answer your customers",
-  description:
-    "AI agents that answer your customers on WhatsApp, Instagram and web chat from your own prices and policies, collect every detail your team needs, and hand you a finished enquiry.",
-};
+export const metadata: Metadata = shareMetadata(
+  "Magic Agent — AI agents that answer your customers",
+  "AI agents that answer your customers on WhatsApp, Instagram and web chat from your own prices and policies, collect every detail your team needs, and hand you a finished enquiry."
+);
 
 const FEATURES = [
   {

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
@@ -50,7 +51,7 @@ function sentText(row: Broadcast): string {
 export default function AdminNotificationsPage() {
   const router = useRouter();
   const modifies = useSession().canModify("notifications");
-  const settings = useQuery(api.platformNotifications.settings, {});
+  const settings = useCachedQuery(api.platformNotifications.settings, {});
   const { results, status, loadMore } = usePaginatedQuery(
     api.platformNotifications.list,
     {},

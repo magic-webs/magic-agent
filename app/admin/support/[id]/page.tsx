@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format, formatDistanceStrict, formatDistanceToNowStrict } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -80,9 +81,9 @@ export default function AdminTicketPage() {
   const ticketId = id as Id<"supportTickets">;
   const router = useRouter();
   const now = useClock(15_000);
-  const ticket = useQuery(api.support.staffGet, { ticketId });
-  const staff = useQuery(api.support.staffList, {});
-  const replies = useQuery(api.supportAdmin.replies, {});
+  const ticket = useCachedQuery(api.support.staffGet, { ticketId });
+  const staff = useCachedQuery(api.support.staffList, {});
+  const replies = useCachedQuery(api.supportAdmin.replies, {});
   const viewers = useQuery(api.support.viewers, { ticketId, now: Math.floor(now / 15_000) * 15_000 });
 
   const staffReply = useMutation(api.support.staffReply);

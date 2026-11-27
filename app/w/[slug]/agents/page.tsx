@@ -10,7 +10,8 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { BUILTIN_TOOLS } from "@/convex/lib/shared";
@@ -780,15 +781,15 @@ export default function AgentsPage() {
   // Rounded to the hour, it keeps the query cache key stable.
   const now = useHourBucket();
 
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const roster = useQuery(api.agents.roster, {
+  const roster = useCachedQuery(api.agents.roster, {
     workspaceId: workspace._id,
     now,
   });
   const ensureRouter = useMutation(api.agents.ensureDefaultRouter);
-  const deskBlocks = useQuery(api.subscriptions.deskBlocks, {
+  const deskBlocks = useCachedQuery(api.subscriptions.deskBlocks, {
     workspaceId: workspace._id,
   });
 

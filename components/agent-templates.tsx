@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AGENT_TEMPLATES, type AgentTemplate } from "@/convex/lib/agentTemplates";
@@ -54,7 +55,7 @@ export function AgentTemplatePicker({
 }) {
   const workspace = useWorkspace();
   const createFromTemplate = useMutation(api.agents.createFromTemplate);
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
 

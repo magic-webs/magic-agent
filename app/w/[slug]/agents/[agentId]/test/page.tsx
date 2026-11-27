@@ -2,7 +2,8 @@
 
 import { use, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { resolveGreeting } from "@/convex/lib/prompt";
@@ -121,17 +122,17 @@ export default function AgentTestPage({
   const typedAgentId = agentId as Id<"agents">;
 
   const sessionId = useSessionId(agentId);
-  const agent = useQuery(api.agents.get, { agentId: typedAgentId });
-  const conversation = useQuery(
+  const agent = useCachedQuery(api.agents.get, { agentId: typedAgentId });
+  const conversation = useCachedQuery(
     api.conversations.findWebConversation,
     sessionId ? { agentId: typedAgentId, sessionId } : "skip"
   );
-  const messages = useQuery(api.conversations.listMessages, {
+  const messages = useCachedQuery(api.conversations.listMessages, {
     conversationId: conversation?._id,
   });
   const respond = useAction(api.engine.respondAsUser);
   const resetConversation = useMutation(api.conversations.reset);
-  const draft = useQuery(api.drafts.forConversation, {
+  const draft = useCachedQuery(api.drafts.forConversation, {
     conversationId: conversation?._id,
   });
   const transcribe = useAction(api.voice.transcribeAsUser);

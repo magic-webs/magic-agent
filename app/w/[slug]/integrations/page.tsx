@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -279,23 +280,23 @@ export default function IntegrationsPage() {
   const base = `/w/${workspace.slug}`;
   const dockRef = useRef<HTMLDivElement>(null);
 
-  const connections = useQuery(api.integrations.list, {
+  const connections = useCachedQuery(api.integrations.list, {
     workspaceId: workspace._id,
   });
-  const configured = useQuery(api.integrations.configured, {});
-  const tools = useQuery(api.tools.listByWorkspace, {
+  const configured = useCachedQuery(api.integrations.configured, {});
+  const tools = useCachedQuery(api.tools.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const appConnections = useQuery(api.apps.list, {
+  const appConnections = useCachedQuery(api.apps.list, {
     workspaceId: workspace._id,
   });
-  const mcpConnector = useQuery(api.authDb.mcpConnector, {
+  const mcpConnector = useCachedQuery(api.authDb.mcpConnector, {
     workspaceId: workspace._id,
   });
-  const payments = useQuery(api.payments.connection, {
+  const payments = useCachedQuery(api.payments.connection, {
     workspaceId: workspace._id,
   });
 

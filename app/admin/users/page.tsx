@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -344,8 +345,8 @@ function RemoveButton({ user }: { user: UserRow }) {
 }
 
 export default function AdminUsersPage() {
-  const users = useQuery(api.users.list, {});
-  const workspaces = useQuery(api.workspaces.list, {});
+  const users = useCachedQuery(api.users.list, {});
+  const workspaces = useCachedQuery(api.workspaces.list, {});
   const modifies = useSession().canModify("users");
 
   const options: WorkspaceOption[] = (workspaces ?? []).map((workspace) => ({

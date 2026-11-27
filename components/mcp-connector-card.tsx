@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { McpToolGroup } from "@/mcp/server.mjs";
@@ -200,7 +201,7 @@ export function McpConnectorCard({
   workspaceId: Id<"workspaces">;
   workspaceName: string;
 }) {
-  const connector = useQuery(api.authDb.mcpConnector, { workspaceId });
+  const connector = useCachedQuery(api.authDb.mcpConnector, { workspaceId });
   const issue = useAction(api.auth.issueMcpToken);
   const revoke = useAction(api.auth.revokeMcpToken);
 

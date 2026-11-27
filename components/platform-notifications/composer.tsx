@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -121,8 +122,8 @@ function localInput(time: number) {
 export function Composer({ broadcast }: { broadcast?: Broadcast }) {
   const router = useRouter();
   const modifies = useSession().canModify("notifications");
-  const settings = useQuery(api.platformNotifications.settings, {});
-  const workspaces = useQuery(api.workspaces.list, {});
+  const settings = useCachedQuery(api.platformNotifications.settings, {});
+  const workspaces = useCachedQuery(api.workspaces.list, {});
   const save = useMutation(api.platformNotifications.save);
   const send = useMutation(api.platformNotifications.send);
   const cancel = useMutation(api.platformNotifications.cancel);
@@ -143,7 +144,7 @@ export function Composer({ broadcast }: { broadcast?: Broadcast }) {
   const [aiOpen, setAiOpen] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null);
 
-  const reach = useQuery(api.platformNotifications.audience, { audience: form.audience });
+  const reach = useCachedQuery(api.platformNotifications.audience, { audience: form.audience });
   const configured = settings?.configured;
   const set = (patch: Partial<Form>) => setForm((prev) => ({ ...prev, ...patch }));
   const sms = smsSegments(form.smsText || form.body);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -189,7 +190,7 @@ function ParametersEditor({
 
 function DraftToolDialog() {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const draftTool = useAction(api.ai.draftTool);
@@ -405,7 +406,7 @@ function ToolDialog({
   trigger: React.ReactElement;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const createTool = useMutation(api.tools.create);
@@ -745,7 +746,7 @@ function ToolDialog({
 
 export default function ToolsPage() {
   const workspace = useWorkspace();
-  const tools = useQuery(api.tools.listByWorkspace, {
+  const tools = useCachedQuery(api.tools.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const updateTool = useMutation(api.tools.update);

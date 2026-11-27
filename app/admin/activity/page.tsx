@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -72,8 +73,8 @@ function ActivityLog() {
     router.replace(`${pathname}${next.size ? `?${next}` : ""}`);
   };
 
-  const workspaces = useQuery(api.workspaces.list, {});
-  const actors = useQuery(api.activity.actors, {
+  const workspaces = useCachedQuery(api.workspaces.list, {});
+  const actors = useCachedQuery(api.activity.actors, {
     workspaceId: workspaceId || undefined,
   });
   const { results, status, loadMore } = usePaginatedQuery(

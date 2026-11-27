@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
@@ -57,8 +57,8 @@ const STATUS_BADGE: Record<string, { label: string; variant: "secondary" | "dest
 export default function AdminAccessPage() {
   const { can } = useSession();
   const managesAccess = can("access");
-  const workspaces = useQuery(api.workspaces.list, managesAccess ? {} : "skip");
-  const access = useQuery(api.authDb.accessSummary, managesAccess ? {} : "skip");
+  const workspaces = useCachedQuery(api.workspaces.list, managesAccess ? {} : "skip");
+  const access = useCachedQuery(api.authDb.accessSummary, managesAccess ? {} : "skip");
 
   const accessById = new Map(
     (access ?? []).map((row) => [row.workspaceId as string, row])

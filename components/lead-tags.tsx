@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LEAD_TAG_COLORS, type LeadTagColor } from "@/convex/lib/shared";
@@ -264,7 +265,7 @@ function TagList({
   onEdit: (target: LeadTag | "new") => void;
 }) {
   const removeTag = useMutation(api.leads.removeTag);
-  const counts = useQuery(api.leads.tagCounts, { workspaceId });
+  const counts = useCachedQuery(api.leads.tagCounts, { workspaceId });
 
   return (
     <>

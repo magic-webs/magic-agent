@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -99,7 +100,7 @@ function ProductInsert({ onPick }: { onPick: (line: string) => void }) {
   const [wanted, setWanted] = useState(false);
   const [term, setTerm] = useState("");
 
-  const products = useQuery(
+  const products = useCachedQuery(
     api.products.listByWorkspace,
     wanted ? { workspaceId: workspace._id } : "skip"
   );
@@ -251,7 +252,7 @@ export function ManualReply({
   // composer looks exactly as it did — nobody is made to fill in a roster
   // before they can answer a customer. Not asked on the desk, which could not
   // read it anyway.
-  const team = useQuery(
+  const team = useCachedQuery(
     api.team.activeForReply,
     replyingAs ? "skip" : { workspaceId }
   );
@@ -277,7 +278,7 @@ export function ManualReply({
   // current. Either one saying closed is closed.
   const closed = windowClosed || (window24 !== null && !window24.open);
 
-  const me = useQuery(api.authDb.me, replyingAs ? "skip" : {});
+  const me = useCachedQuery(api.authDb.me, replyingAs ? "skip" : {});
 
   const roster = team ?? [];
   const self =

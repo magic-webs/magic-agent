@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { PageHeaderSkeleton, TableSkeleton } from "@/components/skeletons";
@@ -20,7 +20,7 @@ import { Report } from "@/components/platform-notifications/report";
 export default function AdminNotificationPage() {
   const { id } = useParams<{ id: string }>();
   const isNew = id === "new";
-  const broadcast = useQuery(
+  const broadcast = useCachedQuery(
     api.platformNotifications.get,
     isNew ? "skip" : { id: id as Id<"platformBroadcasts"> }
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -160,7 +161,7 @@ export function SourceDialog({
   const [saving, setSaving] = useState(false);
 
   // Skip the read entirely until the dialog is opened.
-  const detail = useQuery(api.knowledge.get, open ? { sourceId } : "skip");
+  const detail = useCachedQuery(api.knowledge.get, open ? { sourceId } : "skip");
   const updateSource = useMutation(api.knowledge.updateSource);
   const setScope = useMutation(api.knowledge.setScope);
   const resolveForSource = useMutation(api.knowledgeGaps.resolveForSource);

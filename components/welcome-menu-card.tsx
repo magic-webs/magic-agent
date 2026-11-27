@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import {
@@ -85,7 +86,7 @@ function draftFrom(data: MenuData): Draft {
 
 export function WelcomeMenuCard() {
   const workspace = useWorkspace();
-  const data = useQuery(api.welcomeMenu.get, { workspaceId: workspace._id });
+  const data = useCachedQuery(api.welcomeMenu.get, { workspaceId: workspace._id });
 
   if (data === undefined) {
     return (

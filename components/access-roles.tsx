@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -124,7 +125,7 @@ export function RolesButton({ workspaceId }: { workspaceId: Id<"workspaces"> }) 
 }
 
 function Roles({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
-  const roles = useQuery(api.workspaceRoles.list, { workspaceId });
+  const roles = useCachedQuery(api.workspaceRoles.list, { workspaceId });
   const ensureStarters = useMutation(api.workspaceRoles.ensureStarters);
   const remove = useMutation(api.workspaceRoles.remove);
   const [editing, setEditing] = useState<Role | "new" | null>(null);

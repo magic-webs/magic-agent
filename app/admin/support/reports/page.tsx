@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { ActivityChart, RankedBars, StatTile } from "@/components/dashboard-charts";
 import { useClock } from "@/components/support/use-clock";
@@ -35,7 +35,7 @@ export default function SupportReportsPage() {
   const now = useClock(5 * 60_000);
   const [days, setDays] = useState("30");
   const from = Math.floor((now - Number(days) * DAY) / DAY) * DAY;
-  const report = useQuery(api.supportAdmin.report, { from });
+  const report = useCachedQuery(api.supportAdmin.report, { from });
 
   const series = report
     ? Array.from({ length: Number(days) }, (_, index) => {

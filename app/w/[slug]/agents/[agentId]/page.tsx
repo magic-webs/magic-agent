@@ -3,7 +3,8 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { BUILTIN_TOOLS } from "@/convex/lib/shared";
@@ -167,29 +168,29 @@ export default function AgentConfigPage({
   const base = `/w/${workspace.slug}`;
 
   const typedAgentId = agentId as Id<"agents">;
-  const agent = useQuery(api.agents.get, { agentId: typedAgentId });
-  const promptPreview = useQuery(api.agents.previewPrompt, {
+  const agent = useCachedQuery(api.agents.get, { agentId: typedAgentId });
+  const promptPreview = useCachedQuery(api.agents.previewPrompt, {
     agentId: typedAgentId,
   });
-  const customTools = useQuery(api.tools.listByWorkspace, {
+  const customTools = useCachedQuery(api.tools.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const updateAgent = useMutation(api.agents.update);
   const removeAgent = useMutation(api.agents.remove);
 
-  const recordBooks = useQuery(api.records.listBooks, {
+  const recordBooks = useCachedQuery(api.records.listBooks, {
     workspaceId: workspace._id,
   });
-  const appConnections = useQuery(api.apps.list, {
+  const appConnections = useCachedQuery(api.apps.list, {
     workspaceId: workspace._id,
   });
-  const paymentsConnected = useQuery(api.payments.isConnected, {
+  const paymentsConnected = useCachedQuery(api.payments.isConnected, {
     workspaceId: workspace._id,
   });
   // The whole roster, so the heading can double as a switcher. Configuring a
   // team means going through them one after another, and the round trip out to
   // the list and back was two clicks and a lost scroll position each time.
-  const roster = useQuery(api.agents.listByWorkspace, {
+  const roster = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const [draft, setDraft] = useState<Draft | null>(null);

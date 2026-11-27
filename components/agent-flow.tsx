@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import {
   Background,
   BackgroundVariant,
@@ -820,7 +820,7 @@ export function AgentFlow({
   const workspace = useWorkspace();
   const router = useRouter();
   const canvas = useRef<HTMLDivElement>(null);
-  const channels = useQuery(api.channels.listByWorkspace, {
+  const channels = useCachedQuery(api.channels.listByWorkspace, {
     workspaceId: workspace._id,
   });
 

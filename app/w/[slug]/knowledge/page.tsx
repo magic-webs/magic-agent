@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -69,7 +70,7 @@ const KIND_ICONS = {
 
 function AddSourceDialog() {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const addSource = useMutation(api.knowledge.addSource);
@@ -323,13 +324,13 @@ function AddSourceDialog() {
 
 export default function KnowledgePage() {
   const workspace = useWorkspace();
-  const sources = useQuery(api.knowledge.listByWorkspace, {
+  const sources = useCachedQuery(api.knowledge.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const openGaps = useQuery(api.knowledgeGaps.openCountByKind, {
+  const openGaps = useCachedQuery(api.knowledgeGaps.openCountByKind, {
     workspaceId: workspace._id,
   });
   const reprocess = useMutation(api.knowledge.reprocess);

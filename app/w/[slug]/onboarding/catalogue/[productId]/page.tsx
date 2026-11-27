@@ -3,7 +3,8 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -66,7 +67,7 @@ export default function EditProductPage({
   const [removing, setRemoving] = useState(false);
 
   const back = `/w/${workspace.slug}/onboarding/catalogue`;
-  const product = useQuery(api.products.get, {
+  const product = useCachedQuery(api.products.get, {
     productId: productId as Id<"products">,
   });
 

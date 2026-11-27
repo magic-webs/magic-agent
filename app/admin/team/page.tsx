@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useSession } from "@/components/use-session";
@@ -396,9 +397,9 @@ function RemoveButton({ member }: { member: TeamRow }) {
 }
 
 export default function AdminTeamPage() {
-  const team = useQuery(api.authDb.listAdmins, {});
-  const workspaces = useQuery(api.workspaces.list, {});
-  const roles = useQuery(api.adminRoles.list, {});
+  const team = useCachedQuery(api.authDb.listAdmins, {});
+  const workspaces = useCachedQuery(api.workspaces.list, {});
+  const roles = useCachedQuery(api.adminRoles.list, {});
   const { me } = useSession();
   const roleById = new Map((roles ?? []).map((role) => [role._id as string, role]));
 

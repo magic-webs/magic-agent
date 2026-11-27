@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { api } from "@/convex/_generated/api";
@@ -119,7 +119,7 @@ export default function AdminAccountingPage() {
   const [period, setPeriod] = useState("month");
   const [custom, setCustom] = useState({ from: toInput(now - 30 * 86_400_000), to: toInput(now) });
   const range = rangeOf(period, now, custom);
-  const data = useQuery(api.accounting.overview, range);
+  const data = useCachedQuery(api.accounting.overview, range);
 
   const [tab, setTab] = useState<string | null>(null);
   const currencies = useMemo(() => {

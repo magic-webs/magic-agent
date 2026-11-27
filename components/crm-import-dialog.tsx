@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -35,8 +36,8 @@ const STATUS_LABEL = {
 export function CrmImportDialog() {
   const workspace = useWorkspace();
   const [open, setOpen] = useState(false);
-  const channels = useQuery(api.channels.inboxChannels, { workspaceId: workspace._id });
-  const job = useQuery(api.crmImports.latest, { workspaceId: workspace._id });
+  const channels = useCachedQuery(api.channels.inboxChannels, { workspaceId: workspace._id });
+  const job = useCachedQuery(api.crmImports.latest, { workspaceId: workspace._id });
   const start = useMutation(api.crmImports.start);
   const cancel = useMutation(api.crmImports.cancel);
 

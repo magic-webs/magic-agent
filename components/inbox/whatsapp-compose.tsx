@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -298,7 +299,7 @@ export function ComposeDialog({
 }) {
   const send = useAction(api.inboxCompose.sendManualRich);
   const syncTemplates = useAction(api.notificationsSend.syncWhatsAppTemplates);
-  const templates = useQuery(
+  const templates = useCachedQuery(
     api.inboxCompose.templatesForThread,
     kind === "template" ? { conversationId } : "skip"
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -176,7 +177,7 @@ export function WorkspaceAccessCard({
 }) {
   const { canModify, me } = useSession();
   const managesAccess = canModify("access");
-  const access = useQuery(api.authDb.workspaceAccess, { workspaceId });
+  const access = useCachedQuery(api.authDb.workspaceAccess, { workspaceId });
   const generate = useAction(api.auth.generateWorkspacePassword);
   const setAccess = useAction(api.auth.setWorkspaceAccess);
   const changePassword = useAction(api.auth.changeWorkspacePassword);

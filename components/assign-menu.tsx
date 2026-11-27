@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ export function AssignMenu({
 }) {
   const session = useSession().me;
   const me = session?.role === "member" ? session.memberId : undefined;
-  const members = useQuery(api.team.activeForReply, { workspaceId });
+  const members = useCachedQuery(api.team.activeForReply, { workspaceId });
   const assign = useMutation(api.conversations.assign);
   const assignee = members?.find((member) => member._id === assignedMemberId);
 

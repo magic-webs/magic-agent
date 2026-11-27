@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -100,9 +101,9 @@ export function HandoverRulesButton({ workspaceId }: { workspaceId: Id<"workspac
 }
 
 function HandoverRules({ workspaceId }: { workspaceId: Id<"workspaces"> }) {
-  const rules = useQuery(api.handover.list, { workspaceId });
-  const agents = useQuery(api.agents.listByWorkspace, { workspaceId });
-  const members = useQuery(api.team.activeForReply, { workspaceId });
+  const rules = useCachedQuery(api.handover.list, { workspaceId });
+  const agents = useCachedQuery(api.agents.listByWorkspace, { workspaceId });
+  const members = useCachedQuery(api.team.activeForReply, { workspaceId });
   const setEnabled = useMutation(api.handover.setEnabled);
   const move = useMutation(api.handover.move);
   const remove = useMutation(api.handover.remove);

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { ConvexError } from "convex/values";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -55,7 +56,7 @@ export function HelpWidget({
   const [pending, setPending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const suggestions = useQuery(
+  const suggestions = useCachedQuery(
     api.helpDb.suggestions,
     open && turns.length === 0 ? { workspaceId } : "skip"
   );

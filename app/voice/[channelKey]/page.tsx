@@ -1,7 +1,8 @@
 "use client";
 
 import { use, useCallback, useEffect, useRef, useSyncExternalStore } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { VoiceOrb, type OrbState } from "@/components/voice-orb";
 import { useVoiceCall } from "@/hooks/use-voice-call";
@@ -109,7 +110,7 @@ export default function VoiceWidgetPage({
   const { channelKey } = use(params);
   const sessionId = useSessionId(channelKey);
   const embedded = useEmbedded();
-  const widget = useQuery(api.voiceWidget.bootstrap, { channelKey });
+  const widget = useCachedQuery(api.voiceWidget.bootstrap, { channelKey });
   const greetAction = useAction(api.engine.greetFromVoice);
   const respondAction = useAction(api.engine.respondFromVoice);
   useTransparentDocument(embedded);

@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { MAX_FOLLOW_UPS } from "@/convex/lib/shared";
@@ -862,18 +863,18 @@ function StatChip({
 export default function LeadsPage() {
   const workspace = useWorkspace();
   const base = `/w/${workspace.slug}`;
-  const stages = useQuery(api.leads.listStages, {
+  const stages = useCachedQuery(api.leads.listStages, {
     workspaceId: workspace._id,
   }) as LeadStage[] | undefined;
-  const leads = useQuery(api.leads.pipeline, {
+  const leads = useCachedQuery(api.leads.pipeline, {
     workspaceId: workspace._id,
   }) as Lead[] | undefined;
-  const tags = useQuery(api.leads.listTags, {
+  const tags = useCachedQuery(api.leads.listTags, {
     workspaceId: workspace._id,
   }) as LeadTag[] | undefined;
   const ensureStages = useMutation(api.leads.ensureDefaultStages);
   const ensureDesk = useMutation(api.agents.ensureDefaultFollowUpDesk);
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
 

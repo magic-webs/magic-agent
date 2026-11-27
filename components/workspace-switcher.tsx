@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { CompanyLogo } from "@/components/company-logo";
@@ -46,8 +46,8 @@ export function WorkspaceSwitcher({
 }) {
   const { isMobile } = useSidebar();
   // Admin-only query, so it is skipped rather than refused for a company.
-  const all = useQuery(api.workspaces.list, isAdmin ? {} : "skip");
-  const own = useQuery(api.workspaces.mine, isAdmin ? "skip" : {});
+  const all = useCachedQuery(api.workspaces.list, isAdmin ? {} : "skip");
+  const own = useCachedQuery(api.workspaces.mine, isAdmin ? "skip" : {});
   const workspaces = isAdmin ? all : own;
   const pathname = usePathname();
 

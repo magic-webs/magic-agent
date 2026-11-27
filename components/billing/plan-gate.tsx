@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -54,7 +54,7 @@ export function PlanGate({
   const now = useHourBucket();
   const pathname = usePathname();
   const session = useSession();
-  const status = useQuery(api.subscriptions.access, { workspaceId, now });
+  const status = useCachedQuery(api.subscriptions.access, { workspaceId, now });
   const { money } = useMoney(workspaceId);
 
   const billing = `${base}/billing`;

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import {
   CATEGORY_LABELS,
@@ -101,11 +102,11 @@ export function BillingPanel({ days }: { days: number }) {
     workspace._id,
     days
   );
-  const markups = useQuery(
+  const markups = useCachedQuery(
     api.billing.markups,
     managesBilling ? { workspaceId: workspace._id } : "skip"
   );
-  const meta = useQuery(api.billing.metaRates, managesBilling ? {} : "skip");
+  const meta = useCachedQuery(api.billing.metaRates, managesBilling ? {} : "skip");
 
   if (data === undefined) {
     return (

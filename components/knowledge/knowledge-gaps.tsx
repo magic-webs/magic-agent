@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -110,7 +111,7 @@ function AnswerGapDialog({
   onClose: () => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const answerGap = useMutation(api.knowledgeGaps.answer);
@@ -235,7 +236,7 @@ function AnswerGapDialog({
 export function KnowledgeGaps({ kind }: { kind: Kind }) {
   const workspace = useWorkspace();
   const [status, setStatus] = useState<Status>("open");
-  const gaps = useQuery(api.knowledgeGaps.listByWorkspace, {
+  const gaps = useCachedQuery(api.knowledgeGaps.listByWorkspace, {
     workspaceId: workspace._id,
     status,
     kind,

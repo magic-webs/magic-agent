@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { AdminScope } from "@/components/use-session";
@@ -313,7 +314,7 @@ function RemoveRoleButton({ role }: { role: Role }) {
 }
 
 export default function AdminRolesPage() {
-  const roles = useQuery(api.adminRoles.list, {});
+  const roles = useCachedQuery(api.adminRoles.list, {});
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">

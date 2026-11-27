@@ -6,8 +6,8 @@ import {
   useAction,
   useMutation,
   usePaginatedQuery,
-  useQuery,
 } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -147,7 +147,7 @@ function rupeesIn(text: string): number | null {
 export function WalletTab() {
   const workspace = useWorkspace();
   const now = useHourBucket();
-  const data = useQuery(api.wallet.summary, {
+  const data = useCachedQuery(api.wallet.summary, {
     workspaceId: workspace._id,
     now,
   });

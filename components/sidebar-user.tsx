@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { CompanyLogo } from "@/components/company-logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -85,7 +85,7 @@ export function SidebarUser({
   const appearance = useAppearance();
 
   const isUser = session.me?.role === "user";
-  const workspaces = useQuery(api.users.myWorkspaces, isUser ? {} : "skip");
+  const workspaces = useCachedQuery(api.users.myWorkspaces, isUser ? {} : "skip");
   const segments = usePathname().split("/").filter(Boolean);
   const currentSlug = segments[0] === "w" ? segments[1] : undefined;
   const section = segments[0] === "w" && segments[2] ? `/${segments[2]}` : "";

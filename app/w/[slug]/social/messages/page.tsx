@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import { fail, useInstagram, type InstagramChannel } from "@/components/instagram/context";
@@ -31,7 +32,7 @@ const SAMPLE_HANDLE = "@sunita.designs";
 
 export default function SocialMessagesPage() {
   const { channel } = useInstagram();
-  const settings = useQuery(
+  const settings = useCachedQuery(
     api.instagramAutomation.getSettings,
     channel.type === "instagram" ? { channelId: channel._id } : "skip"
   );

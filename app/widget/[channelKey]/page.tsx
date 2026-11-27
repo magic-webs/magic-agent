@@ -9,7 +9,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import Image from "next/image";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -524,8 +525,8 @@ export default function WidgetPage({
   );
   useWidgetDocument(accent, embedded);
 
-  const widget = useQuery(api.widget.bootstrap, { channelKey });
-  const session = useQuery(
+  const widget = useCachedQuery(api.widget.bootstrap, { channelKey });
+  const session = useCachedQuery(
     api.widget.session,
     sessionId ? { channelKey, sessionId } : "skip"
   );
@@ -1308,7 +1309,7 @@ function WidgetChat({
   const respond = useAction(api.engine.respondFromWidget);
   const transcribe = useAction(api.voice.transcribeFromWidget);
   const speak = useAction(api.voice.speakFromWidget);
-  const draft = useQuery(api.widget.draft, { channelKey, sessionId });
+  const draft = useCachedQuery(api.widget.draft, { channelKey, sessionId });
   const recorder = useRecorder();
   const [micState, setMicState] = useState<MicState>("idle");
   const spokeLast = useRef(false);

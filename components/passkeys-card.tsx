@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { api } from "@/convex/_generated/api";
@@ -41,7 +42,7 @@ function ago(timestamp: number): string {
 }
 
 export function PasskeysCard({ className }: { className?: string }) {
-  const passkeys = useQuery(api.passkeysDb.myPasskeys);
+  const passkeys = useCachedQuery(api.passkeysDb.myPasskeys);
   const begin = useAction(api.auth.beginPasskeyRegistration);
   const finish = useAction(api.auth.finishPasskeyRegistration);
   const rename = useMutation(api.passkeysDb.renamePasskey);

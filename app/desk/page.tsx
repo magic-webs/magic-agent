@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
@@ -52,9 +52,9 @@ const BUCKETS = [
 ] as const;
 
 export default function DeskPage() {
-  const me = useQuery(api.desk.me);
-  const escalations = useQuery(api.desk.escalations, {});
-  const assigned = useQuery(api.desk.assigned, {});
+  const me = useCachedQuery(api.desk.me);
+  const escalations = useCachedQuery(api.desk.escalations, {});
+  const assigned = useCachedQuery(api.desk.assigned, {});
   const { signOut } = useSession();
 
   const [bucket, setBucket] = useState<"all" | "unread" | "mine">("all");

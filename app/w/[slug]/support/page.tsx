@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import { ticketRef } from "@/convex/lib/support";
@@ -30,11 +30,11 @@ type View = "active" | "done" | "all" | "access";
 export default function SupportPage() {
   const workspace = useWorkspace();
   const [view, setView] = useState<View>("active");
-  const tickets = useQuery(
+  const tickets = useCachedQuery(
     api.support.list,
     view === "access" ? "skip" : { workspaceId: workspace._id, filter: view }
   );
-  const log = useQuery(
+  const log = useCachedQuery(
     api.supportAccess.accessLog,
     view === "access" ? { workspaceId: workspace._id } : "skip"
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { scoreWorkspace, type Progress } from "@/lib/onboarding";
@@ -22,10 +22,10 @@ export function useProgress(): { progress: Progress; loading: boolean } {
   const workspace = useWorkspace();
   const args = { workspaceId: workspace._id };
 
-  const agents = useQuery(api.agents.listByWorkspace, args);
-  const sources = useQuery(api.knowledge.listByWorkspace, args);
-  const products = useQuery(api.products.listByWorkspace, args);
-  const stages = useQuery(api.leads.listStages, args);
+  const agents = useCachedQuery(api.agents.listByWorkspace, args);
+  const sources = useCachedQuery(api.knowledge.listByWorkspace, args);
+  const products = useCachedQuery(api.products.listByWorkspace, args);
+  const stages = useCachedQuery(api.leads.listStages, args);
 
   return {
     progress: scoreWorkspace({

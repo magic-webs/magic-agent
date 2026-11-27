@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { RECORD_EVENTS, recordToolNames } from "@/convex/lib/records";
@@ -663,8 +664,8 @@ function WebhookDialog({
 }
 
 function WebhooksTab({ book }: { book: Book }) {
-  const hooks = useQuery(api.records.listWebhooks, { bookId: book._id });
-  const deliveries = useQuery(api.records.listDeliveries, {
+  const hooks = useCachedQuery(api.records.listWebhooks, { bookId: book._id });
+  const deliveries = useCachedQuery(api.records.listDeliveries, {
     bookId: book._id,
     limit: 25,
   });
@@ -1057,7 +1058,7 @@ export default function RecordBookPage({
   const router = useRouter();
   const base = `/w/${slug}`;
 
-  const data = useQuery(api.records.getBook, {
+  const data = useCachedQuery(api.records.getBook, {
     bookId: bookId as Id<"recordBooks">,
   });
   const updateBook = useMutation(api.records.updateBook);
@@ -1073,7 +1074,7 @@ export default function RecordBookPage({
   });
 
   const book = data?.book;
-  const paymentsConnected = useQuery(
+  const paymentsConnected = useCachedQuery(
     api.payments.isConnected,
     book ? { workspaceId: book.workspaceId } : "skip"
   );

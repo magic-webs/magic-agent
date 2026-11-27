@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { SelectFieldOption } from "@/components/select-field";
 import { CHAT_MODELS } from "@/convex/lib/shared";
@@ -18,7 +18,7 @@ import { CHAT_MODELS } from "@/convex/lib/shared";
  * save would silently move the agent onto whichever model it happened to show.
  */
 export function useChatModelOptions(current?: string): SelectFieldOption[] {
-  const catalogue = useQuery(api.models.catalogue, {});
+  const catalogue = useCachedQuery(api.models.catalogue, {});
 
   return useMemo(() => {
     const models = catalogue ?? CHAT_MODELS.map((model) => ({ ...model }));

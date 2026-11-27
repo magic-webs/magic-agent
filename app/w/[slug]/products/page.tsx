@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
@@ -1086,7 +1087,7 @@ export default function ProductsPage() {
     category: category === "all" ? undefined : category,
     kind: tab === "all" ? undefined : tab,
   });
-  const counts = useQuery(api.products.kindCounts, {
+  const counts = useCachedQuery(api.products.kindCounts, {
     workspaceId: workspace._id,
   });
   const total = counts
@@ -1103,7 +1104,7 @@ export default function ProductsPage() {
       }
     />
   );
-  const categories = useQuery(api.products.categories, {
+  const categories = useCachedQuery(api.products.categories, {
     workspaceId: workspace._id,
   });
   const removeProduct = useMutation(api.products.remove);

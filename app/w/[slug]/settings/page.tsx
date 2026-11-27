@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import {
   DEFAULT_MESSAGES_PER_SESSION,
@@ -122,7 +123,7 @@ export default function WorkspaceSettingsPage() {
   const updateWorkspace = useMutation(api.workspaces.update);
   const rotateSecret = useMutation(api.workspaces.rotateWebhookSecret);
   const sendTest = useAction(api.webhooks.sendTest);
-  const events = useQuery(api.webhooks.listByWorkspace, {
+  const events = useCachedQuery(api.webhooks.listByWorkspace, {
     workspaceId: workspace._id,
     limit: 20,
   });

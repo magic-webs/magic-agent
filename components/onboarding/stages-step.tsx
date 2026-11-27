@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -227,7 +228,7 @@ export function StagesStep() {
   const router = useRouter();
   const ensureDefaults = useMutation(api.leads.ensureDefaultStages);
   const createStage = useMutation(api.leads.createStage);
-  const stages = useQuery(api.leads.listStages, {
+  const stages = useCachedQuery(api.leads.listStages, {
     workspaceId: workspace._id,
   });
 

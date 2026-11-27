@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -69,8 +70,8 @@ export default function AdminSupportPage() {
   const [assignee, setAssignee] = useState<string>(ANY);
   const [selected, setSelected] = useState<Set<Id<"supportTickets">>>(new Set());
 
-  const counts = useQuery(api.support.counts, {});
-  const staff = useQuery(api.support.staffList, {});
+  const counts = useCachedQuery(api.support.counts, {});
+  const staff = useCachedQuery(api.support.staffList, {});
   const tickets = useQuery(api.support.inbox, {
     view,
     now: Math.floor(now / 60_000) * 60_000,

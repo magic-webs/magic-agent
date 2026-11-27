@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { markSigningOut } from "@/components/session-end";
@@ -11,7 +11,7 @@ import { markSigningOut } from "@/components/session-end";
  * immediately. `undefined` while loading, `null` when signed out.
  */
 export function useSession() {
-  const me = useQuery(api.authDb.me);
+  const me = useCachedQuery(api.authDb.me);
 
   const signOut = useCallback(async () => {
     markSigningOut();

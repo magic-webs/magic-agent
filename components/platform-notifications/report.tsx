@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import { errorText, relative } from "@/components/admin-account-fields";
@@ -119,7 +120,7 @@ function Deliveries({ broadcast }: { broadcast: Broadcast }) {
 export function Report({ broadcast }: { broadcast: Broadcast }) {
   const router = useRouter();
   const modifies = useSession().canModify("notifications");
-  const settings = useQuery(api.platformNotifications.settings, {});
+  const settings = useCachedQuery(api.platformNotifications.settings, {});
   const cancel = useMutation(api.platformNotifications.cancel);
   const duplicate = useMutation(api.platformNotifications.duplicate);
   const [busy, setBusy] = useState<string | null>(null);

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -284,7 +285,7 @@ function ChannelDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const createChannel = useMutation(api.channels.create);
@@ -557,7 +558,7 @@ function ProviderChannelDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const createChannel = useMutation(api.channels.create);
@@ -787,7 +788,7 @@ function WebChannelDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const createChannel = useMutation(api.channels.create);
@@ -1050,7 +1051,7 @@ function InstagramDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   const updateChannel = useMutation(api.channels.update);
@@ -2438,10 +2439,10 @@ export default function ChannelsPage() {
     router.replace(`${base}/channels`);
   }, [base, connectedParam, instagramError, router]);
 
-  const channels = useQuery(api.channels.listByWorkspace, {
+  const channels = useCachedQuery(api.channels.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
   // Read on the client only: this component pre-renders on the server, where

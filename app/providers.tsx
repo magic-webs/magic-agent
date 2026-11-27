@@ -5,6 +5,8 @@ import {
   ConvexProviderWithAuth,
   ConvexReactClient,
 } from "convex/react";
+import { ConvexQueryClient } from "@convex-dev/react-query";
+import { notifyManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toast";
 import { AppearanceSync } from "@/components/appearance";
 import { reportSessionEnd } from "@/components/session-end";
@@ -17,6 +19,21 @@ if (!convexUrl) {
 }
 
 const convex = new ConvexReactClient(convexUrl);
+const convexQueryClient = new ConvexQueryClient(convex);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryKeyHashFn: convexQueryClient.hashFn(),
+      queryFn: convexQueryClient.queryFn(),
+      gcTime: 2 * 60_000,
+    },
+  },
+});
+convexQueryClient.connect(queryClient);
+
+// One Convex update can change several queries; microtasks land them in one render, as convex/react does.
+notifyManager.setScheduler(queueMicrotask);
 
 /**
  * Bridges our httpOnly session cookie to Convex.
@@ -92,8 +109,10 @@ function useCookieAuth() {
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ConvexProviderWithAuth client={convex} useAuth={useCookieAuth}>
-      <AppearanceSync />
-      <Toaster>{children}</Toaster>
+      <QueryClientProvider client={queryClient}>
+        <AppearanceSync />
+        <Toaster>{children}</Toaster>
+      </QueryClientProvider>
     </ConvexProviderWithAuth>
   );
 }

@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
@@ -1137,24 +1138,24 @@ export default function TeamPage() {
   const base = `/w/${workspace.slug}`;
   const now = useHourBucket();
 
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const roster = useQuery(api.agents.roster, {
+  const roster = useCachedQuery(api.agents.roster, {
     workspaceId: workspace._id,
     now,
   });
-  const members = useQuery(api.team.listByWorkspace, {
+  const members = useCachedQuery(api.team.listByWorkspace, {
     workspaceId: workspace._id,
   });
-  const logins = useQuery(api.authDb.memberLogins, {
+  const logins = useCachedQuery(api.authDb.memberLogins, {
     workspaceId: workspace._id,
   });
   const { isOwner } = useAccess();
-  const accessRoles = useQuery(api.workspaceRoles.list, {
+  const accessRoles = useCachedQuery(api.workspaceRoles.list, {
     workspaceId: workspace._id,
   });
-  const seats = useQuery(api.subscriptions.humanSeats, {
+  const seats = useCachedQuery(api.subscriptions.humanSeats, {
     workspaceId: workspace._id,
     now,
   });

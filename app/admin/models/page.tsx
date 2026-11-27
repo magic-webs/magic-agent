@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import {
@@ -60,7 +61,7 @@ import {
 import { friendlyError } from "@/lib/errors";
 
 type Catalogue = NonNullable<
-  ReturnType<typeof useQuery<typeof api.models.list>>
+  ReturnType<typeof useCachedQuery<typeof api.models.list>>
 >;
 type Entry = Catalogue[number];
 
@@ -390,7 +391,7 @@ function ModelRow({
 }
 
 function ImageProcessingCard() {
-  const enabled = useQuery(api.models.imageProcessing, {});
+  const enabled = useCachedQuery(api.models.imageProcessing, {});
   const setImageProcessing = useMutation(api.models.setImageProcessing);
   const modifies = useSession().canModify("models");
 
@@ -433,7 +434,7 @@ function ImageProcessingCard() {
 }
 
 export default function AdminModelsPage() {
-  const models = useQuery(api.models.list, {});
+  const models = useCachedQuery(api.models.list, {});
   const reprice = useMutation(api.models.repriceUnpriced);
   const moveAgents = useMutation(api.models.moveAgentsToDefault);
   const modifies = useSession().canModify("models");

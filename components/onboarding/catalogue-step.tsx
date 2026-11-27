@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -64,7 +65,7 @@ export function CatalogueStep() {
   const workspace = useWorkspace();
   const router = useRouter();
   const removeProduct = useMutation(api.products.remove);
-  const products = useQuery(api.products.listByWorkspace, {
+  const products = useCachedQuery(api.products.listByWorkspace, {
     workspaceId: workspace._id,
   });
 

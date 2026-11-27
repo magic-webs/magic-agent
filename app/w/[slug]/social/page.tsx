@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useInstagram } from "@/components/instagram/context";
@@ -24,7 +24,7 @@ export default function SocialOverviewPage() {
   const workspace = useWorkspace();
   const { channel } = useInstagram();
   const now = useHourBucket();
-  const stats = useQuery(api.instagramAutomation.channelStats, { channelId: channel._id, now });
+  const stats = useCachedQuery(api.instagramAutomation.channelStats, { channelId: channel._id, now });
   const base = `/w/${workspace.slug}/social`;
   const instagram = channel.type === "instagram";
 

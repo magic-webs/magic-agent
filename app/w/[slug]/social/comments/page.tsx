@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -59,7 +60,7 @@ type Filter = "all" | "live" | "paused";
 export default function InstagramCommentsPage() {
   const workspace = useWorkspace();
   const { channel } = useInstagram();
-  const rules = useQuery(api.instagramAutomation.listRules, { workspaceId: workspace._id });
+  const rules = useCachedQuery(api.instagramAutomation.listRules, { workspaceId: workspace._id });
   const [editing, setEditing] = useState<Editing>(null);
   const [filter, setFilter] = useState<Filter>("all");
 

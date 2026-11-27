@@ -6,8 +6,8 @@ import {
   useAction,
   useMutation,
   usePaginatedQuery,
-  useQuery,
 } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -142,7 +142,7 @@ function report(title: string, error: unknown) {
 export function PlanTab() {
   const workspace = useWorkspace();
   const now = useHourBucket();
-  const data = useQuery(api.subscriptions.overview, {
+  const data = useCachedQuery(api.subscriptions.overview, {
     workspaceId: workspace._id,
     now,
   });

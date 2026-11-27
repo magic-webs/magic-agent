@@ -6,8 +6,8 @@ import {
   useAction,
   useMutation,
   usePaginatedQuery,
-  useQuery,
 } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
@@ -100,7 +100,7 @@ function countLabel(form: FormRow): string {
 
 export function FormSubmissions({ base }: { base: string }) {
   const workspace = useWorkspace();
-  const data = useQuery(api.formSubmissions.forms, {
+  const data = useCachedQuery(api.formSubmissions.forms, {
     workspaceId: workspace._id,
   });
   const sync = useAction(api.formSubmissions.sync);

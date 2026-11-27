@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import {
   ActivityChart,
@@ -69,8 +69,8 @@ function tokens(count: number): string {
  * page where it is done. The detail lives one click away, under Tokens & cost.
  */
 export default function AdminOverviewPage() {
-  const workspaces = useQuery(api.workspaces.list, {});
-  const access = useQuery(api.authDb.accessSummary, {});
+  const workspaces = useCachedQuery(api.workspaces.list, {});
+  const access = useCachedQuery(api.authDb.accessSummary, {});
   const { data: usage } = useAdminSummary(WINDOW_DAYS);
 
   const header = (

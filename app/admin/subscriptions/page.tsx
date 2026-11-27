@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
@@ -1311,7 +1312,7 @@ function ManageBody({
  */
 export default function AdminSubscriptionsPage() {
   const now = useHourBucket();
-  const data = useQuery(api.subscriptions.adminAccounts, { now });
+  const data = useCachedQuery(api.subscriptions.adminAccounts, { now });
 
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");

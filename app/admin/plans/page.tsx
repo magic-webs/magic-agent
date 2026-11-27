@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
@@ -1139,7 +1140,7 @@ function PlanCard({
  * Razorpay is wired up to collect.
  */
 export default function AdminPlansPage() {
-  const data = useQuery(api.plans.adminCatalogue, {});
+  const data = useCachedQuery(api.plans.adminCatalogue, {});
   const movePlan = useMutation(api.plans.movePlan);
   const modifies = useSession().canModify("plans");
 

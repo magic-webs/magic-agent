@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -187,7 +188,7 @@ function InboundMapping({
 }
 
 export function InboundWebhookCard({ book }: { book: Doc<"recordBooks"> }) {
-  const settings = useQuery(api.recordIntake.inboundSettings, { bookId: book._id });
+  const settings = useCachedQuery(api.recordIntake.inboundSettings, { bookId: book._id });
   const setEnabled = useMutation(api.recordIntake.setInboundEnabled);
   const rotate = useMutation(api.recordIntake.rotateInboundKey);
   const [busy, setBusy] = useState<"toggle" | "rotate" | null>(null);

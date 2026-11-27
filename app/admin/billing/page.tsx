@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import {
@@ -102,11 +102,11 @@ export default function AdminBillingPage() {
   const { canModify, me } = useSession();
   const modifies = canModify("billing");
   const now = useHourBucket();
-  const data = useQuery(api.billing.adminOverview, {
+  const data = useCachedQuery(api.billing.adminOverview, {
     days: Number(days),
     now,
   });
-  const meta = useQuery(api.billing.metaRates, {});
+  const meta = useCachedQuery(api.billing.metaRates, {});
   const [tab, setTab] = useState<string | null>(null);
   // INR first, then the rest, whichever is the default.
   const currencies = [...(meta?.currencies ?? ["INR"])].sort(

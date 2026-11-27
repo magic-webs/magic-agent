@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AiVoiceIcon, Copy01Icon, InformationCircleIcon, PlayIcon } from "@hugeicons/core-free-icons";
 import { api } from "@/convex/_generated/api";
@@ -193,7 +194,7 @@ export function VoicePicker({
 }) {
   const preview = useAction(api.voice.previewVoice);
   const [playing, setPlaying] = useState(false);
-  const agents = useQuery(api.agents.listByWorkspace, { workspaceId: useWorkspace()._id });
+  const agents = useCachedQuery(api.agents.listByWorkspace, { workspaceId: useWorkspace()._id });
   const agent = agents?.find((a) => a._id === agentId);
   const sampleVoice = value ?? agent?.voiceId ?? (agent?.gender === "male" ? "JBFqnCBsd6RMkjVDRZzb" : "21m00Tcm4TlvDq8ikWAM");
 
@@ -261,7 +262,7 @@ export function VoiceChannelDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, { workspaceId: workspace._id });
+  const agents = useCachedQuery(api.agents.listByWorkspace, { workspaceId: workspace._id });
   const createChannel = useMutation(api.channels.create);
   const updateChannel = useMutation(api.channels.update);
   const [openState, setOpenState] = useState(false);

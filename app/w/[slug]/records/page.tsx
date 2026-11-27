@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { recordToolNames, suggestPrefix, toHandle } from "@/convex/lib/records";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -341,7 +342,7 @@ function NewBookDialog({ base }: { base: string }) {
 export default function RecordsPage() {
   const workspace = useWorkspace();
   const base = `/w/${workspace.slug}`;
-  const books = useQuery(api.records.listBooks, {
+  const books = useCachedQuery(api.records.listBooks, {
     workspaceId: workspace._id,
   });
 

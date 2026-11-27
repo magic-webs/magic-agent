@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -82,10 +83,10 @@ export default function PaymentsPage() {
   const base = `/w/${workspace.slug}`;
   const [filter, setFilter] = useState<PaymentLinkStatus | "all">("all");
 
-  const connected = useQuery(api.payments.isConnected, {
+  const connected = useCachedQuery(api.payments.isConnected, {
     workspaceId: workspace._id,
   });
-  const links = useQuery(
+  const links = useCachedQuery(
     api.payments.listLinks,
     connected
       ? {

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-provider";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +20,7 @@ export default function OrdersRedirect() {
   const workspace = useWorkspace();
   const router = useRouter();
   const base = `/w/${workspace.slug}`;
-  const bookId = useQuery(api.records.ordersBookId, {
+  const bookId = useCachedQuery(api.records.ordersBookId, {
     workspaceId: workspace._id,
   });
 

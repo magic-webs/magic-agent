@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
@@ -58,7 +59,7 @@ export function ActivityList({ pageSize, paged }: { pageSize: number; paged: boo
   const workspace = useWorkspace();
   const { channel } = useInstagram();
   const [filter, setFilter] = useState<Filter>("all");
-  const posts = useQuery(api.instagramAutomation.knownPosts, { channelId: channel._id });
+  const posts = useCachedQuery(api.instagramAutomation.knownPosts, { channelId: channel._id });
   const { results, status, loadMore } = usePaginatedQuery(
     api.instagramAutomation.listActivity,
     { workspaceId: workspace._id, channelId: channel._id, filter },

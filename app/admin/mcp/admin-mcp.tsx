@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
@@ -239,7 +240,7 @@ function ConnectorsCard({
   fresh: Fresh | null;
   onFresh: (fresh: Fresh | null) => void;
 }) {
-  const connectors = useQuery(api.authDb.adminMcpConnectors, {});
+  const connectors = useCachedQuery(api.authDb.adminMcpConnectors, {});
   const issue = useAction(api.auth.issueAdminMcpToken);
   const rotate = useAction(api.auth.rotateAdminMcpToken);
   const revoke = useAction(api.auth.revokeAdminMcpToken);

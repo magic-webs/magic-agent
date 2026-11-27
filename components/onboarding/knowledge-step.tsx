@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -76,7 +77,7 @@ export function KnowledgeStep() {
   const router = useRouter();
   const addSource = useMutation(api.knowledge.addSource);
   const removeSource = useMutation(api.knowledge.remove);
-  const sources = useQuery(api.knowledge.listByWorkspace, {
+  const sources = useCachedQuery(api.knowledge.listByWorkspace, {
     workspaceId: workspace._id,
   });
 

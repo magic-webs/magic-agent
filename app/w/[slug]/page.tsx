@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -101,12 +101,12 @@ export default function WorkspaceOverviewPage() {
   // Rounded to the hour, it keeps the query cache key stable.
   const now = useHourBucket();
 
-  const stats = useQuery(api.analytics.dashboard, {
+  const stats = useCachedQuery(api.analytics.dashboard, {
     workspaceId: workspace._id,
     days: Number(range),
     now,
   });
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
 

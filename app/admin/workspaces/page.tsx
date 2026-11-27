@@ -3,7 +3,8 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import { Button } from "@/components/ui/button";
@@ -348,7 +349,7 @@ function ManagersEditor({
   name: string;
   managers: WorkspaceManager[];
 }) {
-  const options = useQuery(api.workspaces.managerOptions, {});
+  const options = useCachedQuery(api.workspaces.managerOptions, {});
   const setManagers = useMutation(api.workspaces.setManagers);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Id<"admins">[]>([]);
@@ -702,7 +703,7 @@ function CreateWorkspaceDialog() {
 function WorkspacesDirectory() {
   // The layout has already established that this is an administrator, so the
   // query is asked outright rather than skipped on a role check.
-  const workspaces = useQuery(api.workspaces.list, {});
+  const workspaces = useCachedQuery(api.workspaces.list, {});
   const seedDemo = useMutation(api.workspaces.seedDemo);
   const { canModify } = useSession();
   const manages = canModify("workspaces");

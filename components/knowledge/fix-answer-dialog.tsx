@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -45,8 +46,8 @@ export function FixAnswerDialog({
   gapId: Id<"knowledgeGaps"> | null;
   onClose: () => void;
 }) {
-  const gap = useQuery(api.knowledgeGaps.get, gapId ? { gapId } : "skip");
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const gap = useCachedQuery(api.knowledgeGaps.get, gapId ? { gapId } : "skip");
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId,
   });
   const answerGap = useMutation(api.knowledgeGaps.answer);

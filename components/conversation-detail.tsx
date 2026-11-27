@@ -2,7 +2,8 @@
 
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -377,9 +378,9 @@ export function ConversationDetail({
   onBack: () => void;
 }) {
   const onDesk = Boolean(replyingAs);
-  const detail = useQuery(api.conversations.getWithContact, { conversationId });
-  const messages = useQuery(api.conversations.listMessages, { conversationId });
-  const team = useQuery(api.team.names, { workspaceId });
+  const detail = useCachedQuery(api.conversations.getWithContact, { conversationId });
+  const messages = useCachedQuery(api.conversations.listMessages, { conversationId });
+  const team = useCachedQuery(api.team.names, { workspaceId });
   const setStatus = useMutation(api.conversations.setStatus);
   const setHumanHandling = useMutation(api.conversations.setHumanHandling);
   const removeConversation = useMutation(api.conversations.remove);
@@ -939,13 +940,13 @@ function Pipeline({
 }: {
   conversation: Detail["conversation"];
 }) {
-  const stages = useQuery(api.leads.stageNames, {
+  const stages = useCachedQuery(api.leads.stageNames, {
     workspaceId: conversation.workspaceId,
   });
-  const records = useQuery(api.records.forConversation, {
+  const records = useCachedQuery(api.records.forConversation, {
     conversationId: conversation._id,
   });
-  const tags = useQuery(api.leads.listTags, {
+  const tags = useCachedQuery(api.leads.listTags, {
     workspaceId: conversation.workspaceId,
   });
   const setLeadStage = useMutation(api.leads.setStage);

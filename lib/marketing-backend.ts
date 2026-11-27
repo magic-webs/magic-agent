@@ -6,8 +6,8 @@ import {
   useConvex,
   useMutation,
   usePaginatedQuery,
-  useQuery,
 } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { usePaginatedQuery as useHelperPaginatedQuery } from "convex-helpers/react";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -190,7 +190,7 @@ export function useMarketingQuery<Q extends AnyQuery>(
   args: FunctionArgs<Q> | "skip"
 ): FunctionReturnType<Q> | undefined {
   const onVm = useOnVm(ref);
-  const fromConvex = useQuery(ref, (onVm ? "skip" : args) as FunctionArgs<Q> | "skip");
+  const fromConvex = useCachedQuery(ref, (onVm ? "skip" : args) as FunctionArgs<Q> | "skip");
   const fromVm = useVmQuery<FunctionReturnType<Q>>(getFunctionName(ref), onVm && args !== "skip" ? args : null);
   return onVm ? fromVm : fromConvex;
 }

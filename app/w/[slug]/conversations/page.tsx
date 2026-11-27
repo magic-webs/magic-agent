@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -109,7 +110,7 @@ export default function ConversationsPage() {
   const workspace = useWorkspace();
   const { me, isAdmin } = useSession();
   const myMemberId = me?.role === "member" ? me.memberId : undefined;
-  const agents = useQuery(api.agents.listByWorkspace, {
+  const agents = useCachedQuery(api.agents.listByWorkspace, {
     workspaceId: workspace._id,
   });
 
@@ -126,15 +127,15 @@ export default function ConversationsPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const stages = useQuery(api.leads.stageNames, { workspaceId: workspace._id });
-  const tags = useQuery(api.leads.listTags, { workspaceId: workspace._id });
-  const team = useQuery(api.team.activeForReply, { workspaceId: workspace._id });
-  const repliers = useQuery(api.team.names, { workspaceId: workspace._id });
-  const channels = useQuery(api.channels.inboxChannels, {
+  const stages = useCachedQuery(api.leads.stageNames, { workspaceId: workspace._id });
+  const tags = useCachedQuery(api.leads.listTags, { workspaceId: workspace._id });
+  const team = useCachedQuery(api.team.activeForReply, { workspaceId: workspace._id });
+  const repliers = useCachedQuery(api.team.names, { workspaceId: workspace._id });
+  const channels = useCachedQuery(api.channels.inboxChannels, {
     workspaceId: workspace._id,
   });
   const manyChannels = (channels?.length ?? 0) > 1;
-  const counts = useQuery(api.conversations.inboxCounts, {
+  const counts = useCachedQuery(api.conversations.inboxCounts, {
     workspaceId: workspace._id,
   });
   const now = useHourBucket();

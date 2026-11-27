@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -41,7 +42,7 @@ const MAX_WORDS = 50;
 
 export default function InstagramModerationPage() {
   const { channel } = useInstagram();
-  const settings = useQuery(api.instagramAutomation.getSettings, { channelId: channel._id });
+  const settings = useCachedQuery(api.instagramAutomation.getSettings, { channelId: channel._id });
 
   return (
     <div className="flex flex-col gap-4">
@@ -425,7 +426,7 @@ function Verdict({ ok, title, body }: { ok: boolean; title: string; body: string
 }
 
 function RecentModerated({ channelId }: { channelId: Id<"channels"> }) {
-  const rows = useQuery(api.instagramAutomation.recentModerated, { channelId });
+  const rows = useCachedQuery(api.instagramAutomation.recentModerated, { channelId });
 
   return (
     <section className="flex flex-col gap-2 rounded-xl border border-border p-4">

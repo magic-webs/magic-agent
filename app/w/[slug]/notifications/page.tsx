@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -944,10 +945,10 @@ export default function NotificationsPage() {
   );
   const [log, setLog] = useState<NotificationLog | null>(null);
 
-  const overview = useQuery(api.notifications.overview, { workspaceId });
-  const rules = useQuery(api.notifications.listRules, { workspaceId });
-  const templates = useQuery(api.notifications.listWhatsAppTemplates, { workspaceId });
-  const emails = useQuery(api.notifications.listEmailTemplates, { workspaceId });
+  const overview = useCachedQuery(api.notifications.overview, { workspaceId });
+  const rules = useCachedQuery(api.notifications.listRules, { workspaceId });
+  const templates = useCachedQuery(api.notifications.listWhatsAppTemplates, { workspaceId });
+  const emails = useCachedQuery(api.notifications.listEmailTemplates, { workspaceId });
   const syncTemplates = useAction(api.notificationsSend.syncWhatsAppTemplates);
 
   const filteredTemplates = useMemo(() => {

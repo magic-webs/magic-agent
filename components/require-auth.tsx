@@ -4,8 +4,8 @@ import {
   Authenticated,
   AuthLoading,
   Unauthenticated,
-  useQuery,
 } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { useSession } from "@/components/use-session";
 import { isSigningOut, useSessionEndReason } from "@/components/session-end";
@@ -81,7 +81,7 @@ export function RequireAuth({
  * that would otherwise have thrown.
  */
 function SessionGate({ children }: { children: React.ReactNode }) {
-  const live = useQuery(api.authDb.mySession);
+  const live = useCachedQuery(api.authDb.mySession);
   if (live?.ended && !isSigningOut()) {
     return <SessionEnded reason={live.reason} />;
   }

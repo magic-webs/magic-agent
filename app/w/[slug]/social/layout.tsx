@@ -3,7 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -37,7 +38,7 @@ export default function SocialLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const params = useSearchParams();
   const [since] = useState(() => Date.now() - WEEK_MS);
-  const overview = useQuery(api.instagramAutomation.overview, {
+  const overview = useCachedQuery(api.instagramAutomation.overview, {
     workspaceId: workspace._id,
     since,
   });

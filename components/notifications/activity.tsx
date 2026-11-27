@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { usePaginatedQuery } from "convex-helpers/react";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api";
@@ -134,7 +134,7 @@ export function ActivityTab({
     search: search || undefined,
   };
 
-  const summary = useQuery(api.notifications.logSummary, filters);
+  const summary = useCachedQuery(api.notifications.logSummary, filters);
   const logs = usePaginatedQuery(
     api.notifications.listLogsPage,
     { ...filters, status: STATUSES.includes(status as Status) ? (status as Status) : undefined },

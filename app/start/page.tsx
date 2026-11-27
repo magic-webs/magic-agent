@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,7 @@ const MAGICWEBS_URL =
  */
 export default function StartPage() {
   const router = useRouter();
-  const workspaces = useQuery(api.workspaces.mine);
+  const workspaces = useCachedQuery(api.workspaces.mine);
   const { signOut } = useSession();
   const first = workspaces?.[0];
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Call02Icon, Copy01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { api } from "@/convex/_generated/api";
@@ -54,7 +55,7 @@ export function PhoneChannelDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const workspace = useWorkspace();
-  const agents = useQuery(api.agents.listByWorkspace, { workspaceId: workspace._id });
+  const agents = useCachedQuery(api.agents.listByWorkspace, { workspaceId: workspace._id });
   const createChannel = useMutation(api.channels.create);
   const updateChannel = useMutation(api.channels.update);
   const [openState, setOpenState] = useState(false);

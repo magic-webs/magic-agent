@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import {
   browserSupportsWebAuthn,
   browserSupportsWebAuthnAutofill,
@@ -97,7 +98,7 @@ function lastActive(timestamp: number): string {
 function LoginForm() {
   const params = useSearchParams();
   const nextPath = params.get("next");
-  const needsSetup = useQuery(api.authDb.needsSetup);
+  const needsSetup = useCachedQuery(api.authDb.needsSetup);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

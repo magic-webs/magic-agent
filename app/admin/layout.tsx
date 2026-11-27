@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { AdminSwitcher } from "@/components/admin-switcher";
 import { RequireAuth } from "@/components/require-auth";
@@ -134,7 +134,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const opens = (item: (typeof NAV)[number]) =>
     session.isAdmin || Boolean(item.everyone) || (item.scope ? session.can(item.scope) : false);
   const current = itemFor(pathname);
-  const supportCounts = useQuery(
+  const supportCounts = useCachedQuery(
     api.support.counts,
     session.isStaff && session.can("support") ? {} : "skip"
   );

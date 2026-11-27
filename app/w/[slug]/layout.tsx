@@ -3,7 +3,8 @@
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { ORDERS_HANDLE } from "@/convex/lib/ordersBook";
 import { WorkspaceProvider } from "@/components/workspace-provider";
@@ -368,7 +369,7 @@ export default function WorkspaceLayout({
     (session.isStaff && session.me?.role === "admin" && !session.me.scoped) ||
     session.me?.workspaceSlug === slug ||
     Boolean(session.me?.workspaceSlugs?.includes(slug));
-  const workspace = useQuery(
+  const workspace = useCachedQuery(
     api.workspaces.getBySlug,
     allowed ? { slug } : "skip"
   );
@@ -378,22 +379,22 @@ export default function WorkspaceLayout({
   // honest label for it is the name they gave it, which means the nav cannot
   // be a constant. Names only: `listBookLinks` skips the per-book record count
   // that the Record books page reads, since the sidebar renders everywhere.
-  const books = useQuery(
+  const books = useCachedQuery(
     api.records.listBookLinks,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
   // For the badge on the Escalations row. A capped count off an index, since
   // the sidebar is on every page.
-  const escalated = useQuery(
+  const escalated = useCachedQuery(
     api.conversations.escalatedCount,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
-  const openGaps = useQuery(
+  const openGaps = useCachedQuery(
     api.knowledgeGaps.openCount,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
 
-  const supportUnread = useQuery(
+  const supportUnread = useCachedQuery(
     api.support.unreadCount,
     workspace && !session.isStaff ? { workspaceId: workspace._id } : "skip"
   );
@@ -403,14 +404,14 @@ export default function WorkspaceLayout({
     if (visitedId) void recordVisit({ workspaceId: visitedId }).catch(() => undefined);
   }, [visitedId, recordVisit]);
 
-  const channels = useQuery(
+  const channels = useCachedQuery(
     api.channels.inboxChannels,
     workspace ? { workspaceId: workspace._id } : "skip"
   );
   const hasSocial = Boolean(
     channels?.some((channel) => channel.type === "instagram" || channel.type === "messenger")
   );
-  const hasPayments = useQuery(
+  const hasPayments = useCachedQuery(
     api.payments.isConnected,
     workspace ? { workspaceId: workspace._id } : "skip"
   );

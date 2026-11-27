@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatMoney } from "@/convex/lib/billing";
@@ -69,7 +69,7 @@ export function currencySymbol(currency: string): string {
  */
 export function useMoney(workspaceId?: Id<"workspaces">) {
   const currency =
-    useQuery(api.plans.currency, workspaceId ? { workspaceId } : {}) ??
+    useCachedQuery(api.plans.currency, workspaceId ? { workspaceId } : {}) ??
     PLATFORM_CURRENCY;
   return useMemo(
     () => ({

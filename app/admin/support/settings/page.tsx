@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { SUPPORT_PRIORITIES, type SupportSettings } from "@/convex/lib/support";
@@ -114,7 +115,7 @@ function SlaCard({ settings, editable }: { settings: SupportSettings; editable: 
 }
 
 function RepliesCard({ editable }: { editable: boolean }) {
-  const replies = useQuery(api.supportAdmin.replies, {});
+  const replies = useCachedQuery(api.supportAdmin.replies, {});
   const save = useMutation(api.supportAdmin.saveReply);
   const remove = useMutation(api.supportAdmin.deleteReply);
   const [draft, setDraft] = useState<{ replyId?: Id<"supportReplies">; title: string; body: string }>({
@@ -196,7 +197,7 @@ function RepliesCard({ editable }: { editable: boolean }) {
 
 export default function SupportSettingsPage() {
   const session = useSession();
-  const settings = useQuery(api.supportAdmin.settings, {});
+  const settings = useCachedQuery(api.supportAdmin.settings, {});
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">

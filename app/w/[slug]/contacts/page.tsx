@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { usePaginatedQuery } from "convex-helpers/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -365,10 +366,10 @@ export default function ContactsPage() {
   const base = `/w/${workspace.slug}`;
   // A column per book, named by the workspace. The same names-only query the
   // sidebar reads, so this costs nothing extra on a page that already has it.
-  const books = useQuery(api.records.listBookLinks, {
+  const books = useCachedQuery(api.records.listBookLinks, {
     workspaceId: workspace._id,
   });
-  const stages = useQuery(api.leads.listStages, { workspaceId: workspace._id });
+  const stages = useCachedQuery(api.leads.listStages, { workspaceId: workspace._id });
 
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");

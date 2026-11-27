@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { ConvexError } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -193,8 +194,8 @@ export default function GeniePage() {
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const [drawer, setDrawer] = useState(false);
 
-  const threads = useQuery(api.genie.threads, { workspaceId: workspace._id });
-  const thread = useQuery(api.genie.thread, threadId ? { threadId } : "skip");
+  const threads = useCachedQuery(api.genie.threads, { workspaceId: workspace._id });
+  const thread = useCachedQuery(api.genie.thread, threadId ? { threadId } : "skip");
 
   const collapse = writeCollapsed;
 

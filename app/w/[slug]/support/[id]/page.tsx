@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -55,7 +56,7 @@ export default function TicketPage() {
   const ticketId = id as Id<"supportTickets">;
   const workspace = useWorkspace();
   const base = `/w/${workspace.slug}`;
-  const ticket = useQuery(api.support.get, { ticketId });
+  const ticket = useCachedQuery(api.support.get, { ticketId });
   const now = useClock(30_000);
 
   const reply = useMutation(api.support.reply);

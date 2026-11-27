@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { formatDistanceToNow } from "date-fns";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import QRCode from "react-qr-code";
@@ -101,7 +102,7 @@ function CodeInput({
  * for someone who loses their phone.
  */
 export function TwoFactorCard({ className }: { className?: string }) {
-  const status = useQuery(api.authDb.twoFactorStatus);
+  const status = useCachedQuery(api.authDb.twoFactorStatus);
   const begin = useAction(api.auth.beginTwoFactorSetup);
   const [starting, setStarting] = useState(false);
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(

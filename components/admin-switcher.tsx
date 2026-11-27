@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useCachedQuery } from "@/lib/use-cached-query";
 import { api } from "@/convex/_generated/api";
 import { Logo } from "@/components/logo";
 import {
@@ -36,7 +36,7 @@ import {
  */
 export function AdminSwitcher() {
   const { isMobile } = useSidebar();
-  const workspaces = useQuery(api.workspaces.list, {});
+  const workspaces = useCachedQuery(api.workspaces.list, {});
 
   // Same neutral tile as the workspace sidebar: the mark is teal and grey on
   // transparency, so a filled brand tile would muddy it.

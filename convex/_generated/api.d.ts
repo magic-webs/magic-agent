@@ -200,6 +200,7 @@ import type * as supportAdmin from "../supportAdmin.js";
 import type * as supportSend from "../supportSend.js";
 import type * as team from "../team.js";
 import type * as telegram from "../telegram.js";
+import type * as templateMediaHandles from "../templateMediaHandles.js";
 import type * as tools from "../tools.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
@@ -415,6 +416,7 @@ declare const fullApi: ApiFromModules<{
   supportSend: typeof supportSend;
   team: typeof team;
   telegram: typeof telegram;
+  templateMediaHandles: typeof templateMediaHandles;
   tools: typeof tools;
   usage: typeof usage;
   users: typeof users;

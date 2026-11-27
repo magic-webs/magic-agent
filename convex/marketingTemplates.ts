@@ -56,12 +56,16 @@ const NO_WABA =
 
 const UPLOAD_TIMEOUT_MS = 60_000;
 const RATE_LIMIT_WAITS_MS = [20_000, 40_000, 65_000];
+const HANDLE_REUSE_MS = 24 * 60 * 60 * 1000;
+const UPLOAD_GAP_MS = 3_000;
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function withRateLimitRetry<T extends { status: number }>(send: () => Promise<T>): Promise<T> {
   let response = await send();
   for (const wait of RATE_LIMIT_WAITS_MS) {
     if (response.status !== 429) return response;
-    await new Promise((resolve) => setTimeout(resolve, wait));
+    await pause(wait);
     response = await send();
   }
   return response;
@@ -117,6 +121,39 @@ async function mediaHandle(panel: PanelConfig, media: HeaderMedia): Promise<stri
   }
 }
 
+async function panelKeyOf(panel: PanelConfig): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${panel.apiBaseUrl}|${panel.accessToken}`)
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function mediaHandles(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">,
+  panel: PanelConfig,
+  media: HeaderMedia[]
+): Promise<string[]> {
+  const panelKey = await panelKeyOf(panel);
+  const handles: string[] = [];
+  let uploaded = false;
+  for (const item of media) {
+    const key = { workspaceId, panelKey, mediaKey: item.key };
+    const cached = await ctx.runQuery(internal.templateMediaHandles.get, key);
+    if (cached && Date.now() - cached.uploadedAt < HANDLE_REUSE_MS) {
+      handles.push(cached.handle);
+      continue;
+    }
+    if (uploaded) await pause(UPLOAD_GAP_MS);
+    const handle = await mediaHandle(panel, item);
+    uploaded = true;
+    await ctx.runMutation(internal.templateMediaHandles.save, { ...key, handle });
+    handles.push(handle);
+  }
+  return handles;
+}
+
 /** A language code Meta and the panel may write differently: "en_US" is "en-US". */
 const sameLanguage = (a: string, b: string) =>
   a.toLowerCase().replace("-", "_") === b.toLowerCase().replace("-", "_");
@@ -150,13 +187,19 @@ export const apply = action({
     };
     let components: Json[];
     if (cards) {
-      const handles: string[] = [];
-      for (const card of cards) handles.push(await mediaHandle(panel, card.media!));
+      const handles = await mediaHandles(
+        ctx,
+        template.workspaceId,
+        panel,
+        cards.map((card) => card.media!)
+      );
       components = [body, metaCarousel(cards, handles)];
     } else {
       const parts: Json[] = metaParts(
         template,
-        template.headerMedia ? await mediaHandle(panel, template.headerMedia) : undefined
+        template.headerMedia
+          ? (await mediaHandles(ctx, template.workspaceId, panel, [template.headerMedia]))[0]
+          : undefined
       );
       components = [
         ...parts.filter((part) => part.type === "HEADER"),

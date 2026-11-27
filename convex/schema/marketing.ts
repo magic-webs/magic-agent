@@ -173,6 +173,14 @@ export const marketingTables = {
     .index("by_workspace_and_metaTemplateName", ["workspaceId", "metaTemplateName"])
     .index("by_metaStatus", ["metaStatus"]),
 
+  templateMediaHandles: defineTable({
+    workspaceId: v.id("workspaces"),
+    panelKey: v.string(),
+    mediaKey: v.string(),
+    handle: v.string(),
+    uploadedAt: v.number(),
+  }).index("by_workspace_and_panelKey_and_mediaKey", ["workspaceId", "panelKey", "mediaKey"]),
+
   marketingEvents: defineTable({
     workspaceId: v.id("workspaces"),
     title: v.string(),

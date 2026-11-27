@@ -1,5 +1,5 @@
-// Mirrors every wallet credit onto the partner panel's channel wallet, so the
-// WhatsApp number's balance there moves with the Magic Agent wallet.
+// After every wallet credit, sets the partner panel's channel wallet to the
+// Magic Agent wallet balance by depositing or withdrawing the difference.
 
 import { v } from "convex/values";
 import { internalAction, internalQuery } from "./_generated/server";
@@ -15,6 +15,7 @@ type PartnerChannel = {
   basic_details?: { channel_identity?: string };
   billing?: { currency?: string };
   cloud?: { phone_number_id?: string };
+  wallet?: { balance?: number };
   permanent_disabled?: boolean;
 };
 
@@ -82,6 +83,7 @@ export const context = internalQuery({
     const channel = whatsapp[0]?.whatsapp;
     return {
       amountMicros: row.amountMicros,
+      balanceMicros: wallet?.balanceMicros ?? 0,
       currency: wallet?.currency ?? "INR",
       synced: row.partnerSync?.status === "done",
       phoneNumberId: channel?.phoneNumberId ?? null,
@@ -127,6 +129,7 @@ export const sync = internalAction({
     if (!config) return await done("skipped", { error: "Partner API is not configured." });
     const row: {
       amountMicros: number;
+      balanceMicros: number;
       currency: string;
       synced: boolean;
       phoneNumberId: string | null;
@@ -149,6 +152,10 @@ export const sync = internalAction({
           error: `Partner channel bills in ${channelCurrency}, wallet in ${row.currency}.`,
         });
       }
+      const target = Math.max(0, Math.round(row.balanceMicros / 10_000) / 100);
+      const current = Number(channel.wallet?.balance ?? 0);
+      const difference = Math.round((target - current) * 10_000) / 10_000;
+      if (Math.abs(difference) < 0.01) return await done("done", { channelId: channel._id });
       const response = await request(
         `${config.baseUrl}/api/v1/crm/channel/${encodeURIComponent(channel._id)}/wallet`,
         {
@@ -159,8 +166,8 @@ export const sync = internalAction({
           },
           body: JSON.stringify({
             module: "balance",
-            action: row.amountMicros > 0 ? "deposit" : "withdraw",
-            balance: Math.round(Math.abs(row.amountMicros) / 10_000) / 100,
+            action: difference > 0 ? "deposit" : "withdraw",
+            balance: Math.abs(difference),
           }),
         }
       );

@@ -20,6 +20,7 @@ import {
   categoryBarClass,
 } from "@/components/billing/category";
 import { MarkupDialog } from "@/components/billing/markup-dialog";
+import { useBillingSummary } from "@/components/billing/use-billing-summary";
 import { ratesFor, ratesInForce } from "@/components/billing/pricing";
 import { marketLabel } from "@/convex/lib/markets";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -46,6 +47,7 @@ import {
   Alert02Icon,
   Invoice01Icon,
   PencilEdit02Icon,
+  RefreshIcon,
 } from "@hugeicons/core-free-icons";
 
 const PAGE = 25;
@@ -95,11 +97,10 @@ export function BillingPanel({ days }: { days: number }) {
   const { can, canModify } = useSession();
   const managesBilling = can("billing");
   const now = useHourBucket();
-  const data = useQuery(api.billing.workspaceSummary, {
-    workspaceId: workspace._id,
-    days,
-    now,
-  });
+  const { data, fetchedAt, refresh, refreshing } = useBillingSummary(
+    workspace._id,
+    days
+  );
   const markups = useQuery(
     api.billing.markups,
     managesBilling ? { workspaceId: workspace._id } : "skip"
@@ -245,7 +246,23 @@ export function BillingPanel({ days }: { days: number }) {
               </p>
             ) : null}
           </div>
-          {editMarkup}
+          <div className="flex items-center gap-2">
+            {editMarkup}
+            <Button
+              size="icon-sm"
+              variant="outline"
+              onClick={refresh}
+              disabled={refreshing}
+              aria-label="Refresh"
+              title={
+                fetchedAt
+                  ? `Updated ${new Date(fetchedAt).toLocaleTimeString()}`
+                  : undefined
+              }
+            >
+              {refreshing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Share of spend as one stacked bar: part-to-whole across four

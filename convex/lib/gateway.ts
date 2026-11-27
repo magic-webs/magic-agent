@@ -2,7 +2,7 @@
  * The model provider: Vercel AI Gateway.
  *
  * One key reaches every model the platform needs — the chat models, OpenAI's
- * embedding model for retrieval, Jev for classification, Whisper for voice
+ * embedding model for retrieval, Jev for classification, Scribe for voice
  * notes — so there is a single credential and a single bill.
  *
  * Imported only by the Node actions (engine, ai, ingest, whatsapp). Never from
@@ -20,13 +20,14 @@ import {
   isChatModel,
   supportsPromptCaching,
 } from "./shared";
+import { VOICE_TRANSCRIPTION_MODEL } from "./voices";
 
 export { DEFAULT_CHAT_MODEL } from "./shared";
 
 export const EMBEDDING_MODEL = DEFAULT_EMBEDDING_MODEL;
 
-/** Voice notes. The same Whisper the direct OpenAI call used. */
-export const TRANSCRIPTION_MODEL = "openai/whisper-1";
+/** Voice notes. The same Scribe that voice mode hears with. */
+export const TRANSCRIPTION_MODEL = VOICE_TRANSCRIPTION_MODEL;
 
 /**
  * Spoken replies. Fish Audio's S2.1, on the gateway's free tier.

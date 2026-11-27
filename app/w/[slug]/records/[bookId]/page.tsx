@@ -3,8 +3,9 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useCachedQuery } from "@/lib/use-cached-query";
+import { useDebounced } from "@/components/use-debounced";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { RECORD_EVENTS, recordToolNames } from "@/convex/lib/records";
@@ -1067,10 +1068,11 @@ export default function RecordBookPage({
 
   const [stageFilter, setStageFilter] = useState("");
   const [search, setSearch] = useState("");
-  const rows = useQuery(api.records.listRecords, {
+  const debouncedSearch = useDebounced(search.trim());
+  const rows = useCachedQuery(api.records.listRecords, {
     bookId: bookId as Id<"recordBooks">,
     stage: stageFilter || undefined,
-    search: search.trim() || undefined,
+    search: debouncedSearch || undefined,
   });
 
   const book = data?.book;

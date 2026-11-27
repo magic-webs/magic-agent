@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useCachedQuery } from "@/lib/use-cached-query";
+import { useDebounced } from "@/components/use-debounced";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
@@ -1077,13 +1078,14 @@ function ProductViewDialog({
 export default function ProductsPage() {
   const workspace = useWorkspace();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounced(search.trim());
   const [category, setCategory] = useState("all");
   const [tab, setTab] = useState<"all" | CatalogueKind>("all");
   const addKind: CatalogueKind = tab === "all" ? "product" : tab;
 
-  const products = useQuery(api.products.listByWorkspace, {
+  const products = useCachedQuery(api.products.listByWorkspace, {
     workspaceId: workspace._id,
-    search: search.trim() || undefined,
+    search: debouncedSearch || undefined,
     category: category === "all" ? undefined : category,
     kind: tab === "all" ? undefined : tab,
   });

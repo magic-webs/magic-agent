@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useCachedQuery } from "@/lib/use-cached-query";
+import { useDebounced } from "@/components/use-debounced";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -65,6 +66,7 @@ export default function AdminSupportPage() {
   const now = useClock(60_000);
   const [view, setView] = useState<View>("open");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounced(search.trim());
   const [priority, setPriority] = useState<string>(ANY);
   const [type, setType] = useState<string>(ANY);
   const [assignee, setAssignee] = useState<string>(ANY);
@@ -72,10 +74,10 @@ export default function AdminSupportPage() {
 
   const counts = useCachedQuery(api.support.counts, {});
   const staff = useCachedQuery(api.support.staffList, {});
-  const tickets = useQuery(api.support.inbox, {
+  const tickets = useCachedQuery(api.support.inbox, {
     view,
     now: Math.floor(now / 60_000) * 60_000,
-    search: search.trim() || undefined,
+    search: debouncedSearch || undefined,
     priority: priority === ANY ? undefined : (priority as SupportPriority),
     type: type === ANY ? undefined : (type as SupportType),
     assigneeId: assignee === ANY ? undefined : (assignee as Id<"admins">),

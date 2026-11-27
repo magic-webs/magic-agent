@@ -419,6 +419,7 @@ export const conversationsTables = {
       v.literal("won"),
       v.literal("lost")
     ),
+    leadCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),

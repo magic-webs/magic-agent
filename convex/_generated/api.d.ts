@@ -87,6 +87,7 @@ import type * as lib_integrations from "../lib/integrations.js";
 import type * as lib_invoices from "../lib/invoices.js";
 import type * as lib_jev from "../lib/jev.js";
 import type * as lib_knowledgeCarry from "../lib/knowledgeCarry.js";
+import type * as lib_leadStageCounts from "../lib/leadStageCounts.js";
 import type * as lib_links from "../lib/links.js";
 import type * as lib_marketing from "../lib/marketing.js";
 import type * as lib_marketingStats from "../lib/marketingStats.js";
@@ -301,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   "lib/invoices": typeof lib_invoices;
   "lib/jev": typeof lib_jev;
   "lib/knowledgeCarry": typeof lib_knowledgeCarry;
+  "lib/leadStageCounts": typeof lib_leadStageCounts;
   "lib/links": typeof lib_links;
   "lib/marketing": typeof lib_marketing;
   "lib/marketingStats": typeof lib_marketingStats;

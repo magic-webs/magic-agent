@@ -86,6 +86,7 @@ const IGNORED = new Set([
   "charCount",
   "lastSerial",
   "recordCount",
+  "leadCount",
   "lastStatus",
   "lastResponseStatus",
   "lastError",

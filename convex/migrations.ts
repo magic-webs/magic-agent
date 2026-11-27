@@ -1732,3 +1732,52 @@ export const repliedMembersForWorkspace = internalMutation({
     }
   },
 });
+
+// ---------------------------------------------------------------------------
+// Lead stage counts
+//
+//   npx convex run migrations:leadStageCounts
+//
+// Sets each stage's leadCount from the conversations filed there. The
+// conversations trigger keeps it current from then on.
+// ---------------------------------------------------------------------------
+
+export const leadStageCounts = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("workspaces")
+      .paginate({ numItems: WORKSPACE_BATCH, cursor: args.cursor ?? null });
+
+    for (const workspace of page.page) {
+      await ctx.scheduler.runAfter(0, internal.migrations.leadStageCountsForWorkspace, {
+        workspaceId: workspace._id,
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.leadStageCounts, {
+        cursor: page.continueCursor,
+      });
+    }
+    return { workspaces: page.page.length, done: page.isDone };
+  },
+});
+
+export const leadStageCountsForWorkspace = internalMutation({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const stages = await ctx.db
+      .query("leadStages")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+    for (const stage of stages) {
+      const filed = await ctx.db
+        .query("conversations")
+        .withIndex("by_workspace_stage", (q) =>
+          q.eq("workspaceId", args.workspaceId).eq("leadStageId", stage._id)
+        )
+        .collect();
+      await ctx.db.patch("leadStages", stage._id, { leadCount: filed.length });
+    }
+  },
+});

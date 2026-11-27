@@ -13,6 +13,7 @@ import { allows, INCIDENTAL_FIELDS, TABLE_AREAS } from "./lib/access";
 import { ConvexError } from "convex/values";
 import { reviewDueAt } from "./lib/reviewDue";
 import { bumpAudienceCounts, tally } from "./lib/audienceCounts";
+import { bumpLeadCount } from "./lib/leadStageCounts";
 import { contactChanged, isMirrored, newSyncState, SYNC_BATCH, type SyncState } from "./lib/marketingSync";
 
 type WrappedCtx = ActivityCtx & { sync: SyncState };
@@ -56,6 +57,14 @@ triggers.register("conversations", async (ctx, change) => {
   if (due !== change.newDoc.reviewDueAt) {
     await ctx.innerDb.patch(change.id, { reviewDueAt: due });
   }
+});
+
+triggers.register("conversations", async (ctx, change) => {
+  const before = change.oldDoc?.leadStageId;
+  const after = change.newDoc?.leadStageId;
+  if (before === after) return;
+  if (before) await bumpLeadCount(ctx.innerDb, before, -1);
+  if (after) await bumpLeadCount(ctx.innerDb, after, 1);
 });
 
 triggers.register("contacts", async (ctx, change) => {

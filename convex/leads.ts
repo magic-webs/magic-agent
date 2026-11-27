@@ -112,20 +112,9 @@ export const listStages = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .collect();
 
-    const conversations = await ctx.db
-      .query("conversations")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
-
-    const counts = new Map<string, number>();
-    for (const row of conversations) {
-      if (!row.leadStageId) continue;
-      counts.set(row.leadStageId, (counts.get(row.leadStageId) ?? 0) + 1);
-    }
-
     return stages
       .sort((a, b) => a.position - b.position)
-      .map((stage) => ({ ...stage, leadCount: counts.get(stage._id) ?? 0 }));
+      .map((stage) => ({ ...stage, leadCount: stage.leadCount ?? 0 }));
   },
 });
 

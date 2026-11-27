@@ -254,7 +254,7 @@ export async function creditWallet(
   const now = Date.now();
   const balanceMicros = wallet.balanceMicros + args.amountMicros;
   await ctx.db.patch("wallets", wallet._id, { balanceMicros, updatedAt: now });
-  await ctx.db.insert("walletTransactions", {
+  const transactionId = await ctx.db.insert("walletTransactions", {
     workspaceId: args.workspaceId,
     kind: args.kind,
     amountMicros: args.amountMicros,
@@ -264,6 +264,7 @@ export async function creditWallet(
     by: args.by,
     createdAt: now,
   });
+  await ctx.scheduler.runAfter(0, internal.partnerWallet.sync, { transactionId });
 
   // Back above the line: the next dip is news again.
   const account = await accountFor(ctx, args.workspaceId);

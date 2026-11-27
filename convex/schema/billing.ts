@@ -375,6 +375,14 @@ export const billingTables = {
     paymentId: v.optional(v.id("billingPayments")),
     note: v.optional(v.string()),
     by: v.optional(v.string()),
+    partnerSync: v.optional(
+      v.object({
+        status: v.union(v.literal("done"), v.literal("skipped"), v.literal("failed")),
+        channelId: v.optional(v.string()),
+        error: v.optional(v.string()),
+        at: v.number(),
+      })
+    ),
     createdAt: v.number(),
   }).index("by_workspace_createdAt", ["workspaceId", "createdAt"]),
 

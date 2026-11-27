@@ -83,6 +83,7 @@ import {
   tidyParts,
 } from "./lib/templateParts";
 import { deleteFile, fileUrl, requireOwnKey, uploadUrlFor } from "./lib/files";
+import { metaLanguageCode } from "./lib/metaLanguages";
 import type { Outbound } from "./lib/whatsappSend";
 
 type ShownTemplate = Extract<Outbound, { kind: "template" }>;
@@ -499,11 +500,21 @@ export const saveTemplate = mutation({
         .toLowerCase()
         .replace(/[^a-z0-9_]+/g, "_")
         .replace(/^_+|_+$/g, "") || undefined;
-    const languageCode = args.languageCode?.trim() || "en";
+    const givenLanguage = args.languageCode?.trim() || "en";
+    const existing = args.templateId
+      ? await templateInWorkspace(ctx, args.workspaceId, args.templateId)
+      : undefined;
+    const languageCode =
+      metaLanguageCode(givenLanguage) ??
+      (givenLanguage === existing?.languageCode ? givenLanguage : undefined);
+    if (!languageCode) {
+      throw new ConvexError(
+        `"${givenLanguage}" is not a language Meta accepts for templates. Pick one from the list, like en or ar.`
+      );
+    }
 
     const now = Date.now();
-    if (args.templateId) {
-      const existing = await templateInWorkspace(ctx, args.workspaceId, args.templateId);
+    if (args.templateId && existing) {
       const kept = tidyParts({
         header: args.header ?? existing.header,
         headerMedia:

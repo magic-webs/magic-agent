@@ -49,6 +49,7 @@ import {
   type TemplateCard,
 } from "./lib/templateParts";
 import { fileUrl, newFileKey, r2 } from "./lib/files";
+import { looksLikeLanguageCode } from "./lib/metaLanguages";
 
 const NO_PANEL = "Connect a WhatsApp number under Channels first — templates are applied through it.";
 const NO_WABA =
@@ -176,6 +177,11 @@ export const apply = action({
       ...partsProblems(template),
       ...(cards ? cardsProblems(cards, template) : []),
     ];
+    if (!looksLikeLanguageCode(template.languageCode)) {
+      problems.push(
+        `"${template.languageCode}" is not a language Meta accepts. Pick one under Language, like en or ar, and save first.`
+      );
+    }
     if (problems.length > 0) throw new ConvexError(problems[0]);
 
     const text = metaBody(template.body);

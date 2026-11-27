@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 
 import { api } from "@/convex/_generated/api";
 import { CATEGORY_LABELS } from "@/convex/lib/billing";
+import { META_LANGUAGES, looksLikeLanguageCode, metaLanguageCode } from "@/convex/lib/metaLanguages";
 import {
   MAX_EXAMPLE,
   customVariablesIn,
@@ -41,7 +42,7 @@ import { putFile } from "@/lib/upload";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useWorkspace } from "@/components/workspace-provider";
 import { templateStanding } from "@/components/marketing/format";
-import { SelectField } from "@/components/select-field";
+import { SelectField, type SelectFieldOption } from "@/components/select-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -213,6 +214,17 @@ function blankButton(type: TemplateButton["type"]): TemplateButton {
   if (type === "url") return { type, text: "Visit website", url: "https://" };
   if (type === "phone") return { type, text: "Call us", phone: "+91" };
   return { type, text: "" };
+}
+
+const LANGUAGE_OPTIONS: SelectFieldOption[] = META_LANGUAGES.map((language) => ({
+  value: language.code,
+  label: `${language.label} (${language.code})`,
+}));
+
+function languageOptions(current: string): SelectFieldOption[] {
+  if (!current || metaLanguageCode(current) === current) return LANGUAGE_OPTIONS;
+  const label = looksLikeLanguageCode(current) ? current : `${current} — not a Meta language`;
+  return [{ value: current, label }, ...LANGUAGE_OPTIONS];
 }
 
 export function TemplateDialog({
@@ -890,13 +902,12 @@ export function TemplateDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="template-language">Language</Label>
-              <Input
+              <SelectField
                 id="template-language"
+                aria-label="Language"
                 value={draft.languageCode}
-                maxLength={10}
-                placeholder="Language code"
-                className="font-mono"
-                onChange={(event) => setDraft({ ...draft, languageCode: event.target.value })}
+                onValueChange={(next) => setDraft({ ...draft, languageCode: next })}
+                options={languageOptions(draft.languageCode)}
               />
             </div>
           </div>

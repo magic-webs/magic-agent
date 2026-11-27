@@ -139,7 +139,7 @@ function IssuedPasswordDialog({
               variant="outline"
               onClick={() =>
                 void copy(
-                  `Sign in at ${signInUrl}\nWorkspace ID: ${issued.slug}\nPassword: ${issued.password}`,
+                  `${signInUrl}\n\nWorkspace ID: ${issued.slug}\nPassword: ${issued.password}`,
                   "Sign-in details"
                 )
               }

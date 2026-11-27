@@ -749,7 +749,7 @@ function IssuedLoginDialog({
               variant="outline"
               onClick={() =>
                 void copy(
-                  `Sign in at ${signInUrl}\n${
+                  `${signInUrl}\n\n${
                     issued.email
                       ? `Email: ${issued.email}`
                       : `Username: ${issued.username}`

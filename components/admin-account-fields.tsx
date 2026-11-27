@@ -90,7 +90,7 @@ export function PasswordField({
           disabled={!value || !email.trim()}
           onClick={() =>
             void copy(
-              `Sign in at ${window.location.origin}/login\nEmail: ${email.trim()}\nPassword: ${value}`,
+              `${window.location.origin}/login\n\nEmail: ${email.trim()}\nPassword: ${value}`,
               "Sign-in details"
             )
           }

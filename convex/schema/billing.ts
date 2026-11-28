@@ -314,6 +314,23 @@ export const billingTables = {
       "createdAt",
     ]),
 
+  earlyReceipts: defineTable({
+    workspaceId: v.id("workspaces"),
+    key: v.string(),
+    resolved: v.optional(v.string()),
+    failed: v.optional(v.boolean()),
+    pricing: v.optional(
+      v.object({
+        billable: v.optional(v.boolean()),
+        category: v.optional(v.string()),
+        type: v.optional(v.string()),
+      })
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_createdAt", ["createdAt"]),
+
   billingPayments: defineTable({
     workspaceId: v.id("workspaces"),
     purpose: v.union(

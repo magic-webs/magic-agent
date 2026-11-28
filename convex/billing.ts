@@ -151,7 +151,14 @@ export const settleStale = internalMutation({
         settledAt: now,
       });
     }
-    if (stale.length === SWEEP_BATCH) {
+    const expired = await ctx.db
+      .query("earlyReceipts")
+      .withIndex("by_createdAt", (q) => q.lt("createdAt", now - DAY_MS))
+      .take(SWEEP_BATCH);
+    for (const receipt of expired) {
+      await ctx.db.delete("earlyReceipts", receipt._id);
+    }
+    if (stale.length === SWEEP_BATCH || expired.length === SWEEP_BATCH) {
       await ctx.scheduler.runAfter(0, internal.billing.settleStale, {});
     }
     return null;

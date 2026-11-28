@@ -92,7 +92,57 @@ export async function charge(
   if (args.aiEventId) {
     await attachAi(ctx, args.workspaceId, eventId, args.aiEventId);
   }
+  if (args.wamid) await catchUp(ctx, eventId);
   return eventId;
+}
+
+/**
+ * Keep a receipt that came in before its message was charged. A campaign's
+ * charges reach Convex after the page that sent them, so the queue report
+ * and Meta's receipts can all be here first.
+ */
+export async function holdReceipt(
+  ctx: MutationCtx,
+  receipt: {
+    workspaceId: Id<"workspaces">;
+    key: string;
+    resolved?: string;
+    failed?: boolean;
+    pricing?: { billable?: boolean; category?: string; type?: string };
+  }
+): Promise<void> {
+  if (!receipt.resolved && !receipt.failed && !receipt.pricing) return;
+  const held = await ctx.db
+    .query("earlyReceipts")
+    .withIndex("by_key", (q) => q.eq("key", receipt.key))
+    .first();
+  if (!held) {
+    await ctx.db.insert("earlyReceipts", { ...receipt, createdAt: Date.now() });
+    return;
+  }
+  await ctx.db.patch("earlyReceipts", held._id, {
+    resolved: receipt.resolved ?? held.resolved,
+    failed: receipt.failed || held.failed,
+    pricing: receipt.pricing ?? held.pricing,
+  });
+}
+
+async function catchUp(ctx: MutationCtx, eventId: Id<"billingEvents">): Promise<void> {
+  for (let hop = 0; hop < 2; hop++) {
+    const event = await ctx.db.get("billingEvents", eventId);
+    if (!event?.wamid || event.status !== "pending") return;
+    const wamid = event.wamid;
+    const held = await ctx.db
+      .query("earlyReceipts")
+      .withIndex("by_key", (q) => q.eq("key", wamid))
+      .first();
+    if (!held || held.workspaceId !== event.workspaceId) return;
+    await ctx.db.delete("earlyReceipts", held._id);
+    if (held.failed) return await refund(ctx, event);
+    if (held.pricing) return await settle(ctx, event, held.pricing);
+    if (!held.resolved) return;
+    await ctx.db.patch("billingEvents", eventId, { wamid: held.resolved });
+  }
 }
 
 /** Show an AI charge as part of the WhatsApp message that carried the reply. */

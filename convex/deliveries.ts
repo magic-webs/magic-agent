@@ -9,7 +9,7 @@ import type { Id } from "./_generated/dataModel";
 import { deliveryStatus } from "./schema";
 import { advances, linkWamids, setDelivery } from "./lib/delivery";
 import { noteDelivery } from "./lib/marketingStats";
-import { billingEventFor, refund, settle } from "./lib/charge";
+import { billingEventFor, holdReceipt, refund, settle } from "./lib/charge";
 
 // Receipts and the queue report race each other, so one that finds no message
 // yet is tried again a few times before it is dropped.
@@ -86,6 +86,13 @@ export const applyStatuses = internalMutation({
       if (event && event.workspaceId === workspaceId) {
         if (status.status === "failed") await refund(ctx, event);
         else if (status.pricing) await settle(ctx, event, status.pricing);
+      } else if (!event) {
+        await holdReceipt(ctx, {
+          workspaceId,
+          key: status.wamid,
+          failed: status.status === "failed" || undefined,
+          pricing: status.pricing,
+        });
       }
       const link = await linkFor(ctx, status.wamid);
       const send = link ? null : await unthreadedSend(ctx, status.wamid, workspaceId);
@@ -139,6 +146,13 @@ export const resolveQueued = internalMutation({
     if (event && event.workspaceId === workspaceId) {
       if (args.wamid) await ctx.db.patch("billingEvents", event._id, { wamid: args.wamid });
       if (args.failed) await refund(ctx, event);
+    } else if (!event) {
+      await holdReceipt(ctx, {
+        workspaceId,
+        key: args.queueId,
+        resolved: args.wamid,
+        failed: args.failed || undefined,
+      });
     }
 
     const link = await linkFor(ctx, args.queueId);

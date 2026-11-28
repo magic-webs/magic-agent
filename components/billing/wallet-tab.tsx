@@ -209,14 +209,12 @@ function BalanceCard({ data, now }: { data: Summary; now: number }) {
   const balance = data.balanceMicros;
   const perDay = data.spent7dMicros / 7;
   const days = perDay > 0 && balance > 0 ? Math.floor(balance / perDay) : null;
-  // A busier week than one read covers makes the spend a floor, so the days
-  // it would last are a ceiling.
   const pace =
     days === null
       ? null
       : days < 1
         ? "Less than a day of messages at last week's pace."
-        : `${data.spendTruncated ? "At most about" : "About"} ${days} ${days === 1 ? "day" : "days"} of messages at last week's pace.`;
+        : `About ${days} ${days === 1 ? "day" : "days"} of messages at last week's pace.`;
   const otherCurrency =
     data.rateCurrency && data.rateCurrency !== data.currency
       ? data.rateCurrency
@@ -240,9 +238,8 @@ function BalanceCard({ data, now }: { data: Summary; now: number }) {
           <p className="text-sm text-muted-foreground">
             {data.spent7dMicros > 0 ? (
               <>
-                {money(data.spent7dMicros)}
-                {data.spendTruncated ? " or more" : ""} spent in the last 7
-                days. {pace}
+                {data.spendTruncated ? "About " : ""}
+                {money(data.spent7dMicros)} spent in the last 7 days. {pace}
               </>
             ) : (
               "Nothing was spent in the last 7 days."

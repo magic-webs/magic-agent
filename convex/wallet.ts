@@ -68,10 +68,16 @@ export const summary = query({
           .eq("workspaceId", args.workspaceId)
           .gte("createdAt", args.now - 7 * DAY_MS)
       )
+      .order("desc")
       .take(SPEND_SCAN_CAP);
-    const spent7dMicros = recent
+    const spendTruncated = recent.length === SPEND_SCAN_CAP;
+    const spentMicros = recent
       .filter((row) => row.currency === settings.currency)
       .reduce((sum, row) => sum + row.amountMicros, 0);
+    const spanDays = spendTruncated
+      ? Math.max((args.now - recent[recent.length - 1].createdAt) / DAY_MS, 1 / 24)
+      : 7;
+    const spent7dMicros = Math.round((spentMicros * 7) / Math.min(spanDays, 7));
 
     const inFlight = account?.rechargeInFlight
       ? await ctx.db.get("billingPayments", account.rechargeInFlight.paymentId)
@@ -90,7 +96,7 @@ export const summary = query({
       thresholdMicros,
       lowBalance: balanceMicros < thresholdMicros,
       spent7dMicros,
-      spendTruncated: recent.length === SPEND_SCAN_CAP,
+      spendTruncated,
       // Rates in another currency cannot come off a rupee balance.
       rateCurrency: rates?.currency ?? null,
       autoRecharge: {

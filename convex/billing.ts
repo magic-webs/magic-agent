@@ -379,6 +379,7 @@ export const workspaceSummary = query({
       .withIndex("by_workspace_createdAt", (q) =>
         q.eq("workspaceId", args.workspaceId).gte("createdAt", previousStart)
       )
+      .order("desc")
       .take(SCAN_CAP);
 
     const totals = { messages: 0, amountMicros: 0 };

@@ -141,7 +141,7 @@ async function catchUp(ctx: MutationCtx, eventId: Id<"billingEvents">): Promise<
     if (held.failed) return await refund(ctx, event);
     if (held.pricing) return await settle(ctx, event, held.pricing);
     if (!held.resolved) return;
-    await ctx.db.patch("billingEvents", eventId, { wamid: held.resolved });
+    await ctx.db.patch("billingEvents", eventId, { wamid: held.resolved, queueId: wamid });
   }
 }
 
@@ -272,10 +272,16 @@ export async function billingEventFor(
   ctx: MutationCtx,
   wamid: string
 ): Promise<Doc<"billingEvents"> | null> {
-  return await ctx.db
-    .query("billingEvents")
-    .withIndex("by_wamid", (q) => q.eq("wamid", wamid))
-    .first();
+  return (
+    (await ctx.db
+      .query("billingEvents")
+      .withIndex("by_wamid", (q) => q.eq("wamid", wamid))
+      .first()) ??
+    (await ctx.db
+      .query("billingEvents")
+      .withIndex("by_queueId", (q) => q.eq("queueId", wamid))
+      .first())
+  );
 }
 
 /** Keeps a campaign's running cost equal to what its messages were charged. */

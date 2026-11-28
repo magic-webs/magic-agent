@@ -144,7 +144,9 @@ export const resolveQueued = internalMutation({
 
     const event = await billingEventFor(ctx, args.queueId);
     if (event && event.workspaceId === workspaceId) {
-      if (args.wamid) await ctx.db.patch("billingEvents", event._id, { wamid: args.wamid });
+      if (args.wamid && event.wamid === args.queueId) {
+        await ctx.db.patch("billingEvents", event._id, { wamid: args.wamid, queueId: args.queueId });
+      }
       if (args.failed) await refund(ctx, event);
     } else if (!event) {
       await holdReceipt(ctx, {

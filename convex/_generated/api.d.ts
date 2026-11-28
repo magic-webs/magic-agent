@@ -153,6 +153,7 @@ import type * as marketingVm_broadcasts from "../marketingVm/broadcasts.js";
 import type * as marketingVm_calendar from "../marketingVm/calendar.js";
 import type * as marketingVm_campaigns from "../marketingVm/campaigns.js";
 import type * as marketingVm_purge from "../marketingVm/purge.js";
+import type * as marketingVm_refunds from "../marketingVm/refunds.js";
 import type * as marketingVm_templates from "../marketingVm/templates.js";
 import type * as marketingVm_workspace from "../marketingVm/workspace.js";
 import type * as messenger from "../messenger.js";
@@ -371,6 +372,7 @@ declare const fullApi: ApiFromModules<{
   "marketingVm/calendar": typeof marketingVm_calendar;
   "marketingVm/campaigns": typeof marketingVm_campaigns;
   "marketingVm/purge": typeof marketingVm_purge;
+  "marketingVm/refunds": typeof marketingVm_refunds;
   "marketingVm/templates": typeof marketingVm_templates;
   "marketingVm/workspace": typeof marketingVm_workspace;
   messenger: typeof messenger;

@@ -2882,7 +2882,7 @@ export const respondFromVoice = action({
     });
     if (!resolved) throw new ConvexError(VOICE_UNAVAILABLE);
 
-    const heard = (await toText(args.audio)).slice(0, MAX_WIDGET_MESSAGE_CHARS);
+    const heard = (await toText(ctx, args.audio, { workspaceId: resolved.workspaceId, agentId: resolved.agentId, channelType: "voice" })).slice(0, MAX_WIDGET_MESSAGE_CHARS);
     if (!heard) return { heard, reply: null, audio: null, mediaType: null };
 
     const result = await runTurn(ctx, {
@@ -2959,7 +2959,7 @@ export const respondFromPhone = internalAction({
     };
     if (!line) return await fail();
     try {
-      const heard = (await toText(await fetchRecording(args.recordUrl))).slice(0, MAX_WIDGET_MESSAGE_CHARS);
+      const heard = (await toText(ctx, await fetchRecording(args.recordUrl), { workspaceId: line.workspaceId, agentId: line.agentId, channelType: "phone" })).slice(0, MAX_WIDGET_MESSAGE_CHARS);
       if (!heard) {
         await ctx.runMutation(internal.phone.setStatus, { callId: args.callId, status: "silent", silence: true });
         return;

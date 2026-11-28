@@ -7,6 +7,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { transcribe as transcribeAudio } from "ai";
 import { aiGateway, TRANSCRIPTION_MODEL } from "./lib/gateway";
+import { logHearing } from "./lib/speech";
 import { publicSiteUrl } from "./lib/publicUrl";
 import { friendlySendError } from "./lib/sendErrors";
 import {
@@ -235,7 +236,8 @@ const IMAGE_TYPES: Record<string, string> = {
 async function readMedia(
   ctx: ActionCtx,
   config: TelegramConfig,
-  inbound: TelegramInbound
+  inbound: TelegramInbound,
+  workspaceId: Id<"workspaces">
 ): Promise<{
   text: string;
   payload?: Outbound;
@@ -257,6 +259,7 @@ async function readMedia(
         model: aiGateway().transcription(TRANSCRIPTION_MODEL),
         audio: new Uint8Array(file.data),
       });
+      await logHearing(ctx, { workspaceId, channelType: "telegram" }, result.durationInSeconds, file.data.byteLength);
       transcript = result.text.trim() || undefined;
     } catch (error) {
       console.error(
@@ -339,7 +342,7 @@ export const handleInbound = internalAction({
     let payload = inbound.payload;
     let image: { data: ArrayBuffer; mediaType: string } | undefined;
     if (inbound.media) {
-      const read = await readMedia(ctx, config, inbound);
+      const read = await readMedia(ctx, config, inbound, channel.workspaceId);
       text = read.text;
       payload = read.payload;
       image = read.image;

@@ -25,6 +25,19 @@ export const MODEL_PRICES: Record<ModelId, ModelPrice> = {
 
 const NANO = 1_000_000_000;
 
+export const TRANSCRIPTION_USD_PER_HOUR: Record<string, number> = {
+  "elevenlabs/scribe-v2": 0.4,
+};
+
+export function transcriptionCostNanoUsd(
+  model: string,
+  seconds: number
+): { costNanoUsd: number; priced: boolean } {
+  const perHour = TRANSCRIPTION_USD_PER_HOUR[model];
+  if (perHour === undefined) return { costNanoUsd: 0, priced: false };
+  return { costNanoUsd: Math.round(((seconds * perHour) / 3600) * NANO), priced: true };
+}
+
 /**
  * Cost of one call in integer nano-USD, plus whether the model was priced.
  *

@@ -14,7 +14,8 @@ const usageSource = v.union(
   v.literal("draft_marketing"),
   v.literal("sort_contacts"),
   v.literal("instagram"),
-  v.literal("genie")
+  v.literal("genie"),
+  v.literal("voice")
 );
 const markup = v.object({ fixedMicros: v.number(), percent: v.number() });
 
@@ -40,7 +41,11 @@ export const currencyTerms = v.object({
 });
 
 const usageChannel = v.optional(channelType);
-const usageKind = v.union(v.literal("chat"), v.literal("embedding"));
+const usageKind = v.union(
+  v.literal("chat"),
+  v.literal("embedding"),
+  v.literal("transcription")
+);
 
 export const billingTables = {
   usageDaily: defineTable({
@@ -55,6 +60,7 @@ export const billingTables = {
     inputTokens: v.number(),
     outputTokens: v.number(),
     totalTokens: v.number(),
+    seconds: v.optional(v.number()),
     costNanoUsd: v.number(),
   })
     .index("by_day", ["day"])
@@ -71,6 +77,7 @@ export const billingTables = {
     inputTokens: v.number(),
     outputTokens: v.number(),
     totalTokens: v.number(),
+    seconds: v.optional(v.number()),
     costNanoUsd: v.number(),
     priced: v.boolean(),
     createdAt: v.number(),

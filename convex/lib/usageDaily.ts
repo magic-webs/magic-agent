@@ -8,7 +8,7 @@ type UsageKey = Pick<
 >;
 type UsageAmounts = Pick<
   Doc<"usageDaily">,
-  "calls" | "inputTokens" | "outputTokens" | "totalTokens" | "costNanoUsd"
+  "calls" | "inputTokens" | "outputTokens" | "totalTokens" | "costNanoUsd" | "seconds"
 >;
 
 /** Adds one usage event to its day's bucket, or takes it away with `sign: -1`. */
@@ -37,6 +37,7 @@ export async function addToUsageDaily(
     outputTokens: sign * event.outputTokens,
     totalTokens: sign * event.totalTokens,
     costNanoUsd: sign * event.costNanoUsd,
+    ...(event.seconds ? { seconds: sign * event.seconds } : {}),
   };
 
   if (!row) {
@@ -64,5 +65,6 @@ export async function addToUsageDaily(
     outputTokens: row.outputTokens + amounts.outputTokens,
     totalTokens: row.totalTokens + amounts.totalTokens,
     costNanoUsd: row.costNanoUsd + amounts.costNanoUsd,
+    ...(amounts.seconds ? { seconds: (row.seconds ?? 0) + amounts.seconds } : {}),
   });
 }

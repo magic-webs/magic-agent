@@ -511,7 +511,7 @@ export const assertAgent = internalQuery({
     const agent = await ctx.db.get("agents", args.agentId);
     if (!agent) throw new ConvexError("Agent not found");
     await requireWorkspace(ctx, agent.workspaceId);
-    return null;
+    return agent.workspaceId;
   },
 });
 

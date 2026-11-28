@@ -43,8 +43,8 @@ async function speakMessage(
 export const transcribeAsUser = action({
   args: { agentId: v.id("agents"), audio: v.bytes() },
   handler: async (ctx, args): Promise<{ text: string }> => {
-    await ctx.runQuery(internal.authDb.assertAgent, { agentId: args.agentId });
-    return { text: await toText(args.audio) };
+    const workspaceId = await ctx.runQuery(internal.authDb.assertAgent, { agentId: args.agentId });
+    return { text: await toText(ctx, args.audio, { workspaceId, agentId: args.agentId }) };
   },
 });
 
@@ -79,7 +79,7 @@ export const transcribeFromWidget = action({
       sessionId: args.sessionId,
     });
     if (!ok) throw new ConvexError("Voice is not available in this chat.");
-    return { text: await toText(args.audio) };
+    return { text: await toText(ctx, args.audio, { workspaceId: ok.workspaceId, channelType: "web" }) };
   },
 });
 

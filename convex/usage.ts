@@ -5,7 +5,7 @@ import {
 import { internalMutation } from "./functions";
 import { covers, requireScope, requireWorkspace } from "./lib/auth";
 import { lookupPrice, mergedCatalogue } from "./lib/modelCatalogue";
-import { costNanoUsd } from "./lib/pricing";
+import { costNanoUsd, transcriptionCostNanoUsd } from "./lib/pricing";
 import { dayKey } from "./lib/dailyStats";
 import { addToUsageDaily } from "./lib/usageDaily";
 import { channelType } from "./schema";
@@ -24,7 +24,8 @@ const sourceValidator = v.union(
   v.literal("draft_marketing"),
   v.literal("sort_contacts"),
   v.literal("instagram"),
-  v.literal("genie")
+  v.literal("genie"),
+  v.literal("voice")
 );
 
 /**
@@ -71,6 +72,39 @@ export const record = internalMutation({
       inputTokens,
       outputTokens,
       totalTokens: inputTokens + outputTokens,
+      costNanoUsd: cost,
+      priced,
+      createdAt: Date.now(),
+    };
+    await addToUsageDaily(ctx, event);
+    return await ctx.db.insert("usageEvents", event);
+  },
+});
+
+export const recordTranscription = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    agentId: v.optional(v.id("agents")),
+    conversationId: v.optional(v.id("conversations")),
+    channelType: v.optional(channelType),
+    model: v.string(),
+    seconds: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const seconds = Math.max(0, args.seconds || 0);
+    const { costNanoUsd: cost, priced } = transcriptionCostNanoUsd(args.model, seconds);
+    const event = {
+      workspaceId: args.workspaceId,
+      agentId: args.agentId,
+      conversationId: args.conversationId,
+      source: "voice" as const,
+      channelType: args.channelType,
+      model: args.model,
+      kind: "transcription" as const,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      seconds,
       costNanoUsd: cost,
       priced,
       createdAt: Date.now(),

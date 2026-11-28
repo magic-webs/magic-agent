@@ -1,6 +1,11 @@
 import { ConvexError } from "convex/values";
 import { generateSpeech, transcribe } from "ai";
 import { aiGateway } from "./gateway";
+import { internal } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+
+const VOICE_BYTES_PER_SECOND = 4_000;
 import {
   MAX_VOICE_NOTE_BYTES,
   VOICE_SPEECH_MODEL,
@@ -8,8 +13,35 @@ import {
   spokenText,
 } from "./voices";
 
-export async function toText(audio: ArrayBuffer): Promise<string> {
-  return (await hear(audio)).text;
+export type HearingFor = {
+  workspaceId: Id<"workspaces">;
+  agentId?: Id<"agents">;
+  channelType?: Doc<"usageEvents">["channelType"];
+};
+
+export async function toText(
+  ctx: ActionCtx,
+  audio: ArrayBuffer,
+  heardFor: HearingFor
+): Promise<string> {
+  const heard = await hear(audio);
+  await logHearing(ctx, heardFor, heard.seconds, audio.byteLength);
+  return heard.text;
+}
+
+export async function logHearing(
+  ctx: ActionCtx,
+  heardFor: HearingFor,
+  seconds: number | null | undefined,
+  bytes: number
+): Promise<void> {
+  await ctx
+    .runMutation(internal.usage.recordTranscription, {
+      ...heardFor,
+      model: VOICE_TRANSCRIPTION_MODEL,
+      seconds: seconds ?? bytes / VOICE_BYTES_PER_SECOND,
+    })
+    .catch((error: unknown) => console.error("[voice] usage not recorded", error));
 }
 
 export async function hear(

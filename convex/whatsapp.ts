@@ -21,6 +21,7 @@ import { providerError } from "./lib/panel";
 import { friendlySendError } from "./lib/sendErrors";
 import { transcribe as transcribeAudio } from "ai";
 import { aiGateway, TRANSCRIPTION_MODEL } from "./lib/gateway";
+import { logHearing } from "./lib/speech";
 import {
   fetchMedia,
   mediaLink,
@@ -213,11 +214,16 @@ export const showTyping = internalAction({
   },
 });
 
-async function transcribe(bytes: ArrayBuffer): Promise<string> {
+async function transcribe(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">,
+  bytes: ArrayBuffer
+): Promise<string> {
   const result = await transcribeAudio({
     model: aiGateway().transcription(TRANSCRIPTION_MODEL),
     audio: new Uint8Array(bytes),
   });
+  await logHearing(ctx, { workspaceId, channelType: "whatsapp" }, result.durationInSeconds, bytes.byteLength);
   return result.text.trim();
 }
 
@@ -422,7 +428,7 @@ export const handleInbound = internalAction({
       if (media.kind === "audio") {
         try {
           const { response } = await fetchMedia(config, media.id);
-          transcript = (await transcribe(await response.arrayBuffer())) || undefined;
+          transcript = (await transcribe(ctx, channel.workspaceId, await response.arrayBuffer())) || undefined;
         } catch (error) {
           console.error(
             "[whatsapp] voice handling failed",

@@ -3,7 +3,7 @@
 import { ConvexError, v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { hear, toSpeech } from "./lib/speech";
+import { hear, logHearing, toSpeech } from "./lib/speech";
 import { GENIE_VOICE_ID, spokenText } from "./lib/voices";
 
 const MP3_BYTES_PER_SECOND = 16_000;
@@ -19,10 +19,13 @@ export const transcribe = action({
       hear(args.audio),
     ]);
     const spoken = heard.seconds ?? Math.min(Math.max(args.seconds, 0), MAX_TURN_SECONDS);
-    await ctx.runMutation(internal.genieVoiceDb.spend, {
-      workspaceId: args.workspaceId,
-      seconds: spoken,
-    });
+    await Promise.all([
+      ctx.runMutation(internal.genieVoiceDb.spend, {
+        workspaceId: args.workspaceId,
+        seconds: spoken,
+      }),
+      logHearing(ctx, { workspaceId: args.workspaceId }, spoken, args.audio.byteLength),
+    ]);
     return { text: heard.text };
   },
 });

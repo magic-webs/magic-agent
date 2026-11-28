@@ -38,7 +38,7 @@ export default function BillingPage() {
   // The usage period rides in the URL too, so its picker can sit on the tab
   // row, level with the tabs, rather than on a line of its own.
   const period =
-    PERIODS.find((row) => row.value === params.get("days"))?.value ?? "30";
+    PERIODS.find((row) => row.value === params.get("days"))?.value ?? "7";
 
   const setParam = (key: string, value: string) => {
     // Everything else in the query string is somebody else's, so it stays.

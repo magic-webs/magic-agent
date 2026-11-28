@@ -18,6 +18,7 @@ const usageSource = v.union(
   v.literal("voice")
 );
 const markup = v.object({ fixedMicros: v.number(), percent: v.number() });
+const dayTotals = v.object({ messages: v.number(), amountMicros: v.number() });
 
 /** A per-agent plan's price for one custom agent and one human agent a month. */
 export const perAgentPrice = v.object({
@@ -315,6 +316,22 @@ export const billingTables = {
       "category",
       "createdAt",
     ]),
+
+  /** billingEvents summed per workspace, local day and currency. Kept by a trigger. */
+  billingDaily: defineTable({
+    workspaceId: v.id("workspaces"),
+    day: v.string(),
+    currency: v.string(),
+    categories: v.object({
+      service: dayTotals,
+      utility: dayTotals,
+      marketing: dayTotals,
+      authentication: dayTotals,
+      genie: dayTotals,
+    }),
+    unrated: v.number(),
+    pending: v.number(),
+  }).index("by_workspace_day_currency", ["workspaceId", "day", "currency"]),
 
   earlyReceipts: defineTable({
     workspaceId: v.id("workspaces"),

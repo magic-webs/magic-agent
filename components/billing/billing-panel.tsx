@@ -48,7 +48,6 @@ import {
   Alert02Icon,
   Invoice01Icon,
   PencilEdit02Icon,
-  RefreshIcon,
 } from "@hugeicons/core-free-icons";
 
 const PAGE = 25;
@@ -98,10 +97,7 @@ export function BillingPanel({ days }: { days: number }) {
   const { can, canModify } = useSession();
   const managesBilling = can("billing");
   const now = useHourBucket();
-  const { data, fetchedAt, refresh, refreshing } = useBillingSummary(
-    workspace._id,
-    days
-  );
+  const data = useBillingSummary(workspace._id, days);
   const markups = useCachedQuery(
     api.billing.markups,
     managesBilling ? { workspaceId: workspace._id } : "skip"
@@ -176,17 +172,6 @@ export function BillingPanel({ days }: { days: number }) {
         </Alert>
       ) : null}
 
-      {data.truncated ? (
-        <Alert variant="destructive">
-          <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
-          <AlertTitle>Showing a partial window</AlertTitle>
-          <AlertDescription>
-            This period holds more messages than one read covers, so the totals
-            are a floor. Narrow the period for exact figures.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {data.otherCurrencies.length > 0 ? (
         <Alert>
           <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
@@ -247,23 +232,7 @@ export function BillingPanel({ days }: { days: number }) {
               </p>
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
-            {editMarkup}
-            <Button
-              size="icon-sm"
-              variant="outline"
-              onClick={refresh}
-              disabled={refreshing}
-              aria-label="Refresh"
-              title={
-                fetchedAt
-                  ? `Updated ${new Date(fetchedAt).toLocaleTimeString()}`
-                  : undefined
-              }
-            >
-              {refreshing ? <Spinner /> : <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />}
-            </Button>
-          </div>
+          {editMarkup}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Share of spend as one stacked bar: part-to-whole across four
@@ -327,7 +296,6 @@ export function BillingPanel({ days }: { days: number }) {
           <ActivityChart
             data={series}
             windowDays={data.windowDays}
-            truncated={data.truncated}
             series={{
               key: "spend",
               label: `Spend (${data.currency})`,

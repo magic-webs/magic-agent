@@ -30,10 +30,8 @@ import {
   withGst,
 } from "./lib/plans";
 import { creditWallet, walletFor } from "./lib/wallet";
+import { dailyRows, localDay, shiftDay } from "./lib/billingDaily";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-/** Enough to average a week of spend; a busier week reads as a floor. */
-const SPEND_SCAN_CAP = 5000;
 /**
  * The authorisation payment for a mandate. A card mandate must be
  * authorised with exactly ₹1, so both methods are, and it is credited.
@@ -60,24 +58,17 @@ export const summary = query({
     const thresholdMicros =
       account?.lowBalanceThresholdMicros ?? settings.defaultThresholdMicros;
 
-    // A week of spend in the wallet's currency, for "about N days left".
-    const recent = await ctx.db
-      .query("billingEvents")
-      .withIndex("by_workspace_createdAt", (q) =>
-        q
-          .eq("workspaceId", args.workspaceId)
-          .gte("createdAt", args.now - 7 * DAY_MS)
-      )
-      .order("desc")
-      .take(SPEND_SCAN_CAP);
-    const spendTruncated = recent.length === SPEND_SCAN_CAP;
-    const spentMicros = recent
-      .filter((row) => row.currency === settings.currency)
-      .reduce((sum, row) => sum + row.amountMicros, 0);
-    const spanDays = spendTruncated
-      ? Math.max((args.now - recent[recent.length - 1].createdAt) / DAY_MS, 1 / 24)
-      : 7;
-    const spent7dMicros = Math.round((spentMicros * 7) / Math.min(spanDays, 7));
+    const timeZone =
+      (await ctx.db.get("workspaces", args.workspaceId))?.timezone ?? "UTC";
+    const today = localDay(args.now, timeZone);
+    const week = await dailyRows(ctx.db, args.workspaceId, shiftDay(today, -6), today);
+    let spent7dMicros = 0;
+    for (const row of week) {
+      if (row.currency !== settings.currency) continue;
+      for (const totals of Object.values(row.categories)) {
+        spent7dMicros += totals.amountMicros;
+      }
+    }
 
     const inFlight = account?.rechargeInFlight
       ? await ctx.db.get("billingPayments", account.rechargeInFlight.paymentId)
@@ -96,7 +87,6 @@ export const summary = query({
       thresholdMicros,
       lowBalance: balanceMicros < thresholdMicros,
       spent7dMicros,
-      spendTruncated,
       // Rates in another currency cannot come off a rupee balance.
       rateCurrency: rates?.currency ?? null,
       autoRecharge: {

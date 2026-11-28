@@ -238,7 +238,6 @@ function BalanceCard({ data, now }: { data: Summary; now: number }) {
           <p className="text-sm text-muted-foreground">
             {data.spent7dMicros > 0 ? (
               <>
-                {data.spendTruncated ? "About " : ""}
                 {money(data.spent7dMicros)} spent in the last 7 days. {pace}
               </>
             ) : (

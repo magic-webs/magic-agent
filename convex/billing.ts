@@ -41,13 +41,13 @@ import {
 import { MARKETS, marketLabel } from "./lib/markets";
 import { supportedCurrencies } from "./lib/currency";
 import { charge } from "./lib/charge";
+import { dailyRows, localDay, shiftDay } from "./lib/billingDaily";
 import { billingCategory } from "./lib/notifications";
 import { isValidCurrency } from "./lib/regional";
 import { logoSrcFor } from "./lib/branding";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-// Summaries read rows, not a rollup, so one read is capped — the same trade
-// usage.ts makes, and the page says so when it is hit.
+// The admin overview reads rows, not a rollup, so one read is capped.
 const SCAN_CAP = 20_000;
 // No single message should cost more than this in any currency; a rate above
 // it is a slipped decimal point, not a price.
@@ -226,10 +226,6 @@ async function pricesFor(
   };
 }
 
-function dayKey(timestamp: number): string {
-  return new Date(timestamp).toISOString().slice(0, 10);
-}
-
 /** The window a summary covers, in whole UTC days ending today. */
 function windowFor(daysArg: number, now: number) {
   const days = Math.max(1, Math.min(Math.floor(daysArg), 90));
@@ -369,18 +365,14 @@ export const workspaceSummary = query({
     const workspace = await ctx.db.get("workspaces", args.workspaceId);
     if (!workspace) throw new ConvexError("Workspace not found");
 
-    const { days, windowStart, previousStart } = windowFor(args.days, args.now);
+    const days = Math.max(1, Math.min(Math.floor(args.days), 90));
+    const today = localDay(args.now, workspace.timezone);
+    const windowStart = shiftDay(today, -(days - 1));
+    const previousStart = shiftDay(windowStart, -days);
     const prices = await pricesFor(ctx, args.workspaceId);
     const currency = prices?.currency ?? workspace.currency;
 
-    // Both windows in one read, so the comparison cannot straddle two.
-    const rows = await ctx.db
-      .query("billingEvents")
-      .withIndex("by_workspace_createdAt", (q) =>
-        q.eq("workspaceId", args.workspaceId).gte("createdAt", previousStart)
-      )
-      .order("desc")
-      .take(SCAN_CAP);
+    const rows = await dailyRows(ctx.db, args.workspaceId, previousStart, today);
 
     const totals = { messages: 0, amountMicros: 0 };
     const previous = { messages: 0, amountMicros: 0 };
@@ -397,43 +389,49 @@ export const workspaceSummary = query({
       { date: string; messages: number; spend: number; amountMicros: number }
     >();
     for (let i = 0; i < days; i++) {
-      const key = dayKey(windowStart + i * DAY_MS);
+      const key = shiftDay(windowStart, i);
       daily.set(key, { date: key, messages: 0, spend: 0, amountMicros: 0 });
     }
 
-    // An account sees the AI charge on a reply as part of service: inside
-    // the WhatsApp message that carried the reply, or as one of its own on
-    // any other channel.
     for (const row of rows) {
       const inCurrency = row.currency === currency;
-      const message = row.mergedInto === undefined && row.status !== "refunded" ? 1 : 0;
-      if (row.createdAt < windowStart) {
-        previous.messages += message;
-        if (inCurrency) previous.amountMicros += row.amountMicros;
+      let messages = 0;
+      let amountMicros = 0;
+      for (const category of LEDGER_CATEGORIES) {
+        messages += row.categories[category].messages;
+        amountMicros += row.categories[category].amountMicros;
+      }
+      if (row.day < windowStart) {
+        previous.messages += messages;
+        if (inCurrency) previous.amountMicros += amountMicros;
         continue;
       }
 
-      const kind = byCategory[row.category === "ai" ? "service" : row.category];
-      totals.messages += message;
-      kind.messages += message;
-      if (!row.rated) unrated += 1;
-      if (row.status === "pending") pending += 1;
-
-      const bucket = daily.get(dayKey(row.createdAt));
-      if (bucket) bucket.messages += message;
+      totals.messages += messages;
+      unrated += row.unrated;
+      pending += row.pending;
+      const bucket = daily.get(row.day);
+      if (bucket) bucket.messages += messages;
+      for (const category of LEDGER_CATEGORIES) {
+        byCategory[category].messages += row.categories[category].messages;
+      }
 
       if (!inCurrency) {
-        addSpend(others, row);
+        const other = others.get(row.currency) ?? { amountMicros: 0, messages: 0 };
+        other.amountMicros += amountMicros;
+        other.messages += messages;
+        others.set(row.currency, other);
         continue;
       }
-      totals.amountMicros += row.amountMicros;
-      kind.amountMicros += row.amountMicros;
-      if (bucket) bucket.amountMicros += row.amountMicros;
+      totals.amountMicros += amountMicros;
+      if (bucket) bucket.amountMicros += amountMicros;
+      for (const category of LEDGER_CATEGORIES) {
+        byCategory[category].amountMicros += row.categories[category].amountMicros;
+      }
     }
 
     return {
       windowDays: days,
-      truncated: rows.length === SCAN_CAP,
       currency,
       locale: workspace.locale,
       totals,

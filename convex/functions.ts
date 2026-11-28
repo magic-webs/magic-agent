@@ -15,6 +15,7 @@ import { reviewDueAt } from "./lib/reviewDue";
 import { bumpAudienceCounts, tally } from "./lib/audienceCounts";
 import { bumpLeadCount } from "./lib/leadStageCounts";
 import { contactChanged, isMirrored, newSyncState, SYNC_BATCH, type SyncState } from "./lib/marketingSync";
+import { rollUpBillingEvent } from "./lib/billingDaily";
 
 type WrappedCtx = ActivityCtx & { sync: SyncState };
 
@@ -86,6 +87,18 @@ triggers.register("contacts", async (ctx, change) => {
       ? { type: "contact", at, doc: change.newDoc }
       : { type: "contact.deleted", at, id: change.id }
   );
+});
+
+triggers.register("billingEvents", async (ctx, change) => {
+  await rollUpBillingEvent(ctx.innerDb, change.oldDoc, change.newDoc);
+});
+
+triggers.register("workspaces", async (ctx, change) => {
+  if (!change.oldDoc || !change.newDoc) return;
+  if (change.oldDoc.timezone === change.newDoc.timezone) return;
+  await ctx.scheduler.runAfter(0, internal.billingDaily.rebuildWorkspace, {
+    workspaceId: change.id,
+  });
 });
 
 triggers.register("marketingSends", async (ctx, change) => {
